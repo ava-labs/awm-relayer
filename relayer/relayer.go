@@ -22,19 +22,18 @@ import (
 
 // Relayer handles all messages sent from a given source chain
 type Relayer struct {
-	pChainClient             platformvm.Client
-	canonicalValidatorClient *CanonicalValidatorClient
-	currentRequestID         uint32
-	network                  *peers.AppRequestNetwork
-	sourceSubnetID           ids.ID
-	sourceChainID            ids.ID
-	responseChan             <-chan message.InboundMessage
-	messageChanLock          *sync.RWMutex
-	messageChanMap           map[uint32]chan message.InboundMessage
-	errorChan                chan error
-	contractMessage          vms.ContractMessage
-	messageManagers          map[common.Hash]messages.MessageManager
-	logger                   logging.Logger
+	pChainClient     platformvm.Client
+	currentRequestID uint32
+	network          *peers.AppRequestNetwork
+	sourceSubnetID   ids.ID
+	sourceChainID    ids.ID
+	responseChan     <-chan message.InboundMessage
+	messageChanLock  *sync.RWMutex
+	messageChanMap   map[uint32]chan message.InboundMessage
+	errorChan        chan error
+	contractMessage  vms.ContractMessage
+	messageManagers  map[common.Hash]messages.MessageManager
+	logger           logging.Logger
 }
 
 func NewRelayer(
@@ -90,19 +89,18 @@ func NewRelayer(
 		zap.String("chainIDHex", chainID.Hex()),
 	)
 	r := Relayer{
-		pChainClient:             pChainClient,
-		canonicalValidatorClient: NewCanonicalValidatorClient(pChainClient),
-		currentRequestID:         rand.Uint32(), // Initialize to a random value to mitigate requestID collision
-		network:                  network,
-		sourceSubnetID:           subnetID,
-		sourceChainID:            chainID,
-		responseChan:             responseChan,
-		messageChanLock:          new(sync.RWMutex),
-		messageChanMap:           make(map[uint32]chan message.InboundMessage),
-		errorChan:                errorChan,
-		contractMessage:          vms.NewContractMessage(logger, sourceSubnetInfo),
-		messageManagers:          messageManagers,
-		logger:                   logger,
+		pChainClient:     pChainClient,
+		currentRequestID: rand.Uint32(), // Initialize to a random value to mitigate requestID collision
+		network:          network,
+		sourceSubnetID:   subnetID,
+		sourceChainID:    chainID,
+		responseChan:     responseChan,
+		messageChanLock:  new(sync.RWMutex),
+		messageChanMap:   make(map[uint32]chan message.InboundMessage),
+		errorChan:        errorChan,
+		contractMessage:  vms.NewContractMessage(logger, sourceSubnetInfo),
+		messageManagers:  messageManagers,
+		logger:           logger,
 	}
 
 	// Start the message router. We must do this before Subscribing for the first time, otherwise we may miss an incoming message
@@ -179,7 +177,7 @@ func (r *Relayer) RelayMessage(warpLogInfo *vmtypes.WarpLogInfo, metrics *Messag
 	r.messageChanLock.Unlock()
 
 	// Create and run the message relayer to attempt to deliver the message to the destination chain
-	messageRelayer := newMessageRelayer(r.logger, metrics, r, warpMessageInfo.WarpUnsignedMessage, warpLogInfo.DestinationChainID, messageResponseChan, messageCreator)
+	messageRelayer := newMessageRelayer(r.logger, metrics, r, warpMessageInfo.WarpUnsignedMessage, messageResponseChan, messageCreator)
 	if err != nil {
 		r.logger.Error(
 			"Failed to create message relayer",

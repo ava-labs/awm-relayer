@@ -71,7 +71,7 @@ func NewMessageManager(
 }
 
 // ShouldSendMessage returns true if the message should be sent to the destination chain
-func (m *messageManager) ShouldSendMessage(warpMessageInfo *vmtypes.WarpMessageInfo, destinationChainID ids.ID) (bool, error) {
+func (m *messageManager) ShouldSendMessage(warpMessageInfo *vmtypes.WarpMessageInfo) (bool, error) {
 	// Unpack the teleporter message and add it to the cache
 	teleporterMessage, err := unpackTeleporterMessage(warpMessageInfo.WarpPayload)
 	if err != nil {
@@ -82,6 +82,7 @@ func (m *messageManager) ShouldSendMessage(warpMessageInfo *vmtypes.WarpMessageI
 		return false, err
 	}
 
+	destinationChainID := warpMessageInfo.WarpUnsignedMessage.DestinationChainID
 	// Get the correct destination client from the global map
 	destinationClient, ok := m.destinationClients[destinationChainID]
 	if !ok {
@@ -101,7 +102,7 @@ func (m *messageManager) ShouldSendMessage(warpMessageInfo *vmtypes.WarpMessageI
 
 // SendMessage extracts the gasLimit and packs the call data to call the receiveCrossChainMessage method of the Teleporter contract,
 // and dispatches transaction construction and broadcast to the destination client
-func (m *messageManager) SendMessage(signedMessage *warp.Message, parsedVmPayload []byte, destinationChainID ids.ID) error {
+func (m *messageManager) SendMessage(signedMessage *warp.Message, parsedVmPayload []byte) error {
 	var (
 		teleporterMessage *TeleporterMessage
 		ok                bool
@@ -122,6 +123,8 @@ func (m *messageManager) SendMessage(signedMessage *warp.Message, parsedVmPayloa
 			return err
 		}
 	}
+
+	destinationChainID := signedMessage.UnsignedMessage.DestinationChainID
 
 	m.logger.Info(
 		"Sending message to destination chain",
