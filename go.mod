@@ -12,6 +12,7 @@ require (
 	github.com/spf13/viper v1.16.0
 	github.com/stretchr/testify v1.8.4
 	go.uber.org/zap v1.25.0
+	golang.org/x/exp v0.0.0-20230206171751-46f607a40771
 )
 
 require (
@@ -27,7 +28,6 @@ require (
 	github.com/spf13/cast v1.5.1 // indirect
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/subosito/gotenv v1.4.2 // indirect
-	golang.org/x/exp v0.0.0-20230206171751-46f607a40771 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 )
 
