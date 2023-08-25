@@ -9,6 +9,11 @@ Build the relayer by running the included build script:
 ```
 ./scripts/build.sh
 ```
+
+Build a Docker image by running the included build script:
+```
+./scripts/build-local-image.sh
+```
 ### Running
 The relayer binary accepts a path to a JSON configuration file as the sole argument. Command line configuration arguments are not currently supported.
 ```
