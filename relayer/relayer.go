@@ -71,7 +71,12 @@ func NewRelayer(
 	messageManagers := make(map[common.Hash]messages.MessageManager)
 	for address, config := range sourceSubnetInfo.MessageContracts {
 		addressHash := common.HexToHash(address)
-		messageManager, err := messages.NewMessageManager(logger, addressHash, config, destinationClients)
+		messageManager, err := messages.NewMessageManager(logger,
+			addressHash,
+			config,
+			destinationClients,
+			sourceSubnetInfo,
+		)
 		if err != nil {
 			logger.Error(
 				"Failed to create message manager",

@@ -13,7 +13,7 @@ import (
 // Subscriber subscribes to VM events containing Warp message data
 type Subscriber interface {
 	// Subscribe registers a subscription. After Subscribe is called,
-	// log events that match [filter] are written to the channel returned
+	// matching log events should be written to the channel returned
 	// by Logs
 	Subscribe() error
 	// Logs returns the channel that the subscription writes events to

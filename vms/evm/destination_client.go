@@ -46,7 +46,7 @@ func NewDestinationClient(logger logging.Logger, subnetInfo config.DestinationSu
 	client, err := ethclient.Dial(subnetInfo.GetNodeRPCEndpoint())
 	if err != nil {
 		logger.Error(
-			"Failed to dial rpc endpoint",
+			"Failed to dial destination client rpc endpoint",
 			zap.Error(err),
 		)
 		return nil, err
