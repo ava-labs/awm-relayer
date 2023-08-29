@@ -4,13 +4,13 @@ go 1.18
 
 require (
 	github.com/ava-labs/avalanchego v1.10.9
-	github.com/ava-labs/subnet-evm v0.5.4
+	github.com/ava-labs/subnet-evm v0.5.5
 	github.com/ethereum/go-ethereum v1.12.0
-	github.com/golang/mock v1.6.0
 	github.com/prometheus/client_golang v1.16.0
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.16.0
 	github.com/stretchr/testify v1.8.4
+	go.uber.org/mock v0.2.0
 	go.uber.org/zap v1.25.0
 )
 
@@ -36,7 +36,6 @@ require (
 	github.com/spf13/cast v1.5.1 // indirect
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/subosito/gotenv v1.4.2 // indirect
-	go.uber.org/mock v0.2.0 // indirect
 	golang.org/x/exp v0.0.0-20230206171751-46f607a40771 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 )
