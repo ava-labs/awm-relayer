@@ -3,7 +3,12 @@
 
 package utils
 
-import "testing"
+import (
+	"math/big"
+	"testing"
+
+	"github.com/stretchr/testify/require"
+)
 
 func TestConvertProtocol(t *testing.T) {
 	testCases := []struct {
@@ -46,15 +51,13 @@ func TestConvertProtocol(t *testing.T) {
 
 	for i, testCase := range testCases {
 		actualUrl, err := ConvertProtocol(testCase.urlString, testCase.protocol)
-		if err != nil && !testCase.expectedError {
-			t.Errorf("test case %d failed with unexpected error", i)
+
+		if testCase.expectedError {
+			require.Error(t, err, "Test case %d failed", i)
+		} else {
+			require.NoError(t, err, "Test case %d failed", i)
 		}
-		if err == nil && testCase.expectedError {
-			t.Errorf("test case %d did not produce expected error", i)
-		}
-		if actualUrl != testCase.expectedUrl {
-			t.Errorf("test case %d had unexpected URL. Actual: %s, Expected: %s", i, actualUrl, testCase.expectedUrl)
-		}
+		require.Equal(t, testCase.expectedUrl, actualUrl, "Test case %d failed", i)
 	}
 }
 
@@ -81,8 +84,56 @@ func TestSanitizeHashString(t *testing.T) {
 	}
 	for i, testCase := range testCases {
 		actualResult := SanitizeHashString(testCase.hash)
-		if actualResult != testCase.expectedResult {
-			t.Errorf("test case %d had unexpected result. Actual: %s, Expected: %s", i, actualResult, testCase.expectedResult)
-		}
+		require.Equal(t, testCase.expectedResult, actualResult, "Test case %d failed", i)
+	}
+}
+
+func TestCheckStakeWeightExceedsThreshold(t *testing.T) {
+	testCases := []struct {
+		accumulatedSignatureWeight uint64
+		totalWeight                uint64
+		quorumNumerator            uint64
+		quorumDenominator          uint64
+		expectedResult             bool
+	}{
+		{
+			accumulatedSignatureWeight: 0,
+			totalWeight:                0,
+			quorumNumerator:            0,
+			quorumDenominator:          0,
+			expectedResult:             true,
+		},
+		{
+			accumulatedSignatureWeight: 67_000_000,
+			totalWeight:                100_000_000,
+			quorumNumerator:            67,
+			quorumDenominator:          100,
+			expectedResult:             true,
+		},
+		{
+			accumulatedSignatureWeight: 66_999_999,
+			totalWeight:                100_000_000,
+			quorumNumerator:            67,
+			quorumDenominator:          100,
+			expectedResult:             false,
+		},
+		{
+			accumulatedSignatureWeight: 67_000_000,
+			totalWeight:                67_000_000,
+			quorumNumerator:            100,
+			quorumDenominator:          100,
+			expectedResult:             true,
+		},
+		{
+			accumulatedSignatureWeight: 66_999_999,
+			totalWeight:                67_000_000,
+			quorumNumerator:            100,
+			quorumDenominator:          100,
+			expectedResult:             false,
+		},
+	}
+	for i, testCase := range testCases {
+		actualResult := CheckStakeWeightExceedsThreshold(new(big.Int).SetUint64(testCase.accumulatedSignatureWeight), testCase.totalWeight, testCase.quorumNumerator, testCase.quorumDenominator)
+		require.Equal(t, testCase.expectedResult, actualResult, "Test case %d failed", i)
 	}
 }

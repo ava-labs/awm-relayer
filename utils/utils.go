@@ -26,8 +26,7 @@ const (
 )
 
 var (
-	Uint256Max = (&big.Int{}).SetBytes(common.Hex2Bytes("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF"))
-
+	MaxHashInputLength = 32
 	// Errors
 	ErrNilInput = errors.New("nil input")
 	ErrTooLarge = errors.New("exceeds uint256 maximum value")
@@ -38,15 +37,15 @@ var (
 //
 
 // CheckStakeWeightExceedsThreshold returns true if the accumulated signature weight is at least [quorumNum]/[quorumDen] of [totalWeight].
-func CheckStakeWeightExceedsThreshold(accumulatedSignatureWeight *big.Int, totalWeight uint64) bool {
+func CheckStakeWeightExceedsThreshold(accumulatedSignatureWeight *big.Int, totalWeight uint64, quorumNumerator uint64, quorumDenominator uint64) bool {
 	if accumulatedSignatureWeight == nil {
 		return false
 	}
 
 	// Verifies that quorumNum * totalWeight <= quorumDen * sigWeight
-	scaledTotalWeight := new(big.Int).SetUint64(totalWeight)
-	scaledTotalWeight.Mul(scaledTotalWeight, new(big.Int).SetUint64(DefaultQuorumNumerator))
-	scaledSigWeight := new(big.Int).Mul(accumulatedSignatureWeight, new(big.Int).SetUint64(DefaultQuorumDenominator))
+	totalWeightBI := new(big.Int).SetUint64(totalWeight)
+	scaledTotalWeight := new(big.Int).Mul(totalWeightBI, new(big.Int).SetUint64(quorumNumerator))
+	scaledSigWeight := new(big.Int).Mul(accumulatedSignatureWeight, new(big.Int).SetUint64(quorumDenominator))
 
 	thresholdMet := scaledTotalWeight.Cmp(scaledSigWeight) != 1
 	return thresholdMet
@@ -58,16 +57,18 @@ func CheckStakeWeightExceedsThreshold(accumulatedSignatureWeight *big.Int, total
 
 // BigToHashSafe ensures that a bignum value is able to fit into a 32 byte buffer before converting it to a common.Hash
 // Returns an error if overflow/truncation would occur by trying to perfom this operation.
+// TODO is this function still needed? It works for negative numbers now.
 func BigToHashSafe(in *big.Int) (common.Hash, error) {
 	if in == nil {
 		return common.Hash{}, ErrNilInput
 	}
 
-	if in.Cmp(Uint256Max) > 0 {
+	bytes := in.Bytes()
+	if len(bytes) > MaxHashInputLength {
 		return common.Hash{}, ErrTooLarge
 	}
 
-	return common.BigToHash(in), nil
+	return common.BytesToHash(bytes), nil
 }
 
 func ConvertProtocol(URLString, protocol string) (string, error) {

@@ -14,7 +14,6 @@ import (
 
 	"github.com/ava-labs/awm-relayer/utils"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -120,7 +119,7 @@ func TestGetDestinationRPCEndpoint(t *testing.T) {
 
 	for i, testCase := range testCases {
 		res := testCase.s.GetNodeRPCEndpoint()
-		assert.Equal(t, testCase.expectedResult, res, fmt.Sprintf("test case %d failed", i))
+		require.Equal(t, testCase.expectedResult, res, fmt.Sprintf("test case %d failed", i))
 	}
 }
 
@@ -184,7 +183,7 @@ func TestGetSourceSubnetWSEndpoint(t *testing.T) {
 
 	for i, testCase := range testCases {
 		res := testCase.s.GetNodeWSEndpoint()
-		assert.Equal(t, testCase.expectedResult, res, fmt.Sprintf("test case %d failed", i))
+		require.Equal(t, testCase.expectedResult, res, fmt.Sprintf("test case %d failed", i))
 	}
 }
 
@@ -242,10 +241,10 @@ func TestGetRelayerAccountInfo(t *testing.T) {
 
 	for i, testCase := range testCases {
 		pk, addr, err := testCase.s.GetRelayerAccountInfo()
-		assert.Equal(t, testCase.expectedResult.err, err, fmt.Sprintf("test case %d had unexpected error", i))
+		require.Equal(t, testCase.expectedResult.err, err, fmt.Sprintf("test case %d had unexpected error", i))
 		if err == nil {
-			assert.Equal(t, testCase.expectedResult.pk.D.Int64(), pk.D.Int64(), fmt.Sprintf("test case %d had mismatched pk", i))
-			assert.Equal(t, testCase.expectedResult.addr, addr, fmt.Sprintf("test case %d had mismatched address", i))
+			require.Equal(t, testCase.expectedResult.pk.D.Int64(), pk.D.Int64(), fmt.Sprintf("test case %d had mismatched pk", i))
+			require.Equal(t, testCase.expectedResult.addr, addr, fmt.Sprintf("test case %d had mismatched address", i))
 		}
 	}
 }
@@ -263,12 +262,11 @@ type getRelayerAccountPrivateKeyTestCase struct {
 
 // Sets up the config file temporary environment and runs the test case.
 func runGetRelayerAccountPrivateKeyTest(t *testing.T, testCase getRelayerAccountPrivateKeyTestCase) {
-	require := require.New(t)
 	root := t.TempDir()
 
 	cfg := testCase.configModifier(testCase.baseConfig)
 	cfgBytes, err := json.Marshal(cfg)
-	require.NoError(err)
+	require.NoError(t, err)
 
 	configFile := setupConfigJSON(t, root, string(cfgBytes))
 
@@ -277,13 +275,12 @@ func runGetRelayerAccountPrivateKeyTest(t *testing.T, testCase getRelayerAccount
 
 	fs := BuildFlagSet()
 	v, err := BuildViper(fs, flags)
-	require.NoError(err)
+	require.NoError(t, err)
 	parsedCfg, optionOverwritten, err := BuildConfig(v)
-	require.NoError(err)
-	assert.Equal(t, optionOverwritten, testCase.expectedOverwritten)
-	if !testCase.resultVerifier(parsedCfg) {
-		t.Errorf("unexpected config.")
-	}
+	require.NoError(t, err)
+	require.Equal(t, optionOverwritten, testCase.expectedOverwritten)
+
+	require.True(t, testCase.resultVerifier(parsedCfg), "unexpected config")
 }
 
 func TestGetRelayerAccountPrivateKey_set_pk_in_config(t *testing.T) {
@@ -351,7 +348,7 @@ func TestGetRelayerAccountPrivateKey_set_pk_with_global_env(t *testing.T) {
 		},
 		envSetter: func() {
 			// Overwrite the PK for the first subnet using an env var
-			varName := fmt.Sprintf("%s", accountPrivateKeyEnvVarName)
+			varName := accountPrivateKeyEnvVarName
 			t.Setenv(varName, testPk2)
 		},
 		expectedOverwritten: true,
@@ -374,4 +371,17 @@ func setupConfigJSON(t *testing.T, rootPath string, value string) string {
 	configFilePath := filepath.Join(rootPath, "config.json")
 	require.NoError(t, os.WriteFile(configFilePath, []byte(value), 0o600))
 	return configFilePath
+}
+
+func TestGetRelayerAccountInfoSkipChainConfigCheckCompatible(t *testing.T) {
+	accountPrivateKey := "56289e99c94b6912bfc12adc093c9b51124f0dc54ac7a766b2bc5ccf558d8027"
+	expectedAddress := "0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC"
+
+	info := DestinationSubnet{
+		AccountPrivateKey: accountPrivateKey,
+	}
+	_, address, err := info.GetRelayerAccountInfo()
+
+	require.NoError(t, err)
+	require.Equal(t, expectedAddress, address.String())
 }

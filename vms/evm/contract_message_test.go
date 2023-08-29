@@ -14,7 +14,7 @@ import (
 	warpPayload "github.com/ava-labs/subnet-evm/warp/payload"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/golang/mock/gomock"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // Used to create a valid unsigned message for testing. Should not be used directly in tests.
@@ -46,9 +46,11 @@ func createUnsignedMessage() *warp.UnsignedMessage {
 }
 
 func TestUnpack(t *testing.T) {
-	ctrl := gomock.NewController(t)
+	ctrl := logging.NewMockLogger(gomock.NewController(t))
 
-	m := NewContractMessage(logging.NewMockLogger(ctrl), config.SourceSubnet{})
+	m := NewContractMessage(ctrl, config.SourceSubnet{})
+
+	// ctrl.EXPECT().Error(nil, nil).Return(nil).AnyTimes()
 
 	testCases := []struct {
 		input     string
@@ -62,14 +64,11 @@ func TestUnpack(t *testing.T) {
 
 	for _, testCase := range testCases {
 		input, err := hex.DecodeString(testCase.input)
-		if err != nil {
-			t.Errorf("failed to decode test input: %v", err)
-		}
-		msg, err := m.UnpackWarpMessage(input)
-		if err != nil {
-			t.Errorf("failed to unpack message: %v", err)
-		}
+		require.NoErrorf(t, err, "failed to decode test input: %v", err)
 
-		assert.Equal(t, testCase.networkID, msg.WarpUnsignedMessage.NetworkID)
+		msg, err := m.UnpackWarpMessage(input)
+		require.NoErrorf(t, err, "failed to unpack message: %v", err)
+
+		require.Equal(t, testCase.networkID, msg.WarpUnsignedMessage.NetworkID)
 	}
 }
