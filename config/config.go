@@ -63,6 +63,7 @@ type Config struct {
 	NetworkID          uint32              `mapstructure:"network-id" json:"network-id"`
 	PChainAPIURL       string              `mapstructure:"p-chain-api-url" json:"p-chain-api-url"`
 	EncryptConnection  bool                `mapstructure:"encrypt-connection" json:"encrypt-connection"`
+	StorageLocation    string              `mapstructure:"storage-location" json:"storage-location"`
 	SourceSubnets      []SourceSubnet      `mapstructure:"source-subnets" json:"source-subnets"`
 	DestinationSubnets []DestinationSubnet `mapstructure:"destination-subnets" json:"destination-subnets"`
 }
@@ -72,6 +73,7 @@ func SetDefaultConfigValues(v *viper.Viper) {
 	v.SetDefault(NetworkIDKey, constants.MainnetID)
 	v.SetDefault(PChainAPIURLKey, "https://api.avax.network")
 	v.SetDefault(EncryptConnectionKey, true)
+	v.SetDefault(StorageLocationKey, "./awm-relayer-storage")
 }
 
 // BuildConfig constructs the relayer config using Viper.

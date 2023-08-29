@@ -34,8 +34,6 @@ const (
 	defaultErrorChanSize = 1000
 	defaultApiPort       = 8080
 	defaultMetricsPort   = 9090
-
-	defaultStorageLocation = "~/.awm-relayer"
 )
 
 func main() {
@@ -153,7 +151,7 @@ func main() {
 	}
 
 	// Initialize the database
-	db, err := database.NewJSONFileStorage(logger, defaultStorageLocation, sourceChainIDs)
+	db, err := database.NewJSONFileStorage(logger, cfg.StorageLocation, sourceChainIDs)
 	if err != nil {
 		logger.Error(
 			"Failed to create database",
