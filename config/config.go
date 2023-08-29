@@ -42,6 +42,7 @@ type SourceSubnet struct {
 	APINodeHost       string                           `mapstructure:"api-node-host" json:"api-node-host"`
 	APINodePort       uint32                           `mapstructure:"api-node-port" json:"api-node-port"`
 	EncryptConnection bool                             `mapstructure:"encrypt-connection" json:"encrypt-connection"`
+	RPCEndpoint       string                           `mapstructure:"rpc-endpoint" json:"rpc-endpoint"`
 	WSEndpoint        string                           `mapstructure:"ws-endpoint" json:"ws-endpoint"`
 	MessageContracts  map[string]MessageProtocolConfig `mapstructure:"message-contracts" json:"message-contracts"`
 }
@@ -283,6 +284,23 @@ func constructURL(protocol string, host string, port uint32, encrypt bool) strin
 // Otherwise, constructs the endpoint from the APINodeHost, APINodePort, and EncryptConnection fields,
 // following the /ext/bc/{chainID}/rpc format.
 func (s *DestinationSubnet) GetNodeRPCEndpoint() string {
+	if s.RPCEndpoint != "" {
+		return s.RPCEndpoint
+	}
+	baseUrl := constructURL("http", s.APINodeHost, s.APINodePort, s.EncryptConnection)
+	chainID := s.ChainID
+	subnetID, _ := ids.FromString(s.SubnetID) // already validated in Validate()
+	if subnetID == constants.PrimaryNetworkID {
+		chainID = cChainIdentifierString
+	}
+	return fmt.Sprintf("%s/ext/bc/%s/rpc", baseUrl, chainID)
+}
+
+// Constructs an RPC endpoint for the subnet.
+// If the RPCEndpoint field is set in the configuration, returns that directly.
+// Otherwise, constructs the endpoint from the APINodeHost, APINodePort, and EncryptConnection fields,
+// following the /ext/bc/{chainID}/rpc format.
+func (s *SourceSubnet) GetNodeRPCEndpoint() string {
 	if s.RPCEndpoint != "" {
 		return s.RPCEndpoint
 	}

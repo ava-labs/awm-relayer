@@ -25,16 +25,16 @@ type JsonFileStorage struct {
 	// we predefined the network when creating the storage
 	// also we don't allow adding new network after the storage is created
 	// so we don't need to lock the map
-	mutexes map[string]*sync.RWMutex
+	mutexes map[ids.ID]*sync.RWMutex
 	logger  logging.Logger
 }
 
 // NewJSONFileStorage creates a new JsonFileStorage instance
 // with predefined networks. e.g "ethereum", "avalanche"
-func NewJSONFileStorage(logger logging.Logger, dir string, networks []string) (*JsonFileStorage, error) {
+func NewJSONFileStorage(logger logging.Logger, dir string, networks []ids.ID) (*JsonFileStorage, error) {
 	storage := &JsonFileStorage{
 		dir:     filepath.Clean(dir),
-		mutexes: make(map[string]*sync.RWMutex),
+		mutexes: make(map[ids.ID]*sync.RWMutex),
 		logger:  logger,
 	}
 
@@ -64,7 +64,7 @@ func NewJSONFileStorage(logger logging.Logger, dir string, networks []string) (*
 // Get the latest chain state from the json database, and retrieve the value from the key
 func (s *JsonFileStorage) Get(chainID ids.ID, key []byte) ([]byte, error) {
 	var currentState chainState
-	err := s.read(chainID.String(), &currentState)
+	err := s.read(chainID, &currentState)
 	if err != nil {
 		return nil, err
 	}
@@ -76,7 +76,7 @@ func (s *JsonFileStorage) Get(chainID ids.ID, key []byte) ([]byte, error) {
 func (s *JsonFileStorage) Put(chainID ids.ID, key []byte, value []byte) error {
 	currentState := make(chainState)
 	var currentStateData []byte
-	err := s.read(chainID.String(), &currentStateData)
+	err := s.read(chainID, &currentStateData)
 	if err == nil {
 		err = json.Unmarshal(currentStateData, &currentState)
 		if err != nil {
@@ -86,11 +86,11 @@ func (s *JsonFileStorage) Put(chainID ids.ID, key []byte, value []byte) error {
 
 	currentState[string(key)] = string(value)
 
-	return s.write(chainID.String(), currentState)
+	return s.write(chainID, currentState)
 }
 
 // write value into the file
-func (s *JsonFileStorage) write(network string, v interface{}) error {
+func (s *JsonFileStorage) write(network ids.ID, v interface{}) error {
 	mutex, ok := s.mutexes[network]
 	if !ok {
 		return errors.New("network does not exist")
@@ -99,7 +99,7 @@ func (s *JsonFileStorage) write(network string, v interface{}) error {
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	fnlPath := filepath.Join(s.dir, network+".json")
+	fnlPath := filepath.Join(s.dir, network.String()+".json")
 	tmpPath := fnlPath + ".tmp"
 
 	b, err := json.MarshalIndent(v, "", "\t")
@@ -124,7 +124,7 @@ func (s *JsonFileStorage) write(network string, v interface{}) error {
 }
 
 // Read from disk and unmarshal into v
-func (s *JsonFileStorage) read(network string, v interface{}) error {
+func (s *JsonFileStorage) read(network ids.ID, v interface{}) error {
 	mutex, ok := s.mutexes[network]
 	if !ok {
 		return errors.New("network does not exist")
@@ -133,7 +133,7 @@ func (s *JsonFileStorage) read(network string, v interface{}) error {
 	mutex.RLock()
 	defer mutex.RUnlock()
 
-	path := filepath.Join(s.dir, network+".json")
+	path := filepath.Join(s.dir, network.String()+".json")
 	_, err := os.Stat(path)
 	if err != nil {
 		return err

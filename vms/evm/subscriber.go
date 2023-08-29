@@ -7,11 +7,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/big"
+	"strconv"
 	"time"
 
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/awm-relayer/config"
+	"github.com/ava-labs/awm-relayer/database"
 	"github.com/ava-labs/awm-relayer/vms/vmtypes"
 	"github.com/ava-labs/subnet-evm/core/types"
 	"github.com/ava-labs/subnet-evm/ethclient"
@@ -33,21 +36,50 @@ var (
 	ErrInvalidLog = errors.New("invalid warp message log")
 )
 
+var warpFilterQuery = interfaces.FilterQuery{
+	Topics: [][]common.Hash{
+		{warp.WarpABI.Events["SendWarpMessage"].ID},
+		{},
+		{},
+	},
+	Addresses: []common.Address{
+		warp.ContractAddress,
+	},
+}
+
 // subscriber implements Subscriber
 type subscriber struct {
-	nodeURL string
-	log     chan vmtypes.WarpLogInfo
-	evmLog  <-chan types.Log
-	sub     interfaces.Subscription
+	nodeWSURL  string
+	nodeRPCURL string
+	chainID    ids.ID
+	log        chan vmtypes.WarpLogInfo
+	evmLog     <-chan types.Log
+	sub        interfaces.Subscription
 
 	logger logging.Logger
+	db     database.RelayerDatabase
 }
 
 // NewSubscriber returns a subscriber
-func NewSubscriber(logger logging.Logger, subnetInfo config.SourceSubnet) *subscriber {
+func NewSubscriber(logger logging.Logger, subnetInfo config.SourceSubnet, db database.RelayerDatabase) *subscriber {
+	chainID, err := ids.FromString(subnetInfo.ChainID)
+	if err != nil {
+		logger.Error(
+			"Invalid chainID provided to subscriber",
+			zap.Error(err),
+		)
+		return nil
+	}
+
+	logs := make(chan vmtypes.WarpLogInfo, maxClientSubscriptionBuffer)
+
 	return &subscriber{
-		nodeURL: subnetInfo.GetNodeWSEndpoint(),
-		logger:  logger,
+		nodeWSURL:  subnetInfo.GetNodeWSEndpoint(),
+		nodeRPCURL: subnetInfo.GetNodeRPCEndpoint(),
+		chainID:    chainID,
+		logger:     logger,
+		db:         db,
+		log:        logs,
 	}
 }
 
@@ -84,7 +116,73 @@ func (s *subscriber) forwardLogs() {
 			continue
 		}
 		s.log <- *messageInfo
+
+		// Update the database with the latest block height
+		// TODO: This should also be done in a separate goroutine, rather than waiting for warp messages to be processed
+		err = s.db.Put(s.chainID, []byte(database.LatestBlockHeightKey), []byte(strconv.FormatUint(msgLog.BlockNumber, 10)))
+		if err != nil {
+			s.logger.Error(fmt.Sprintf("failed to put %s into database", database.LatestBlockHeightKey), zap.Error(err))
+		}
 	}
+}
+
+func (s *subscriber) Initialize() error {
+	ethClient, err := ethclient.Dial(s.nodeRPCURL)
+	if err != nil {
+		return err
+	}
+
+	heightData, err := s.db.Get(s.chainID, []byte(database.LatestBlockHeightKey))
+	if err != nil {
+		s.logger.Error("failed to get latestBlockHeight from database", zap.Error(err))
+		return err
+	}
+	latestBlockHeight, success := new(big.Int).SetString(string(heightData), 10)
+	if !success {
+		s.logger.Error("failed to convert latestBlockHeight to big.Int", zap.Error(err))
+		return err
+	}
+
+	// Grab the latest block before filtering logs so we don't miss any before updating the db
+	latestBlock, err := ethClient.BlockNumber(context.Background())
+	if err != nil {
+		s.logger.Error(
+			"Failed to get latest block",
+			zap.Error(err),
+		)
+		return err
+	}
+
+	var initializationFilterQuery = warpFilterQuery
+	initializationFilterQuery.FromBlock = latestBlockHeight
+	logs, err := ethClient.FilterLogs(context.Background(), initializationFilterQuery)
+	if err != nil {
+		s.logger.Error(
+			"Failed to get logs on initialization",
+			zap.Error(err),
+		)
+		return err
+	}
+
+	for _, log := range logs {
+		messageInfo, err := NewWarpLogInfo(log)
+		if err != nil {
+			s.logger.Info(
+				"Invalid log on initialization. Continuing.",
+				zap.Error(err),
+			)
+			continue
+		}
+		s.log <- *messageInfo
+	}
+
+	// Update the database with the latest block height
+	err = s.db.Put(s.chainID, []byte(database.LatestBlockHeightKey), []byte(strconv.FormatUint(latestBlock, 10)))
+	if err != nil {
+		s.logger.Error(fmt.Sprintf("failed to put %s into database", database.LatestBlockHeightKey), zap.Error(err))
+		return err
+	}
+	return nil
 }
 
 func (s *subscriber) Subscribe() error {
@@ -118,23 +216,13 @@ func (s *subscriber) Subscribe() error {
 func (s *subscriber) dialAndSubscribe() error {
 	// Dial the configured destination chain endpoint
 	// This needs to be a websocket
-	ethClient, err := ethclient.Dial(s.nodeURL)
+	ethClient, err := ethclient.Dial(s.nodeWSURL)
 	if err != nil {
 		return err
 	}
 
-	filterQuery := interfaces.FilterQuery{
-		Topics: [][]common.Hash{
-			{warp.WarpABI.Events["SendWarpMessage"].ID},
-			{},
-			{},
-		},
-		Addresses: []common.Address{
-			warp.ContractAddress,
-		},
-	}
+	filterQuery := warpFilterQuery
 	evmLogs := make(chan types.Log, maxClientSubscriptionBuffer)
-	logs := make(chan vmtypes.WarpLogInfo, maxClientSubscriptionBuffer)
 	sub, err := ethClient.SubscribeFilterLogs(context.Background(), filterQuery, evmLogs)
 	if err != nil {
 		s.logger.Error(
@@ -143,7 +231,6 @@ func (s *subscriber) dialAndSubscribe() error {
 		)
 		return err
 	}
-	s.log = logs
 	s.evmLog = evmLogs
 	s.sub = sub
 

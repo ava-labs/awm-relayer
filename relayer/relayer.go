@@ -12,6 +12,7 @@ import (
 	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/avalanchego/vms/platformvm"
 	"github.com/ava-labs/awm-relayer/config"
+	"github.com/ava-labs/awm-relayer/database"
 	"github.com/ava-labs/awm-relayer/messages"
 	"github.com/ava-labs/awm-relayer/peers"
 	vms "github.com/ava-labs/awm-relayer/vms"
@@ -39,6 +40,7 @@ type Relayer struct {
 
 func NewRelayer(
 	logger logging.Logger,
+	db database.RelayerDatabase,
 	sourceSubnetInfo config.SourceSubnet,
 	errorChan chan error,
 	pChainClient platformvm.Client,
@@ -47,7 +49,7 @@ func NewRelayer(
 	destinationClients map[ids.ID]vms.DestinationClient,
 ) (*Relayer, vms.Subscriber, error) {
 
-	sub := vms.NewSubscriber(logger, sourceSubnetInfo)
+	sub := vms.NewSubscriber(logger, sourceSubnetInfo, db)
 
 	subnetID, err := ids.FromString(sourceSubnetInfo.SubnetID)
 	if err != nil {
@@ -105,8 +107,19 @@ func NewRelayer(
 		logger:                   logger,
 	}
 
-	// Start the message router. We must do this before Subscribing for the first time, otherwise we may miss an incoming message
+	// Start the message router. We must do this before Subscribing or Initializing for the first time, otherwise we may miss an incoming message
 	go r.RouteToMessageChannel()
+
+	// Initialize the subscriber. This will poll the node for any logs that match the filter query from the stored block height,
+	// and process the contained warp messages
+	err = sub.Initialize()
+	if err != nil {
+		logger.Error(
+			"Failed to initialize subscriber",
+			zap.Error(err),
+		)
+		return nil, nil, err
+	}
 
 	err = sub.Subscribe()
 	if err != nil {

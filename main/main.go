@@ -21,6 +21,7 @@ import (
 	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/avalanchego/vms/platformvm"
 	"github.com/ava-labs/awm-relayer/config"
+	"github.com/ava-labs/awm-relayer/database"
 	"github.com/ava-labs/awm-relayer/peers"
 	"github.com/ava-labs/awm-relayer/relayer"
 	"github.com/ava-labs/awm-relayer/vms"
@@ -33,6 +34,8 @@ const (
 	defaultErrorChanSize = 1000
 	defaultApiPort       = 8080
 	defaultMetricsPort   = 9090
+
+	defaultStorageLocation = "~/.awm-relayer"
 )
 
 func main() {
@@ -149,6 +152,16 @@ func main() {
 		return
 	}
 
+	// Initialize the database
+	db, err := database.NewJSONFileStorage(logger, defaultStorageLocation, sourceChainIDs)
+	if err != nil {
+		logger.Error(
+			"Failed to create database",
+			zap.Error(err),
+		)
+		return
+	}
+
 	// Create relayers for each of the subnets configured as a source
 	var wg sync.WaitGroup
 	for _, s := range cfg.SourceSubnets {
@@ -167,7 +180,7 @@ func main() {
 				wg.Done()
 				healthy.Store(false)
 			}()
-			runRelayer(logger, metrics, subnetInfo, pChainClient, network, responseChans[chainID], destinationClients, messageCreator)
+			runRelayer(logger, metrics, db, subnetInfo, pChainClient, network, responseChans[chainID], destinationClients, messageCreator)
 			logger.Info(
 				"Relayer exiting.",
 				zap.String("chainID", chainID.String()),
@@ -180,6 +193,7 @@ func main() {
 // runRelayer creates a relayer instance for a subnet. It listens for warp messages on that subnet, and handles delivery to the destination
 func runRelayer(logger logging.Logger,
 	metrics *relayer.MessageRelayerMetrics,
+	db database.RelayerDatabase,
 	sourceSubnetInfo config.SourceSubnet,
 	pChainClient platformvm.Client,
 	network *peers.AppRequestNetwork,
@@ -195,6 +209,7 @@ func runRelayer(logger logging.Logger,
 
 	relayer, subscriber, err := relayer.NewRelayer(
 		logger,
+		db,
 		sourceSubnetInfo,
 		errorChan,
 		pChainClient,
