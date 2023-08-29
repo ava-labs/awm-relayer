@@ -111,14 +111,13 @@ func NewRelayer(
 	go r.RouteToMessageChannel()
 
 	// Initialize the subscriber. This will poll the node for any logs that match the filter query from the stored block height,
-	// and process the contained warp messages
+	// and process the contained warp messages. If initialization fails, continue with normal relayer operation, but log the error.
 	err = sub.Initialize()
 	if err != nil {
-		logger.Error(
-			"Failed to initialize subscriber",
+		logger.Warn(
+			"Encountered an error when initializing subscriber. Skipping initialization.",
 			zap.Error(err),
 		)
-		return nil, nil, err
 	}
 
 	err = sub.Subscribe()

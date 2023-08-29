@@ -132,14 +132,15 @@ func (s *subscriber) Initialize() error {
 		return err
 	}
 
+	// Get the latest processed block height from the database.
 	heightData, err := s.db.Get(s.chainID, []byte(database.LatestBlockHeightKey))
 	if err != nil {
-		s.logger.Error("failed to get latestBlockHeight from database", zap.Error(err))
+		s.logger.Warn("failed to get latest block from database", zap.Error(err))
 		return err
 	}
 	latestBlockHeight, success := new(big.Int).SetString(string(heightData), 10)
 	if !success {
-		s.logger.Error("failed to convert latestBlockHeight to big.Int", zap.Error(err))
+		s.logger.Error("failed to convert latest block to big.Int", zap.Error(err))
 		return err
 	}
 
