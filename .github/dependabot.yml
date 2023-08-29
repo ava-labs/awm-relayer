@@ -12,6 +12,9 @@ updates:
     directory: "/" # Location of package manifests
     schedule:
       interval: "daily"
+    ignore:
+      # Update go-ethereum only via subnet-evm or avalanchego
+      - dependency-name: "go-ethereum"
   - package-ecosystem: "gitsubmodule"
     directory: "/"
     schedule:
