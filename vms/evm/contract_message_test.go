@@ -13,8 +13,8 @@ import (
 	"github.com/ava-labs/awm-relayer/config"
 	warpPayload "github.com/ava-labs/subnet-evm/warp/payload"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/mock/gomock"
 )
 
 // Used to create a valid unsigned message for testing. Should not be used directly in tests.
