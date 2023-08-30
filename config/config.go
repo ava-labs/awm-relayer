@@ -219,6 +219,9 @@ func (s *SourceSubnet) Validate() error {
 	if _, err := url.ParseRequestURI(s.GetNodeWSEndpoint()); err != nil {
 		return fmt.Errorf("invalid relayer subscribe URL in source subnet configuration: %v", err)
 	}
+	if _, err := url.ParseRequestURI(s.GetNodeRPCEndpoint()); err != nil {
+		return fmt.Errorf("invalid relayer RPC URL in source subnet configuration: %v", err)
+	}
 
 	// Validate the VM specific settings
 	switch ParseVM(s.VM) {
