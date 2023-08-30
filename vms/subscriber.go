@@ -13,7 +13,7 @@ import (
 
 // Subscriber subscribes to VM events containing Warp message data
 type Subscriber interface {
-	// Inialize the subscriber by processing any pending events
+	// Initialize the subscriber by processing any pending events
 	Initialize() error
 
 	// Subscribe registers a subscription. After Subscribe is called,
