@@ -174,6 +174,11 @@ func (s *subscriber) Initialize() error {
 	}
 
 	// Queue each of the logs to be processed
+	s.logger.Info(
+		"Processing logs on initialization",
+		zap.String("fromBlockHeight", latestBlockHeight.String()),
+		zap.String("toBlockHeight", strconv.Itoa(int(latestBlock))),
+	)
 	for _, log := range logs {
 		messageInfo, err := NewWarpLogInfo(log)
 		if err != nil {
