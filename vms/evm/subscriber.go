@@ -36,6 +36,7 @@ var (
 	ErrInvalidLog = errors.New("invalid warp message log")
 )
 
+// The filter query used to match logs emitted by the Warp precompile
 var warpFilterQuery = interfaces.FilterQuery{
 	Topics: [][]common.Hash{
 		{warp.WarpABI.Events["SendWarpMessage"].ID},
@@ -119,6 +120,7 @@ func (s *subscriber) forwardLogs() {
 
 		// Update the database with the latest block height
 		// TODO: This should also be done in a separate goroutine, rather than waiting for warp messages to be processed
+		// TODO: Rather than updating the db when logs are received, we may want to consider updating the db when messages are successfully relayed
 		err = s.db.Put(s.chainID, []byte(database.LatestBlockHeightKey), []byte(strconv.FormatUint(msgLog.BlockNumber, 10)))
 		if err != nil {
 			s.logger.Error(fmt.Sprintf("failed to put %s into database", database.LatestBlockHeightKey), zap.Error(err))
@@ -154,8 +156,14 @@ func (s *subscriber) Initialize() error {
 		return err
 	}
 
-	var initializationFilterQuery = warpFilterQuery
-	initializationFilterQuery.FromBlock = latestBlockHeight
+	// Filter logs from the latest processed block to the latest block
+	// Since initializationFilterQuery does not modify existing fields of warpFilterQuery,
+	// we can safely reuse warpFilterQuery with only a shallow copy
+	initializationFilterQuery := interfaces.FilterQuery{
+		Topics:    warpFilterQuery.Topics,
+		Addresses: warpFilterQuery.Addresses,
+		FromBlock: latestBlockHeight,
+	}
 	logs, err := ethClient.FilterLogs(context.Background(), initializationFilterQuery)
 	if err != nil {
 		s.logger.Error(
@@ -165,6 +173,7 @@ func (s *subscriber) Initialize() error {
 		return err
 	}
 
+	// Queue each of the logs to be processed
 	for _, log := range logs {
 		messageInfo, err := NewWarpLogInfo(log)
 		if err != nil {
