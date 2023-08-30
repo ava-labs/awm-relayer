@@ -215,7 +215,7 @@ func (s *subscriber) Subscribe() error {
 }
 
 func (s *subscriber) dialAndSubscribe() error {
-	// Dial the configured destination chain endpoint
+	// Dial the configured source chain endpoint
 	// This needs to be a websocket
 	ethClient, err := ethclient.Dial(s.nodeWSURL)
 	if err != nil {
