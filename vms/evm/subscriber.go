@@ -118,11 +118,10 @@ func (s *subscriber) forwardLogs() {
 		}
 		s.log <- *messageInfo
 
-		// Update the database with the latest block height
-		// TODO: Rather than updating the db when logs are received, we may want to consider updating the db when messages are successfully relayed
-		err = s.db.Put(s.chainID, []byte(database.LatestProcessedBlockKey), []byte(strconv.FormatUint(msgLog.BlockNumber, 10)))
+		// Update the database with the latest seen block height
+		err = s.db.Put(s.chainID, []byte(database.LatestSeenBlockKey), []byte(strconv.FormatUint(msgLog.BlockNumber, 10)))
 		if err != nil {
-			s.logger.Error(fmt.Sprintf("failed to put %s into database", database.LatestProcessedBlockKey), zap.Error(err))
+			s.logger.Error(fmt.Sprintf("failed to put %s into database", database.LatestSeenBlockKey), zap.Error(err))
 		}
 	}
 }
@@ -178,10 +177,10 @@ func (s *subscriber) ProcessFromHeight(height *big.Int) error {
 		s.log <- *messageInfo
 	}
 
-	// Update the database with the latest block height
-	err = s.db.Put(s.chainID, []byte(database.LatestProcessedBlockKey), []byte(strconv.FormatUint(latestBlock, 10)))
+	// Update the database with the latest seen block height
+	err = s.db.Put(s.chainID, []byte(database.LatestSeenBlockKey), []byte(strconv.FormatUint(latestBlock, 10)))
 	if err != nil {
-		s.logger.Error(fmt.Sprintf("failed to put %s into database", database.LatestProcessedBlockKey), zap.Error(err))
+		s.logger.Error(fmt.Sprintf("failed to put %s into database", database.LatestSeenBlockKey), zap.Error(err))
 		return err
 	}
 	return nil

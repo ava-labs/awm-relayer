@@ -125,21 +125,21 @@ func NewRelayer(
 	}
 
 	// Get the latest processed block height from the database.
-	latestProcessedBlockData, err := r.db.Get(r.sourceChainID, []byte(database.LatestProcessedBlockKey))
+	latestSeenBlockData, err := r.db.Get(r.sourceChainID, []byte(database.LatestSeenBlockKey))
 	if err != nil {
 		r.logger.Warn("failed to get latest block from database", zap.Error(err))
 		return nil, nil, err
 	}
-	latestProcessedBlock, success := new(big.Int).SetString(string(latestProcessedBlockData), 10)
+	latestSeenBlock, success := new(big.Int).SetString(string(latestSeenBlockData), 10)
 	if !success {
 		r.logger.Error("failed to convert latest block to big.Int", zap.Error(err))
 		return nil, nil, err
 	}
 
-	// Back-process all warp messages from the latest processed block to the latest block
+	// Back-process all warp messages from the latest seen block to the latest block
 	// This will query the node for any logs that match the filter query from the stored block height,
 	// and process the contained warp messages. If initialization fails, continue with normal relayer operation, but log the error.
-	err = sub.ProcessFromHeight(latestProcessedBlock)
+	err = sub.ProcessFromHeight(latestSeenBlock)
 	if err != nil {
 		logger.Warn(
 			"Encountered an error when processing historical blocks. Continuing to normal relaying operation.",
