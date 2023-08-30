@@ -12,7 +12,7 @@ import (
 	"go.uber.org/zap"
 )
 
-var _ RelayerDatabase = &JsonFileStorage{}
+var _ RelayerDatabase = &JSONFileStorage{}
 
 var (
 	fileDoesNotExistErr = errors.New("JSON database file does not exist")
@@ -20,21 +20,21 @@ var (
 
 type chainState map[string]string
 
-// JsonFileStorage implements RelayerDatabase
-type JsonFileStorage struct {
+// JSONFileStorage implements RelayerDatabase
+type JSONFileStorage struct {
 	// the directory where the json files are stored
 	dir string
 
 	// Each network has its own mutex
-	// The chainIDs used to index the JsonFileStorage are created at initialization
+	// The chainIDs used to index the JSONFileStorage are created at initialization
 	// and are not modified afterwards, so we don't need to lock the map itself.
 	mutexes map[ids.ID]*sync.RWMutex
 	logger  logging.Logger
 }
 
-// NewJSONFileStorage creates a new JsonFileStorage instance
-func NewJSONFileStorage(logger logging.Logger, dir string, networks []ids.ID) (*JsonFileStorage, error) {
-	storage := &JsonFileStorage{
+// NewJSONFileStorage creates a new JSONFileStorage instance
+func NewJSONFileStorage(logger logging.Logger, dir string, networks []ids.ID) (*JSONFileStorage, error) {
+	storage := &JSONFileStorage{
 		dir:     filepath.Clean(dir),
 		mutexes: make(map[ids.ID]*sync.RWMutex),
 		logger:  logger,
@@ -64,7 +64,7 @@ func NewJSONFileStorage(logger logging.Logger, dir string, networks []ids.ID) (*
 }
 
 // Get the latest chain state from the json database, and retrieve the value from the key
-func (s *JsonFileStorage) Get(chainID ids.ID, key []byte) ([]byte, error) {
+func (s *JSONFileStorage) Get(chainID ids.ID, key []byte) ([]byte, error) {
 	currentState := make(chainState)
 	fileExists, err := s.read(chainID, &currentState)
 	if err != nil {
@@ -82,7 +82,7 @@ func (s *JsonFileStorage) Get(chainID ids.ID, key []byte) ([]byte, error) {
 }
 
 // Put the value into the json database. Read the current chain state and overwrite the key, if it exists
-func (s *JsonFileStorage) Put(chainID ids.ID, key []byte, value []byte) error {
+func (s *JSONFileStorage) Put(chainID ids.ID, key []byte, value []byte) error {
 	currentState := make(chainState)
 	_, err := s.read(chainID, &currentState)
 	if err != nil {
@@ -99,7 +99,7 @@ func (s *JsonFileStorage) Put(chainID ids.ID, key []byte, value []byte) error {
 }
 
 // write value into the file
-func (s *JsonFileStorage) write(network ids.ID, v interface{}) error {
+func (s *JSONFileStorage) write(network ids.ID, v interface{}) error {
 	mutex, ok := s.mutexes[network]
 	if !ok {
 		return errors.New("network does not exist")
@@ -135,7 +135,7 @@ func (s *JsonFileStorage) write(network ids.ID, v interface{}) error {
 // Read from disk and unmarshal into v
 // Returns a bool indicating whether the file exists, and an error.
 // If an error is returned, the bool should be ignored.
-func (s *JsonFileStorage) read(network ids.ID, v interface{}) (bool, error) {
+func (s *JSONFileStorage) read(network ids.ID, v interface{}) (bool, error) {
 	mutex, ok := s.mutexes[network]
 	if !ok {
 		return false, errors.New("network does not exist")
