@@ -119,30 +119,17 @@ func (s *subscriber) forwardLogs() {
 		s.log <- *messageInfo
 
 		// Update the database with the latest block height
-		// TODO: This should also be done in a separate goroutine, rather than waiting for warp messages to be processed
 		// TODO: Rather than updating the db when logs are received, we may want to consider updating the db when messages are successfully relayed
-		err = s.db.Put(s.chainID, []byte(database.LatestBlockHeightKey), []byte(strconv.FormatUint(msgLog.BlockNumber, 10)))
+		err = s.db.Put(s.chainID, []byte(database.LatestProcessedBlockKey), []byte(strconv.FormatUint(msgLog.BlockNumber, 10)))
 		if err != nil {
-			s.logger.Error(fmt.Sprintf("failed to put %s into database", database.LatestBlockHeightKey), zap.Error(err))
+			s.logger.Error(fmt.Sprintf("failed to put %s into database", database.LatestProcessedBlockKey), zap.Error(err))
 		}
 	}
 }
 
-func (s *subscriber) Initialize() error {
+func (s *subscriber) ProcessFromHeight(height *big.Int) error {
 	ethClient, err := ethclient.Dial(s.nodeRPCURL)
 	if err != nil {
-		return err
-	}
-
-	// Get the latest processed block height from the database.
-	heightData, err := s.db.Get(s.chainID, []byte(database.LatestBlockHeightKey))
-	if err != nil {
-		s.logger.Warn("failed to get latest block from database", zap.Error(err))
-		return err
-	}
-	latestBlockHeight, success := new(big.Int).SetString(string(heightData), 10)
-	if !success {
-		s.logger.Error("failed to convert latest block to big.Int", zap.Error(err))
 		return err
 	}
 
@@ -162,7 +149,7 @@ func (s *subscriber) Initialize() error {
 	initializationFilterQuery := interfaces.FilterQuery{
 		Topics:    warpFilterQuery.Topics,
 		Addresses: warpFilterQuery.Addresses,
-		FromBlock: latestBlockHeight,
+		FromBlock: height,
 	}
 	logs, err := ethClient.FilterLogs(context.Background(), initializationFilterQuery)
 	if err != nil {
@@ -176,7 +163,7 @@ func (s *subscriber) Initialize() error {
 	// Queue each of the logs to be processed
 	s.logger.Info(
 		"Processing logs on initialization",
-		zap.String("fromBlockHeight", latestBlockHeight.String()),
+		zap.String("fromBlockHeight", height.String()),
 		zap.String("toBlockHeight", strconv.Itoa(int(latestBlock))),
 	)
 	for _, log := range logs {
@@ -192,9 +179,9 @@ func (s *subscriber) Initialize() error {
 	}
 
 	// Update the database with the latest block height
-	err = s.db.Put(s.chainID, []byte(database.LatestBlockHeightKey), []byte(strconv.FormatUint(latestBlock, 10)))
+	err = s.db.Put(s.chainID, []byte(database.LatestProcessedBlockKey), []byte(strconv.FormatUint(latestBlock, 10)))
 	if err != nil {
-		s.logger.Error(fmt.Sprintf("failed to put %s into database", database.LatestBlockHeightKey), zap.Error(err))
+		s.logger.Error(fmt.Sprintf("failed to put %s into database", database.LatestProcessedBlockKey), zap.Error(err))
 		return err
 	}
 	return nil

@@ -4,6 +4,7 @@
 package relayer
 
 import (
+	"math/big"
 	"math/rand"
 	"sync"
 
@@ -36,6 +37,7 @@ type Relayer struct {
 	contractMessage          vms.ContractMessage
 	messageManagers          map[common.Hash]messages.MessageManager
 	logger                   logging.Logger
+	db                       database.RelayerDatabase
 }
 
 func NewRelayer(
@@ -105,21 +107,14 @@ func NewRelayer(
 		contractMessage:          vms.NewContractMessage(logger, sourceSubnetInfo),
 		messageManagers:          messageManagers,
 		logger:                   logger,
+		db:                       db,
 	}
 
 	// Start the message router. We must do this before Subscribing or Initializing for the first time, otherwise we may miss an incoming message
 	go r.RouteToMessageChannel()
 
-	// Initialize the subscriber. This will poll the node for any logs that match the filter query from the stored block height,
-	// and process the contained warp messages. If initialization fails, continue with normal relayer operation, but log the error.
-	err = sub.Initialize()
-	if err != nil {
-		logger.Warn(
-			"Encountered an error when initializing subscriber. Skipping initialization.",
-			zap.Error(err),
-		)
-	}
-
+	// Open the subscription. We must do this before processing any missed messages, otherwise we may miss an incoming message
+	// in between fetching the latest block and subscribing.
 	err = sub.Subscribe()
 	if err != nil {
 		logger.Error(
@@ -128,6 +123,30 @@ func NewRelayer(
 		)
 		return nil, nil, err
 	}
+
+	// Get the latest processed block height from the database.
+	latestProcessedBlockData, err := r.db.Get(r.sourceChainID, []byte(database.LatestProcessedBlockKey))
+	if err != nil {
+		r.logger.Warn("failed to get latest block from database", zap.Error(err))
+		return nil, nil, err
+	}
+	latestProcessedBlock, success := new(big.Int).SetString(string(latestProcessedBlockData), 10)
+	if !success {
+		r.logger.Error("failed to convert latest block to big.Int", zap.Error(err))
+		return nil, nil, err
+	}
+
+	// Back-process all warp messages from the latest processed block to the latest block
+	// This will query the node for any logs that match the filter query from the stored block height,
+	// and process the contained warp messages. If initialization fails, continue with normal relayer operation, but log the error.
+	err = sub.ProcessFromHeight(latestProcessedBlock)
+	if err != nil {
+		logger.Warn(
+			"Encountered an error when processing historical blocks. Continuing to normal relaying operation.",
+			zap.Error(err),
+		)
+	}
+
 	return &r, sub, nil
 }
 

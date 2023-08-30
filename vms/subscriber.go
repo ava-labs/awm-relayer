@@ -4,6 +4,8 @@
 package vms
 
 import (
+	"math/big"
+
 	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/awm-relayer/config"
 	"github.com/ava-labs/awm-relayer/database"
@@ -13,8 +15,8 @@ import (
 
 // Subscriber subscribes to VM events containing Warp message data
 type Subscriber interface {
-	// Initialize the subscriber by processing any pending events
-	Initialize() error
+	// ProcessFromHeight processes events from {height} to the latest block
+	ProcessFromHeight(height *big.Int) error
 
 	// Subscribe registers a subscription. After Subscribe is called,
 	// log events that match [filter] are written to the channel returned
