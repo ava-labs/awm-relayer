@@ -14,10 +14,6 @@ import (
 
 var _ RelayerDatabase = &JSONFileStorage{}
 
-var (
-	fileDoesNotExistErr = errors.New("JSON database file does not exist")
-)
-
 type chainState map[string]string
 
 // JSONFileStorage implements RelayerDatabase
@@ -55,7 +51,8 @@ func NewJSONFileStorage(logger logging.Logger, dir string, networks []ids.ID) (*
 	// Everyone else can read and execute but not modify the file.
 	err = os.MkdirAll(dir, 0755)
 	if err != nil {
-		storage.logger.Error("failed to create dir",
+		storage.logger.Error("failed to create directory",
+			zap.String("dir", dir),
 			zap.Error(err))
 		return nil, err
 	}
@@ -70,12 +67,17 @@ func (s *JSONFileStorage) Get(chainID ids.ID, key []byte) ([]byte, error) {
 	if err != nil {
 		s.logger.Error(
 			"failed to read file",
+			zap.String("chainID", chainID.String()),
 			zap.Error(err),
 		)
 		return nil, err
 	}
 	if !fileExists {
-		return nil, fileDoesNotExistErr
+		return nil, errors.Errorf("file does not exist. chainID: %s", chainID)
+	}
+
+	if _, ok := currentState[string(key)]; !ok {
+		return nil, errors.Errorf("key does not exist. chainID: %s key: %s", chainID, key)
 	}
 
 	return []byte(currentState[string(key)]), nil
@@ -88,6 +90,7 @@ func (s *JSONFileStorage) Put(chainID ids.ID, key []byte, value []byte) error {
 	if err != nil {
 		s.logger.Error(
 			"failed to read file",
+			zap.String("chainID", chainID.String()),
 			zap.Error(err),
 		)
 		return err
@@ -102,7 +105,7 @@ func (s *JSONFileStorage) Put(chainID ids.ID, key []byte, value []byte) error {
 func (s *JSONFileStorage) write(network ids.ID, v interface{}) error {
 	mutex, ok := s.mutexes[network]
 	if !ok {
-		return errors.New("network does not exist")
+		return errors.Errorf("network does not exist. chainID: %s", network.String())
 	}
 
 	mutex.Lock()
