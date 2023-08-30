@@ -65,9 +65,13 @@ func NewJSONFileStorage(logger logging.Logger, dir string, networks []ids.ID) (*
 
 // Get the latest chain state from the json database, and retrieve the value from the key
 func (s *JsonFileStorage) Get(chainID ids.ID, key []byte) ([]byte, error) {
-	var currentState chainState
+	currentState := make(chainState)
 	fileExists, err := s.read(chainID, &currentState)
 	if err != nil {
+		s.logger.Error(
+			"failed to read file",
+			zap.Error(err),
+		)
 		return nil, err
 	}
 	if !fileExists {
@@ -80,22 +84,13 @@ func (s *JsonFileStorage) Get(chainID ids.ID, key []byte) ([]byte, error) {
 // Put the value into the json database. Read the current chain state and overwrite the key, if it exists
 func (s *JsonFileStorage) Put(chainID ids.ID, key []byte, value []byte) error {
 	currentState := make(chainState)
-	var currentStateData []byte
-	fileExists, err := s.read(chainID, &currentStateData)
+	_, err := s.read(chainID, &currentState)
 	if err != nil {
 		s.logger.Error(
 			"failed to read file",
 			zap.Error(err),
 		)
 		return err
-	}
-	// If the file exists, unmarshal the data into currentState
-	// Otherwise, we write the value to the empty currentState, and overwrite the file
-	if fileExists {
-		err = json.Unmarshal(currentStateData, &currentState)
-		if err != nil {
-			return err
-		}
 	}
 
 	currentState[string(key)] = string(value)
