@@ -73,7 +73,7 @@ func SetDefaultConfigValues(v *viper.Viper) {
 	v.SetDefault(NetworkIDKey, constants.MainnetID)
 	v.SetDefault(PChainAPIURLKey, "https://api.avax.network")
 	v.SetDefault(EncryptConnectionKey, true)
-	v.SetDefault(StorageLocationKey, "./awm-relayer-storage")
+	v.SetDefault(StorageLocationKey, "./.awm-relayer-storage")
 }
 
 // BuildConfig constructs the relayer config using Viper.
@@ -102,6 +102,7 @@ func BuildConfig(v *viper.Viper) (Config, bool, error) {
 	cfg.NetworkID = v.GetUint32(NetworkIDKey)
 	cfg.PChainAPIURL = v.GetString(PChainAPIURLKey)
 	cfg.EncryptConnection = v.GetBool(EncryptConnectionKey)
+	cfg.StorageLocation = v.GetString(StorageLocationKey)
 	if err := v.UnmarshalKey(DestinationSubnetsKey, &cfg.DestinationSubnets); err != nil {
 		return Config{}, false, fmt.Errorf("failed to unmarshal destination subnets: %v", err)
 	}
