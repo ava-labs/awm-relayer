@@ -4,33 +4,63 @@
 name: Run Relayer Unit Tests
 
 on:
-  push:
-    branches:
-      - '*'
+    push:
+        branches:
+            - "*"
 
 jobs:
-  build-test-relayer:
-    runs-on: ubuntu-20.04
+    build-test-relayer:
+        runs-on: ubuntu-20.04
 
-    steps:
-    - name: Checkout repository
-      uses: actions/checkout@v3
-      with:
-        path: awm-relayer
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v3
+              with:
+                  path: awm-relayer
 
-    - name: Setup Go
-      uses: actions/setup-go@v4
-      with:
-        go-version: '1.20.7'
+            - name: Setup Go
+              uses: actions/setup-go@v4
+              with:
+                  go-version: "1.20.7"
 
-    - name: Build Relayer
-      run: |
-        cd awm-relayer
-        go mod tidy
-        ./scripts/build.sh
+            - name: Build Relayer
+              run: |
+                  cd awm-relayer
+                  go mod tidy
+                  ./scripts/build.sh
 
-    - name: Run Relayer Unit Tests
-      run: |
-        cd awm-relayer
-        go test ./...
+            - name: Run Relayer Unit Tests
+              run: |
+                  cd awm-relayer
+                  go test ./...
 
+    e2e_test:
+        runs-on: ubuntu-20.04
+        name: Run Relayer E2E Tests
+
+        steps:
+            - name: Checkout subnet-evm repository
+              uses: actions/checkout@v3
+              with:
+                  repository: ava-labs/subnet-evm
+                  ref: v0.5.4
+
+            - name: Setup Go
+              uses: actions/setup-go@v4
+              with:
+                  go-version: "1.20.7"
+
+            - name: Install AvalancheGo Release
+              shell: bash
+              run: BASEDIR=/tmp/e2e-test AVALANCHEGO_BUILD_PATH=/tmp/e2e-test/avalanchego ./scripts/install_avalanchego_release.sh
+
+            - name: Build Subnet-EVM Plugin Binary
+              shell: bash
+              run: ./scripts/build.sh /tmp/e2e-test/avalanchego/plugins/srEXiWaHuhNyGwPUi444Tu47ZEDwxTWrbQiuD7FmgSAQ6X7Dy
+
+            - name: Checkout awm-relayer repository
+              uses: actions/checkout@v3
+
+            - name: Run E2E Tests
+              shell: bash
+              run: AVALANCHEGO_BUILD_PATH=/tmp/e2e-test/avalanchego DATA_DIR=/tmp/e2e-test/data ./scripts/e2e_test.sh
