@@ -17,6 +17,7 @@ import (
 	"github.com/ava-labs/avalanchego/utils/logging"
 	avalancheWarp "github.com/ava-labs/avalanchego/vms/platformvm/warp"
 	"github.com/ava-labs/awm-relayer/config"
+	"github.com/ava-labs/awm-relayer/messages/teleporter"
 	"github.com/ava-labs/subnet-evm/core/types"
 	"github.com/ava-labs/subnet-evm/ethclient"
 	"github.com/ava-labs/subnet-evm/interfaces"
@@ -40,6 +41,15 @@ var (
 	warpChainConfigPath       string
 	relayerConfigPath         string
 	teleporterContractAddress = common.HexToAddress("27aE10273D17Cd7e80de8580A51f476960626e5f")
+	teleporterMessage         = teleporter.TeleporterMessage{
+		MessageID:               big.NewInt(1),
+		SenderAddress:           common.HexToAddress("0x0123456789abcdef0123456789abcdef01234567"),
+		DestinationAddress:      common.HexToAddress("0x0123456789abcdef0123456789abcdef01234567"),
+		RequiredGasLimit:        big.NewInt(1),
+		AllowedRelayerAddresses: []common.Address{},
+		Receipts:                []teleporter.TeleporterMessageReceipt{},
+		Message:                 []byte{1, 2, 3, 4},
+	}
 )
 
 func TestE2E(t *testing.T) {
@@ -141,18 +151,18 @@ var _ = ginkgo.AfterSuite(func() {
 var _ = ginkgo.Describe("[Relayer]", ginkgo.Ordered, func() {
 	log.Info("Got to ginkgo describe")
 	var (
-		subnetA, subnetB               ids.ID
-		blockchainIDA, blockchainIDB   ids.ID
-		chainAURIs, chainBURIs         []string
-		fundedKey                      *ecdsa.PrivateKey
-		fundedAddress                  common.Address
-		err                            error
-		unsignedWarpMsg                *avalancheWarp.UnsignedMessage
-		unsignedWarpMessageID          ids.ID
-		signedWarpMsg                  *avalancheWarp.Message
+		subnetA, subnetB             ids.ID
+		blockchainIDA, blockchainIDB ids.ID
+		chainAURIs, chainBURIs       []string
+		fundedKey                    *ecdsa.PrivateKey
+		fundedAddress                common.Address
+		err                          error
+		unsignedWarpMsg              *avalancheWarp.UnsignedMessage
+		unsignedWarpMessageID        ids.ID
+		// signedWarpMsg                  *avalancheWarp.Message
 		chainAWSClient, chainBWSClient ethclient.Client
 		chainID                        = big.NewInt(99999)
-		payload                        = []byte{1, 2, 3}
+		payload                        = []byte{}
 		txSigner                       = types.LatestSignerForChainID(chainID)
 	)
 
@@ -278,12 +288,20 @@ var _ = ginkgo.Describe("[Relayer]", ginkgo.Ordered, func() {
 		gomega.Expect(err).Should(gomega.BeNil())
 
 		log.Info("Subscribing to new heads")
-		newHeads := make(chan *types.Header, 10)
-		sub, err := chainAWSClient.SubscribeNewHead(ctx, newHeads)
+		// newHeadsA := make(chan *types.Header, 10)
+		// sub, err := chainAWSClient.SubscribeNewHead(ctx, newHeadsA)
+		// gomega.Expect(err).Should(gomega.BeNil())
+		// defer sub.Unsubscribe()
+
+		newHeadsB := make(chan *types.Header, 10)
+		sub, err := chainBWSClient.SubscribeNewHead(ctx, newHeadsB)
 		gomega.Expect(err).Should(gomega.BeNil())
 		defer sub.Unsubscribe()
 
 		startingNonce, err := chainAWSClient.NonceAt(ctx, fundedAddress, nil)
+		gomega.Expect(err).Should(gomega.BeNil())
+
+		payload, err = teleporter.PackTeleporterMessage(common.Hash(blockchainIDB), teleporterMessage)
 		gomega.Expect(err).Should(gomega.BeNil())
 
 		packedInput, err := warp.PackSendWarpMessage(warp.SendWarpMessageInput{
@@ -304,16 +322,16 @@ var _ = ginkgo.Describe("[Relayer]", ginkgo.Ordered, func() {
 		})
 		signedTx, err := types.SignTx(tx, txSigner, fundedKey)
 		gomega.Expect(err).Should(gomega.BeNil())
-		log.Info("Sending sendWarpMessage transaction", "txHash", signedTx.Hash())
+		log.Info("Sending sendWarpMessage transaction", "destinationChainID", blockchainIDB, "txHash", signedTx.Hash())
 		err = chainAWSClient.SendTransaction(ctx, signedTx)
 		gomega.Expect(err).Should(gomega.BeNil())
 
 		log.Info("Waiting for new block confirmation")
-		newHead := <-newHeads
+		newHead := <-newHeadsB
 		blockHash := newHead.Hash()
 
 		log.Info("Fetching relevant warp logs from the newly produced block")
-		logs, err := chainAWSClient.FilterLogs(ctx, interfaces.FilterQuery{
+		logs, err := chainBWSClient.FilterLogs(ctx, interfaces.FilterQuery{
 			BlockHash: &blockHash,
 			Addresses: []common.Address{warp.Module.Address},
 		})
@@ -335,22 +353,22 @@ var _ = ginkgo.Describe("[Relayer]", ginkgo.Ordered, func() {
 		// Loop over each client on chain A to ensure they all have time to accept the block.
 		// Note: if we did not confirm this here, the next stage could be racy since it assumes every node
 		// has accepted the block.
-		for i, uri := range chainAURIs {
-			chainAWSURI := toWebsocketURI(uri, blockchainIDA.String())
-			log.Info("Creating ethclient for blockchainA", "wsURI", chainAWSURI)
-			client, err := ethclient.Dial(chainAWSURI)
-			gomega.Expect(err).Should(gomega.BeNil())
+		// for i, uri := range chainAURIs {
+		// 	chainAWSURI := toWebsocketURI(uri, blockchainIDA.String())
+		// 	log.Info("Creating ethclient for blockchainA", "wsURI", chainAWSURI)
+		// 	client, err := ethclient.Dial(chainAWSURI)
+		// 	gomega.Expect(err).Should(gomega.BeNil())
 
-			// Loop until each node has advanced to >= the height of the block that emitted the warp log
-			for {
-				block, err := client.BlockByNumber(ctx, nil)
-				gomega.Expect(err).Should(gomega.BeNil())
-				if block.NumberU64() >= newHead.Number.Uint64() {
-					log.Info("client accepted the block containing SendWarpMessage", "client", i, "height", block.NumberU64())
-					break
-				}
-			}
-		}
+		// 	// Loop until each node has advanced to >= the height of the block that emitted the warp log
+		// 	for {
+		// 		block, err := client.BlockByNumber(ctx, nil)
+		// 		gomega.Expect(err).Should(gomega.BeNil())
+		// 		if block.NumberU64() >= newHead.Number.Uint64() {
+		// 			log.Info("client accepted the block containing SendWarpMessage", "client", i, "height", block.NumberU64())
+		// 			break
+		// 		}
+		// 	}
+		// }
 	})
 })
 
