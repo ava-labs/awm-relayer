@@ -37,10 +37,6 @@ var (
 )
 
 func TestE2E(t *testing.T) {
-	cmd := exec.Command(fmt.Sprintf("echo %s", "hello world2"))
-	out, err := cmd.CombinedOutput()
-	fmt.Println(string(out))
-	gomega.Expect(err).Should(gomega.BeNil())
 	log.Info("Tested hello world2")
 	if os.Getenv("RUN_E2E") == "" {
 		t.Skip("Environment variable RUN_E2E not set; skipping E2E tests")
@@ -68,10 +64,6 @@ var _ = ginkgo.BeforeSuite(func() {
 	fmt.Println(string(out))
 	gomega.Expect(err).Should(gomega.BeNil())
 
-	cmd = exec.Command(fmt.Sprintf("echo %s", "hello world"))
-	out, err = cmd.CombinedOutput()
-	fmt.Println(string(out))
-	gomega.Expect(err).Should(gomega.BeNil())
 	log.Info("Tested hello world")
 
 	// Name 10 new validators (which should have BLS key registered)
