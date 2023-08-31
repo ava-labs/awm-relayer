@@ -14,6 +14,7 @@ import (
 
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/utils/constants"
+	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/avalanchego/utils/set"
 	"github.com/ava-labs/awm-relayer/utils"
 	"github.com/ethereum/go-ethereum/common"
@@ -67,7 +68,7 @@ type Config struct {
 }
 
 func SetDefaultConfigValues(v *viper.Viper) {
-	v.SetDefault(LogLevelKey, "info")
+	v.SetDefault(LogLevelKey, logging.Info.String())
 	v.SetDefault(NetworkIDKey, constants.MainnetID)
 	v.SetDefault(PChainAPIURLKey, "https://api.avax.network")
 	v.SetDefault(EncryptConnectionKey, true)

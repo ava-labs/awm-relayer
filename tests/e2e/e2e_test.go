@@ -14,11 +14,17 @@ import (
 
 	"github.com/ava-labs/avalanche-network-runner/rpcpb"
 	"github.com/ava-labs/avalanchego/ids"
+	"github.com/ava-labs/avalanchego/utils/logging"
+	avalancheWarp "github.com/ava-labs/avalanchego/vms/platformvm/warp"
 	"github.com/ava-labs/awm-relayer/config"
+	"github.com/ava-labs/subnet-evm/core/types"
 	"github.com/ava-labs/subnet-evm/ethclient"
+	"github.com/ava-labs/subnet-evm/interfaces"
+	"github.com/ava-labs/subnet-evm/params"
 	"github.com/ava-labs/subnet-evm/plugin/evm"
 	"github.com/ava-labs/subnet-evm/tests/utils"
 	"github.com/ava-labs/subnet-evm/tests/utils/runner"
+	"github.com/ava-labs/subnet-evm/x/warp"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
@@ -135,19 +141,19 @@ var _ = ginkgo.AfterSuite(func() {
 var _ = ginkgo.Describe("[Relayer]", ginkgo.Ordered, func() {
 	log.Info("Got to ginkgo describe")
 	var (
-		subnetA, subnetB             ids.ID
-		blockchainIDA, blockchainIDB ids.ID
-		chainAURIs, chainBURIs       []string
-		fundedKey                    *ecdsa.PrivateKey
-		fundedAddress                common.Address
-		err                          error
-		// unsignedWarpMsg              *avalancheWarp.UnsignedMessage
-		// unsignedWarpMessageID        ids.ID
-		// signedWarpMsg                *avalancheWarp.Message
-		// chainAWSClient, chainBWSClient ethclient.Client
-		// chainID                        = big.NewInt(99999)
-		// payload                        = []byte{1, 2, 3}
-		// txSigner                       = types.LatestSignerForChainID(chainID)
+		subnetA, subnetB               ids.ID
+		blockchainIDA, blockchainIDB   ids.ID
+		chainAURIs, chainBURIs         []string
+		fundedKey                      *ecdsa.PrivateKey
+		fundedAddress                  common.Address
+		err                            error
+		unsignedWarpMsg                *avalancheWarp.UnsignedMessage
+		unsignedWarpMessageID          ids.ID
+		signedWarpMsg                  *avalancheWarp.Message
+		chainAWSClient, chainBWSClient ethclient.Client
+		chainID                        = big.NewInt(99999)
+		payload                        = []byte{1, 2, 3}
+		txSigner                       = types.LatestSignerForChainID(chainID)
 	)
 
 	fundedKey, err = crypto.HexToECDSA(fundedKeyStr)
@@ -187,7 +193,7 @@ var _ = ginkgo.Describe("[Relayer]", ginkgo.Ordered, func() {
 		gomega.Expect(err).Should(gomega.BeNil())
 	})
 
-	ginkgo.It("Set up relayer configr", ginkgo.Label("Relayer", "Setup Relayer"), func() {
+	ginkgo.It("Set up relayer config", ginkgo.Label("Relayer", "Setup Relayer"), func() {
 		subnetADetails, ok := manager.GetSubnet(subnetA)
 		gomega.Expect(ok).Should(gomega.BeTrue())
 
@@ -201,6 +207,7 @@ var _ = ginkgo.Describe("[Relayer]", ginkgo.Ordered, func() {
 		gomega.Expect(err).Should(gomega.BeNil())
 
 		relayerConfig := config.Config{
+			LogLevel:          logging.Info.LowerString(),
 			NetworkID:         1337,
 			PChainAPIURL:      subnetADetails.ValidatorURIs[0],
 			EncryptConnection: false,
@@ -262,6 +269,88 @@ var _ = ginkgo.Describe("[Relayer]", ginkgo.Ordered, func() {
 		fmt.Println(string(out))
 		gomega.Expect(err).Should(gomega.BeNil())
 		log.Info("Running relayer")
+	})
+
+	// Send a transaction to Subnet A to issue a Warp Message to Subnet B
+	ginkgo.It("Send Message from A to B", ginkgo.Label("Warp", "SendWarp"), func() {
+		ctx := context.Background()
+
+		gomega.Expect(err).Should(gomega.BeNil())
+
+		log.Info("Subscribing to new heads")
+		newHeads := make(chan *types.Header, 10)
+		sub, err := chainAWSClient.SubscribeNewHead(ctx, newHeads)
+		gomega.Expect(err).Should(gomega.BeNil())
+		defer sub.Unsubscribe()
+
+		startingNonce, err := chainAWSClient.NonceAt(ctx, fundedAddress, nil)
+		gomega.Expect(err).Should(gomega.BeNil())
+
+		packedInput, err := warp.PackSendWarpMessage(warp.SendWarpMessageInput{
+			DestinationChainID: common.Hash(blockchainIDB),
+			DestinationAddress: fundedAddress,
+			Payload:            payload,
+		})
+		gomega.Expect(err).Should(gomega.BeNil())
+		tx := types.NewTx(&types.DynamicFeeTx{
+			ChainID:   chainID,
+			Nonce:     startingNonce,
+			To:        &warp.Module.Address,
+			Gas:       200_000,
+			GasFeeCap: big.NewInt(225 * params.GWei),
+			GasTipCap: big.NewInt(params.GWei),
+			Value:     common.Big0,
+			Data:      packedInput,
+		})
+		signedTx, err := types.SignTx(tx, txSigner, fundedKey)
+		gomega.Expect(err).Should(gomega.BeNil())
+		log.Info("Sending sendWarpMessage transaction", "txHash", signedTx.Hash())
+		err = chainAWSClient.SendTransaction(ctx, signedTx)
+		gomega.Expect(err).Should(gomega.BeNil())
+
+		log.Info("Waiting for new block confirmation")
+		newHead := <-newHeads
+		blockHash := newHead.Hash()
+
+		log.Info("Fetching relevant warp logs from the newly produced block")
+		logs, err := chainAWSClient.FilterLogs(ctx, interfaces.FilterQuery{
+			BlockHash: &blockHash,
+			Addresses: []common.Address{warp.Module.Address},
+		})
+		gomega.Expect(err).Should(gomega.BeNil())
+		gomega.Expect(len(logs)).Should(gomega.Equal(1))
+
+		// Check for relevant warp log from subscription and ensure that it matches
+		// the log extracted from the last block.
+		txLog := logs[0]
+		log.Info("Parsing logData as unsigned warp message")
+		unsignedMsg, err := avalancheWarp.ParseUnsignedMessage(txLog.Data)
+		gomega.Expect(err).Should(gomega.BeNil())
+
+		// Set local variables for the duration of the test
+		unsignedWarpMessageID = unsignedMsg.ID()
+		unsignedWarpMsg = unsignedMsg
+		log.Info("Parsed unsignedWarpMsg", "unsignedWarpMessageID", unsignedWarpMessageID, "unsignedWarpMessage", unsignedWarpMsg)
+
+		// Loop over each client on chain A to ensure they all have time to accept the block.
+		// Note: if we did not confirm this here, the next stage could be racy since it assumes every node
+		// has accepted the block.
+		for i, uri := range chainAURIs {
+			chainAWSURI := toWebsocketURI(uri, blockchainIDA.String())
+			log.Info("Creating ethclient for blockchainA", "wsURI", chainAWSURI)
+			client, err := ethclient.Dial(chainAWSURI)
+			gomega.Expect(err).Should(gomega.BeNil())
+
+			// Loop until each node has advanced to >= the height of the block that emitted the warp log
+			for {
+				block, err := client.BlockByNumber(ctx, nil)
+				gomega.Expect(err).Should(gomega.BeNil())
+				if block.NumberU64() >= newHead.Number.Uint64() {
+					log.Info("client accepted the block containing SendWarpMessage", "client", i, "height", block.NumberU64())
+					break
+				}
+			}
+		}
 	})
 })
 
