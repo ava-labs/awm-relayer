@@ -3,6 +3,7 @@ module github.com/ava-labs/awm-relayer
 go 1.18
 
 require (
+	github.com/ava-labs/avalanche-network-runner v1.7.2-0.20230825150237-723bc7b31724
 	github.com/ava-labs/avalanchego v1.10.9
 	github.com/ava-labs/subnet-evm v0.5.4
 	github.com/ethereum/go-ethereum v1.12.0
@@ -18,7 +19,6 @@ require (
 
 require (
 	github.com/Microsoft/go-winio v0.5.2 // indirect
-	github.com/ava-labs/avalanche-network-runner v1.7.2-0.20230825150237-723bc7b31724 // indirect
 	github.com/ava-labs/coreth v0.12.5-rc.3 // indirect
 	github.com/cockroachdb/errors v1.9.1 // indirect
 	github.com/cockroachdb/logtags v0.0.0-20230118201751-21c54148d20b // indirect
@@ -31,6 +31,7 @@ require (
 	github.com/fjl/memsize v0.0.0-20190710130421-bcb5799ab5e5 // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
 	github.com/getsentry/sentry-go v0.18.0 // indirect
+	github.com/go-cmd/cmd v1.4.1 // indirect
 	github.com/go-sourcemap/sourcemap v2.1.3+incompatible // indirect
 	github.com/go-task/slim-sprig v0.0.0-20230315185526-52ccab3ef572 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
