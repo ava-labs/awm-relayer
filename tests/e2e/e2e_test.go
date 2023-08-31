@@ -37,13 +37,15 @@ var (
 )
 
 func TestE2E(t *testing.T) {
-	log.Info("Tested hello world2")
+	log.Info("RUN_E2E value is", "value", os.Getenv("RUN_E2E"))
 	if os.Getenv("RUN_E2E") == "" {
 		t.Skip("Environment variable RUN_E2E not set; skipping E2E tests")
 	}
 
 	gomega.RegisterFailHandler(ginkgo.Fail)
-	ginkgo.RunSpecs(t, "awm-relayer e2e test")
+	ginkgo.RunSpecs(t, "Relayer e2e test")
+
+	log.Info("Ran ginkgo specs")
 }
 
 func toWebsocketURI(uri string, blockchainID string) string {
@@ -55,6 +57,7 @@ func toWebsocketURI(uri string, blockchainID string) string {
 // Adds two disjoint sets of 5 of the new validator nodes to validate two new subnets with a
 // a single Subnet-EVM blockchain.
 var _ = ginkgo.BeforeSuite(func() {
+	log.Info("Got to ginkgo before suite")
 	ctx := context.Background()
 	var err error
 
@@ -130,12 +133,14 @@ var _ = ginkgo.BeforeSuite(func() {
 })
 
 var _ = ginkgo.AfterSuite(func() {
+	log.Info("Got to ginkgo after suite")
 	gomega.Expect(manager).ShouldNot(gomega.BeNil())
 	gomega.Expect(manager.TeardownNetwork()).Should(gomega.BeNil())
 	gomega.Expect(os.Remove(warpChainConfigPath)).Should(gomega.BeNil())
 })
 
-var _ = ginkgo.Describe("[Relay]", ginkgo.Ordered, func() {
+var _ = ginkgo.Describe("[Relayer]", ginkgo.Ordered, func() {
+	log.Info("Got to ginkgo describe")
 	var (
 		subnetA, subnetB             ids.ID
 		blockchainIDA, blockchainIDB ids.ID
@@ -158,7 +163,7 @@ var _ = ginkgo.Describe("[Relay]", ginkgo.Ordered, func() {
 	}
 	fundedAddress = crypto.PubkeyToAddress(fundedKey.PublicKey)
 
-	ginkgo.It("Setup subnet URIs", ginkgo.Label("Warp", "SetupWarp"), func() {
+	ginkgo.It("Setup subnet URIs", ginkgo.Label("Relayer", "SetupWarp"), func() {
 		subnetIDs := manager.GetSubnets()
 		gomega.Expect(len(subnetIDs)).Should(gomega.Equal(2))
 
