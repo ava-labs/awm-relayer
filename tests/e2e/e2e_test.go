@@ -61,14 +61,6 @@ var _ = ginkgo.BeforeSuite(func() {
 	ctx := context.Background()
 	var err error
 
-	// Build the awm-relayer binary
-	cmd := exec.Command("./scripts/build.sh")
-	out, err := cmd.CombinedOutput()
-	fmt.Println(string(out))
-	gomega.Expect(err).Should(gomega.BeNil())
-
-	log.Info("Tested hello world")
-
 	// Name 10 new validators (which should have BLS key registered)
 	subnetANodeNames := make([]string, 0)
 	subnetBNodeNames := []string{}
@@ -137,6 +129,7 @@ var _ = ginkgo.AfterSuite(func() {
 	gomega.Expect(manager).ShouldNot(gomega.BeNil())
 	gomega.Expect(manager.TeardownNetwork()).Should(gomega.BeNil())
 	gomega.Expect(os.Remove(warpChainConfigPath)).Should(gomega.BeNil())
+	gomega.Expect(os.Remove(relayerConfigPath)).Should(gomega.BeNil())
 })
 
 var _ = ginkgo.Describe("[Relayer]", ginkgo.Ordered, func() {
@@ -194,7 +187,7 @@ var _ = ginkgo.Describe("[Relayer]", ginkgo.Ordered, func() {
 		gomega.Expect(err).Should(gomega.BeNil())
 	})
 
-	ginkgo.It("Set up awm-relayer", ginkgo.Label("Relayer", "SetupRelayer"), func() {
+	ginkgo.It("Set up relayer configr", ginkgo.Label("Relayer", "Setup Relayer"), func() {
 		subnetADetails, ok := manager.GetSubnet(subnetA)
 		gomega.Expect(ok).Should(gomega.BeTrue())
 
@@ -256,8 +249,19 @@ var _ = ginkgo.Describe("[Relayer]", ginkgo.Ordered, func() {
 		log.Info("Created awm-relayer config", "configPath", relayerConfigPath, "config", string(data))
 	})
 
-	ginkgo.It("Should fail", ginkgo.Label("Relayer", "Fail"), func() {
-		gomega.Expect(false).Should(gomega.BeTrue())
+	ginkgo.It("Build + Run Relayer", ginkgo.Label("Relayer", "Run Relayer"), func() {
+		// Build the awm-relayer binary
+		cmd := exec.Command("./scripts/build.sh")
+		out, err := cmd.CombinedOutput()
+		fmt.Println(string(out))
+		gomega.Expect(err).Should(gomega.BeNil())
+
+		// Run awm relayer binary with config path
+		cmd = exec.Command("./build/awm-relayer", "--config", relayerConfigPath)
+		out, err = cmd.CombinedOutput()
+		fmt.Println(string(out))
+		gomega.Expect(err).Should(gomega.BeNil())
+		log.Info("Running relayer")
 	})
 })
 
