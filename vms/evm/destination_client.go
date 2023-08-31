@@ -79,6 +79,9 @@ func NewDestinationClient(logger logging.Logger, subnetInfo config.DestinationSu
 	if err != nil {
 		logger.Error(
 			"Failed to get nonce",
+			zap.String("eoa", eoa.String()),
+			zap.String("chainID", destinationID.String()),
+			zap.String("rpcEndpoint", subnetInfo.GetNodeRPCEndpoint()),
 			zap.Error(err),
 		)
 		return nil, err

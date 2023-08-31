@@ -216,6 +216,8 @@ var _ = ginkgo.Describe("[Relayer]", ginkgo.Ordered, func() {
 		hostB, portB, err := getURIHostAndPort(subnetBDetails.ValidatorURIs[0])
 		gomega.Expect(err).Should(gomega.BeNil())
 
+		log.Info("Setting up relayer config", "hostA", hostA, "portA", portA, "blockChainA", blockchainIDA, "hostB", hostB, "portB", portB, "blockChainB", blockchainIDB)
+
 		relayerConfig := config.Config{
 			LogLevel:          logging.Info.LowerString(),
 			NetworkID:         1337,
@@ -301,12 +303,17 @@ var _ = ginkgo.Describe("[Relayer]", ginkgo.Ordered, func() {
 		startingNonce, err := chainAWSClient.NonceAt(ctx, fundedAddress, nil)
 		gomega.Expect(err).Should(gomega.BeNil())
 
+		nonce, err := chainBWSClient.NonceAt(ctx, fundedAddress, nil)
+		gomega.Expect(err).Should(gomega.BeNil())
+
+		log.Info("Packing teleporter message", "nonceA", startingNonce, "nonceB", nonce)
+
 		payload, err = teleporter.PackTeleporterMessage(common.Hash(blockchainIDB), teleporterMessage)
 		gomega.Expect(err).Should(gomega.BeNil())
 
 		packedInput, err := warp.PackSendWarpMessage(warp.SendWarpMessageInput{
 			DestinationChainID: common.Hash(blockchainIDB),
-			DestinationAddress: fundedAddress,
+			DestinationAddress: teleporterContractAddress,
 			Payload:            payload,
 		})
 		gomega.Expect(err).Should(gomega.BeNil())
