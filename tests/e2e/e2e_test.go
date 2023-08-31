@@ -7,15 +7,13 @@ import (
 	"fmt"
 	"math/big"
 	"os"
+	"os/exec"
 	"strconv"
 	"strings"
 	"testing"
-	"time"
 
-	anr_client "github.com/ava-labs/avalanche-network-runner/client"
 	"github.com/ava-labs/avalanche-network-runner/rpcpb"
 	"github.com/ava-labs/avalanchego/ids"
-	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/awm-relayer/config"
 	"github.com/ava-labs/subnet-evm/ethclient"
 	"github.com/ava-labs/subnet-evm/plugin/evm"
@@ -39,6 +37,10 @@ var (
 )
 
 func TestE2E(t *testing.T) {
+	if os.Getenv("RUN_E2E") == "" {
+		t.Skip("Environment variable RUN_E2E not set; skipping E2E tests")
+	}
+
 	gomega.RegisterFailHandler(ginkgo.Fail)
 	ginkgo.RunSpecs(t, "awm-relayer e2e test")
 }
@@ -56,10 +58,10 @@ var _ = ginkgo.BeforeSuite(func() {
 	var err error
 
 	// Build the awm-relayer binary
-	// cmd := exec.Command("../../scripts/build.sh")
-	// out, err := cmd.CombinedOutput()
-	// fmt.Println(string(out))
-	// gomega.Expect(err).Should(gomega.BeNil())
+	cmd := exec.Command("./scripts/build.sh")
+	out, err := cmd.CombinedOutput()
+	fmt.Println(string(out))
+	gomega.Expect(err).Should(gomega.BeNil())
 
 	// Name 10 new validators (which should have BLS key registered)
 	subnetANodeNames := make([]string, 0)
@@ -246,31 +248,6 @@ var _ = ginkgo.Describe("[Relay]", ginkgo.Ordered, func() {
 		log.Info("Created awm-relayer config", "configPath", relayerConfigPath, "config", string(data))
 	})
 })
-
-func getANRClient() (anr_client.Client, error) {
-	logLevel, err := logging.ToLevel(logging.Info.String())
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse ANR log level: %w", err)
-	}
-	logFactory := logging.NewFactory(logging.Config{
-		DisplayLevel: logLevel,
-		LogLevel:     logLevel,
-	})
-	zapLog, err := logFactory.Make("main")
-	if err != nil {
-		return nil, fmt.Errorf("failed to make client log: %w", err)
-	}
-
-	anrClient, err := anr_client.New(anr_client.Config{
-		Endpoint:    "0.0.0.0:12352",
-		DialTimeout: 10 * time.Second,
-	}, zapLog)
-	if err != nil {
-		return nil, fmt.Errorf("failed to start ANR client: %w", err)
-	}
-
-	return anrClient, nil
-}
 
 func getURIHostAndPort(uri string) (string, uint32, error) {
 	// At a minimum uri should have http:// of 7 characters
