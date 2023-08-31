@@ -1,7 +1,7 @@
 # Copyright (C) 2023, Ava Labs, Inc. All rights reserved.
 # See the file LICENSE for licensing terms.
 
-name: Run Relayer Unit Tests
+name: Relayer Tests
 
 on:
     push:
@@ -10,6 +10,7 @@ on:
 
 jobs:
     build-test-relayer:
+        name: Build + Unit tests
         runs-on: ubuntu-20.04
 
         steps:
@@ -34,9 +35,9 @@ jobs:
                   cd awm-relayer
                   go test ./...
 
-    e2e_test:
+    e2e_tests:
         runs-on: ubuntu-20.04
-        name: Run Relayer E2E Tests
+        name: e2e_tests
 
         steps:
             - name: Checkout subnet-evm repository
