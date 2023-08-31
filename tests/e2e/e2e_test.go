@@ -257,7 +257,7 @@ var _ = ginkgo.Describe("[Relayer]", ginkgo.Ordered, func() {
 		gomega.Expect(err).Should(gomega.BeNil())
 
 		// Run awm relayer binary with config path
-		cmd = exec.Command("./build/awm-relayer", "--config", relayerConfigPath)
+		cmd = exec.Command("./build/awm-relayer", "--config-file", relayerConfigPath)
 		out, err = cmd.CombinedOutput()
 		fmt.Println(string(out))
 		gomega.Expect(err).Should(gomega.BeNil())
