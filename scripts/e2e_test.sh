@@ -19,6 +19,9 @@ go install -v github.com/onsi/ginkgo/v2/ginkgo@${GINKGO_VERSION}
 ACK_GINKGO_RC=true ginkgo build ./tests/e2e
 
 # Run the tests
+echo "Running e2e tests $RUN_E2E"
 ./tests/e2e/e2e.test \
   --ginkgo.vv \
   --ginkgo.label-filter=${GINKGO_LABEL_FILTER:-""}
+
+  echo "e2e tests passed"
