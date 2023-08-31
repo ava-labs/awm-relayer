@@ -63,6 +63,12 @@ var _ = ginkgo.BeforeSuite(func() {
 	fmt.Println(string(out))
 	gomega.Expect(err).Should(gomega.BeNil())
 
+	cmd = exec.Command(fmt.Sprintf("echo %s", "hello world"))
+	out, err = cmd.CombinedOutput()
+	fmt.Println(string(out))
+	gomega.Expect(err).Should(gomega.BeNil())
+	log.Info("Tested hello world")
+
 	// Name 10 new validators (which should have BLS key registered)
 	subnetANodeNames := make([]string, 0)
 	subnetBNodeNames := []string{}
@@ -246,6 +252,10 @@ var _ = ginkgo.Describe("[Relay]", ginkgo.Ordered, func() {
 		relayerConfigPath = f.Name()
 
 		log.Info("Created awm-relayer config", "configPath", relayerConfigPath, "config", string(data))
+	})
+
+	ginkgo.It("Should fail", ginkgo.Label("Relayer", "Fail"), func() {
+		gomega.Expect(false).Should(gomega.BeTrue())
 	})
 })
 

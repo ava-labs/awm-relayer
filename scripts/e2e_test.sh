@@ -10,11 +10,13 @@ source "$AWM_RELAYER_PATH"/scripts/constants.sh
 
 source "$AWM_RELAYER_PATH"/scripts/versions.sh
 
+RUN_E2E=true
+
 # Build ginkgo
 # to install the ginkgo binary (required for test build and run)
 go install -v github.com/onsi/ginkgo/v2/ginkgo@${GINKGO_VERSION}
 
-ginkgo build ./tests/e2e
+ACK_GINKGO_RC=true ginkgo build ./tests/e2e
 
 # Run the tests
 ./tests/e2e/e2e.test \
