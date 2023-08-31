@@ -7,3 +7,4 @@ awm_relayer_version=${AWM_RELAYER_VERSION:-'v0.0.1'}
 subnet_evm_version=${SUBNET_EVM_VERSION:-'v0.5.2-warp-rc.0'}
 # Don't export them as they're used in the context of other calls
 avalanche_version=${AVALANCHE_VERSION:-'v1.10.2'}
+ginkgo_version=${GINKGO_VERSION:-'v2.2.0'}
