@@ -325,36 +325,24 @@ var _ = ginkgo.Describe("[Relayer]", ginkgo.Ordered, func() {
 		log.Info("Got nonce from chainB", "nonce", nonce)
 	})
 
-	// ginkgo.It("Build + Run Relayer", ginkgo.Label("Relayer", "Run Relayer"), func() {
-	// 	// Build the awm-relayer binary
-	// 	cmd := exec.Command("./scripts/build.sh")
-	// 	out, err := cmd.CombinedOutput()
-	// 	fmt.Println(string(out))
-	// 	gomega.Expect(err).Should(gomega.BeNil())
+	ginkgo.It("Build Relayer", ginkgo.Label("Relayer", "Build Relayer"), func() {
+		// Build the awm-relayer binary
+		cmd := exec.Command("./scripts/build.sh")
+		out, err := cmd.CombinedOutput()
+		fmt.Println(string(out))
+		gomega.Expect(err).Should(gomega.BeNil())
+	})
 
-	// 	// Run awm relayer binary with config path
-	// 	cmd = exec.Command("./build/awm-relayer", "--config-file", relayerConfigPath)
-	// 	out, err = cmd.CombinedOutput()
-	// 	fmt.Println(string(out))
-	// 	gomega.Expect(err).Should(gomega.BeNil())
-	// 	log.Info("Running relayer")
-	// })
 	// Send a transaction to Subnet A to issue a Warp Message to Subnet B
 	ginkgo.It("Send Message from A to B", ginkgo.Label("Warp", "SendWarp"), func() {
 		ctx := context.Background()
-		// Build the awm-relayer binary
-		log.Info("Build and running relayer in goroutine")
-		cmd := exec.Command("./scripts/build.sh")
-		out, err = cmd.CombinedOutput()
-		fmt.Println(string(out))
-		gomega.Expect(err).Should(gomega.BeNil())
 
 		// Create a channel to communicate with the goroutine
 		cmdOutput := make(chan string)
 
 		// Run awm relayer binary with config path
 		relayerContext, relayerCancel := context.WithCancel(ctx)
-		cmd = exec.CommandContext(relayerContext, "./build/awm-relayer", "--config-file", relayerConfigPath)
+		cmd := exec.CommandContext(relayerContext, "./build/awm-relayer", "--config-file", relayerConfigPath)
 
 		// Set up a pipe to capture the command's output
 		cmdReader, _ := cmd.StdoutPipe()
@@ -376,10 +364,6 @@ var _ = ginkgo.Describe("[Relayer]", ginkgo.Ordered, func() {
 
 		time.Sleep(15 * time.Second)
 		log.Info("Subscribing to new heads")
-		// newHeadsA := make(chan *types.Header, 10)
-		// sub, err := chainAWSClient.SubscribeNewHead(ctx, newHeadsA)
-		// gomega.Expect(err).Should(gomega.BeNil())
-		// defer sub.Unsubscribe()
 
 		newHeadsB := make(chan *types.Header, 10)
 		sub, err := chainBWSClient.SubscribeNewHead(ctx, newHeadsB)
