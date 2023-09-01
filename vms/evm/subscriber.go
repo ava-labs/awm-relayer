@@ -84,15 +84,28 @@ func NewSubscriber(logger logging.Logger, subnetInfo config.SourceSubnet, db dat
 	}
 }
 
-func NewWarpLogInfo(log types.Log) (*vmtypes.WarpLogInfo, error) {
+func (s *subscriber) NewWarpLogInfo(log types.Log) (*vmtypes.WarpLogInfo, error) {
 	if len(log.Topics) != 4 {
+		s.logger.Error(
+			"Log did not have the correct number of topics",
+			zap.Int("numTopics", len(log.Topics)),
+		)
 		return nil, ErrInvalidLog
 	}
 	if log.Topics[0] != warp.WarpABI.Events["SendWarpMessage"].ID {
+		s.logger.Error(
+			"Log topic does not match the SendWarpMessage event type",
+			zap.String("topic", log.Topics[0].String()),
+			zap.String("expectedTopic", warp.WarpABI.Events["SendWarpMessage"].ID.String()),
+		)
 		return nil, ErrInvalidLog
 	}
 	destinationChainID, err := ids.ToID(log.Topics[1].Bytes())
 	if err != nil {
+		s.logger.Error(
+			"Failed to decode destination chain ID",
+			zap.Error(err),
+		)
 		return nil, ErrInvalidLog
 	}
 
@@ -108,9 +121,9 @@ func NewWarpLogInfo(log types.Log) (*vmtypes.WarpLogInfo, error) {
 // forward logs from the concrete log channel to the interface channel
 func (s *subscriber) forwardLogs() {
 	for msgLog := range s.evmLog {
-		messageInfo, err := NewWarpLogInfo(msgLog)
+		messageInfo, err := s.NewWarpLogInfo(msgLog)
 		if err != nil {
-			s.logger.Info(
+			s.logger.Error(
 				"Invalid log. Continuing.",
 				zap.Error(err),
 			)
@@ -166,10 +179,10 @@ func (s *subscriber) ProcessFromHeight(height *big.Int) error {
 		zap.String("toBlockHeight", strconv.Itoa(int(latestBlock))),
 	)
 	for _, log := range logs {
-		messageInfo, err := NewWarpLogInfo(log)
+		messageInfo, err := s.NewWarpLogInfo(log)
 		if err != nil {
-			s.logger.Info(
-				"Invalid log on initialization. Continuing.",
+			s.logger.Error(
+				"Invalid log when processing from height. Continuing.",
 				zap.Error(err),
 			)
 			continue
