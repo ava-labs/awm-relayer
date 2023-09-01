@@ -47,10 +47,7 @@ func createUnsignedMessage() *warp.UnsignedMessage {
 
 func TestUnpack(t *testing.T) {
 	ctrl := logging.NewMockLogger(gomock.NewController(t))
-
 	m := NewContractMessage(ctrl, config.SourceSubnet{})
-
-	// ctrl.EXPECT().Error(nil, nil).Return(nil).AnyTimes()
 
 	testCases := []struct {
 		input     string
