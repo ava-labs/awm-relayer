@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/ava-labs/avalanche-network-runner/rpcpb"
 	"github.com/ava-labs/avalanchego/ids"
@@ -50,6 +51,7 @@ var (
 		Receipts:                []teleporter.TeleporterMessageReceipt{},
 		Message:                 []byte{1, 2, 3, 4},
 	}
+	out = []byte{}
 )
 
 func TestE2E(t *testing.T) {
@@ -66,6 +68,10 @@ func TestE2E(t *testing.T) {
 
 func toWebsocketURI(uri string, blockchainID string) string {
 	return fmt.Sprintf("ws://%s/ext/bc/%s/ws", strings.TrimPrefix(uri, "http://"), blockchainID)
+}
+
+func toRPCURI(uri string, blockchainID string) string {
+	return fmt.Sprintf("http://%s/ext/bc/%s/rpc", strings.TrimPrefix(uri, "http://"), blockchainID)
 }
 
 // BeforeSuite builds the awm-relayer binary, starts the default network and adds 10 new nodes as validators with BLS keys
@@ -149,11 +155,14 @@ var _ = ginkgo.AfterSuite(func() {
 	gomega.Expect(manager.TeardownNetwork()).Should(gomega.BeNil())
 	gomega.Expect(os.Remove(warpChainConfigPath)).Should(gomega.BeNil())
 	gomega.Expect(os.Remove(relayerConfigPath)).Should(gomega.BeNil())
+	fmt.Println(string(out))
+	log.Info("Relayer finished")
 })
 
 var _ = ginkgo.Describe("[Relayer]", ginkgo.Ordered, func() {
 	log.Info("Got to ginkgo describe")
 	var (
+		subnetIDs                    []ids.ID
 		subnetA, subnetB             ids.ID
 		blockchainIDA, blockchainIDB ids.ID
 		chainAURIs, chainBURIs       []string
@@ -175,7 +184,7 @@ var _ = ginkgo.Describe("[Relayer]", ginkgo.Ordered, func() {
 	fundedAddress = crypto.PubkeyToAddress(fundedKey.PublicKey)
 
 	ginkgo.It("Setup subnet URIs", ginkgo.Label("Relayer", "SetupWarp"), func() {
-		subnetIDs := manager.GetSubnets()
+		subnetIDs = manager.GetSubnets()
 		gomega.Expect(len(subnetIDs)).Should(gomega.Equal(2))
 
 		subnetA = subnetIDs[0]
@@ -214,19 +223,25 @@ var _ = ginkgo.Describe("[Relayer]", ginkgo.Ordered, func() {
 	})
 
 	ginkgo.It("Set up relayer config", ginkgo.Label("Relayer", "Setup Relayer"), func() {
+		log.Info("Starting values for chains", "chainA", blockchainIDA.String(), "chainB", blockchainIDB.String())
+		log.Info("Starting values for subnet IDs", "subnetA", subnetA.String(), "subnetB", subnetB.String())
 		subnetADetails, ok := manager.GetSubnet(subnetA)
 		gomega.Expect(ok).Should(gomega.BeTrue())
+		blockchainIDA = subnetADetails.BlockchainID
+		subnetA = subnetIDs[0]
 
 		hostA, portA, err := getURIHostAndPort(subnetADetails.ValidatorURIs[0])
 		gomega.Expect(err).Should(gomega.BeNil())
 
 		subnetBDetails, ok := manager.GetSubnet(subnetB)
 		gomega.Expect(ok).Should(gomega.BeTrue())
+		blockchainIDB = subnetBDetails.BlockchainID
+		subnetB = subnetIDs[1]
 
 		hostB, portB, err := getURIHostAndPort(subnetBDetails.ValidatorURIs[0])
 		gomega.Expect(err).Should(gomega.BeNil())
 
-		log.Info("Setting up relayer config", "hostA", hostA, "portA", portA, "blockChainA", blockchainIDA, "hostB", hostB, "portB", portB, "blockChainB", blockchainIDB)
+		log.Info("Setting up relayer config", "hostA", hostA, "portA", portA, "blockChainA", blockchainIDA.String(), "hostB", hostB, "portB", portB, "blockChainB", blockchainIDB.String(), "subnetA", subnetA.String(), "subnetB", subnetB.String())
 
 		relayerConfig := config.Config{
 			LogLevel:          logging.Info.LowerString(),
@@ -278,24 +293,71 @@ var _ = ginkgo.Describe("[Relayer]", ginkgo.Ordered, func() {
 		log.Info("Created awm-relayer config", "configPath", relayerConfigPath, "config", string(data))
 	})
 
-	ginkgo.It("Build + Run Relayer", ginkgo.Label("Relayer", "Run Relayer"), func() {
-		// Build the awm-relayer binary
-		cmd := exec.Command("./scripts/build.sh")
-		out, err := cmd.CombinedOutput()
-		fmt.Println(string(out))
+	ginkgo.It("RPC endpoints", ginkgo.Label("Relayer", "RPC Endpoints"), func() {
+		// Check that the RPC endpoints are available
+		chainARPCURI := toRPCURI(chainAURIs[0], blockchainIDA.String())
+		log.Info("Creating ethclient for blockchainA", "rpcURI", chainARPCURI)
+		chainARPCClient, err := ethclient.Dial(chainARPCURI)
 		gomega.Expect(err).Should(gomega.BeNil())
 
-		// Run awm relayer binary with config path
-		cmd = exec.Command("./build/awm-relayer", "--config-file", relayerConfigPath)
-		out, err = cmd.CombinedOutput()
-		fmt.Println(string(out))
+		chainBRPCURI := toRPCURI(chainBURIs[0], blockchainIDB.String())
+		log.Info("Creating ethclient for blockchainB", "rpcURI", chainBRPCURI)
+		chainBRPCClient, err := ethclient.Dial(chainBRPCURI)
 		gomega.Expect(err).Should(gomega.BeNil())
-		log.Info("Running relayer")
+
+		// Check that the RPC endpoints are available
+		chainIDA, err := chainARPCClient.ChainID(context.Background())
+		gomega.Expect(err).Should(gomega.BeNil())
+
+		chainIDB, err := chainBRPCClient.ChainID(context.Background())
+		gomega.Expect(err).Should(gomega.BeNil())
+
+		log.Info("Got chain IDs", "chainIDA", chainIDA.String(), "chainIDB", chainIDB.String())
+
+		// Get nonce with rpc endpoints
+		nonce, err := chainARPCClient.NonceAt(context.Background(), fundedAddress, nil)
+		gomega.Expect(err).Should(gomega.BeNil())
+		log.Info("Got nonce from chainA", "nonce", nonce)
+
+		nonce, err = chainBRPCClient.NonceAt(context.Background(), fundedAddress, nil)
+		gomega.Expect(err).Should(gomega.BeNil())
+		log.Info("Got nonce from chainB", "nonce", nonce)
 	})
 
+	// ginkgo.It("Build + Run Relayer", ginkgo.Label("Relayer", "Run Relayer"), func() {
+	// 	// Build the awm-relayer binary
+	// 	cmd := exec.Command("./scripts/build.sh")
+	// 	out, err := cmd.CombinedOutput()
+	// 	fmt.Println(string(out))
+	// 	gomega.Expect(err).Should(gomega.BeNil())
+
+	// 	// Run awm relayer binary with config path
+	// 	cmd = exec.Command("./build/awm-relayer", "--config-file", relayerConfigPath)
+	// 	out, err = cmd.CombinedOutput()
+	// 	fmt.Println(string(out))
+	// 	gomega.Expect(err).Should(gomega.BeNil())
+	// 	log.Info("Running relayer")
+	// })
 	// Send a transaction to Subnet A to issue a Warp Message to Subnet B
 	ginkgo.It("Send Message from A to B", ginkgo.Label("Warp", "SendWarp"), func() {
 		ctx := context.Background()
+		go func() {
+			// Build the awm-relayer binary
+			log.Info("Build and running relayer in goroutine")
+			cmd := exec.Command("./scripts/build.sh")
+			out, err = cmd.CombinedOutput()
+			fmt.Println(string(out))
+			gomega.Expect(err).Should(gomega.BeNil())
+
+			// Run awm relayer binary with config path
+			cmd = exec.Command("./build/awm-relayer", "--config-file", relayerConfigPath)
+			err = cmd.Start()
+			defer func() {
+				fmt.Println(string(out))
+				gomega.Expect(err).Should(gomega.BeNil())
+				log.Info("Relayer finished")
+			}()
+		}()
 
 		gomega.Expect(err).Should(gomega.BeNil())
 
@@ -345,8 +407,16 @@ var _ = ginkgo.Describe("[Relayer]", ginkgo.Ordered, func() {
 		gomega.Expect(err).Should(gomega.BeNil())
 
 		log.Info("Waiting for new block confirmation")
-		newHead := <-newHeadsB
-		blockHash := newHead.Hash()
+		ticker := time.NewTimer(15 * time.Second)
+		var blockHash common.Hash
+		select {
+		case newHead := <-newHeadsB:
+			log.Info("Received new head", "height", newHead.Number.Uint64())
+			blockHash = newHead.Hash()
+		case <-ticker.C:
+			log.Info("Timed out waiting for new block")
+			os.Exit(1)
+		}
 
 		log.Info("Fetching relevant warp logs from the newly produced block")
 		logs, err := chainBWSClient.FilterLogs(ctx, interfaces.FilterQuery{
