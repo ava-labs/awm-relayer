@@ -137,6 +137,8 @@ var _ = ginkgo.BeforeSuite(func() {
 	chainBIDInt, err := client.ChainID(ctx)
 	gomega.Expect(err).Should(gomega.BeNil())
 
+	log.Info("Got chain ID int", "chainID", chainBIDInt.String())
+
 	err = utils.IssueTxsToActivateProposerVMFork(ctx, chainBIDInt, fundedKey, client)
 	gomega.Expect(err).Should(gomega.BeNil())
 })
@@ -194,15 +196,17 @@ var _ = ginkgo.Describe("[Relayer]", ginkgo.Ordered, func() {
 
 		chainAWSURI := toWebsocketURI(chainAURIs[0], blockchainIDA.String())
 		log.Info("Creating ethclient for blockchainA", "wsURI", chainAWSURI)
-		_, err = ethclient.Dial(chainAWSURI)
+		chainAWSClient, err = ethclient.Dial(chainAWSURI)
 		gomega.Expect(err).Should(gomega.BeNil())
 
 		chainAIDInt, err = chainAWSClient.ChainID(context.Background())
 		gomega.Expect(err).Should(gomega.BeNil())
 
+		log.Info("Got chain ID int", "chainID", chainAIDInt.String())
+
 		chainBWSURI := toWebsocketURI(chainBURIs[0], blockchainIDB.String())
 		log.Info("Creating ethclient for blockchainB", "wsURI", chainBWSURI)
-		_, err = ethclient.Dial(chainBWSURI)
+		chainBWSClient, err = ethclient.Dial(chainBWSURI)
 		gomega.Expect(err).Should(gomega.BeNil())
 
 		// chainBIDInt, err = chainBWSClient.ChainID(context.Background())
