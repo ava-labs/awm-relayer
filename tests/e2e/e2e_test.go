@@ -53,19 +53,15 @@ var (
 		Receipts:                []teleporter.TeleporterMessageReceipt{},
 		Message:                 []byte{1, 2, 3, 4},
 	}
-	out = []byte{}
 )
 
 func TestE2E(t *testing.T) {
-	log.Info("RUN_E2E value is", "value", os.Getenv("RUN_E2E"))
 	if os.Getenv("RUN_E2E") == "" {
 		t.Skip("Environment variable RUN_E2E not set; skipping E2E tests")
 	}
 
 	gomega.RegisterFailHandler(ginkgo.Fail)
 	ginkgo.RunSpecs(t, "Relayer e2e test")
-
-	log.Info("Ran ginkgo specs")
 }
 
 func toWebsocketURI(uri string, blockchainID string) string {
@@ -81,7 +77,6 @@ func toRPCURI(uri string, blockchainID string) string {
 // Adds two disjoint sets of 5 of the new validator nodes to validate two new subnets with a
 // a single Subnet-EVM blockchain.
 var _ = ginkgo.BeforeSuite(func() {
-	log.Info("Got to ginkgo before suite")
 	ctx := context.Background()
 	var err error
 
@@ -145,24 +140,21 @@ var _ = ginkgo.BeforeSuite(func() {
 	chainBIDInt, err := client.ChainID(ctx)
 	gomega.Expect(err).Should(gomega.BeNil())
 
-	log.Info("Got chain ID int", "chainID", chainBIDInt.String())
-
 	err = utils.IssueTxsToActivateProposerVMFork(ctx, chainBIDInt, fundedKey, client)
 	gomega.Expect(err).Should(gomega.BeNil())
+
+	log.Info("Set up ginkgo before suite")
 })
 
 var _ = ginkgo.AfterSuite(func() {
-	log.Info("Got to ginkgo after suite")
+	log.Info("Running ginkgo after suite")
 	gomega.Expect(manager).ShouldNot(gomega.BeNil())
 	gomega.Expect(manager.TeardownNetwork()).Should(gomega.BeNil())
 	gomega.Expect(os.Remove(warpChainConfigPath)).Should(gomega.BeNil())
 	gomega.Expect(os.Remove(relayerConfigPath)).Should(gomega.BeNil())
-	fmt.Println(string(out))
-	log.Info("Relayer finished")
 })
 
 var _ = ginkgo.Describe("[Relayer]", ginkgo.Ordered, func() {
-	log.Info("Got to ginkgo describe")
 	var (
 		subnetIDs                      []ids.ID
 		subnetA, subnetB               ids.ID
@@ -198,7 +190,7 @@ var _ = ginkgo.Describe("[Relayer]", ginkgo.Ordered, func() {
 		subnetB = subnetIDs[1]
 		subnetBDetails, ok := manager.GetSubnet(subnetB)
 		gomega.Expect(ok).Should(gomega.BeTrue())
-		blockchainIDB := subnetBDetails.BlockchainID
+		blockchainIDB = subnetBDetails.BlockchainID
 		gomega.Expect(len(subnetBDetails.ValidatorURIs)).Should(gomega.Equal(5))
 		chainBURIs = append(chainBURIs, subnetBDetails.ValidatorURIs...)
 
@@ -212,34 +204,22 @@ var _ = ginkgo.Describe("[Relayer]", ginkgo.Ordered, func() {
 		chainAIDInt, err = chainAWSClient.ChainID(context.Background())
 		gomega.Expect(err).Should(gomega.BeNil())
 
-		log.Info("Got chain ID int", "chainID", chainAIDInt.String())
-
 		chainBWSURI := toWebsocketURI(chainBURIs[0], blockchainIDB.String())
 		log.Info("Creating ethclient for blockchainB", "wsURI", chainBWSURI)
 		chainBWSClient, err = ethclient.Dial(chainBWSURI)
 		gomega.Expect(err).Should(gomega.BeNil())
 
-		// chainBIDInt, err = chainBWSClient.ChainID(context.Background())
-		// gomega.Expect(err).Should(gomega.BeNil())
+		log.Info("Finished setting up warp", "chainA", blockchainIDA.String(), "chainB", blockchainIDB.String())
 	})
 
 	ginkgo.It("Set up relayer config", ginkgo.Label("Relayer", "Setup Relayer"), func() {
 		log.Info("Starting values for chains", "chainA", blockchainIDA.String(), "chainB", blockchainIDB.String())
 		log.Info("Starting values for subnet IDs", "subnetA", subnetA.String(), "subnetB", subnetB.String())
-		subnetADetails, ok := manager.GetSubnet(subnetA)
-		gomega.Expect(ok).Should(gomega.BeTrue())
-		blockchainIDA = subnetADetails.BlockchainID
-		subnetA = subnetIDs[0]
 
-		hostA, portA, err := getURIHostAndPort(subnetADetails.ValidatorURIs[0])
+		hostA, portA, err := getURIHostAndPort(chainAURIs[0])
 		gomega.Expect(err).Should(gomega.BeNil())
 
-		subnetBDetails, ok := manager.GetSubnet(subnetB)
-		gomega.Expect(ok).Should(gomega.BeTrue())
-		blockchainIDB = subnetBDetails.BlockchainID
-		subnetB = subnetIDs[1]
-
-		hostB, portB, err := getURIHostAndPort(subnetBDetails.ValidatorURIs[0])
+		hostB, portB, err := getURIHostAndPort(chainBURIs[0])
 		gomega.Expect(err).Should(gomega.BeNil())
 
 		log.Info("Setting up relayer config", "hostA", hostA, "portA", portA, "blockChainA", blockchainIDA.String(), "hostB", hostB, "portB", portB, "blockChainB", blockchainIDB.String(), "subnetA", subnetA.String(), "subnetB", subnetB.String())
@@ -247,7 +227,7 @@ var _ = ginkgo.Describe("[Relayer]", ginkgo.Ordered, func() {
 		relayerConfig := config.Config{
 			LogLevel:          logging.Info.LowerString(),
 			NetworkID:         1337,
-			PChainAPIURL:      subnetADetails.ValidatorURIs[0],
+			PChainAPIURL:      chainAURIs[0],
 			EncryptConnection: false,
 			SourceSubnets: []config.SourceSubnet{
 				{
