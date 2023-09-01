@@ -1,3 +1,6 @@
+// Copyright (C) 2023, Ava Labs, Inc. All rights reserved.
+// See the file LICENSE for licensing terms.
+
 package tests
 
 import (
@@ -176,7 +179,7 @@ var _ = ginkgo.Describe("[Relayer]", ginkgo.Ordered, func() {
 	fundedAddress = crypto.PubkeyToAddress(fundedKey.PublicKey)
 	teleporterContractAddress = fundedAddress
 
-	ginkgo.It("Setup subnet URIs", ginkgo.Label("Relayer", "SetupWarp"), func() {
+	ginkgo.It("Setup subnet URIs", ginkgo.Label("Relayer", "Setup"), func() {
 		subnetIDs = manager.GetSubnets()
 		gomega.Expect(len(subnetIDs)).Should(gomega.Equal(2))
 
@@ -209,13 +212,10 @@ var _ = ginkgo.Describe("[Relayer]", ginkgo.Ordered, func() {
 		chainBWSClient, err = ethclient.Dial(chainBWSURI)
 		gomega.Expect(err).Should(gomega.BeNil())
 
-		log.Info("Finished setting up warp", "chainA", blockchainIDA.String(), "chainB", blockchainIDB.String())
+		log.Info("Finished setting up e2e test subnet variables")
 	})
 
 	ginkgo.It("Set up relayer config", ginkgo.Label("Relayer", "Setup Relayer"), func() {
-		log.Info("Starting values for chains", "chainA", blockchainIDA.String(), "chainB", blockchainIDB.String())
-		log.Info("Starting values for subnet IDs", "subnetA", subnetA.String(), "subnetB", subnetB.String())
-
 		hostA, portA, err := getURIHostAndPort(chainAURIs[0])
 		gomega.Expect(err).Should(gomega.BeNil())
 
