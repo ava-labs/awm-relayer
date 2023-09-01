@@ -62,6 +62,13 @@ func NewJSONFileStorage(logger logging.Logger, dir string, networks []ids.ID) (*
 
 // Get the latest chain state from the json database, and retrieve the value from the key
 func (s *JSONFileStorage) Get(chainID ids.ID, key []byte) ([]byte, error) {
+	mutex, ok := s.mutexes[chainID]
+	if !ok {
+		return nil, errors.New("network does not exist")
+	}
+
+	mutex.RLock()
+	defer mutex.RUnlock()
 	currentState := make(chainState)
 	fileExists, err := s.read(chainID, &currentState)
 	if err != nil {
@@ -76,15 +83,23 @@ func (s *JSONFileStorage) Get(chainID ids.ID, key []byte) ([]byte, error) {
 		return nil, errors.Errorf("file does not exist. chainID: %s", chainID)
 	}
 
-	if _, ok := currentState[string(key)]; !ok {
-		return nil, errors.Errorf("key does not exist. chainID: %s key: %s", chainID, key)
+	if val, ok := currentState[string(key)]; ok {
+		return []byte(val), nil
 	}
 
-	return []byte(currentState[string(key)]), nil
+	return nil, errors.Errorf("key does not exist. chainID: %s key: %s", chainID, key)
 }
 
 // Put the value into the json database. Read the current chain state and overwrite the key, if it exists
 func (s *JSONFileStorage) Put(chainID ids.ID, key []byte, value []byte) error {
+	mutex, ok := s.mutexes[chainID]
+	if !ok {
+		return errors.Errorf("network does not exist. chainID: %s", chainID.String())
+	}
+
+	mutex.Lock()
+	defer mutex.Unlock()
+
 	currentState := make(chainState)
 	_, err := s.read(chainID, &currentState)
 	if err != nil {
@@ -101,16 +116,8 @@ func (s *JSONFileStorage) Put(chainID ids.ID, key []byte, value []byte) error {
 	return s.write(chainID, currentState)
 }
 
-// write value into the file
+// Write the value to the file. The caller is responsible for ensuring proper synchronization
 func (s *JSONFileStorage) write(network ids.ID, v interface{}) error {
-	mutex, ok := s.mutexes[network]
-	if !ok {
-		return errors.Errorf("network does not exist. chainID: %s", network.String())
-	}
-
-	mutex.Lock()
-	defer mutex.Unlock()
-
 	fnlPath := filepath.Join(s.dir, network.String()+".json")
 	tmpPath := fnlPath + ".tmp"
 
@@ -138,15 +145,8 @@ func (s *JSONFileStorage) write(network ids.ID, v interface{}) error {
 // Read from disk and unmarshal into v
 // Returns a bool indicating whether the file exists, and an error.
 // If an error is returned, the bool should be ignored.
+// The caller is responsible for ensuring proper synchronization
 func (s *JSONFileStorage) read(network ids.ID, v interface{}) (bool, error) {
-	mutex, ok := s.mutexes[network]
-	if !ok {
-		return false, errors.New("network does not exist")
-	}
-
-	mutex.RLock()
-	defer mutex.RUnlock()
-
 	path := filepath.Join(s.dir, network.String()+".json")
 
 	// If the file does not exist, return false, but do not return an error as this
