@@ -42,7 +42,7 @@ func TestPackUnpackTeleporterMessage(t *testing.T) {
 		t.FailNow()
 	}
 
-	unpacked, err := unpackTeleporterMessage(b)
+	unpacked, err := UnpackTeleporterMessage(b)
 	if err != nil {
 		t.Errorf("failed to unpack teleporter message: %v", err)
 		t.FailNow()

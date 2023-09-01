@@ -35,7 +35,7 @@ type ReceiveCrossChainMessageInput struct {
 }
 
 // unpack Teleporter message bytes according to EVM ABI encoding rules
-func unpackTeleporterMessage(messageBytes []byte) (*TeleporterMessage, error) {
+func UnpackTeleporterMessage(messageBytes []byte) (*TeleporterMessage, error) {
 	args := abi.Arguments{
 		{
 			Name: "teleporterMessage",

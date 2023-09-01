@@ -73,7 +73,7 @@ func NewMessageManager(
 // ShouldSendMessage returns true if the message should be sent to the destination chain
 func (m *messageManager) ShouldSendMessage(warpMessageInfo *vmtypes.WarpMessageInfo, destinationChainID ids.ID) (bool, error) {
 	// Unpack the teleporter message and add it to the cache
-	teleporterMessage, err := unpackTeleporterMessage(warpMessageInfo.WarpPayload)
+	teleporterMessage, err := UnpackTeleporterMessage(warpMessageInfo.WarpPayload)
 	if err != nil {
 		m.logger.Error(
 			"Failed unpacking teleporter message.",
@@ -113,7 +113,7 @@ func (m *messageManager) SendMessage(signedMessage *warp.Message, parsedVmPayloa
 			zap.String("warpMessageID", signedMessage.ID().String()),
 		)
 		var err error
-		teleporterMessage, err = unpackTeleporterMessage(parsedVmPayload)
+		teleporterMessage, err = UnpackTeleporterMessage(parsedVmPayload)
 		if err != nil {
 			m.logger.Error(
 				"Failed unpacking teleporter message.",

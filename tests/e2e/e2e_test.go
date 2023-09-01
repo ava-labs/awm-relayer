@@ -22,11 +22,12 @@ import (
 	"github.com/ava-labs/awm-relayer/messages/teleporter"
 	"github.com/ava-labs/subnet-evm/core/types"
 	"github.com/ava-labs/subnet-evm/ethclient"
-	"github.com/ava-labs/subnet-evm/interfaces"
 	"github.com/ava-labs/subnet-evm/params"
 	"github.com/ava-labs/subnet-evm/plugin/evm"
 	"github.com/ava-labs/subnet-evm/tests/utils"
 	"github.com/ava-labs/subnet-evm/tests/utils/runner"
+	predicateutils "github.com/ava-labs/subnet-evm/utils/predicate"
+	warpPayload "github.com/ava-labs/subnet-evm/warp/payload"
 	"github.com/ava-labs/subnet-evm/x/warp"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -163,16 +164,14 @@ var _ = ginkgo.AfterSuite(func() {
 var _ = ginkgo.Describe("[Relayer]", ginkgo.Ordered, func() {
 	log.Info("Got to ginkgo describe")
 	var (
-		subnetIDs                    []ids.ID
-		subnetA, subnetB             ids.ID
-		blockchainIDA, blockchainIDB ids.ID
-		chainAURIs, chainBURIs       []string
-		fundedKey                    *ecdsa.PrivateKey
-		fundedAddress                common.Address
-		err                          error
-		unsignedWarpMsg              *avalancheWarp.UnsignedMessage
-		unsignedWarpMessageID        ids.ID
-		// signedWarpMsg                  *avalancheWarp.Message
+		subnetIDs                      []ids.ID
+		subnetA, subnetB               ids.ID
+		blockchainIDA, blockchainIDB   ids.ID
+		chainAURIs, chainBURIs         []string
+		fundedKey                      *ecdsa.PrivateKey
+		fundedAddress                  common.Address
+		err                            error
+		receivedWarpMessage            *avalancheWarp.Message
 		chainAWSClient, chainBWSClient ethclient.Client
 		chainAIDInt                    *big.Int
 		payload                        = []byte{}
@@ -354,7 +353,8 @@ var _ = ginkgo.Describe("[Relayer]", ginkgo.Ordered, func() {
 		cmdOutput := make(chan string)
 
 		// Run awm relayer binary with config path
-		cmd = exec.Command("./build/awm-relayer", "--config-file", relayerConfigPath)
+		relayerContext, relayerCancel := context.WithCancel(ctx)
+		cmd = exec.CommandContext(relayerContext, "./build/awm-relayer", "--config-file", relayerConfigPath)
 
 		// Set up a pipe to capture the command's output
 		cmdReader, _ := cmd.StdoutPipe()
@@ -374,7 +374,7 @@ var _ = ginkgo.Describe("[Relayer]", ginkgo.Ordered, func() {
 
 		gomega.Expect(err).Should(gomega.BeNil())
 
-		time.Sleep(30 * time.Second)
+		time.Sleep(15 * time.Second)
 		log.Info("Subscribing to new heads")
 		// newHeadsA := make(chan *types.Header, 10)
 		// sub, err := chainAWSClient.SubscribeNewHead(ctx, newHeadsA)
@@ -426,52 +426,53 @@ var _ = ginkgo.Describe("[Relayer]", ginkgo.Ordered, func() {
 		log.Info("Received new head", "height", newHead.Number.Uint64())
 		blockHash = newHead.Hash()
 
-		log.Info("Fetching relevant warp logs from the newly produced block")
-		logs, err := chainBWSClient.FilterLogs(ctx, interfaces.FilterQuery{
-			BlockHash: &blockHash,
-			Addresses: []common.Address{warp.Module.Address},
-		})
+		block, err := chainBWSClient.BlockByHash(ctx, blockHash)
 		gomega.Expect(err).Should(gomega.BeNil())
-		gomega.Expect(len(logs)).Should(gomega.Equal(1))
+		log.Info("Got block", "blockHash", blockHash, "blockNumber", block.NumberU64(), "transactions", block.Transactions(), "block", block)
+		accessLists := block.Transactions()[0].AccessList()
+		gomega.Expect(len(accessLists)).Should(gomega.Equal(1))
+		gomega.Expect(accessLists[0].Address).Should(gomega.Equal(warp.Module.Address))
 
-		// Check for relevant warp log from subscription and ensure that it matches
-		// the log extracted from the last block.
-		txLog := logs[0]
-		log.Info("Parsing logData as unsigned warp message")
-		unsignedMsg, err := avalancheWarp.ParseUnsignedMessage(txLog.Data)
+		// Check the transaction storage key has warp message we're expecting
+		storageKeyHashes := accessLists[0].StorageKeys
+		packedPredicate := predicateutils.HashSliceToBytes(storageKeyHashes)
+		predicateBytes, err := predicateutils.UnpackPredicate(packedPredicate)
 		gomega.Expect(err).Should(gomega.BeNil())
-
-		// Set local variables for the duration of the test
-		unsignedWarpMessageID = unsignedMsg.ID()
-		unsignedWarpMsg = unsignedMsg
-		log.Info("Parsed unsignedWarpMsg", "unsignedWarpMessageID", unsignedWarpMessageID, "unsignedWarpMessage", unsignedWarpMsg)
-
-		// Loop over each client on chain A to ensure they all have time to accept the block.
-		// Note: if we did not confirm this here, the next stage could be racy since it assumes every node
-		// has accepted the block.
-		// for i, uri := range chainAURIs {
-		// 	chainAWSURI := toWebsocketURI(uri, blockchainIDA.String())
-		// 	log.Info("Creating ethclient for blockchainA", "wsURI", chainAWSURI)
-		// 	client, err := ethclient.Dial(chainAWSURI)
-		// 	gomega.Expect(err).Should(gomega.BeNil())
-
-		// 	// Loop until each node has advanced to >= the height of the block that emitted the warp log
-		// 	for {
-		// 		block, err := client.BlockByNumber(ctx, nil)
-		// 		gomega.Expect(err).Should(gomega.BeNil())
-		// 		if block.NumberU64() >= newHead.Number.Uint64() {
-		// 			log.Info("client accepted the block containing SendWarpMessage", "client", i, "height", block.NumberU64())
-		// 			break
-		// 		}
-		// 	}
-		// }
-		// Wait for the command to finish (if needed)
-		err = cmd.Wait()
+		receivedWarpMessage, err = avalancheWarp.ParseMessage(predicateBytes)
 		gomega.Expect(err).Should(gomega.BeNil())
 
-		// You can also check the command's output status
-		result := <-cmdOutput
-		log.Info(result)
+		// Check that the transaction is no longer pending
+		txHash := block.Transactions()[0].Hash()
+		_, isPending, err := chainBWSClient.TransactionByHash(ctx, txHash)
+		gomega.Expect(err).Should(gomega.BeNil())
+		gomega.Expect(isPending).Should(gomega.BeFalse())
+
+		receipt, err := chainBWSClient.TransactionReceipt(ctx, txHash)
+		gomega.Expect(err).Should(gomega.BeNil())
+		gomega.Expect(receipt.Status).Should(gomega.Equal(types.ReceiptStatusSuccessful))
+
+		log.Info("Finished sending warp message, closing down output channel")
+
+		// Cancel the command and stop the relayer
+		relayerCancel()
+		_ = cmd.Wait()
+	})
+
+	ginkgo.It("Verify Warp Message", ginkgo.Label("Relay", "VerifyWarp"), func() {
+		gomega.Expect(receivedWarpMessage.SourceChainID).Should(gomega.Equal(blockchainIDA))
+		addressedPayload, err := warpPayload.ParseAddressedPayload(receivedWarpMessage.Payload)
+		gomega.Expect(err).Should(gomega.BeNil())
+
+		receivedDestinationID, err := ids.ToID(addressedPayload.DestinationChainID.Bytes())
+		gomega.Expect(err).Should(gomega.BeNil())
+		gomega.Expect(receivedDestinationID).Should(gomega.Equal(blockchainIDB))
+		gomega.Expect(addressedPayload.DestinationAddress).Should(gomega.Equal(teleporterContractAddress))
+		gomega.Expect(addressedPayload.Payload).Should(gomega.Equal(payload))
+
+		// Check that the teleporter message is correct
+		receivedTeleporterMessage, err := teleporter.UnpackTeleporterMessage(addressedPayload.Payload)
+		gomega.Expect(err).Should(gomega.BeNil())
+		gomega.Expect(*receivedTeleporterMessage).Should(gomega.Equal(teleporterMessage))
 	})
 })
 

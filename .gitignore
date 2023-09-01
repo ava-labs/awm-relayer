@@ -2,3 +2,6 @@ build/
 __debug_bin
 
 .vscode*
+
+# Ginkgo test binaries
+*.test
