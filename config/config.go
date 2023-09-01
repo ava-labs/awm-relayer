@@ -299,7 +299,9 @@ func (s *DestinationSubnet) GetNodeRPCEndpoint() string {
 	if subnetID == constants.PrimaryNetworkID {
 		chainID = cChainIdentifierString
 	}
-	return fmt.Sprintf("%s/ext/bc/%s/rpc", baseUrl, chainID)
+	// Save this result for future use
+	s.RPCEndpoint = fmt.Sprintf("%s/ext/bc/%s/rpc", baseUrl, chainID)
+	return s.RPCEndpoint
 }
 
 // Constructs an RPC endpoint for the subnet.
@@ -316,7 +318,9 @@ func (s *SourceSubnet) GetNodeRPCEndpoint() string {
 	if subnetID == constants.PrimaryNetworkID {
 		chainID = cChainIdentifierString
 	}
-	return fmt.Sprintf("%s/ext/bc/%s/rpc", baseUrl, chainID)
+	// Save this result for future use
+	s.RPCEndpoint = fmt.Sprintf("%s/ext/bc/%s/rpc", baseUrl, chainID)
+	return s.RPCEndpoint
 }
 
 // Constructs a WS endpoint for the subnet.
@@ -333,7 +337,9 @@ func (s *SourceSubnet) GetNodeWSEndpoint() string {
 	if subnetID == constants.PrimaryNetworkID {
 		chainID = cChainIdentifierString
 	}
-	return fmt.Sprintf("%s/ext/bc/%s/ws", baseUrl, chainID)
+	// Save this result for future use
+	s.WSEndpoint = fmt.Sprintf("%s/ext/bc/%s/ws", baseUrl, chainID)
+	return s.WSEndpoint
 }
 
 // Get the private key and derive the wallet address from a relayer's configured private key for a given destination subnet.
