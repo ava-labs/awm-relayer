@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"bufio"
 	"context"
 	"crypto/ecdsa"
 	"encoding/json"
@@ -182,6 +183,7 @@ var _ = ginkgo.Describe("[Relayer]", ginkgo.Ordered, func() {
 		panic(err)
 	}
 	fundedAddress = crypto.PubkeyToAddress(fundedKey.PublicKey)
+	teleporterContractAddress = fundedAddress
 
 	ginkgo.It("Setup subnet URIs", ginkgo.Label("Relayer", "SetupWarp"), func() {
 		subnetIDs = manager.GetSubnets()
@@ -341,26 +343,38 @@ var _ = ginkgo.Describe("[Relayer]", ginkgo.Ordered, func() {
 	// Send a transaction to Subnet A to issue a Warp Message to Subnet B
 	ginkgo.It("Send Message from A to B", ginkgo.Label("Warp", "SendWarp"), func() {
 		ctx := context.Background()
-		go func() {
-			// Build the awm-relayer binary
-			log.Info("Build and running relayer in goroutine")
-			cmd := exec.Command("./scripts/build.sh")
-			out, err = cmd.CombinedOutput()
-			fmt.Println(string(out))
-			gomega.Expect(err).Should(gomega.BeNil())
+		// Build the awm-relayer binary
+		log.Info("Build and running relayer in goroutine")
+		cmd := exec.Command("./scripts/build.sh")
+		out, err = cmd.CombinedOutput()
+		fmt.Println(string(out))
+		gomega.Expect(err).Should(gomega.BeNil())
 
-			// Run awm relayer binary with config path
-			cmd = exec.Command("./build/awm-relayer", "--config-file", relayerConfigPath)
-			err = cmd.Start()
-			defer func() {
-				fmt.Println(string(out))
-				gomega.Expect(err).Should(gomega.BeNil())
-				log.Info("Relayer finished")
-			}()
+		// Create a channel to communicate with the goroutine
+		cmdOutput := make(chan string)
+
+		// Run awm relayer binary with config path
+		cmd = exec.Command("./build/awm-relayer", "--config-file", relayerConfigPath)
+
+		// Set up a pipe to capture the command's output
+		cmdReader, _ := cmd.StdoutPipe()
+
+		// Start the command
+		err := cmd.Start()
+		gomega.Expect(err).Should(gomega.BeNil())
+
+		// Start a goroutine to read and output the command's stdout
+		go func() {
+			scanner := bufio.NewScanner(cmdReader)
+			for scanner.Scan() {
+				log.Info(scanner.Text())
+			}
+			cmdOutput <- "Command execution finished"
 		}()
 
 		gomega.Expect(err).Should(gomega.BeNil())
 
+		time.Sleep(30 * time.Second)
 		log.Info("Subscribing to new heads")
 		// newHeadsA := make(chan *types.Header, 10)
 		// sub, err := chainAWSClient.SubscribeNewHead(ctx, newHeadsA)
@@ -407,16 +421,10 @@ var _ = ginkgo.Describe("[Relayer]", ginkgo.Ordered, func() {
 		gomega.Expect(err).Should(gomega.BeNil())
 
 		log.Info("Waiting for new block confirmation")
-		ticker := time.NewTimer(15 * time.Second)
 		var blockHash common.Hash
-		select {
-		case newHead := <-newHeadsB:
-			log.Info("Received new head", "height", newHead.Number.Uint64())
-			blockHash = newHead.Hash()
-		case <-ticker.C:
-			log.Info("Timed out waiting for new block")
-			os.Exit(1)
-		}
+		newHead := <-newHeadsB
+		log.Info("Received new head", "height", newHead.Number.Uint64())
+		blockHash = newHead.Hash()
 
 		log.Info("Fetching relevant warp logs from the newly produced block")
 		logs, err := chainBWSClient.FilterLogs(ctx, interfaces.FilterQuery{
@@ -457,6 +465,13 @@ var _ = ginkgo.Describe("[Relayer]", ginkgo.Ordered, func() {
 		// 		}
 		// 	}
 		// }
+		// Wait for the command to finish (if needed)
+		err = cmd.Wait()
+		gomega.Expect(err).Should(gomega.BeNil())
+
+		// You can also check the command's output status
+		result := <-cmdOutput
+		log.Info(result)
 	})
 })
 
