@@ -124,7 +124,6 @@ var _ = ginkgo.BeforeSuite(func() {
 	gomega.Expect(err).Should(gomega.BeNil())
 
 	// Issue transactions to activate the proposerVM fork on the receiving chain
-	chainID := big.NewInt(99999)
 	fundedKey, err := crypto.HexToECDSA(fundedKeyStr)
 	gomega.Expect(err).Should(gomega.BeNil())
 	subnetB := manager.GetSubnets()[1]
@@ -135,8 +134,10 @@ var _ = ginkgo.BeforeSuite(func() {
 	uri := toWebsocketURI(subnetBDetails.ValidatorURIs[0], chainBID.String())
 	client, err := ethclient.Dial(uri)
 	gomega.Expect(err).Should(gomega.BeNil())
+	chainBIDInt, err := client.ChainID(ctx)
+	gomega.Expect(err).Should(gomega.BeNil())
 
-	err = utils.IssueTxsToActivateProposerVMFork(ctx, chainID, fundedKey, client)
+	err = utils.IssueTxsToActivateProposerVMFork(ctx, chainBIDInt, fundedKey, client)
 	gomega.Expect(err).Should(gomega.BeNil())
 })
 
@@ -161,9 +162,8 @@ var _ = ginkgo.Describe("[Relayer]", ginkgo.Ordered, func() {
 		unsignedWarpMessageID        ids.ID
 		// signedWarpMsg                  *avalancheWarp.Message
 		chainAWSClient, chainBWSClient ethclient.Client
-		chainID                        = big.NewInt(99999)
+		chainAIDInt                    *big.Int
 		payload                        = []byte{}
-		txSigner                       = types.LatestSignerForChainID(chainID)
 	)
 
 	fundedKey, err = crypto.HexToECDSA(fundedKeyStr)
@@ -197,10 +197,16 @@ var _ = ginkgo.Describe("[Relayer]", ginkgo.Ordered, func() {
 		_, err = ethclient.Dial(chainAWSURI)
 		gomega.Expect(err).Should(gomega.BeNil())
 
+		chainAIDInt, err = chainAWSClient.ChainID(context.Background())
+		gomega.Expect(err).Should(gomega.BeNil())
+
 		chainBWSURI := toWebsocketURI(chainBURIs[0], blockchainIDB.String())
 		log.Info("Creating ethclient for blockchainB", "wsURI", chainBWSURI)
 		_, err = ethclient.Dial(chainBWSURI)
 		gomega.Expect(err).Should(gomega.BeNil())
+
+		// chainBIDInt, err = chainBWSClient.ChainID(context.Background())
+		// gomega.Expect(err).Should(gomega.BeNil())
 	})
 
 	ginkgo.It("Set up relayer config", ginkgo.Label("Relayer", "Setup Relayer"), func() {
@@ -318,7 +324,7 @@ var _ = ginkgo.Describe("[Relayer]", ginkgo.Ordered, func() {
 		})
 		gomega.Expect(err).Should(gomega.BeNil())
 		tx := types.NewTx(&types.DynamicFeeTx{
-			ChainID:   chainID,
+			ChainID:   chainAIDInt,
 			Nonce:     startingNonce,
 			To:        &warp.Module.Address,
 			Gas:       200_000,
@@ -327,6 +333,7 @@ var _ = ginkgo.Describe("[Relayer]", ginkgo.Ordered, func() {
 			Value:     common.Big0,
 			Data:      packedInput,
 		})
+		txSigner := types.LatestSignerForChainID(chainAIDInt)
 		signedTx, err := types.SignTx(tx, txSigner, fundedKey)
 		gomega.Expect(err).Should(gomega.BeNil())
 		log.Info("Sending sendWarpMessage transaction", "destinationChainID", blockchainIDB, "txHash", signedTx.Hash())
