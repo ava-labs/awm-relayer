@@ -7,8 +7,10 @@ set -o nounset
 set -o pipefail
 
 # Directory above this script
-RELAYER_PATH=$( cd "$( dirname "${BASH_SOURCE[0]}" )"; cd .. && pwd )
-
+RELAYER_PATH=$(
+    cd "$(dirname "${BASH_SOURCE[0]}")"
+    cd .. && pwd
+)
 # Load the constants
 source "$RELAYER_PATH"/scripts/constants.sh
 
