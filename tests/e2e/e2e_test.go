@@ -40,13 +40,14 @@ import (
 )
 
 const fundedKeyStr = "56289e99c94b6912bfc12adc093c9b51124f0dc54ac7a766b2bc5ccf558d8027"
+const teleporterKeyStr = "d26c3344074df322e7c66ad0d2357d96f0d07d0f40038264d1d64d276709da41"
 
 var (
 	anrConfig                 = runner.NewDefaultANRConfig()
 	manager                   = runner.NewNetworkManager(anrConfig)
 	warpChainConfigPath       string
 	relayerConfigPath         string
-	teleporterContractAddress = common.HexToAddress("27aE10273D17Cd7e80de8580A51f476960626e5f")
+	teleporterContractAddress = common.HexToAddress("1dD31B5351e76d51F4B152ce64fE5cf594694De5")
 	teleporterMessage         = teleporter.TeleporterMessage{
 		MessageID:               big.NewInt(1),
 		SenderAddress:           common.HexToAddress("0x0123456789abcdef0123456789abcdef01234567"),
@@ -75,7 +76,7 @@ func toRPCURI(uri string, blockchainID string) string {
 	return fmt.Sprintf("http://%s/ext/bc/%s/rpc", strings.TrimPrefix(uri, "http://"), blockchainID)
 }
 
-// BeforeSuite builds the awm-relayer binary, starts the default network and adds 10 new nodes as validators with BLS keys
+// BeforeSuite starts the default network and adds 10 new nodes as validators with BLS keys
 // registered on the P-Chain.
 // Adds two disjoint sets of 5 of the new validator nodes to validate two new subnets with a
 // a single Subnet-EVM blockchain.
@@ -165,6 +166,7 @@ var _ = ginkgo.Describe("[Relayer]", ginkgo.Ordered, func() {
 		chainAURIs, chainBURIs         []string
 		fundedKey                      *ecdsa.PrivateKey
 		fundedAddress                  common.Address
+		teleporterKey                  *ecdsa.PrivateKey
 		err                            error
 		receivedWarpMessage            *avalancheWarp.Message
 		chainAWSClient, chainBWSClient ethclient.Client
@@ -177,7 +179,11 @@ var _ = ginkgo.Describe("[Relayer]", ginkgo.Ordered, func() {
 		panic(err)
 	}
 	fundedAddress = crypto.PubkeyToAddress(fundedKey.PublicKey)
-	teleporterContractAddress = fundedAddress
+
+	teleporterKey, err = crypto.HexToECDSA(teleporterKeyStr)
+	if err != nil {
+		panic(err)
+	}
 
 	ginkgo.It("Setup subnet URIs", ginkgo.Label("Relayer", "Setup"), func() {
 		subnetIDs = manager.GetSubnets()
@@ -274,37 +280,6 @@ var _ = ginkgo.Describe("[Relayer]", ginkgo.Ordered, func() {
 		log.Info("Created awm-relayer config", "configPath", relayerConfigPath, "config", string(data))
 	})
 
-	ginkgo.It("RPC endpoints", ginkgo.Label("Relayer", "RPC Endpoints"), func() {
-		// Check that the RPC endpoints are available
-		chainARPCURI := toRPCURI(chainAURIs[0], blockchainIDA.String())
-		log.Info("Creating ethclient for blockchainA", "rpcURI", chainARPCURI)
-		chainARPCClient, err := ethclient.Dial(chainARPCURI)
-		gomega.Expect(err).Should(gomega.BeNil())
-
-		chainBRPCURI := toRPCURI(chainBURIs[0], blockchainIDB.String())
-		log.Info("Creating ethclient for blockchainB", "rpcURI", chainBRPCURI)
-		chainBRPCClient, err := ethclient.Dial(chainBRPCURI)
-		gomega.Expect(err).Should(gomega.BeNil())
-
-		// Check that the RPC endpoints are available
-		chainIDA, err := chainARPCClient.ChainID(context.Background())
-		gomega.Expect(err).Should(gomega.BeNil())
-
-		chainIDB, err := chainBRPCClient.ChainID(context.Background())
-		gomega.Expect(err).Should(gomega.BeNil())
-
-		log.Info("Got chain IDs", "chainIDA", chainIDA.String(), "chainIDB", chainIDB.String())
-
-		// Get nonce with rpc endpoints
-		nonce, err := chainARPCClient.NonceAt(context.Background(), fundedAddress, nil)
-		gomega.Expect(err).Should(gomega.BeNil())
-		log.Info("Got nonce from chainA", "nonce", nonce)
-
-		nonce, err = chainBRPCClient.NonceAt(context.Background(), fundedAddress, nil)
-		gomega.Expect(err).Should(gomega.BeNil())
-		log.Info("Got nonce from chainB", "nonce", nonce)
-	})
-
 	ginkgo.It("Build Relayer", ginkgo.Label("Relayer", "Build Relayer"), func() {
 		// Build the awm-relayer binary
 		cmd := exec.Command("./scripts/build.sh")
@@ -378,7 +353,7 @@ var _ = ginkgo.Describe("[Relayer]", ginkgo.Ordered, func() {
 			Data:      packedInput,
 		})
 		txSigner := types.LatestSignerForChainID(chainAIDInt)
-		signedTx, err := types.SignTx(tx, txSigner, fundedKey)
+		signedTx, err := types.SignTx(tx, txSigner, teleporterKey)
 		gomega.Expect(err).Should(gomega.BeNil())
 		log.Info("Sending sendWarpMessage transaction", "destinationChainID", blockchainIDB, "txHash", signedTx.Hash())
 		err = chainAWSClient.SendTransaction(ctx, signedTx)

@@ -32,6 +32,9 @@
         },
         "0x0Fa8EA536Be85F32724D57A37758761B86416123": {
             "balance": "0x52B7D2DCC80CD2E4000000"
+        },
+        "1dD31B5351e76d51F4B152ce64fE5cf594694De5": {
+            "balance": "0x52B7D2DCC80CD2E4000000"
         }
     },
     "nonce": "0x0",
