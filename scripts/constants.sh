@@ -5,7 +5,10 @@
 # Use lower_case variables in the scripts and UPPER_CASE variables for override
 # Use the constants.sh for env overrides
 
-RELAYER_PATH=$( cd "$( dirname "${BASH_SOURCE[0]}" )"; cd .. && pwd ) # Directory above this script
+RELAYER_PATH=$(
+    cd "$(dirname "${BASH_SOURCE[0]}")"
+    cd .. && pwd
+)
 
 # Where AWM Relayer binary goes
 relayer_path="$RELAYER_PATH/build/awm-relayer"
