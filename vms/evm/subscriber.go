@@ -235,9 +235,8 @@ func (s *subscriber) dialAndSubscribe() error {
 		return err
 	}
 
-	filterQuery := warpFilterQuery
 	evmLogs := make(chan types.Log, maxClientSubscriptionBuffer)
-	sub, err := ethClient.SubscribeFilterLogs(context.Background(), filterQuery, evmLogs)
+	sub, err := ethClient.SubscribeFilterLogs(context.Background(), warpFilterQuery, evmLogs)
 	if err != nil {
 		s.logger.Error(
 			"Failed to subscribe to logs",

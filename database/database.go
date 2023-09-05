@@ -13,8 +13,9 @@ const (
 )
 
 var (
-	ErrKeyNotFound   = errors.New("key not found")
-	ErrChainNotFound = errors.New("no database for chain")
+	ErrKeyNotFound              = errors.New("key not found")
+	ErrChainNotFound            = errors.New("no database for chain")
+	ErrDatabaseMisconfiguration = errors.New("database misconfiguration")
 )
 
 // RelayerDatabase is a key-value store for relayer state, with each chainID maintaining its own state

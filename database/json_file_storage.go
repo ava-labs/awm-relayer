@@ -5,6 +5,7 @@ package database
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"sync"
@@ -67,7 +68,10 @@ func NewJSONFileStorage(logger logging.Logger, dir string, networks []ids.ID) (*
 func (s *JSONFileStorage) Get(chainID ids.ID, key []byte) ([]byte, error) {
 	mutex, ok := s.mutexes[chainID]
 	if !ok {
-		return nil, errors.New("database not configured for chain")
+		return nil, errors.Wrap(
+			ErrDatabaseMisconfiguration,
+			fmt.Sprintf("database not configured for chain %s", chainID.String()),
+		)
 	}
 
 	mutex.RLock()
@@ -86,18 +90,22 @@ func (s *JSONFileStorage) Get(chainID ids.ID, key []byte) ([]byte, error) {
 		return nil, ErrChainNotFound
 	}
 
-	if val, ok := currentState[string(key)]; ok {
-		return []byte(val), nil
+	var val string
+	if val, ok = currentState[string(key)]; !ok {
+		return nil, ErrKeyNotFound
 	}
 
-	return nil, ErrKeyNotFound
+	return []byte(val), nil
 }
 
 // Put the value into the json database. Read the current chain state and overwrite the key, if it exists
 func (s *JSONFileStorage) Put(chainID ids.ID, key []byte, value []byte) error {
 	mutex, ok := s.mutexes[chainID]
 	if !ok {
-		return errors.Errorf("network does not exist. chainID: %s", chainID.String())
+		return errors.Wrap(
+			ErrDatabaseMisconfiguration,
+			fmt.Sprintf("database not configured for chain %s", chainID.String()),
+		)
 	}
 
 	mutex.Lock()
