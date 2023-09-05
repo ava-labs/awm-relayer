@@ -141,11 +141,12 @@ func (s *subscriber) forwardLogs() {
 }
 
 // Process logs from the given block height to the latest block
-// If height is nil, then simply store the latest block height in the database,
-// but do not process any logs
 // Cap the number of blocks requested from the client to MaxBlocksToProcess,
 // counting back from the current block.
 func (s *subscriber) ProcessFromHeight(height *big.Int) error {
+	if height == nil {
+		return fmt.Errorf("cannot process logs from nil height")
+	}
 	ethClient, err := ethclient.Dial(s.nodeRPCURL)
 	if err != nil {
 		return err
@@ -161,58 +162,78 @@ func (s *subscriber) ProcessFromHeight(height *big.Int) error {
 		return err
 	}
 
-	// Only process logs if the provided height is not nil. Otherwise, simply update the database with
-	// the latest block height
-	if height != nil {
-		// Cap the number of blocks to process to MaxBlocksToProcess
-		toBlock := big.NewInt(0).SetUint64(latestBlock)
-		if height.Cmp(big.NewInt(0).Add(toBlock, big.NewInt(-MaxBlocksToProcess))) < 0 {
-			s.logger.Warn(
-				fmt.Sprintf("Requested to process too many blocks. Processing only the most recent %s blocks", MaxBlocksToProcess),
-				zap.String("requestedBlockHeight", height.String()),
-				zap.String("latestBlockHeight", toBlock.String()),
-			)
-			height = big.NewInt(0).Add(toBlock, big.NewInt(-MaxBlocksToProcess))
-		}
+	// Cap the number of blocks to process to MaxBlocksToProcess
+	toBlock := big.NewInt(0).SetUint64(latestBlock)
+	if height.Cmp(big.NewInt(0).Add(toBlock, big.NewInt(-MaxBlocksToProcess))) < 0 {
+		s.logger.Warn(
+			fmt.Sprintf("Requested to process too many blocks. Processing only the most recent %s blocks", MaxBlocksToProcess),
+			zap.String("requestedBlockHeight", height.String()),
+			zap.String("latestBlockHeight", toBlock.String()),
+		)
+		height = big.NewInt(0).Add(toBlock, big.NewInt(-MaxBlocksToProcess))
+	}
 
-		// Filter logs from the latest seen block to the latest block
-		// Since initializationFilterQuery does not modify existing fields of warpFilterQuery,
-		// we can safely reuse warpFilterQuery with only a shallow copy
-		initializationFilterQuery := interfaces.FilterQuery{
-			Topics:    warpFilterQuery.Topics,
-			Addresses: warpFilterQuery.Addresses,
-			FromBlock: height,
-			ToBlock:   toBlock,
-		}
-		logs, err := ethClient.FilterLogs(context.Background(), initializationFilterQuery)
+	// Filter logs from the latest seen block to the latest block
+	// Since initializationFilterQuery does not modify existing fields of warpFilterQuery,
+	// we can safely reuse warpFilterQuery with only a shallow copy
+	initializationFilterQuery := interfaces.FilterQuery{
+		Topics:    warpFilterQuery.Topics,
+		Addresses: warpFilterQuery.Addresses,
+		FromBlock: height,
+		ToBlock:   toBlock,
+	}
+	logs, err := ethClient.FilterLogs(context.Background(), initializationFilterQuery)
+	if err != nil {
+		s.logger.Error(
+			"Failed to get logs on initialization",
+			zap.Error(err),
+		)
+		return err
+	}
+
+	// Queue each of the logs to be processed
+	s.logger.Info(
+		"Processing logs on initialization",
+		zap.String("fromBlockHeight", height.String()),
+		zap.String("toBlockHeight", toBlock.String()),
+	)
+	for _, log := range logs {
+		messageInfo, err := s.NewWarpLogInfo(log)
 		if err != nil {
 			s.logger.Error(
-				"Failed to get logs on initialization",
+				"Invalid log when processing from height. Continuing.",
 				zap.Error(err),
 			)
-			return err
+			continue
 		}
-
-		// Queue each of the logs to be processed
-		s.logger.Info(
-			"Processing logs on initialization",
-			zap.String("fromBlockHeight", height.String()),
-			zap.String("toBlockHeight", toBlock.String()),
-		)
-		for _, log := range logs {
-			messageInfo, err := s.NewWarpLogInfo(log)
-			if err != nil {
-				s.logger.Error(
-					"Invalid log when processing from height. Continuing.",
-					zap.Error(err),
-				)
-				continue
-			}
-			s.logsChan <- *messageInfo
-		}
+		s.logsChan <- *messageInfo
 	}
 
 	// Update the database with the latest seen block height
+	err = s.db.Put(s.chainID, []byte(database.LatestSeenBlockKey), []byte(strconv.FormatUint(latestBlock, 10)))
+	if err != nil {
+		s.logger.Error(fmt.Sprintf("failed to put %s into database", database.LatestSeenBlockKey), zap.Error(err))
+		return err
+	}
+	return nil
+}
+
+func (s *subscriber) UpdateLatestSeenBlock() error {
+	ethClient, err := ethclient.Dial(s.nodeRPCURL)
+	if err != nil {
+		return err
+	}
+
+	// Grab the latest block before filtering logs so we don't miss any before updating the db
+	latestBlock, err := ethClient.BlockNumber(context.Background())
+	if err != nil {
+		s.logger.Error(
+			"Failed to get latest block",
+			zap.Error(err),
+		)
+		return err
+	}
+
 	err = s.db.Put(s.chainID, []byte(database.LatestSeenBlockKey), []byte(strconv.FormatUint(latestBlock, 10)))
 	if err != nil {
 		s.logger.Error(fmt.Sprintf("failed to put %s into database", database.LatestSeenBlockKey), zap.Error(err))

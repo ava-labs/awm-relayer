@@ -126,11 +126,7 @@ func NewRelayer(
 	}
 
 	// Get the latest seen block height from the database.
-	var (
-		latestSeenBlockData []byte
-		latestSeenBlock     *big.Int // initialized to nil
-	)
-	latestSeenBlockData, err = r.db.Get(r.sourceChainID, []byte(database.LatestSeenBlockKey))
+	latestSeenBlockData, err := r.db.Get(r.sourceChainID, []byte(database.LatestSeenBlockKey))
 
 	// The following cases are treated as successful:
 	// 1) The database contains the latest seen block data for the chain
@@ -142,12 +138,21 @@ func NewRelayer(
 		// latest seen block to the latest block
 		// This will query the node for any logs that match the filter query from the stored block height,
 		r.logger.Info("latest seen block", zap.String("block", string(latestSeenBlockData)))
-		var success bool
-		latestSeenBlock, success = new(big.Int).SetString(string(latestSeenBlockData), 10)
+		latestSeenBlock, success := new(big.Int).SetString(string(latestSeenBlockData), 10)
 		if !success {
 			r.logger.Error("failed to convert latest block to big.Int", zap.Error(err))
 			return nil, nil, err
 		}
+
+		err = sub.ProcessFromHeight(latestSeenBlock)
+		if err != nil {
+			logger.Warn(
+				"Encountered an error when processing historical blocks. Continuing to normal relaying operation.",
+				zap.String("chainID", r.sourceChainID.String()),
+				zap.Error(err),
+			)
+		}
+		return &r, sub, nil
 	} else if errors.Is(err, database.ErrChainNotFound) || errors.Is(err, database.ErrKeyNotFound) {
 		// Otherwise, latestSeenBlock is nil, so the call to ProcessFromHeight will simply update the database with the
 		// latest block height
@@ -155,21 +160,24 @@ func NewRelayer(
 			"Latest seen block not found in database. Starting from latest block.",
 			zap.String("chainID", r.sourceChainID.String()),
 		)
-	} else {
-		r.logger.Warn("failed to get latest block from database", zap.Error(err))
-		return nil, nil, err
-	}
 
-	// Process historical logs. If this fails for any reason, continue with normal relayer operation, but log the error.
-	err = sub.ProcessFromHeight(latestSeenBlock)
-	if err != nil {
-		logger.Warn(
-			"Encountered an error when processing historical blocks. Continuing to normal relaying operation.",
+		err := sub.UpdateLatestSeenBlock()
+		if err != nil {
+			logger.Warn(
+				"Failed to update latest seen block. Continuing to normal relaying operation",
+				zap.String("chainID", r.sourceChainID.String()),
+				zap.Error(err),
+			)
+		}
+		return &r, sub, nil
+	} else {
+		r.logger.Warn(
+			"failed to get latest block from database",
+			zap.String("chainID", r.sourceChainID.String()),
 			zap.Error(err),
 		)
+		return nil, nil, err
 	}
-
-	return &r, sub, nil
 }
 
 // RouteToMessageChannel forwards inbound app messages from the per-subnet responseChan to the per-message messageResponseChan
