@@ -166,7 +166,7 @@ func (s *subscriber) ProcessFromHeight(height *big.Int) error {
 	toBlock := big.NewInt(0).SetUint64(latestBlock)
 	if height.Cmp(big.NewInt(0).Add(toBlock, big.NewInt(-MaxBlocksToProcess))) < 0 {
 		s.logger.Warn(
-			fmt.Sprintf("Requested to process too many blocks. Processing only the most recent %s blocks", MaxBlocksToProcess),
+			fmt.Sprintf("Requested to process too many blocks. Processing only the most recent %d blocks", MaxBlocksToProcess),
 			zap.String("requestedBlockHeight", height.String()),
 			zap.String("latestBlockHeight", toBlock.String()),
 		)
