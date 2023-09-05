@@ -125,29 +125,42 @@ func NewRelayer(
 		return nil, nil, err
 	}
 
-	// Get the latest processed block height from the database. If the database doesn't have a value for the latest block height,
-	// for this chain, return here without an error. This will cause the subscriber to begin processing new incoming warp messages.
-	latestSeenBlockData, err := r.db.Get(r.sourceChainID, []byte(database.LatestSeenBlockKey))
-	if errors.Is(err, database.ErrChainNotFound) {
+	// Get the latest processed block height from the database.
+	var (
+		latestSeenBlockData []byte
+		latestSeenBlock     *big.Int // initialized to nil
+	)
+	latestSeenBlockData, err = r.db.Get(r.sourceChainID, []byte(database.LatestSeenBlockKey))
+
+	// The following cases are treated as successful:
+	// 1) The database contains the latest seen block data for the chain
+	//    - In this case, we parse the block height and process warp logs from that height to the current block
+	// 2) The database has been configured for the chain, but does not contain the latest seen block data
+	//    - In this case, we save the current block height in the database, but do not process any historical warp logs
+	if err == nil {
+		// If the database contains the latest seen block data, then  back-process all warp messages from the
+		// latest seen block to the latest block
+		// This will query the node for any logs that match the filter query from the stored block height,
+		r.logger.Info("latest processed block", zap.String("block", string(latestSeenBlockData)))
+		var success bool
+		latestSeenBlock, success = new(big.Int).SetString(string(latestSeenBlockData), 10)
+		if !success {
+			r.logger.Error("failed to convert latest block to big.Int", zap.Error(err))
+			return nil, nil, err
+		}
+	} else if errors.Is(err, database.ErrChainNotFound) || errors.Is(err, database.ErrKeyNotFound) {
+		// Otherwise, latestSeenBlock is nil, so the call to ProcessFromHeight will simply update the database with the
+		// latest block height
 		logger.Info(
 			"Latest seen block not found in database. Starting from latest block.",
 			zap.String("chainID", r.sourceChainID.String()),
 		)
-		return &r, sub, nil
-	}
-	if err != nil {
+	} else {
 		r.logger.Warn("failed to get latest block from database", zap.Error(err))
 		return nil, nil, err
 	}
-	latestSeenBlock, success := new(big.Int).SetString(string(latestSeenBlockData), 10)
-	if !success {
-		r.logger.Error("failed to convert latest block to big.Int", zap.Error(err))
-		return nil, nil, err
-	}
 
-	// Back-process all warp messages from the latest seen block to the latest block
-	// This will query the node for any logs that match the filter query from the stored block height,
-	// and process the contained warp messages. If initialization fails, continue with normal relayer operation, but log the error.
+	// Process historical logs. If this fails for any reason, continue with normal relayer operation, but log the error.
 	err = sub.ProcessFromHeight(latestSeenBlock)
 	if err != nil {
 		logger.Warn(

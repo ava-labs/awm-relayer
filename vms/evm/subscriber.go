@@ -139,6 +139,9 @@ func (s *subscriber) forwardLogs() {
 	}
 }
 
+// Process logs from the given block height to the latest block
+// If height is nil, then simply store the latest block height in the database,
+// but do not process any logs
 func (s *subscriber) ProcessFromHeight(height *big.Int) error {
 	ethClient, err := ethclient.Dial(s.nodeRPCURL)
 	if err != nil {
@@ -155,39 +158,43 @@ func (s *subscriber) ProcessFromHeight(height *big.Int) error {
 		return err
 	}
 
-	// Filter logs from the latest processed block to the latest block
-	// Since initializationFilterQuery does not modify existing fields of warpFilterQuery,
-	// we can safely reuse warpFilterQuery with only a shallow copy
-	initializationFilterQuery := interfaces.FilterQuery{
-		Topics:    warpFilterQuery.Topics,
-		Addresses: warpFilterQuery.Addresses,
-		FromBlock: height,
-	}
-	logs, err := ethClient.FilterLogs(context.Background(), initializationFilterQuery)
-	if err != nil {
-		s.logger.Error(
-			"Failed to get logs on initialization",
-			zap.Error(err),
-		)
-		return err
-	}
-
-	// Queue each of the logs to be processed
-	s.logger.Info(
-		"Processing logs on initialization",
-		zap.String("fromBlockHeight", height.String()),
-		zap.String("toBlockHeight", strconv.Itoa(int(latestBlock))),
-	)
-	for _, log := range logs {
-		messageInfo, err := s.NewWarpLogInfo(log)
+	// Only process logs if the provided height is not nil. Otherwise, simply update the database with
+	// the latest block height
+	if height != nil {
+		// Filter logs from the latest processed block to the latest block
+		// Since initializationFilterQuery does not modify existing fields of warpFilterQuery,
+		// we can safely reuse warpFilterQuery with only a shallow copy
+		initializationFilterQuery := interfaces.FilterQuery{
+			Topics:    warpFilterQuery.Topics,
+			Addresses: warpFilterQuery.Addresses,
+			FromBlock: height,
+		}
+		logs, err := ethClient.FilterLogs(context.Background(), initializationFilterQuery)
 		if err != nil {
 			s.logger.Error(
-				"Invalid log when processing from height. Continuing.",
+				"Failed to get logs on initialization",
 				zap.Error(err),
 			)
-			continue
+			return err
 		}
-		s.log <- *messageInfo
+
+		// Queue each of the logs to be processed
+		s.logger.Info(
+			"Processing logs on initialization",
+			zap.String("fromBlockHeight", height.String()),
+			zap.String("toBlockHeight", strconv.Itoa(int(latestBlock))),
+		)
+		for _, log := range logs {
+			messageInfo, err := s.NewWarpLogInfo(log)
+			if err != nil {
+				s.logger.Error(
+					"Invalid log when processing from height. Continuing.",
+					zap.Error(err),
+				)
+				continue
+			}
+			s.log <- *messageInfo
+		}
 	}
 
 	// Update the database with the latest seen block height
