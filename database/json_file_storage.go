@@ -99,6 +99,7 @@ func (s *JSONFileStorage) Get(chainID ids.ID, key []byte) ([]byte, error) {
 }
 
 // Put the value into the JSON database. Read the current chain state and overwrite the key, if it exists
+// If the file corresponding to {chainID} does not exist, then it will be created
 func (s *JSONFileStorage) Put(chainID ids.ID, key []byte, value []byte) error {
 	mutex, ok := s.mutexes[chainID]
 	if !ok {
@@ -128,8 +129,8 @@ func (s *JSONFileStorage) Put(chainID ids.ID, key []byte, value []byte) error {
 }
 
 // Write the value to the file. The caller is responsible for ensuring proper synchronization
-func (s *JSONFileStorage) write(network ids.ID, v interface{}) error {
-	fnlPath := filepath.Join(s.dir, network.String()+".json")
+func (s *JSONFileStorage) write(chainID ids.ID, v interface{}) error {
+	fnlPath := filepath.Join(s.dir, chainID.String()+".json")
 	tmpPath := fnlPath + ".tmp"
 
 	b, err := json.MarshalIndent(v, "", "\t")
@@ -157,8 +158,8 @@ func (s *JSONFileStorage) write(network ids.ID, v interface{}) error {
 // Returns a bool indicating whether the file exists, and an error.
 // If an error is returned, the bool should be ignored.
 // The caller is responsible for ensuring proper synchronization
-func (s *JSONFileStorage) read(network ids.ID, v interface{}) (bool, error) {
-	path := filepath.Join(s.dir, network.String()+".json")
+func (s *JSONFileStorage) read(chainID ids.ID, v interface{}) (bool, error) {
+	path := filepath.Join(s.dir, chainID.String()+".json")
 
 	// If the file does not exist, return false, but do not return an error as this
 	// is an expected case
