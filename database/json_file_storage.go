@@ -46,8 +46,8 @@ func NewJSONFileStorage(logger logging.Logger, dir string, networks []ids.ID) (*
 
 	_, err := os.Stat(dir)
 	if err == nil {
-		// dir already exist
-		// return the existing storage
+		// Directory already exists.
+		// Return the existing storage.
 		return storage, nil
 	}
 
@@ -64,7 +64,7 @@ func NewJSONFileStorage(logger logging.Logger, dir string, networks []ids.ID) (*
 	return storage, nil
 }
 
-// Get the latest chain state from the json database, and retrieve the value from the key
+// Get the latest chain state from the JSON database, and retrieve the value from the key
 func (s *JSONFileStorage) Get(chainID ids.ID, key []byte) ([]byte, error) {
 	mutex, ok := s.mutexes[chainID]
 	if !ok {
@@ -98,7 +98,7 @@ func (s *JSONFileStorage) Get(chainID ids.ID, key []byte) ([]byte, error) {
 	return []byte(val), nil
 }
 
-// Put the value into the json database. Read the current chain state and overwrite the key, if it exists
+// Put the value into the JSON database. Read the current chain state and overwrite the key, if it exists
 func (s *JSONFileStorage) Put(chainID ids.ID, key []byte, value []byte) error {
 	mutex, ok := s.mutexes[chainID]
 	if !ok {
@@ -137,15 +137,15 @@ func (s *JSONFileStorage) write(network ids.ID, v interface{}) error {
 		return err
 	}
 
-	// write marshaled data to the temp file
-	// if write failed, the original file is not affected
-	// 0644 Only the owner can read and write.
+	// Write marshaled data to the temp file.
+	// If  the write fails, the original file is not affected.
+	// Set file permissiones to 0644 so only the owner can read and write.
 	// Everyone else can only read. No one can execute the file.
 	if err := os.WriteFile(tmpPath, b, 0644); err != nil {
 		return errors.Wrap(err, "failed to write file")
 	}
 
-	// move final file into place
+	// Move final file into place
 	if err := os.Rename(tmpPath, fnlPath); err != nil {
 		return errors.Wrap(err, "failed to rename file")
 	}
@@ -176,7 +176,7 @@ func (s *JSONFileStorage) read(network ids.ID, v interface{}) (bool, error) {
 		return false, errors.Wrap(err, "failed to read file")
 	}
 
-	// unmarshal data
+	// Unmarshal data
 	if err = json.Unmarshal(b, &v); err != nil {
 		return false, errors.Wrap(err, "failed to unmarshal json file")
 	}

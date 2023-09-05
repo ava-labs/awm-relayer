@@ -125,7 +125,7 @@ func NewRelayer(
 		return nil, nil, err
 	}
 
-	// Get the latest processed block height from the database.
+	// Get the latest seen block height from the database.
 	var (
 		latestSeenBlockData []byte
 		latestSeenBlock     *big.Int // initialized to nil
@@ -141,7 +141,7 @@ func NewRelayer(
 		// If the database contains the latest seen block data, then  back-process all warp messages from the
 		// latest seen block to the latest block
 		// This will query the node for any logs that match the filter query from the stored block height,
-		r.logger.Info("latest processed block", zap.String("block", string(latestSeenBlockData)))
+		r.logger.Info("latest seen block", zap.String("block", string(latestSeenBlockData)))
 		var success bool
 		latestSeenBlock, success = new(big.Int).SetString(string(latestSeenBlockData), 10)
 		if !success {
