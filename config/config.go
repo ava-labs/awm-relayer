@@ -274,7 +274,13 @@ func (s *DestinationSubnet) Validate() error {
 	return nil
 }
 
-func constructURL(protocol string, host string, port uint32, encrypt bool) string {
+func constructURL(protocol string, host string, port uint32, encrypt bool, chainIDStr string, subnetIDStr string) string {
+	var protocolPathMap = map[string]string{
+		"http": "rpc",
+		"ws":   "ws",
+	}
+	path := protocolPathMap[protocol]
+
 	if encrypt {
 		protocol = protocol + "s"
 	}
@@ -282,7 +288,11 @@ func constructURL(protocol string, host string, port uint32, encrypt bool) strin
 	if port != 0 {
 		portStr = fmt.Sprintf(":%d", port)
 	}
-	return fmt.Sprintf("%s://%s%s", protocol, host, portStr)
+	subnetID, _ := ids.FromString(subnetIDStr) // already validated in Validate()
+	if subnetID == constants.PrimaryNetworkID {
+		chainIDStr = cChainIdentifierString
+	}
+	return fmt.Sprintf("%s://%s%s/ext/bc/%s/%s", protocol, host, portStr, chainIDStr, path)
 }
 
 // Constructs an RPC endpoint for the subnet.
@@ -293,14 +303,16 @@ func (s *DestinationSubnet) GetNodeRPCEndpoint() string {
 	if s.RPCEndpoint != "" {
 		return s.RPCEndpoint
 	}
-	baseUrl := constructURL("http", s.APINodeHost, s.APINodePort, s.EncryptConnection)
-	chainID := s.ChainID
-	subnetID, _ := ids.FromString(s.SubnetID) // already validated in Validate()
-	if subnetID == constants.PrimaryNetworkID {
-		chainID = cChainIdentifierString
-	}
+
 	// Save this result for future use
-	s.RPCEndpoint = fmt.Sprintf("%s/ext/bc/%s/rpc", baseUrl, chainID)
+	s.RPCEndpoint = constructURL(
+		"http",
+		s.APINodeHost,
+		s.APINodePort,
+		s.EncryptConnection,
+		s.ChainID,
+		s.SubnetID,
+	)
 	return s.RPCEndpoint
 }
 
@@ -312,14 +324,16 @@ func (s *SourceSubnet) GetNodeRPCEndpoint() string {
 	if s.RPCEndpoint != "" {
 		return s.RPCEndpoint
 	}
-	baseUrl := constructURL("http", s.APINodeHost, s.APINodePort, s.EncryptConnection)
-	chainID := s.ChainID
-	subnetID, _ := ids.FromString(s.SubnetID) // already validated in Validate()
-	if subnetID == constants.PrimaryNetworkID {
-		chainID = cChainIdentifierString
-	}
+
 	// Save this result for future use
-	s.RPCEndpoint = fmt.Sprintf("%s/ext/bc/%s/rpc", baseUrl, chainID)
+	s.RPCEndpoint = constructURL(
+		"http",
+		s.APINodeHost,
+		s.APINodePort,
+		s.EncryptConnection,
+		s.ChainID,
+		s.SubnetID,
+	)
 	return s.RPCEndpoint
 }
 
@@ -331,14 +345,16 @@ func (s *SourceSubnet) GetNodeWSEndpoint() string {
 	if s.WSEndpoint != "" {
 		return s.WSEndpoint
 	}
-	baseUrl := constructURL("ws", s.APINodeHost, s.APINodePort, s.EncryptConnection)
-	chainID := s.ChainID
-	subnetID, _ := ids.FromString(s.SubnetID) // already validated in Validate()
-	if subnetID == constants.PrimaryNetworkID {
-		chainID = cChainIdentifierString
-	}
+
 	// Save this result for future use
-	s.WSEndpoint = fmt.Sprintf("%s/ext/bc/%s/ws", baseUrl, chainID)
+	s.WSEndpoint = constructURL(
+		"ws",
+		s.APINodeHost,
+		s.APINodePort,
+		s.EncryptConnection,
+		s.ChainID,
+		s.SubnetID,
+	)
 	return s.WSEndpoint
 }
 
