@@ -4,6 +4,7 @@
 package relayer
 
 import (
+	"errors"
 	"math/big"
 	"math/rand"
 	"sync"
@@ -124,8 +125,16 @@ func NewRelayer(
 		return nil, nil, err
 	}
 
-	// Get the latest processed block height from the database.
+	// Get the latest processed block height from the database. If the database doesn't have a value for the latest block height,
+	// for this chain, return here without an error. This will cause the subscriber to begin processing new incoming warp messages.
 	latestSeenBlockData, err := r.db.Get(r.sourceChainID, []byte(database.LatestSeenBlockKey))
+	if errors.Is(err, database.ErrChainNotFound) {
+		logger.Info(
+			"Latest seen block not found in database. Starting from latest block.",
+			zap.String("chainID", r.sourceChainID.String()),
+		)
+		return &r, sub, nil
+	}
 	if err != nil {
 		r.logger.Warn("failed to get latest block from database", zap.Error(err))
 		return nil, nil, err

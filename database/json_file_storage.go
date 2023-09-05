@@ -67,7 +67,7 @@ func NewJSONFileStorage(logger logging.Logger, dir string, networks []ids.ID) (*
 func (s *JSONFileStorage) Get(chainID ids.ID, key []byte) ([]byte, error) {
 	mutex, ok := s.mutexes[chainID]
 	if !ok {
-		return nil, errors.New("network does not exist")
+		return nil, errors.New("database not configured for chain")
 	}
 
 	mutex.RLock()
@@ -83,14 +83,14 @@ func (s *JSONFileStorage) Get(chainID ids.ID, key []byte) ([]byte, error) {
 		return nil, err
 	}
 	if !fileExists {
-		return nil, errors.Errorf("file does not exist. chainID: %s", chainID)
+		return nil, ErrChainNotFound
 	}
 
 	if val, ok := currentState[string(key)]; ok {
 		return []byte(val), nil
 	}
 
-	return nil, errors.Errorf("key does not exist. chainID: %s key: %s", chainID, key)
+	return nil, ErrKeyNotFound
 }
 
 // Put the value into the json database. Read the current chain state and overwrite the key, if it exists

@@ -3,10 +3,18 @@
 
 package database
 
-import "github.com/ava-labs/avalanchego/ids"
+import (
+	"github.com/ava-labs/avalanchego/ids"
+	"github.com/pkg/errors"
+)
 
 const (
 	LatestSeenBlockKey = "latestSeenBlock"
+)
+
+var (
+	ErrKeyNotFound   = errors.New("key not found")
+	ErrChainNotFound = errors.New("no database for chain")
 )
 
 // RelayerDatabase is a key-value store for relayer state, with each chainID maintaining its own state
