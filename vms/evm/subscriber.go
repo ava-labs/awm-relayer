@@ -29,6 +29,7 @@ const (
 	maxClientSubscriptionBuffer = 20000
 	subscribeRetryTimeout       = 1 * time.Second
 	maxResubscribeAttempts      = 10
+	MaxBlocksToProcess          = 200
 )
 
 var (
@@ -142,6 +143,8 @@ func (s *subscriber) forwardLogs() {
 // Process logs from the given block height to the latest block
 // If height is nil, then simply store the latest block height in the database,
 // but do not process any logs
+// Cap the number of blocks requested from the client to MaxBlocksToProcess,
+// counting back from the current block.
 func (s *subscriber) ProcessFromHeight(height *big.Int) error {
 	ethClient, err := ethclient.Dial(s.nodeRPCURL)
 	if err != nil {
@@ -161,6 +164,17 @@ func (s *subscriber) ProcessFromHeight(height *big.Int) error {
 	// Only process logs if the provided height is not nil. Otherwise, simply update the database with
 	// the latest block height
 	if height != nil {
+		// Cap the number of blocks to process to MaxBlocksToProcess
+		toBlock := big.NewInt(0).SetUint64(latestBlock)
+		if height.Cmp(big.NewInt(0).Add(toBlock, big.NewInt(-MaxBlocksToProcess))) < 0 {
+			s.logger.Warn(
+				fmt.Sprintf("Requested to process too many blocks. Processing only the most recent %s blocks", MaxBlocksToProcess),
+				zap.String("requestedBlockHeight", height.String()),
+				zap.String("latestBlockHeight", toBlock.String()),
+			)
+			height = big.NewInt(0).Add(toBlock, big.NewInt(-MaxBlocksToProcess))
+		}
+
 		// Filter logs from the latest seen block to the latest block
 		// Since initializationFilterQuery does not modify existing fields of warpFilterQuery,
 		// we can safely reuse warpFilterQuery with only a shallow copy
@@ -168,6 +182,7 @@ func (s *subscriber) ProcessFromHeight(height *big.Int) error {
 			Topics:    warpFilterQuery.Topics,
 			Addresses: warpFilterQuery.Addresses,
 			FromBlock: height,
+			ToBlock:   toBlock,
 		}
 		logs, err := ethClient.FilterLogs(context.Background(), initializationFilterQuery)
 		if err != nil {
@@ -182,7 +197,7 @@ func (s *subscriber) ProcessFromHeight(height *big.Int) error {
 		s.logger.Info(
 			"Processing logs on initialization",
 			zap.String("fromBlockHeight", height.String()),
-			zap.String("toBlockHeight", strconv.Itoa(int(latestBlock))),
+			zap.String("toBlockHeight", toBlock.String()),
 		)
 		for _, log := range logs {
 			messageInfo, err := s.NewWarpLogInfo(log)
