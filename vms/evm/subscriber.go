@@ -53,7 +53,7 @@ type subscriber struct {
 	nodeWSURL  string
 	nodeRPCURL string
 	chainID    ids.ID
-	log        chan vmtypes.WarpLogInfo
+	logsChan   chan vmtypes.WarpLogInfo
 	evmLog     <-chan types.Log
 	sub        interfaces.Subscription
 
@@ -80,7 +80,7 @@ func NewSubscriber(logger logging.Logger, subnetInfo config.SourceSubnet, db dat
 		chainID:    chainID,
 		logger:     logger,
 		db:         db,
-		log:        logs,
+		logsChan:   logs,
 	}
 }
 
@@ -129,7 +129,7 @@ func (s *subscriber) forwardLogs() {
 			)
 			continue
 		}
-		s.log <- *messageInfo
+		s.logsChan <- *messageInfo
 
 		// Update the database with the latest seen block height
 		err = s.db.Put(s.chainID, []byte(database.LatestSeenBlockKey), []byte(strconv.FormatUint(msgLog.BlockNumber, 10)))
@@ -161,7 +161,7 @@ func (s *subscriber) ProcessFromHeight(height *big.Int) error {
 	// Only process logs if the provided height is not nil. Otherwise, simply update the database with
 	// the latest block height
 	if height != nil {
-		// Filter logs from the latest processed block to the latest block
+		// Filter logs from the latest seen block to the latest block
 		// Since initializationFilterQuery does not modify existing fields of warpFilterQuery,
 		// we can safely reuse warpFilterQuery with only a shallow copy
 		initializationFilterQuery := interfaces.FilterQuery{
@@ -193,7 +193,7 @@ func (s *subscriber) ProcessFromHeight(height *big.Int) error {
 				)
 				continue
 			}
-			s.log <- *messageInfo
+			s.logsChan <- *messageInfo
 		}
 	}
 
@@ -260,7 +260,7 @@ func (s *subscriber) dialAndSubscribe() error {
 }
 
 func (s *subscriber) Logs() <-chan vmtypes.WarpLogInfo {
-	return s.log
+	return s.logsChan
 }
 
 func (s *subscriber) Err() <-chan error {
