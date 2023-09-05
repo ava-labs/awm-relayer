@@ -245,7 +245,7 @@ var _ = ginkgo.Describe("[Relayer]", ginkgo.Ordered, func() {
 					APINodePort:       portA,
 					MessageContracts: map[string]config.MessageProtocolConfig{
 						teleporterContractAddress.Hex(): {
-							MessageFormat: "teleporter",
+							MessageFormat: config.TELEPORTER.String(),
 							Settings: map[string]interface{}{
 								"reward-address": fundedAddress.Hex(),
 							},
@@ -266,7 +266,6 @@ var _ = ginkgo.Describe("[Relayer]", ginkgo.Ordered, func() {
 			},
 		}
 
-		// relayerConfigPath := "./tests/e2e/relayer-config.json"
 		data, err := json.MarshalIndent(relayerConfig, "", "\t")
 		gomega.Expect(err).Should(gomega.BeNil())
 
@@ -288,7 +287,7 @@ var _ = ginkgo.Describe("[Relayer]", ginkgo.Ordered, func() {
 		gomega.Expect(err).Should(gomega.BeNil())
 	})
 
-	// Send a transaction to Subnet A to issue a Warp Message to Subnet B
+	// Send a transaction to Subnet A to issue a Warp Message from the Teleporter contract to Subnet B
 	ginkgo.It("Send Message from A to B", ginkgo.Label("Warp", "SendWarp"), func() {
 		ctx := context.Background()
 
@@ -325,13 +324,13 @@ var _ = ginkgo.Describe("[Relayer]", ginkgo.Ordered, func() {
 		gomega.Expect(err).Should(gomega.BeNil())
 		defer sub.Unsubscribe()
 
-		startingNonce, err := chainAWSClient.NonceAt(ctx, fundedAddress, nil)
+		nonceA, err := chainAWSClient.NonceAt(ctx, fundedAddress, nil)
 		gomega.Expect(err).Should(gomega.BeNil())
 
-		nonce, err := chainBWSClient.NonceAt(ctx, fundedAddress, nil)
+		nonceB, err := chainBWSClient.NonceAt(ctx, fundedAddress, nil)
 		gomega.Expect(err).Should(gomega.BeNil())
 
-		log.Info("Packing teleporter message", "nonceA", startingNonce, "nonceB", nonce)
+		log.Info("Packing teleporter message", "nonceA", nonceA, "nonceB", nonceB)
 
 		payload, err = teleporter.PackTeleporterMessage(common.Hash(blockchainIDB), teleporterMessage)
 		gomega.Expect(err).Should(gomega.BeNil())
@@ -342,9 +341,11 @@ var _ = ginkgo.Describe("[Relayer]", ginkgo.Ordered, func() {
 			Payload:            payload,
 		})
 		gomega.Expect(err).Should(gomega.BeNil())
+
+		// Send a transaction that simulates the Teleporter contract calling sendWarpMessage with a Teleporter message payload
 		tx := types.NewTx(&types.DynamicFeeTx{
 			ChainID:   chainAIDInt,
-			Nonce:     startingNonce,
+			Nonce:     nonceA,
 			To:        &warp.Module.Address,
 			Gas:       200_000,
 			GasFeeCap: big.NewInt(225 * params.GWei),
