@@ -33,7 +33,7 @@ jobs:
             - name: Run Relayer Unit Tests
               run: |
                   cd awm-relayer
-                  go test ./...
+                  ./scripts/test.sh
 
     e2e_tests:
         runs-on: ubuntu-20.04
