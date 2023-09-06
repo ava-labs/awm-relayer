@@ -37,8 +37,11 @@ import (
 	"github.com/onsi/gomega"
 )
 
-const fundedKeyStr = "56289e99c94b6912bfc12adc093c9b51124f0dc54ac7a766b2bc5ccf558d8027"
-const teleporterKeyStr = "d26c3344074df322e7c66ad0d2357d96f0d07d0f40038264d1d64d276709da41"
+const (
+	fundedKeyStr     = "56289e99c94b6912bfc12adc093c9b51124f0dc54ac7a766b2bc5ccf558d8027"
+	teleporterKeyStr = "d26c3344074df322e7c66ad0d2357d96f0d07d0f40038264d1d64d276709da41"
+	warpGenesisFile  = "./tests/warp-genesis.json"
+)
 
 var (
 	anrConfig                 = runner.NewDefaultANRConfig()
@@ -91,6 +94,10 @@ var _ = ginkgo.BeforeSuite(func() {
 	gomega.Expect(err).Should(gomega.BeNil())
 	warpChainConfigPath = f.Name()
 
+	// Make sure that the warp genesis file exists
+	_, err = os.Stat(warpGenesisFile)
+	gomega.Expect(err).Should(gomega.BeNil())
+
 	// Construct the network using the avalanche-network-runner
 	_, err = manager.StartDefaultNetwork(ctx)
 	gomega.Expect(err).Should(gomega.BeNil())
@@ -100,7 +107,7 @@ var _ = ginkgo.BeforeSuite(func() {
 		[]*rpcpb.BlockchainSpec{
 			{
 				VmName:      evm.IDStr,
-				Genesis:     "./tests/warp-genesis.json",
+				Genesis:     warpGenesisFile,
 				ChainConfig: warpChainConfigPath,
 				SubnetSpec: &rpcpb.SubnetSpec{
 					SubnetConfig: "",
@@ -109,7 +116,7 @@ var _ = ginkgo.BeforeSuite(func() {
 			},
 			{
 				VmName:      evm.IDStr,
-				Genesis:     "./tests/warp-genesis.json",
+				Genesis:     warpGenesisFile,
 				ChainConfig: warpChainConfigPath,
 				SubnetSpec: &rpcpb.SubnetSpec{
 					SubnetConfig: "",
