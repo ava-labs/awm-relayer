@@ -13,10 +13,10 @@ import (
 	"github.com/ava-labs/avalanchego/utils/logging"
 	avalancheWarp "github.com/ava-labs/avalanchego/vms/platformvm/warp"
 	"github.com/ava-labs/awm-relayer/config"
-	mock_ethclient "github.com/ava-labs/awm-relayer/vms/evm/mock"
+	mock_ethclient "github.com/ava-labs/awm-relayer/vms/evm/mocks"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 )
 
 var destinationSubnet = config.DestinationSubnet{

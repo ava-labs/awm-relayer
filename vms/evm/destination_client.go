@@ -1,6 +1,8 @@
 // Copyright (C) 2023, Ava Labs, Inc. All rights reserved.
 // See the file LICENSE for licensing terms.
 
+//go:generate mockgen -source=$GOFILE -destination=./mocks/mock_eth_client.go -package=mocks
+
 package evm
 
 import (
@@ -28,6 +30,11 @@ const (
 	BaseFeeFactor        = 2
 	MaxPriorityFeePerGas = 2500000000 // 2.5 gwei
 )
+
+// Client interface wraps the ethclient.Client interface for mocking purposes.
+type Client interface {
+	ethclient.Client
+}
 
 // Implements DestinationClient
 type destinationClient struct {

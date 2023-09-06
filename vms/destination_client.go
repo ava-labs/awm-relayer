@@ -1,7 +1,7 @@
 // Copyright (C) 2023, Ava Labs, Inc. All rights reserved.
 // See the file LICENSE for licensing terms.
 
-//go:generate mockgen -source=$GOFILE -destination=./mock/mock_destination_client.go -package=mocks
+//go:generate mockgen -source=$GOFILE -destination=./mocks/mock_destination_client.go -package=mocks
 
 package vms
 
