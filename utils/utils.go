@@ -26,7 +26,6 @@ const (
 )
 
 var (
-	MaxHashInputLength = 32
 	// Errors
 	ErrNilInput = errors.New("nil input")
 	ErrTooLarge = errors.New("exceeds uint256 maximum value")
@@ -47,8 +46,7 @@ func CheckStakeWeightExceedsThreshold(accumulatedSignatureWeight *big.Int, total
 	scaledTotalWeight := new(big.Int).Mul(totalWeightBI, new(big.Int).SetUint64(quorumNumerator))
 	scaledSigWeight := new(big.Int).Mul(accumulatedSignatureWeight, new(big.Int).SetUint64(quorumDenominator))
 
-	thresholdMet := scaledTotalWeight.Cmp(scaledSigWeight) != 1
-	return thresholdMet
+	return scaledTotalWeight.Cmp(scaledSigWeight) != 1
 }
 
 //
@@ -64,7 +62,7 @@ func BigToHashSafe(in *big.Int) (common.Hash, error) {
 	}
 
 	bytes := in.Bytes()
-	if len(bytes) > MaxHashInputLength {
+	if len(bytes) > common.HashLength {
 		return common.Hash{}, ErrTooLarge
 	}
 
