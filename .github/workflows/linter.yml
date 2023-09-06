@@ -9,7 +9,7 @@ on:
       - '*'
 
 jobs:
-  golang-linter:
+  golangci:
     runs-on: ubuntu-20.04
 
     steps:
@@ -28,5 +28,5 @@ jobs:
       uses: golangci/golangci-lint-action@v3
       with:
         version: v1.51
-        working-directory: .
+        working-directory: ./awm-relayer
         args: --timeout 10m
