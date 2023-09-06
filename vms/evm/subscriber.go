@@ -213,7 +213,6 @@ func (s *subscriber) UpdateLatestSeenBlock() error {
 		return err
 	}
 
-	// Grab the latest block before filtering logs so we don't miss any before updating the db
 	latestBlock, err := ethClient.BlockNumber(context.Background())
 	if err != nil {
 		s.logger.Error(
