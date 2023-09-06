@@ -116,6 +116,7 @@ func (s *subscriber) NewWarpLogInfo(log types.Log) (*vmtypes.WarpLogInfo, error)
 		SourceAddress:      log.Topics[3],
 		SourceTxID:         log.TxHash[:],
 		UnsignedMsgBytes:   log.Data,
+		BlockNumber:        log.BlockNumber,
 	}, nil
 }
 
@@ -131,12 +132,6 @@ func (s *subscriber) forwardLogs() {
 			continue
 		}
 		s.logsChan <- *messageInfo
-
-		// Update the database with the latest seen block height
-		err = s.db.Put(s.chainID, []byte(database.LatestSeenBlockKey), []byte(strconv.FormatUint(msgLog.BlockNumber, 10)))
-		if err != nil {
-			s.logger.Error(fmt.Sprintf("failed to put %s into database", database.LatestSeenBlockKey), zap.Error(err))
-		}
 	}
 }
 
@@ -209,12 +204,6 @@ func (s *subscriber) ProcessFromHeight(height *big.Int) error {
 		s.logsChan <- *messageInfo
 	}
 
-	// Update the database with the latest seen block height
-	err = s.db.Put(s.chainID, []byte(database.LatestSeenBlockKey), []byte(strconv.FormatUint(latestBlock, 10)))
-	if err != nil {
-		s.logger.Error(fmt.Sprintf("failed to put %s into database", database.LatestSeenBlockKey), zap.Error(err))
-		return err
-	}
 	return nil
 }
 

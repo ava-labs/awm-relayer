@@ -5,9 +5,10 @@ package relayer
 
 import (
 	"errors"
+	"fmt"
 	"math/big"
 	"math/rand"
-	"sync"
+	"strconv"
 
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/message"
@@ -31,10 +32,7 @@ type Relayer struct {
 	network                  *peers.AppRequestNetwork
 	sourceSubnetID           ids.ID
 	sourceChainID            ids.ID
-	responseChan             <-chan message.InboundMessage
-	messageChanLock          *sync.RWMutex
-	messageChanMap           map[uint32]chan message.InboundMessage
-	errorChan                chan error
+	responseChan             chan message.InboundMessage
 	contractMessage          vms.ContractMessage
 	messageManagers          map[common.Hash]messages.MessageManager
 	logger                   logging.Logger
@@ -45,7 +43,6 @@ func NewRelayer(
 	logger logging.Logger,
 	db database.RelayerDatabase,
 	sourceSubnetInfo config.SourceSubnet,
-	errorChan chan error,
 	pChainClient platformvm.Client,
 	network *peers.AppRequestNetwork,
 	responseChan chan message.InboundMessage,
@@ -102,17 +99,11 @@ func NewRelayer(
 		sourceSubnetID:           subnetID,
 		sourceChainID:            chainID,
 		responseChan:             responseChan,
-		messageChanLock:          new(sync.RWMutex),
-		messageChanMap:           make(map[uint32]chan message.InboundMessage),
-		errorChan:                errorChan,
 		contractMessage:          vms.NewContractMessage(logger, sourceSubnetInfo),
 		messageManagers:          messageManagers,
 		logger:                   logger,
 		db:                       db,
 	}
-
-	// Start the message router. We must do this before Subscribing or Initializing for the first time, otherwise we may miss an incoming message
-	go r.RouteToMessageChannel()
 
 	// Open the subscription. We must do this before processing any missed messages, otherwise we may miss an incoming message
 	// in between fetching the latest block and subscribing.
@@ -153,7 +144,8 @@ func NewRelayer(
 			)
 		}
 		return &r, sub, nil
-	} else if errors.Is(err, database.ErrChainNotFound) || errors.Is(err, database.ErrKeyNotFound) {
+	}
+	if errors.Is(err, database.ErrChainNotFound) || errors.Is(err, database.ErrKeyNotFound) {
 		// Otherwise, latestSeenBlock is nil, so the call to ProcessFromHeight will simply update the database with the
 		// latest block height
 		logger.Info(
@@ -170,36 +162,15 @@ func NewRelayer(
 			)
 		}
 		return &r, sub, nil
-	} else {
-		r.logger.Warn(
-			"failed to get latest block from database",
-			zap.String("chainID", r.sourceChainID.String()),
-			zap.Error(err),
-		)
-		return nil, nil, err
 	}
-}
 
-// RouteToMessageChannel forwards inbound app messages from the per-subnet responseChan to the per-message messageResponseChan
-// The messageResponseChan to forward to is determined by the requestID, which is unique to each message relayer goroutine
-// If the requestID has not been added to the map, then the message is dropped.
-func (r *Relayer) RouteToMessageChannel() {
-	for response := range r.responseChan {
-		m := response.Message()
-		requestID, ok := message.GetRequestID(m)
-		if !ok {
-			response.OnFinishedHandling()
-			return
-		}
-		r.messageChanLock.RLock()
-		messageResponseChan, ok := r.messageChanMap[requestID]
-		r.messageChanLock.RUnlock()
-		if ok {
-			messageResponseChan <- response
-		} else {
-			response.OnFinishedHandling()
-		}
-	}
+	// If neither of the above conditions are met, then we return an error
+	r.logger.Warn(
+		"failed to get latest block from database",
+		zap.String("chainID", r.sourceChainID.String()),
+		zap.Error(err),
+	)
+	return nil, nil, err
 }
 
 // RelayMessage relays a single warp message to the destination chain. Warp message relay requests are concurrent with each other,
@@ -227,20 +198,11 @@ func (r *Relayer) RelayMessage(warpLogInfo *vmtypes.WarpLogInfo, metrics *Messag
 		return nil
 	}
 
-	requestID := r.getAndIncrementRequestID()
-
-	// Add an element to the inbound messages map, keyed by the requestID
-	// This allows RouteToMessageChannel to forward inbound messages to the correct channel
-	// Note: It's technically possible to block indefinitely here if the inbound handler is processing an flood of non-relevant app responses. This would occur if
-	// the RLocks are acquired more quickly than they are released in RouteToMessageChannel. However, given that inbound messages are rate limited and that the
-	// RLock is only held for a single map access, this is likely not something we need to worry about in practice.
-	messageResponseChan := make(chan message.InboundMessage, peers.InboundMessageChannelSize)
-	r.messageChanLock.Lock()
-	r.messageChanMap[requestID] = messageResponseChan
-	r.messageChanLock.Unlock()
+	// Increment the request ID to use for this message
+	r.currentRequestID++
 
 	// Create and run the message relayer to attempt to deliver the message to the destination chain
-	messageRelayer := newMessageRelayer(r.logger, metrics, r, warpMessageInfo.WarpUnsignedMessage, warpLogInfo.DestinationChainID, messageResponseChan, messageCreator)
+	messageRelayer := newMessageRelayer(r.logger, metrics, r, warpMessageInfo.WarpUnsignedMessage, warpLogInfo.DestinationChainID, r.responseChan, messageCreator)
 	if err != nil {
 		r.logger.Error(
 			"Failed to create message relayer",
@@ -249,15 +211,23 @@ func (r *Relayer) RelayMessage(warpLogInfo *vmtypes.WarpLogInfo, metrics *Messag
 		return err
 	}
 
-	go messageRelayer.run(warpMessageInfo, requestID, messageManager)
+	// Relay the message to the destination. Messages from a given source chain must be processed in serial in order to
+	// guarantee that the previous block (n-1) is fully processed by the relayer when processing a given log from block n.
+	err = messageRelayer.relayMessage(warpMessageInfo, r.currentRequestID, messageManager)
+	if err != nil {
+		r.logger.Error(
+			"Failed to run message relayer",
+			zap.Error(err),
+		)
+		return err
+	}
+
+	// Update the database with the latest seen block height
+	// We cannot store the latest processed block height, because we do not know if a given log is the last log in a block
+	err = r.db.Put(r.sourceChainID, []byte(database.LatestSeenBlockKey), []byte(strconv.FormatUint(warpLogInfo.BlockNumber, 10)))
+	if err != nil {
+		r.logger.Error(fmt.Sprintf("failed to put %s into database", database.LatestSeenBlockKey), zap.Error(err))
+	}
 
 	return nil
-}
-
-// Get the current app request ID and increment it. Request IDs need to be unique to each teleporter message, but the specific values do not matter.
-// This should only be called by the subnet-level TeleporterRelayer, and not by the goroutines that handle individual teleporter messages
-func (r *Relayer) getAndIncrementRequestID() uint32 {
-	id := r.currentRequestID
-	r.currentRequestID++
-	return id
 }

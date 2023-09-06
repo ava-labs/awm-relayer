@@ -31,9 +31,8 @@ import (
 )
 
 const (
-	defaultErrorChanSize = 1000
-	defaultApiPort       = 8080
-	defaultMetricsPort   = 9090
+	defaultApiPort     = 8080
+	defaultMetricsPort = 9090
 )
 
 func main() {
@@ -203,13 +202,11 @@ func runRelayer(logger logging.Logger,
 		"Creating relayer",
 		zap.String("chainID", sourceSubnetInfo.ChainID),
 	)
-	errorChan := make(chan error, defaultErrorChanSize)
 
 	relayer, subscriber, err := relayer.NewRelayer(
 		logger,
 		db,
 		sourceSubnetInfo,
-		errorChan,
 		pChainClient,
 		network,
 		responseChan,
@@ -265,13 +262,6 @@ func runRelayer(logger logging.Logger,
 				)
 				return
 			}
-		case err := <-errorChan:
-			logger.Error(
-				"Relayer goroutine stopped with error. Relayer goroutine exiting.",
-				zap.String("originChainID", sourceSubnetInfo.ChainID),
-				zap.Error(err),
-			)
-			return
 		}
 	}
 }

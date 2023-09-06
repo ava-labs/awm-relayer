@@ -13,7 +13,9 @@ import (
 	"github.com/ava-labs/awm-relayer/vms/vmtypes"
 )
 
-// Subscriber subscribes to VM events containing Warp message data
+// Subscriber subscribes to VM events containing Warp message data. The events written to the
+// channel returned by Logs() are assumed to be in block order. Logs within individual blocks
+// may be in any order.
 type Subscriber interface {
 	// ProcessFromHeight processes events from {height} to the latest block
 	ProcessFromHeight(height *big.Int) error
