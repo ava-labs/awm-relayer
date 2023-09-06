@@ -37,3 +37,15 @@ The relayer consists of the following components:
 <div align="center">
   <img src="resources/relayer-diagram.png?raw=true">
 </div>
+
+## Testing
+
+---
+
+### Generate Mocks
+
+We use [gomock](https://pkg.go.dev/go.uber.org/mock/gomock) to generate mocks for testing. To generate mocks, run the following command at the root of the project:
+
+```bash
+go generate ./...
+```
