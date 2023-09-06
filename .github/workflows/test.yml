@@ -28,7 +28,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v4
         with:
-          go-version: $GO_VERSION
+          go-version: ${{ env.GO_VERSION }}
 
       - name: Build Relayer
         run: |
@@ -55,7 +55,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v4
         with:
-          go-version: $GO_VERSION
+          go-version: ${{ env.GO_VERSION }}
 
       - name: Install AvalancheGo Release
         run: BASEDIR=/tmp/e2e-test AVALANCHEGO_BUILD_PATH=/tmp/e2e-test/avalanchego ./scripts/install_avalanchego_release.sh
@@ -64,7 +64,7 @@ jobs:
         run: ./scripts/build.sh /tmp/e2e-test/avalanchego/plugins/srEXiWaHuhNyGwPUi444Tu47ZEDwxTWrbQiuD7FmgSAQ6X7Dy
 
       - name: Checkout awm-relayer repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Run E2E Tests
         run: AVALANCHEGO_BUILD_PATH=/tmp/e2e-test/avalanchego DATA_DIR=/tmp/e2e-test/data ./scripts/e2e_test.sh
