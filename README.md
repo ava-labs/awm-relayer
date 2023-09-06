@@ -46,22 +46,22 @@ The relayer consists of the following components:
 
 Unit tests can be ran locally by running the command in root of the project:
 
-```
-go test ./...
+```bash
+./scripts/test.sh
 ```
 
 ### E2E tests
 
 E2E tests are ran as part of CI, but can also be ran locally. To run the E2E tests locally, you need to have the `avalanchego` build path and vm binary set up. For example with [subnet-evm](https://github.com/ava-labs/subnet-evm):
 
-```
-cd <SUBNET_EVM_PATH>
+```bash
+cd subnet-evm
 BASEDIR=/tmp/e2e-test AVALANCHEGO_BUILD_PATH=/tmp/e2e-test/avalanchego ./scripts/install_avalanchego_release.sh
 ./scripts/build.sh /tmp/e2e-test/avalanchego/plugins/srEXiWaHuhNyGwPUi444Tu47ZEDwxTWrbQiuD7FmgSAQ6X7Dy
 ```
 
 Then, in the root of the `awm-relayer` project, run:
 
-```
+```bash
 AVALANCHEGO_BUILD_PATH=/tmp/e2e-test/avalanchego DATA_DIR=/tmp/e2e-test/data ./scripts/e2e_test.sh
 ```

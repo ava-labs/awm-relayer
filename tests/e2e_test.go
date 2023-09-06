@@ -12,8 +12,6 @@ import (
 	"math/big"
 	"os"
 	"os/exec"
-	"strconv"
-	"strings"
 	"testing"
 	"time"
 
@@ -47,7 +45,7 @@ var (
 	manager                   = runner.NewNetworkManager(anrConfig)
 	warpChainConfigPath       string
 	relayerConfigPath         string
-	teleporterContractAddress = common.HexToAddress("1dD31B5351e76d51F4B152ce64fE5cf594694De5")
+	teleporterContractAddress = common.HexToAddress("0x1dD31B5351e76d51F4B152ce64fE5cf594694De5")
 	teleporterMessage         = teleporter.TeleporterMessage{
 		MessageID:               big.NewInt(1),
 		SenderAddress:           common.HexToAddress("0x0123456789abcdef0123456789abcdef01234567"),
@@ -66,14 +64,6 @@ func TestE2E(t *testing.T) {
 
 	gomega.RegisterFailHandler(ginkgo.Fail)
 	ginkgo.RunSpecs(t, "Relayer e2e test")
-}
-
-func toWebsocketURI(uri string, blockchainID string) string {
-	return fmt.Sprintf("ws://%s/ext/bc/%s/ws", strings.TrimPrefix(uri, "http://"), blockchainID)
-}
-
-func toRPCURI(uri string, blockchainID string) string {
-	return fmt.Sprintf("http://%s/ext/bc/%s/rpc", strings.TrimPrefix(uri, "http://"), blockchainID)
 }
 
 // BeforeSuite starts the default network and adds 10 new nodes as validators with BLS keys
@@ -110,7 +100,7 @@ var _ = ginkgo.BeforeSuite(func() {
 		[]*rpcpb.BlockchainSpec{
 			{
 				VmName:      evm.IDStr,
-				Genesis:     "./tests/e2e/warp.json",
+				Genesis:     "./tests/warp-genesis.json",
 				ChainConfig: warpChainConfigPath,
 				SubnetSpec: &rpcpb.SubnetSpec{
 					SubnetConfig: "",
@@ -119,7 +109,7 @@ var _ = ginkgo.BeforeSuite(func() {
 			},
 			{
 				VmName:      evm.IDStr,
-				Genesis:     "./tests/e2e/warp.json",
+				Genesis:     "./tests/warp-genesis.json",
 				ChainConfig: warpChainConfigPath,
 				SubnetSpec: &rpcpb.SubnetSpec{
 					SubnetConfig: "",
@@ -138,7 +128,9 @@ var _ = ginkgo.BeforeSuite(func() {
 	gomega.Expect(ok).Should(gomega.BeTrue())
 
 	chainBID := subnetBDetails.BlockchainID
+	// uri := toWebsocketURI(subnetBDetails.ValidatorURIs[0], chainBID.String())
 	uri := toWebsocketURI(subnetBDetails.ValidatorURIs[0], chainBID.String())
+
 	client, err := ethclient.Dial(uri)
 	gomega.Expect(err).Should(gomega.BeNil())
 	chainBIDInt, err := client.ChainID(ctx)
@@ -158,7 +150,13 @@ var _ = ginkgo.AfterSuite(func() {
 	gomega.Expect(os.Remove(relayerConfigPath)).Should(gomega.BeNil())
 })
 
-var _ = ginkgo.Describe("[Relayer]", ginkgo.Ordered, func() {
+// Ginkgo describe node that acts as a container for the relayer e2e tests. This test suite
+// will run in order, starting off by setting up the subnet URIs and creating a relayer config
+// file. It will then build the relayer binary and run it with the config file. The relayer
+// will then send a transaction to the source subnet to issue a Warp message simulting a transaction
+// sent from the Teleporter contract. The relayer will then wait for the transaction to be confirmed
+// on the destination subnet and verify that the Warp message was received and unpacked correctly.
+var _ = ginkgo.Describe("[Relayer E2E]", ginkgo.Ordered, func() {
 	var (
 		subnetIDs                      []ids.ID
 		subnetA, subnetB               ids.ID
@@ -415,27 +413,3 @@ var _ = ginkgo.Describe("[Relayer]", ginkgo.Ordered, func() {
 		gomega.Expect(*receivedTeleporterMessage).Should(gomega.Equal(teleporterMessage))
 	})
 })
-
-func getURIHostAndPort(uri string) (string, uint32, error) {
-	// At a minimum uri should have http:// of 7 characters
-	gomega.Expect(len(uri)).Should(gomega.BeNumerically(">", 7))
-	if uri[:7] == "http://" {
-		uri = uri[7:]
-	} else if uri[:8] == "https://" {
-		uri = uri[8:]
-	} else {
-		return "", 0, fmt.Errorf("invalid uri: %s", uri)
-	}
-
-	// Split the uri into host and port
-	hostAndPort := strings.Split(uri, ":")
-	gomega.Expect(len(hostAndPort)).Should(gomega.Equal(2))
-
-	// Parse the port
-	port, err := strconv.ParseUint(hostAndPort[1], 10, 32)
-	if err != nil {
-		return "", 0, fmt.Errorf("failed to parse port: %w", err)
-	}
-
-	return hostAndPort[0], uint32(port), nil
-}
