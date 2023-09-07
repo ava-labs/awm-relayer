@@ -239,7 +239,9 @@ func (r *Relayer) RelayMessage(warpLogInfo *vmtypes.WarpLogInfo, metrics *Messag
 	err = r.db.Put(r.sourceChainID, []byte(database.LatestSeenBlockKey), []byte(strconv.FormatUint(warpLogInfo.BlockNumber, 10)))
 	if err != nil {
 		r.logger.Error(
-			fmt.Sprintf("failed to put %s into database", database.LatestSeenBlockKey), zap.Error(err))
+			fmt.Sprintf("failed to put %s into database", database.LatestSeenBlockKey),
+			zap.Error(err),
+		)
 	}
 
 	return nil

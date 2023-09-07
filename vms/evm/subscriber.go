@@ -254,9 +254,9 @@ func (s *subscriber) UpdateLatestSeenBlock() error {
 	err = s.db.Put(s.chainID, []byte(database.LatestSeenBlockKey), []byte(strconv.FormatUint(latestBlock, 10)))
 	if err != nil {
 		s.logger.Error(
-			fmt.Sprintf("failed to put %s into database",
-				zap.String("chainID", s.chainID.String()),
-				database.LatestSeenBlockKey), zap.Error(err),
+			fmt.Sprintf("failed to put %s into database", database.LatestSeenBlockKey),
+			zap.String("chainID", s.chainID.String()),
+			zap.Error(err),
 		)
 		return err
 	}
