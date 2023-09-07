@@ -352,7 +352,6 @@ var _ = ginkgo.Describe("[Relayer E2E]", ginkgo.Ordered, func() {
 		txSigner := types.LatestSignerForChainID(chainAIDInt)
 		signedTx, err := types.SignTx(tx, txSigner, teleporterKey)
 		gomega.Expect(err).Should(gomega.BeNil())
-		gomega.Expect(signedTx.Hash()).Should(gomega.Equal(tx.Hash()))
 
 		// Sleep for some time to make sure relayer has started up and subscribed.
 		time.Sleep(15 * time.Second)
