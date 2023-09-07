@@ -111,21 +111,57 @@ func (m *messageManager) ShouldSendMessage(warpMessageInfo *vmtypes.WarpMessageI
 	}
 	senderAddress := destinationClient.SenderAddress()
 	if !isAllowedRelayer(teleporterMessage.AllowedRelayerAddresses, senderAddress) {
-		m.logger.Info("Relayer EOA not allowed to deliver this message.")
-		return false, nil
-	}
-	if !isDestination(destinationChainID, destinationClient.DestinationChainID()) {
 		m.logger.Info(
-			"Destination chain ID for message not supported by relayer.",
+			"Relayer EOA not allowed to deliver this message.",
 			zap.String("destinationChainID", destinationChainID.String()),
+			zap.String("teleporterMessageID", teleporterMessage.MessageID.String()),
 		)
 		return false, nil
 	}
 
+	delivered, err := m.messageDelivered(
+		destinationClient,
+		warpMessageInfo,
+		teleporterMessage,
+		senderAddress,
+		destinationChainID,
+	)
+	if err != nil {
+		m.logger.Error(
+			"Failed to check if message has been delivered to destination chain.",
+			zap.String("destinationChainID", destinationChainID.String()),
+			zap.String("teleporterMessageID", teleporterMessage.MessageID.String()),
+			zap.Error(err),
+		)
+		return false, err
+	}
+	if delivered {
+		m.logger.Info(
+			"Message already delivered to destination.",
+			zap.String("destinationChainID", destinationChainID.String()),
+			zap.String("teleporterMessageID", teleporterMessage.MessageID.String()),
+		)
+		return false, nil
+	}
+
+	// Cache the message so it can be reused in SendMessage
+	m.teleporterMessageCache.Put(warpMessageInfo.WarpUnsignedMessage.ID(), teleporterMessage)
+	return true, nil
+}
+
+// Helper to check if a message has been delivered to the destination chain
+// Returns true if the message has been delivered, false if not
+// On error, the boolean result should be ignored
+func (m *messageManager) messageDelivered(
+	destinationClient vms.DestinationClient,
+	warpMessageInfo *vmtypes.WarpMessageInfo,
+	teleporterMessage *TeleporterMessage,
+	senderAddress common.Address,
+	destinationChainID ids.ID) (bool, error) {
 	// Check if the message has already been delivered to the destination chain
 	client, ok := destinationClient.Client().(ethclient.Client)
 	if !ok {
-		m.logger.Info("Destination client is not an Ethereum client.")
+		m.logger.Error("Destination client is not an Ethereum client.")
 		return false, errors.New("destination client is not an Ethereum client")
 	}
 
@@ -134,7 +170,7 @@ func (m *messageManager) ShouldSendMessage(warpMessageInfo *vmtypes.WarpMessageI
 		MessageID:     teleporterMessage.MessageID,
 	})
 	if err != nil {
-		m.logger.Info("Failed packing messageReceived call data.")
+		m.logger.Error("Failed packing messageReceived call data.")
 		return false, err
 	}
 	protocolAddress := common.BytesToAddress(m.protocolAddress[:])
@@ -145,26 +181,21 @@ func (m *messageManager) ShouldSendMessage(warpMessageInfo *vmtypes.WarpMessageI
 	}
 	result, err := client.CallContract(context.Background(), callMessage, nil)
 	if err != nil {
-		m.logger.Info("Failed calling messageReceived method on destination chain.")
+		m.logger.Error(
+			"Failed calling messageReceived method on destination chain.",
+			zap.String("destinationChainID", destinationChainID.String()),
+		)
 		return false, err
 	}
 	// check the contract call result
-	received, err := unpackMessageReceivedResult(result)
+	delivered, err := unpackMessageReceivedResult(result)
 	if err != nil {
 		return false, err
 	}
-	if received {
-		m.logger.Info(
-			"Message already deliverd to destination.",
-			zap.String("destinationChainID", destinationChainID.String()),
-			zap.String("teleporterMessageID", teleporterMessage.MessageID.String()),
-		)
-		return false, nil
+	if delivered {
+		return true, nil
 	}
-
-	// Cache the message so it can be reused in SendMessage
-	m.teleporterMessageCache.Put(warpMessageInfo.WarpUnsignedMessage.ID(), teleporterMessage)
-	return true, nil
+	return false, nil
 }
 
 // SendMessage extracts the gasLimit and packs the call data to call the receiveCrossChainMessage method of the Teleporter contract,
