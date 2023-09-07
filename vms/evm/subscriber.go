@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"sort"
 	"strconv"
 	"time"
 
@@ -193,6 +194,14 @@ func (s *subscriber) ProcessFromHeight(height *big.Int) error {
 		)
 		return err
 	}
+
+	// Sort the logs in ascending block order. Order logs by index within blocks
+	sort.SliceStable(logs, func(i, j int) bool {
+		if logs[i].BlockNumber == logs[j].BlockNumber {
+			return logs[i].TxIndex < logs[j].TxIndex
+		}
+		return logs[i].BlockNumber < logs[j].BlockNumber
+	})
 
 	// Queue each of the logs to be processed
 	s.logger.Info(
