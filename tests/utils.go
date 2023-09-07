@@ -11,7 +11,7 @@ import (
 	"github.com/onsi/gomega"
 )
 
-func toWebsocketURI(uri string, blockchainID string) string {
+func httpToWebsocketURI(uri string, blockchainID string) string {
 	return fmt.Sprintf("ws://%s/ext/bc/%s/ws", strings.TrimPrefix(uri, "http://"), blockchainID)
 }
 
