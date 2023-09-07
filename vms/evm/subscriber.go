@@ -139,6 +139,11 @@ func (s *subscriber) forwardLogs() {
 // Cap the number of blocks requested from the client to MaxBlocksToProcess,
 // counting back from the current block.
 func (s *subscriber) ProcessFromHeight(height *big.Int) error {
+	s.logger.Info(
+		"Processing historical logs",
+		zap.String("fromBlockHeight", height.String()),
+		zap.String("chainID", s.chainID.String()),
+	)
 	if height == nil {
 		return fmt.Errorf("cannot process logs from nil height")
 	}
@@ -152,6 +157,7 @@ func (s *subscriber) ProcessFromHeight(height *big.Int) error {
 	if err != nil {
 		s.logger.Error(
 			"Failed to get latest block",
+			zap.String("chainID", s.chainID.String()),
 			zap.Error(err),
 		)
 		return err
@@ -164,6 +170,7 @@ func (s *subscriber) ProcessFromHeight(height *big.Int) error {
 			fmt.Sprintf("Requested to process too many blocks. Processing only the most recent %d blocks", MaxBlocksToProcess),
 			zap.String("requestedBlockHeight", height.String()),
 			zap.String("latestBlockHeight", toBlock.String()),
+			zap.String("chainID", s.chainID.String()),
 		)
 		height = big.NewInt(0).Add(toBlock, big.NewInt(-MaxBlocksToProcess))
 	}
@@ -181,6 +188,7 @@ func (s *subscriber) ProcessFromHeight(height *big.Int) error {
 	if err != nil {
 		s.logger.Error(
 			"Failed to get logs on initialization",
+			zap.String("chainID", s.chainID.String()),
 			zap.Error(err),
 		)
 		return err
@@ -191,12 +199,14 @@ func (s *subscriber) ProcessFromHeight(height *big.Int) error {
 		"Processing logs on initialization",
 		zap.String("fromBlockHeight", height.String()),
 		zap.String("toBlockHeight", toBlock.String()),
+		zap.String("chainID", s.chainID.String()),
 	)
 	for _, log := range logs {
 		messageInfo, err := s.NewWarpLogInfo(log)
 		if err != nil {
 			s.logger.Error(
 				"Invalid log when processing from height. Continuing.",
+				zap.String("chainID", s.chainID.String()),
 				zap.Error(err),
 			)
 			continue
@@ -208,8 +218,17 @@ func (s *subscriber) ProcessFromHeight(height *big.Int) error {
 }
 
 func (s *subscriber) UpdateLatestSeenBlock() error {
+	s.logger.Info(
+		"Updating latest seen block in database",
+		zap.String("chainID", s.chainID.String()),
+	)
 	ethClient, err := ethclient.Dial(s.nodeRPCURL)
 	if err != nil {
+		s.logger.Error(
+			"Failed to dial node",
+			zap.String("chainID", s.chainID.String()),
+			zap.Error(err),
+		)
 		return err
 	}
 
@@ -217,6 +236,7 @@ func (s *subscriber) UpdateLatestSeenBlock() error {
 	if err != nil {
 		s.logger.Error(
 			"Failed to get latest block",
+			zap.String("chainID", s.chainID.String()),
 			zap.Error(err),
 		)
 		return err
@@ -224,7 +244,11 @@ func (s *subscriber) UpdateLatestSeenBlock() error {
 
 	err = s.db.Put(s.chainID, []byte(database.LatestSeenBlockKey), []byte(strconv.FormatUint(latestBlock, 10)))
 	if err != nil {
-		s.logger.Error(fmt.Sprintf("failed to put %s into database", database.LatestSeenBlockKey), zap.Error(err))
+		s.logger.Error(
+			fmt.Sprintf("failed to put %s into database",
+				zap.String("chainID", s.chainID.String()),
+				database.LatestSeenBlockKey), zap.Error(err),
+		)
 		return err
 	}
 	return nil
@@ -240,13 +264,17 @@ func (s *subscriber) Subscribe() error {
 		}
 		err := s.dialAndSubscribe()
 		if err == nil {
-			s.logger.Info("Successfully subscribed")
+			s.logger.Info(
+				"Successfully subscribed",
+				zap.String("chainID", s.chainID.String()),
+			)
 			return nil
 		}
 
 		s.logger.Warn(
 			"Failed to subscribe to node",
 			zap.Int("attempt", attempt),
+			zap.String("chainID", s.chainID.String()),
 			zap.Error(err),
 		)
 
@@ -271,6 +299,7 @@ func (s *subscriber) dialAndSubscribe() error {
 	if err != nil {
 		s.logger.Error(
 			"Failed to subscribe to logs",
+			zap.String("chainID", s.chainID.String()),
 			zap.Error(err),
 		)
 		return err

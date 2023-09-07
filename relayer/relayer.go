@@ -128,7 +128,6 @@ func NewRelayer(
 		// If the database contains the latest seen block data, then  back-process all warp messages from the
 		// latest seen block to the latest block
 		// This will query the node for any logs that match the filter query from the stored block height,
-		r.logger.Info("latest seen block", zap.String("block", string(latestSeenBlockData)))
 		latestSeenBlock, success := new(big.Int).SetString(string(latestSeenBlockData), 10)
 		if !success {
 			r.logger.Error("failed to convert latest block to big.Int", zap.Error(err))
@@ -176,6 +175,11 @@ func NewRelayer(
 // RelayMessage relays a single warp message to the destination chain. Warp message relay requests are concurrent with each other,
 // and synchronized by relayer.
 func (r *Relayer) RelayMessage(warpLogInfo *vmtypes.WarpLogInfo, metrics *MessageRelayerMetrics, messageCreator message.Creator) error {
+	r.logger.Info(
+		"Relaying message",
+		zap.String("chainID", r.sourceChainID.String()),
+	)
+
 	// Unpack the VM message bytes into a Warp message
 	warpMessageInfo, err := r.contractMessage.UnpackWarpMessage(warpLogInfo.UnsignedMsgBytes)
 	if err != nil {
@@ -186,13 +190,19 @@ func (r *Relayer) RelayMessage(warpLogInfo *vmtypes.WarpLogInfo, metrics *Messag
 		return err
 	}
 
+	r.logger.Info(
+		"Unpacked warp message",
+		zap.String("chainID", r.sourceChainID.String()),
+		zap.String("warpMessageID", warpMessageInfo.WarpUnsignedMessage.ID().String()),
+	)
+
 	// Check that the warp message is from a support message protocol contract address.
 	messageManager, supportedMessageProtocol := r.messageManagers[warpLogInfo.SourceAddress]
 	if !supportedMessageProtocol {
 		// Do not return an error here because it is expected for there to be messages from other contracts
 		// than just the ones supported by a single relayer instance.
 		r.logger.Debug(
-			"Warp message from unsupported message protocol address. not relaying.",
+			"Warp message from unsupported message protocol address. Not relaying.",
 			zap.String("protocolAddress", warpLogInfo.SourceAddress.Hex()),
 		)
 		return nil
@@ -217,6 +227,8 @@ func (r *Relayer) RelayMessage(warpLogInfo *vmtypes.WarpLogInfo, metrics *Messag
 	if err != nil {
 		r.logger.Error(
 			"Failed to run message relayer",
+			zap.String("chainID", r.sourceChainID.String()),
+			zap.String("warpMessageID", warpMessageInfo.WarpUnsignedMessage.ID().String()),
 			zap.Error(err),
 		)
 		return err
@@ -226,7 +238,8 @@ func (r *Relayer) RelayMessage(warpLogInfo *vmtypes.WarpLogInfo, metrics *Messag
 	// We cannot store the latest processed block height, because we do not know if a given log is the last log in a block
 	err = r.db.Put(r.sourceChainID, []byte(database.LatestSeenBlockKey), []byte(strconv.FormatUint(warpLogInfo.BlockNumber, 10)))
 	if err != nil {
-		r.logger.Error(fmt.Sprintf("failed to put %s into database", database.LatestSeenBlockKey), zap.Error(err))
+		r.logger.Error(
+			fmt.Sprintf("failed to put %s into database", database.LatestSeenBlockKey), zap.Error(err))
 	}
 
 	return nil
