@@ -29,14 +29,14 @@ type TeleporterMessageReceipt struct {
 	RelayerRewardAddress common.Address `json:"relayerRewardAddress"`
 }
 
-// ReceiveCrossChainMessageInput is the input to the ReceiveCrossChainMessage
-// in the contract deployed on the receiving chain
+// ReceiveCrossChainMessageInput is the input to receiveCrossChainMessage call
+// in the contract deployed on the destination chain
 type ReceiveCrossChainMessageInput struct {
 	RelayerRewardAddress common.Address `json:"relayerRewardAddress"`
 }
 
-// MessageReceivedInput is the input to the MessageReceived
-// in the contract deployed on the receiving chain
+// MessageReceivedInput is the input to messageReceived call
+// in the contract deployed on the destination chain
 type MessageReceivedInput struct {
 	OriginChainID ids.ID   `json:"relayerRewardAddress"`
 	MessageID     *big.Int `json:"messageID"`
