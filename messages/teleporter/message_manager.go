@@ -110,6 +110,7 @@ func (m *messageManager) ShouldSendMessage(warpMessageInfo *vmtypes.WarpMessageI
 		m.logger.Info(
 			"Relayer EOA not allowed to deliver this message.",
 			zap.String("destinationChainID", destinationChainID.String()),
+			zap.String("warpMessageID", warpMessageInfo.WarpUnsignedMessage.ID().String()),
 			zap.String("teleporterMessageID", teleporterMessage.MessageID.String()),
 		)
 		return false, nil
@@ -126,6 +127,7 @@ func (m *messageManager) ShouldSendMessage(warpMessageInfo *vmtypes.WarpMessageI
 		m.logger.Error(
 			"Failed to check if message has been delivered to destination chain.",
 			zap.String("destinationChainID", destinationChainID.String()),
+			zap.String("warpMessageID", warpMessageInfo.WarpUnsignedMessage.ID().String()),
 			zap.String("teleporterMessageID", teleporterMessage.MessageID.String()),
 			zap.Error(err),
 		)
@@ -157,7 +159,10 @@ func (m *messageManager) messageDelivered(
 	// Check if the message has already been delivered to the destination chain
 	client, ok := destinationClient.Client().(ethclient.Client)
 	if !ok {
-		m.logger.Error("Destination client is not an Ethereum client.")
+		m.logger.Error(
+			"Destination client is not an Ethereum client.",
+			zap.String("destinationChainID", destinationChainID.String()),
+		)
 		return false, errors.New("destination client is not an Ethereum client")
 	}
 
@@ -166,7 +171,11 @@ func (m *messageManager) messageDelivered(
 		MessageID:     teleporterMessage.MessageID,
 	})
 	if err != nil {
-		m.logger.Error("Failed packing messageReceived call data.")
+		m.logger.Error(
+			"Failed packing messageReceived call data.",
+			zap.String("destinationChainID", destinationChainID.String()),
+			zap.Error(err),
+		)
 		return false, err
 	}
 	protocolAddress := common.BytesToAddress(m.protocolAddress[:])
@@ -180,12 +189,18 @@ func (m *messageManager) messageDelivered(
 		m.logger.Error(
 			"Failed calling messageReceived method on destination chain.",
 			zap.String("destinationChainID", destinationChainID.String()),
+			zap.Error(err),
 		)
 		return false, err
 	}
 	// check the contract call result
 	delivered, err := unpackMessageReceivedResult(result)
 	if err != nil {
+		m.logger.Error(
+			"Failed unpacking messageReceived result.",
+			zap.String("destinationChainID", destinationChainID.String()),
+			zap.Error(err),
+		)
 		return false, err
 	}
 	if delivered {
@@ -205,6 +220,7 @@ func (m *messageManager) SendMessage(signedMessage *warp.Message, parsedVmPayloa
 	if !ok {
 		m.logger.Debug(
 			"Teleporter message to send not in cache. Extracting from signed warp message.",
+			zap.String("destinationChainID", destinationChainID.String()),
 			zap.String("warpMessageID", signedMessage.ID().String()),
 		)
 		var err error
@@ -212,6 +228,7 @@ func (m *messageManager) SendMessage(signedMessage *warp.Message, parsedVmPayloa
 		if err != nil {
 			m.logger.Error(
 				"Failed unpacking teleporter message.",
+				zap.String("destinationChainID", destinationChainID.String()),
 				zap.String("warpMessageID", signedMessage.ID().String()),
 			)
 			return err
@@ -221,13 +238,16 @@ func (m *messageManager) SendMessage(signedMessage *warp.Message, parsedVmPayloa
 	m.logger.Info(
 		"Sending message to destination chain",
 		zap.String("destinationChainID", destinationChainID.String()),
+		zap.String("warpMessageID", signedMessage.ID().String()),
 		zap.String("teleporterMessageID", teleporterMessage.MessageID.String()),
 	)
 	numSigners, err := signedMessage.Signature.NumSigners()
 	if err != nil {
 		m.logger.Error(
 			"Failed to get number of signers",
+			zap.String("destinationChainID", destinationChainID.String()),
 			zap.String("warpMessageID", signedMessage.ID().String()),
+			zap.String("teleporterMessageID", teleporterMessage.MessageID.String()),
 		)
 		return err
 	}
@@ -235,7 +255,9 @@ func (m *messageManager) SendMessage(signedMessage *warp.Message, parsedVmPayloa
 	if err != nil {
 		m.logger.Error(
 			"Gas limit required overflowed uint64 max. not relaying message",
+			zap.String("destinationChainID", destinationChainID.String()),
 			zap.String("warpMessageID", signedMessage.ID().String()),
+			zap.String("teleporterMessageID", teleporterMessage.MessageID.String()),
 		)
 		return err
 	}
@@ -246,7 +268,9 @@ func (m *messageManager) SendMessage(signedMessage *warp.Message, parsedVmPayloa
 	if err != nil {
 		m.logger.Error(
 			"Failed packing receiveCrossChainMessage call data",
+			zap.String("destinationChainID", destinationChainID.String()),
 			zap.String("warpMessageID", signedMessage.ID().String()),
+			zap.String("teleporterMessageID", teleporterMessage.MessageID.String()),
 		)
 		return err
 	}
@@ -260,8 +284,9 @@ func (m *messageManager) SendMessage(signedMessage *warp.Message, parsedVmPayloa
 	if err != nil {
 		m.logger.Error(
 			"Failed to send tx.",
-			zap.String("warpMessageID", signedMessage.ID().String()),
 			zap.String("destinationChainID", destinationChainID.String()),
+			zap.String("warpMessageID", signedMessage.ID().String()),
+			zap.String("teleporterMessageID", teleporterMessage.MessageID.String()),
 			zap.Error(err),
 		)
 		return err
@@ -269,6 +294,7 @@ func (m *messageManager) SendMessage(signedMessage *warp.Message, parsedVmPayloa
 	m.logger.Info(
 		"Sent message to destination chain",
 		zap.String("destinationChainID", destinationChainID.String()),
+		zap.String("warpMessageID", signedMessage.ID().String()),
 		zap.String("teleporterMessageID", teleporterMessage.MessageID.String()),
 	)
 	return nil
