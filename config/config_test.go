@@ -118,8 +118,10 @@ func TestGetDestinationRPCEndpoint(t *testing.T) {
 	}
 
 	for i, testCase := range testCases {
-		res := testCase.s.GetNodeRPCEndpoint()
-		require.Equal(t, testCase.expectedResult, res, fmt.Sprintf("test case %d failed", i))
+		t.Run(fmt.Sprintf("test_%d", i), func(t *testing.T) {
+			res := testCase.s.GetNodeRPCEndpoint()
+			require.Equal(t, testCase.expectedResult, res)
+		})
 	}
 }
 
@@ -182,8 +184,10 @@ func TestGetSourceSubnetWSEndpoint(t *testing.T) {
 	}
 
 	for i, testCase := range testCases {
-		res := testCase.s.GetNodeWSEndpoint()
-		require.Equal(t, testCase.expectedResult, res, fmt.Sprintf("test case %d failed", i))
+		t.Run(fmt.Sprintf("test_%d", i), func(t *testing.T) {
+			res := testCase.s.GetNodeWSEndpoint()
+			require.Equal(t, testCase.expectedResult, res)
+		})
 	}
 }
 
@@ -240,12 +244,14 @@ func TestGetRelayerAccountInfo(t *testing.T) {
 	}
 
 	for i, testCase := range testCases {
-		pk, addr, err := testCase.s.GetRelayerAccountInfo()
-		require.Equal(t, testCase.expectedResult.err, err, fmt.Sprintf("test case %d had unexpected error", i))
-		if err == nil {
-			require.Equal(t, testCase.expectedResult.pk.D.Int64(), pk.D.Int64(), fmt.Sprintf("test case %d had mismatched pk", i))
-			require.Equal(t, testCase.expectedResult.addr, addr, fmt.Sprintf("test case %d had mismatched address", i))
-		}
+		t.Run(fmt.Sprintf("test_%d", i), func(t *testing.T) {
+			pk, addr, err := testCase.s.GetRelayerAccountInfo()
+			require.Equal(t, testCase.expectedResult.err, err)
+			if err == nil {
+				require.Equal(t, testCase.expectedResult.pk.D.Int64(), pk.D.Int64())
+				require.Equal(t, testCase.expectedResult.addr, addr)
+			}
+		})
 	}
 }
 
@@ -280,7 +286,7 @@ func runGetRelayerAccountPrivateKeyTest(t *testing.T, testCase getRelayerAccount
 	require.NoError(t, err)
 	require.Equal(t, optionOverwritten, testCase.expectedOverwritten)
 
-	require.True(t, testCase.resultVerifier(parsedCfg), "unexpected config")
+	require.True(t, testCase.resultVerifier(parsedCfg))
 }
 
 func TestGetRelayerAccountPrivateKey_set_pk_in_config(t *testing.T) {

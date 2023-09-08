@@ -4,6 +4,7 @@
 package utils
 
 import (
+	"fmt"
 	"math/big"
 	"testing"
 
@@ -50,14 +51,16 @@ func TestConvertProtocol(t *testing.T) {
 	}
 
 	for i, testCase := range testCases {
-		actualUrl, err := ConvertProtocol(testCase.urlString, testCase.protocol)
+		t.Run(fmt.Sprintf("test_%d", i), func(t *testing.T) {
+			actualUrl, err := ConvertProtocol(testCase.urlString, testCase.protocol)
 
-		if testCase.expectedError {
-			require.Error(t, err, "Test case %d failed", i)
-		} else {
-			require.NoError(t, err, "Test case %d failed", i)
-		}
-		require.Equal(t, testCase.expectedUrl, actualUrl, "Test case %d failed", i)
+			if testCase.expectedError {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
+			require.Equal(t, testCase.expectedUrl, actualUrl)
+		})
 	}
 }
 
@@ -83,8 +86,10 @@ func TestSanitizeHashString(t *testing.T) {
 		},
 	}
 	for i, testCase := range testCases {
-		actualResult := SanitizeHashString(testCase.hash)
-		require.Equal(t, testCase.expectedResult, actualResult, "Test case %d failed", i)
+		t.Run(fmt.Sprintf("test_%d", i), func(t *testing.T) {
+			actualResult := SanitizeHashString(testCase.hash)
+			require.Equal(t, testCase.expectedResult, actualResult)
+		})
 	}
 }
 
@@ -133,7 +138,9 @@ func TestCheckStakeWeightExceedsThreshold(t *testing.T) {
 		},
 	}
 	for i, testCase := range testCases {
-		actualResult := CheckStakeWeightExceedsThreshold(new(big.Int).SetUint64(testCase.accumulatedSignatureWeight), testCase.totalWeight, testCase.quorumNumerator, testCase.quorumDenominator)
-		require.Equal(t, testCase.expectedResult, actualResult, "Test case %d failed", i)
+		t.Run(fmt.Sprintf("test_%d", i), func(t *testing.T) {
+			actualResult := CheckStakeWeightExceedsThreshold(new(big.Int).SetUint64(testCase.accumulatedSignatureWeight), testCase.totalWeight, testCase.quorumNumerator, testCase.quorumDenominator)
+			require.Equal(t, testCase.expectedResult, actualResult)
+		})
 	}
 }
