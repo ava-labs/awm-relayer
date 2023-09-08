@@ -5,7 +5,6 @@ package teleporter
 
 import (
 	"bytes"
-	"encoding/hex"
 	"math/big"
 	"testing"
 
@@ -41,8 +40,8 @@ func packSendCrossChainMessageEvent(destinationChainID common.Hash, message Tele
 
 func TestPackUnpackTeleporterMessage(t *testing.T) {
 	var (
-		messageID          int64 = 4
-		destinationChainID       = common.HexToHash("0x03")
+		messageID          int64       = 4
+		destinationChainID common.Hash = common.HexToHash("0x03")
 	)
 	message := testTeleporterMessage(messageID)
 
@@ -57,13 +56,13 @@ func TestPackUnpackTeleporterMessage(t *testing.T) {
 	unpacked, err := unpackTeleporterMessage(b)
 	require.NoError(t, err)
 
-	require.Equalf(t, message.MessageID, unpacked.MessageID, "message ids do not match. expected: %d actual: %d", message.MessageID.Uint64(), unpacked.MessageID.Uint64())
-	require.Equalf(t, message.SenderAddress, unpacked.SenderAddress, "sender addresses do not match. expected: %s actual: %s", message.SenderAddress.Hex(), unpacked.SenderAddress.Hex())
-	require.Equal(t, message.DestinationAddress, unpacked.DestinationAddress, "destination addresses do not match. expected: %s actual: %s", message.DestinationAddress.Hex(), unpacked.DestinationAddress.Hex())
-	require.Equalf(t, message.RequiredGasLimit, unpacked.RequiredGasLimit, "required gas limits do not match. expected: %d actual: %d", message.RequiredGasLimit.Uint64(), unpacked.RequiredGasLimit.Uint64())
+	require.Equal(t, message.MessageID, unpacked.MessageID)
+	require.Equal(t, message.SenderAddress, unpacked.SenderAddress)
+	require.Equal(t, message.DestinationAddress, unpacked.DestinationAddress)
+	require.Equal(t, message.RequiredGasLimit, unpacked.RequiredGasLimit)
 
 	for i := 0; i < len(message.AllowedRelayerAddresses); i++ {
-		require.Equalf(t, unpacked.AllowedRelayerAddresses[i], message.AllowedRelayerAddresses[i], "allowed relayer addresses %d do not match.", i)
+		require.Equal(t, unpacked.AllowedRelayerAddresses[i], message.AllowedRelayerAddresses[i])
 	}
 
 	for i := 0; i < len(message.Receipts); i++ {
@@ -71,5 +70,5 @@ func TestPackUnpackTeleporterMessage(t *testing.T) {
 		require.Equal(t, message.Receipts[i].RelayerRewardAddress, unpacked.Receipts[i].RelayerRewardAddress)
 	}
 
-	require.Truef(t, bytes.Equal(message.Message, unpacked.Message), "messages do not match. expected: %s actual: %s", hex.EncodeToString(message.Message), hex.EncodeToString(unpacked.Message))
+	require.True(t, bytes.Equal(message.Message, unpacked.Message))
 }

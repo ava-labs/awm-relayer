@@ -61,10 +61,10 @@ func TestUnpack(t *testing.T) {
 
 	for _, testCase := range testCases {
 		input, err := hex.DecodeString(testCase.input)
-		require.NoErrorf(t, err, "failed to decode test input: %v", err)
+		require.NoError(t, err)
 
 		msg, err := m.UnpackWarpMessage(input)
-		require.NoErrorf(t, err, "failed to unpack message: %v", err)
+		require.NoError(t, err)
 
 		require.Equal(t, testCase.networkID, msg.WarpUnsignedMessage.NetworkID)
 	}
