@@ -212,11 +212,7 @@ func (m *messageManager) messageDelivered(
 // SendMessage extracts the gasLimit and packs the call data to call the receiveCrossChainMessage method of the Teleporter contract,
 // and dispatches transaction construction and broadcast to the destination client
 func (m *messageManager) SendMessage(signedMessage *warp.Message, parsedVmPayload []byte, destinationChainID ids.ID) error {
-	var (
-		teleporterMessage *TeleporterMessage
-		ok                bool
-	)
-	teleporterMessage, ok = m.teleporterMessageCache.Get(signedMessage.ID())
+	teleporterMessage, ok := m.teleporterMessageCache.Get(signedMessage.ID())
 	if !ok {
 		m.logger.Debug(
 			"Teleporter message to send not in cache. Extracting from signed warp message.",
