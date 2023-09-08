@@ -74,10 +74,6 @@ func NewMessageManager(
 	}, nil
 }
 
-func isDestination(messageDestinationID ids.ID, allowedDestinationID ids.ID) bool {
-	return messageDestinationID == allowedDestinationID
-}
-
 func isAllowedRelayer(allowedRelayers []common.Address, eoa common.Address) bool {
 	// If no allowed relayer addresses were set, then anyone can relay it.
 	if len(allowedRelayers) == 0 {
