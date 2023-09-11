@@ -126,7 +126,9 @@ func NewRelayer(
 	//    - In this case, we save the current block height in the database, but do not process any historical warp logs
 	if err == nil {
 		// If the database contains the latest seen block data, then back-process all warp messages from that block to the latest block
-		// This will query the node for any logs that match the filter query in that range
+		// Note that the latest seen block may have already been partially (or fully) processed by the relayer on a previous run. When
+		// processing a warp message in real time, which is when we update the latest seen block in the database, we have no way of knowing
+		// if that is the last warp message to process in the block
 		latestSeenBlock, success := new(big.Int).SetString(string(latestSeenBlockData), 10)
 		if !success {
 			r.logger.Error("failed to convert latest block to big.Int", zap.Error(err))
@@ -144,8 +146,7 @@ func NewRelayer(
 		return &r, sub, nil
 	}
 	if errors.Is(err, database.ErrChainNotFound) || errors.Is(err, database.ErrKeyNotFound) {
-		// Otherwise, latestSeenBlock is nil, so the call to ProcessFromHeight will simply update the database with the
-		// latest block height
+		// Otherwise, latestSeenBlock is nil, so we instead store the latest block height.
 		logger.Info(
 			"Latest seen block not found in database. Starting from latest block.",
 			zap.String("chainID", r.sourceChainID.String()),
@@ -234,7 +235,6 @@ func (r *Relayer) RelayMessage(warpLogInfo *vmtypes.WarpLogInfo, metrics *Messag
 	r.currentRequestID++
 
 	// Update the database with the latest seen block height
-	// We cannot store the latest processed block height, because we do not know if a given log is the last log in a block
 	err = r.db.Put(r.sourceChainID, []byte(database.LatestSeenBlockKey), []byte(strconv.FormatUint(warpLogInfo.BlockNumber, 10)))
 	if err != nil {
 		r.logger.Error(

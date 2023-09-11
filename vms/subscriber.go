@@ -20,7 +20,7 @@ type Subscriber interface {
 	// ProcessFromHeight processes events from {height} to the latest block
 	ProcessFromHeight(height *big.Int) error
 
-	// UpdateLatestSeenBlock retreives the latest block from the chain and updates the database
+	// UpdateLatestSeenBlock retrieves the latest block from the chain and updates the database
 	UpdateLatestSeenBlock() error
 
 	// Subscribe registers a subscription. After Subscribe is called,
