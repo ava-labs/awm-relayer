@@ -28,16 +28,18 @@ type JSONFileStorage struct {
 	// Each network has its own mutex
 	// The chainIDs used to index the JSONFileStorage are created at initialization
 	// and are not modified afterwards, so we don't need to lock the map itself.
-	mutexes map[ids.ID]*sync.RWMutex
-	logger  logging.Logger
+	mutexes      map[ids.ID]*sync.RWMutex
+	logger       logging.Logger
+	currentState map[ids.ID]chainState
 }
 
 // NewJSONFileStorage creates a new JSONFileStorage instance
 func NewJSONFileStorage(logger logging.Logger, dir string, networks []ids.ID) (*JSONFileStorage, error) {
 	storage := &JSONFileStorage{
-		dir:     filepath.Clean(dir),
-		mutexes: make(map[ids.ID]*sync.RWMutex),
-		logger:  logger,
+		dir:          filepath.Clean(dir),
+		mutexes:      make(map[ids.ID]*sync.RWMutex),
+		logger:       logger,
+		currentState: make(map[ids.ID]chainState),
 	}
 
 	for _, network := range networks {
@@ -47,7 +49,16 @@ func NewJSONFileStorage(logger logging.Logger, dir string, networks []ids.ID) (*
 	_, err := os.Stat(dir)
 	if err == nil {
 		// Directory already exists.
-		// Return the existing storage.
+		// Read the existing storage.
+		for _, network := range networks {
+			currentState, fileExists, err := storage.getCurrentState(network)
+			if err != nil {
+				return nil, err
+			}
+			if fileExists {
+				storage.currentState[network] = currentState
+			}
+		}
 		return storage, nil
 	}
 
@@ -76,14 +87,8 @@ func (s *JSONFileStorage) Get(chainID ids.ID, key []byte) ([]byte, error) {
 
 	mutex.RLock()
 	defer mutex.RUnlock()
-	currentState := make(chainState)
-	fileExists, err := s.read(chainID, &currentState)
+	currentState, fileExists, err := s.getCurrentState(chainID)
 	if err != nil {
-		s.logger.Error(
-			"failed to read file",
-			zap.String("chainID", chainID.String()),
-			zap.Error(err),
-		)
 		return nil, err
 	}
 	if !fileExists {
@@ -96,6 +101,21 @@ func (s *JSONFileStorage) Get(chainID ids.ID, key []byte) ([]byte, error) {
 	}
 
 	return []byte(val), nil
+}
+
+// Helper to get the current state of a chainID. Not thread-safe.
+func (s *JSONFileStorage) getCurrentState(chainID ids.ID) (chainState, bool, error) {
+	currentState := make(chainState)
+	fileExists, err := s.read(chainID, &currentState)
+	if err != nil {
+		s.logger.Error(
+			"failed to read file",
+			zap.String("chainID", chainID.String()),
+			zap.Error(err),
+		)
+		return nil, false, err
+	}
+	return currentState, fileExists, nil
 }
 
 // Put the value into the JSON database. Read the current chain state and overwrite the key, if it exists
@@ -112,20 +132,9 @@ func (s *JSONFileStorage) Put(chainID ids.ID, key []byte, value []byte) error {
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	currentState := make(chainState)
-	_, err := s.read(chainID, &currentState)
-	if err != nil {
-		s.logger.Error(
-			"failed to read file",
-			zap.String("chainID", chainID.String()),
-			zap.Error(err),
-		)
-		return err
-	}
-
-	currentState[string(key)] = string(value)
-
-	return s.write(chainID, currentState)
+	// Update the in-memory state and write to disk
+	s.currentState[chainID][string(key)] = string(value)
+	return s.write(chainID, s.currentState[chainID])
 }
 
 // Write the value to the file. The caller is responsible for ensuring proper synchronization
