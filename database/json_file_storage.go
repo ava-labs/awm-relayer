@@ -43,6 +43,7 @@ func NewJSONFileStorage(logger logging.Logger, dir string, networks []ids.ID) (*
 	}
 
 	for _, network := range networks {
+		storage.currentState[network] = make(chainState)
 		storage.mutexes[network] = &sync.RWMutex{}
 	}
 

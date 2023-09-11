@@ -40,11 +40,11 @@ func TestConcurrentWriteReadSingleChain(t *testing.T) {
 
 	latestSeenBlockData, err := jsonStorage.Get(networks[0], []byte(LatestSeenBlockKey))
 	if err != nil {
-		t.Fatal(fmt.Sprintf("failed to retrieve from JSON storage. err: %v", err))
+		t.Fatalf("failed to retrieve from JSON storage. err: %v", err)
 	}
 	latestSeenBlock, success := new(big.Int).SetString(string(latestSeenBlockData), 10)
 	if !success {
-		t.Fatal(fmt.Sprintf("failed to convert latest block to big.Int. err: %v", err))
+		t.Fatalf("failed to convert latest block to big.Int. err: %v", err)
 	}
 	assert.Equal(t, finalTargetValue, latestSeenBlock.Uint64(), "latest seen block height is not correct.")
 
@@ -80,11 +80,11 @@ func TestConcurrentWriteReadMultipleChains(t *testing.T) {
 	for i, id := range networks {
 		latestSeenBlockData, err := jsonStorage.Get(id, []byte(LatestSeenBlockKey))
 		if err != nil {
-			t.Fatal(fmt.Sprintf("failed to retrieve from JSON storage. networkID: %d err: %v", i, err))
+			t.Fatalf("failed to retrieve from JSON storage. networkID: %d err: %v", i, err)
 		}
 		latestSeenBlock, success := new(big.Int).SetString(string(latestSeenBlockData), 10)
 		if !success {
-			t.Fatal(fmt.Sprintf("failed to convert latest block to big.Int. err: %v", err))
+			t.Fatalf("failed to convert latest block to big.Int. err: %v", err)
 		}
 		assert.Equal(t, finalTargetValue, latestSeenBlock.Uint64(), fmt.Sprintf("latest seen block height is not correct. networkID: %d", i))
 	}
