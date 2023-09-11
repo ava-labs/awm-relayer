@@ -128,7 +128,7 @@ func NewRelayer(
 		// If the database contains the latest seen block data, then back-process all warp messages from that block to the latest block
 		// Note that the latest seen block may have already been partially (or fully) processed by the relayer on a previous run. When
 		// processing a warp message in real time, which is when we update the latest seen block in the database, we have no way of knowing
-		// if that is the last warp message to process in the block
+		// if that is the last warp message in the block
 		latestSeenBlock, success := new(big.Int).SetString(string(latestSeenBlockData), 10)
 		if !success {
 			r.logger.Error("failed to convert latest block to big.Int", zap.Error(err))
