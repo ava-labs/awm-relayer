@@ -125,9 +125,8 @@ func NewRelayer(
 	// 2) The database has been configured for the chain, but does not contain the latest seen block data
 	//    - In this case, we save the current block height in the database, but do not process any historical warp logs
 	if err == nil {
-		// If the database contains the latest seen block data, then  back-process all warp messages from the
-		// latest seen block to the latest block
-		// This will query the node for any logs that match the filter query from the stored block height,
+		// If the database contains the latest seen block data, then back-process all warp messages from that block to the latest block
+		// This will query the node for any logs that match the filter query in that range
 		latestSeenBlock, success := new(big.Int).SetString(string(latestSeenBlockData), 10)
 		if !success {
 			r.logger.Error("failed to convert latest block to big.Int", zap.Error(err))
@@ -208,9 +207,6 @@ func (r *Relayer) RelayMessage(warpLogInfo *vmtypes.WarpLogInfo, metrics *Messag
 		return nil
 	}
 
-	// Increment the request ID to use for this message
-	r.currentRequestID++
-
 	// Create and run the message relayer to attempt to deliver the message to the destination chain
 	messageRelayer := newMessageRelayer(r.logger, metrics, r, warpMessageInfo.WarpUnsignedMessage, warpLogInfo.DestinationChainID, r.responseChan, messageCreator)
 	if err != nil {
@@ -233,6 +229,9 @@ func (r *Relayer) RelayMessage(warpLogInfo *vmtypes.WarpLogInfo, metrics *Messag
 		)
 		return err
 	}
+
+	// Increment the request ID for the next message relay request
+	r.currentRequestID++
 
 	// Update the database with the latest seen block height
 	// We cannot store the latest processed block height, because we do not know if a given log is the last log in a block
