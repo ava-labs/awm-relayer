@@ -4,16 +4,20 @@
 package teleporter
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 
 	"github.com/ava-labs/avalanchego/cache"
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/utils/logging"
+	"github.com/ava-labs/avalanchego/utils/set"
 	"github.com/ava-labs/avalanchego/vms/platformvm/warp"
 	"github.com/ava-labs/awm-relayer/config"
 	"github.com/ava-labs/awm-relayer/vms"
 	"github.com/ava-labs/awm-relayer/vms/vmtypes"
+	"github.com/ava-labs/subnet-evm/ethclient"
+	"github.com/ava-labs/subnet-evm/interfaces"
 	"github.com/ethereum/go-ethereum/common"
 	"go.uber.org/zap"
 )
@@ -29,6 +33,8 @@ type messageManager struct {
 	// We parse teleporter messages in ShouldSendMessage, cache them to be reused in SendMessage
 	// The cache is keyed by the Warp message ID, NOT the Teleporter message ID
 	teleporterMessageCache *cache.LRU[ids.ID, *TeleporterMessage]
+	sourceClient           ethclient.Client
+	supportedFeeAssets     set.Set[common.Address]
 	destinationClients     map[ids.ID]vms.DestinationClient
 
 	logger logging.Logger
@@ -39,6 +45,7 @@ func NewMessageManager(
 	messageProtocolAddress common.Hash,
 	messageProtocolConfig config.MessageProtocolConfig,
 	destinationClients map[ids.ID]vms.DestinationClient,
+	sourceSubnetInfo config.SourceSubnet,
 ) (*messageManager, error) {
 	// Marshal the map and unmarshal into the Teleporter config
 	data, err := json.Marshal(messageProtocolConfig.Settings)
@@ -61,11 +68,31 @@ func NewMessageManager(
 	}
 	teleporterMessageCache := &cache.LRU[ids.ID, *TeleporterMessage]{Size: teleporterMessageCacheSize}
 
+	// If we are restricting the fee assets, dial the source client
+	var client ethclient.Client
+	if len(messageConfig.FeeAssets) != 0 {
+		client, err = ethclient.Dial(sourceSubnetInfo.GetNodeRPCEndpoint())
+		if err != nil {
+			logger.Error(
+				"Failed to dial source client rpc endpoint",
+				zap.Error(err),
+			)
+			return nil, err
+		}
+	}
+
+	supportedFeeAssetsSet := set.NewSet[common.Address](len(messageConfig.FeeAssets))
+	for _, asset := range messageConfig.FeeAssets {
+		supportedFeeAssetsSet.Add(common.HexToAddress(asset))
+	}
+
 	return &messageManager{
 		messageConfig:          messageConfig,
 		protocolAddress:        messageProtocolAddress,
 		teleporterMessageCache: teleporterMessageCache,
 		destinationClients:     destinationClients,
+		sourceClient:           client,
+		supportedFeeAssets:     supportedFeeAssetsSet,
 		logger:                 logger,
 	}, nil
 }
@@ -94,6 +121,54 @@ func (m *messageManager) ShouldSendMessage(warpMessageInfo *vmtypes.WarpMessageI
 		)
 		return false, nil
 	}
+
+	// Check if the relayer fee is in a supported asset.
+	// If the configured list of fee assets is empty, all assets are supported.
+	if m.supportedFeeAssets.Len() != 0 {
+		teleporterAddress := common.BytesToAddress(m.protocolAddress.Bytes())
+		callData, err := EVMTeleporterContractABI.Pack(
+			"getFeeInfo",
+			destinationChainID,
+			teleporterMessage.MessageID,
+		)
+		if err != nil {
+			m.logger.Error(
+				"Failed to pack getFeeInfo call",
+				zap.Error(err),
+			)
+			return false, err
+		}
+		getFeeInfoCallMsg := interfaces.CallMsg{
+			To:   &teleporterAddress,
+			Data: callData,
+		}
+		res, err := m.sourceClient.CallContract(context.Background(), getFeeInfoCallMsg, nil)
+		if err != nil {
+			m.logger.Error(
+				"Failed to call getFeeInfo",
+				zap.Error(err),
+			)
+			return false, err
+		}
+		var feeInfo GetFeeInfoOutput
+		err = EVMTeleporterContractABI.UnpackIntoInterface(&feeInfo, "getFeeInfo", res)
+		if err != nil {
+			m.logger.Error(
+				"Failed to unpack getFeeInfo output",
+				zap.Error(err),
+			)
+			return false, err
+		}
+
+		if !m.supportedFeeAssets.Contains(feeInfo.FeeAsset) {
+			m.logger.Info(
+				"Relayer fee asset not supported.",
+				zap.String("feeAsset", feeInfo.FeeAsset.String()),
+			)
+			return false, nil
+		}
+	}
+
 	// Cache the message so it can be reused in SendMessage
 	m.teleporterMessageCache.Put(warpMessageInfo.WarpUnsignedMessage.ID(), teleporterMessage)
 	return true, nil

@@ -28,6 +28,11 @@ type TeleporterMessageReceipt struct {
 	RelayerRewardAddress common.Address `json:"relayerRewardAddress"`
 }
 
+type GetFeeInfoOutput struct {
+	FeeAsset  common.Address
+	FeeAmount *big.Int
+}
+
 // ReceiveCrossChainMessageInput is the input to the ReceiveCrossChainMessage
 // in the contract deployed on the receiving chain
 type ReceiveCrossChainMessageInput struct {

@@ -27,12 +27,14 @@ type MessageManager interface {
 }
 
 // NewMessageManager constructs a MessageManager for a particular message protocol, defined by the message protocol address and config
+// [sourceSubnetInfo] is an optional parameter that may be used to construct a source node client, if needed
 // Note that DestinationClients may be invoked concurrently by many MessageManagers, so it is assumed that they are implemented in a thread-safe way
 func NewMessageManager(
 	logger logging.Logger,
 	messageProtocolAddress common.Hash,
 	messageProtocolConfig config.MessageProtocolConfig,
 	destinationClients map[ids.ID]vms.DestinationClient,
+	sourceSubnetInfo config.SourceSubnet,
 ) (MessageManager, error) {
 	format := messageProtocolConfig.MessageFormat
 	switch config.ParseMessageProtocol(format) {
@@ -41,6 +43,7 @@ func NewMessageManager(
 			messageProtocolAddress,
 			messageProtocolConfig,
 			destinationClients,
+			sourceSubnetInfo,
 		)
 	default:
 		return nil, fmt.Errorf("invalid message format %s", format)
