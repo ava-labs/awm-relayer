@@ -198,7 +198,7 @@ func (s *subscriber) ProcessFromHeight(height *big.Int) error {
 	// Sort the logs in ascending block order. Order logs by index within blocks
 	sort.SliceStable(logs, func(i, j int) bool {
 		if logs[i].BlockNumber == logs[j].BlockNumber {
-			return logs[i].TxIndex < logs[j].TxIndex
+			return logs[i].Index < logs[j].Index
 		}
 		return logs[i].BlockNumber < logs[j].BlockNumber
 	})
