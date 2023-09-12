@@ -284,7 +284,6 @@ func initMetrics() (prometheus.Gatherer, prometheus.Registerer, error) {
 	registry := prometheus.NewRegistry()
 	if err := gatherer.Register("app", registry); err != nil {
 		return nil, nil, err
-
 	}
 	return gatherer, registry, nil
 }

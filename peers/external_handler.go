@@ -133,7 +133,6 @@ func (h *RelayerExternalHandler) HandleInbound(_ context.Context, inboundMessage
 
 			h.responseChans[chainID] <- inboundMessage
 		}(inboundMessage, chainID)
-
 	} else {
 		inboundMessage.OnFinishedHandling()
 	}
