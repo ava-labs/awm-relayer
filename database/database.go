@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	LatestSeenBlockKey = "latestSeenBlock"
+	LatestProcessedBlockKey = "latestProcessedBlock"
 )
 
 var (

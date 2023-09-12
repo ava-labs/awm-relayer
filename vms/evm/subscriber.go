@@ -176,7 +176,7 @@ func (s *subscriber) ProcessFromHeight(height *big.Int) error {
 		height = big.NewInt(0).Add(toBlock, big.NewInt(-MaxBlocksToProcess))
 	}
 
-	// Filter logs from the latest seen block to the latest block
+	// Filter logs from the latest processed block to the latest block
 	// Since initializationFilterQuery does not modify existing fields of warpFilterQuery,
 	// we can safely reuse warpFilterQuery with only a shallow copy
 	initializationFilterQuery := interfaces.FilterQuery{
@@ -226,9 +226,9 @@ func (s *subscriber) ProcessFromHeight(height *big.Int) error {
 	return nil
 }
 
-func (s *subscriber) UpdateLatestSeenBlock() error {
+func (s *subscriber) UpdateLatestProcessedBlock() error {
 	s.logger.Info(
-		"Updating latest seen block in database",
+		"Updating latest processed block in database",
 		zap.String("chainID", s.chainID.String()),
 	)
 	ethClient, err := ethclient.Dial(s.nodeRPCURL)
@@ -251,10 +251,10 @@ func (s *subscriber) UpdateLatestSeenBlock() error {
 		return err
 	}
 
-	err = s.db.Put(s.chainID, []byte(database.LatestSeenBlockKey), []byte(strconv.FormatUint(latestBlock, 10)))
+	err = s.db.Put(s.chainID, []byte(database.LatestProcessedBlockKey), []byte(strconv.FormatUint(latestBlock, 10)))
 	if err != nil {
 		s.logger.Error(
-			fmt.Sprintf("failed to put %s into database", database.LatestSeenBlockKey),
+			fmt.Sprintf("failed to put %s into database", database.LatestProcessedBlockKey),
 			zap.String("chainID", s.chainID.String()),
 			zap.Error(err),
 		)

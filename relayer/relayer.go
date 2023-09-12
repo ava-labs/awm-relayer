@@ -116,26 +116,26 @@ func NewRelayer(
 		return nil, nil, err
 	}
 
-	// Get the latest seen block height from the database.
-	latestSeenBlockData, err := r.db.Get(r.sourceChainID, []byte(database.LatestSeenBlockKey))
+	// Get the latest processed block height from the database.
+	latestProcessedBlockData, err := r.db.Get(r.sourceChainID, []byte(database.LatestProcessedBlockKey))
 
 	// The following cases are treated as successful:
-	// 1) The database contains the latest seen block data for the chain
+	// 1) The database contains the latest processed block data for the chain
 	//    - In this case, we parse the block height and process warp logs from that height to the current block
-	// 2) The database has been configured for the chain, but does not contain the latest seen block data
+	// 2) The database has been configured for the chain, but does not contain the latest processed block data
 	//    - In this case, we save the current block height in the database, but do not process any historical warp logs
 	if err == nil {
-		// If the database contains the latest seen block data, then back-process all warp messages from that block to the latest block
-		// Note that the latest seen block may have already been partially (or fully) processed by the relayer on a previous run. When
-		// processing a warp message in real time, which is when we update the latest seen block in the database, we have no way of knowing
+		// If the database contains the latest processed block data, then back-process all warp messages from that block to the latest block
+		// Note that the retrieved latest processed block may have already been partially (or fully) processed by the relayer on a previous run. When
+		// processing a warp message in real time, which is when we update the latest processed block in the database, we have no way of knowing
 		// if that is the last warp message in the block
-		latestSeenBlock, success := new(big.Int).SetString(string(latestSeenBlockData), 10)
+		latestProcessedBlock, success := new(big.Int).SetString(string(latestProcessedBlockData), 10)
 		if !success {
 			r.logger.Error("failed to convert latest block to big.Int", zap.Error(err))
 			return nil, nil, err
 		}
 
-		err = sub.ProcessFromHeight(latestSeenBlock)
+		err = sub.ProcessFromHeight(latestProcessedBlock)
 		if err != nil {
 			logger.Warn(
 				"Encountered an error when processing historical blocks. Continuing to normal relaying operation.",
@@ -146,16 +146,16 @@ func NewRelayer(
 		return &r, sub, nil
 	}
 	if errors.Is(err, database.ErrChainNotFound) || errors.Is(err, database.ErrKeyNotFound) {
-		// Otherwise, latestSeenBlock is nil, so we instead store the latest block height.
+		// Otherwise, latestProcessedBlock is nil, so we instead store the latest block height.
 		logger.Info(
-			"Latest seen block not found in database. Starting from latest block.",
+			"Latest processed block not found in database. Starting from latest block.",
 			zap.String("chainID", r.sourceChainID.String()),
 		)
 
-		err := sub.UpdateLatestSeenBlock()
+		err := sub.UpdateLatestProcessedBlock()
 		if err != nil {
 			logger.Warn(
-				"Failed to update latest seen block. Continuing to normal relaying operation",
+				"Failed to update latest processed block. Continuing to normal relaying operation",
 				zap.String("chainID", r.sourceChainID.String()),
 				zap.Error(err),
 			)
@@ -234,11 +234,11 @@ func (r *Relayer) RelayMessage(warpLogInfo *vmtypes.WarpLogInfo, metrics *Messag
 	// Increment the request ID for the next message relay request
 	r.currentRequestID++
 
-	// Update the database with the latest seen block height
-	err = r.db.Put(r.sourceChainID, []byte(database.LatestSeenBlockKey), []byte(strconv.FormatUint(warpLogInfo.BlockNumber, 10)))
+	// Update the database with the latest processed block height
+	err = r.db.Put(r.sourceChainID, []byte(database.LatestProcessedBlockKey), []byte(strconv.FormatUint(warpLogInfo.BlockNumber, 10)))
 	if err != nil {
 		r.logger.Error(
-			fmt.Sprintf("failed to put %s into database", database.LatestSeenBlockKey),
+			fmt.Sprintf("failed to put %s into database", database.LatestProcessedBlockKey),
 			zap.Error(err),
 		)
 	}

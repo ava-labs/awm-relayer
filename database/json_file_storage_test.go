@@ -38,15 +38,15 @@ func TestConcurrentWriteReadSingleChain(t *testing.T) {
 	finalTargetValue := uint64(11)
 	testWrite(jsonStorage, networks[0], finalTargetValue)
 
-	latestSeenBlockData, err := jsonStorage.Get(networks[0], []byte(LatestSeenBlockKey))
+	latestProcessedBlockData, err := jsonStorage.Get(networks[0], []byte(LatestProcessedBlockKey))
 	if err != nil {
 		t.Fatalf("failed to retrieve from JSON storage. err: %v", err)
 	}
-	latestSeenBlock, success := new(big.Int).SetString(string(latestSeenBlockData), 10)
+	latestProcessedBlock, success := new(big.Int).SetString(string(latestProcessedBlockData), 10)
 	if !success {
 		t.Fatalf("failed to convert latest block to big.Int. err: %v", err)
 	}
-	assert.Equal(t, finalTargetValue, latestSeenBlock.Uint64(), "latest seen block height is not correct.")
+	assert.Equal(t, finalTargetValue, latestProcessedBlock.Uint64(), "latest processed block height is not correct.")
 
 }
 
@@ -78,15 +78,15 @@ func TestConcurrentWriteReadMultipleChains(t *testing.T) {
 	}
 
 	for i, id := range networks {
-		latestSeenBlockData, err := jsonStorage.Get(id, []byte(LatestSeenBlockKey))
+		latestProcessedBlockData, err := jsonStorage.Get(id, []byte(LatestProcessedBlockKey))
 		if err != nil {
 			t.Fatalf("failed to retrieve from JSON storage. networkID: %d err: %v", i, err)
 		}
-		latestSeenBlock, success := new(big.Int).SetString(string(latestSeenBlockData), 10)
+		latestProcessedBlock, success := new(big.Int).SetString(string(latestProcessedBlockData), 10)
 		if !success {
 			t.Fatalf("failed to convert latest block to big.Int. err: %v", err)
 		}
-		assert.Equal(t, finalTargetValue, latestSeenBlock.Uint64(), fmt.Sprintf("latest seen block height is not correct. networkID: %d", i))
+		assert.Equal(t, finalTargetValue, latestProcessedBlock.Uint64(), fmt.Sprintf("latest processed block height is not correct. networkID: %d", i))
 	}
 }
 
@@ -110,7 +110,7 @@ func setupJsonStorage(t *testing.T, networks []ids.ID) *JSONFileStorage {
 
 func testWrite(storage *JSONFileStorage, chainID ids.ID, height uint64) {
 	fmt.Println(chainID, height)
-	err := storage.Put(chainID, []byte(LatestSeenBlockKey), []byte(strconv.FormatUint(height, 10)))
+	err := storage.Put(chainID, []byte(LatestProcessedBlockKey), []byte(strconv.FormatUint(height, 10)))
 	if err != nil {
 		fmt.Printf("failed to put data: %v", err)
 		return
