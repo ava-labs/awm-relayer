@@ -30,14 +30,11 @@ jobs:
 
       - name: Build Relayer
         run: |
-          cd awm-relayer
           go mod tidy
           ./scripts/build.sh
 
       - name: Run Relayer Unit Tests
-        run: |
-          cd awm-relayer
-          ./scripts/test.sh
+        run: ./scripts/test.sh
 
   e2e_tests:
     runs-on: ubuntu-20.04
