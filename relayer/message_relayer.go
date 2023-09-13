@@ -76,7 +76,7 @@ func newMessageRelayer(
 	}
 }
 
-func (r *messageRelayer) run(warpMessageInfo *vmtypes.WarpMessageInfo, requestID uint32, messageManager messages.MessageManager) {
+func (r *messageRelayer) relayMessage(warpMessageInfo *vmtypes.WarpMessageInfo, requestID uint32, messageManager messages.MessageManager) error {
 	shouldSend, err := messageManager.ShouldSendMessage(warpMessageInfo, r.destinationChainID)
 	if err != nil {
 		r.logger.Error(
@@ -86,12 +86,11 @@ func (r *messageRelayer) run(warpMessageInfo *vmtypes.WarpMessageInfo, requestID
 
 		r.incFailedRelayMessageCount("failed to check if message should be sent")
 
-		r.relayer.errorChan <- err
-		return
+		return err
 	}
 	if !shouldSend {
 		r.logger.Info("Message should not be sent")
-		return
+		return nil
 	}
 
 	startCreateSignedMessageTime := time.Now()
@@ -103,8 +102,7 @@ func (r *messageRelayer) run(warpMessageInfo *vmtypes.WarpMessageInfo, requestID
 			zap.Error(err),
 		)
 		r.incFailedRelayMessageCount("failed to create signed warp message")
-		r.relayer.errorChan <- err
-		return
+		return err
 	}
 
 	// create signed message latency (ms)
@@ -117,14 +115,14 @@ func (r *messageRelayer) run(warpMessageInfo *vmtypes.WarpMessageInfo, requestID
 			zap.Error(err),
 		)
 		r.incFailedRelayMessageCount("failed to send warp message")
-		r.relayer.errorChan <- err
-		return
+		return err
 	}
 	r.logger.Info(
 		"Finished relaying message to destination chain",
 		zap.String("destinationChainID", r.destinationChainID.String()),
 	)
 	r.incSuccessfulRelayMessageCount()
+	return nil
 }
 
 // Run collects signatures from nodes by directly querying them via AppRequest, then aggregates the signatures, and constructs the signed warp message.
