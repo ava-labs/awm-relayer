@@ -172,8 +172,7 @@ func NewRelayer(
 	return nil, nil, err
 }
 
-// RelayMessage relays a single warp message to the destination chain. Warp message relay requests are concurrent with each other,
-// and synchronized by relayer.
+// RelayMessage relays a single warp message to the destination chain. Warp message relay requests from the same origin chain are processed serially
 func (r *Relayer) RelayMessage(warpLogInfo *vmtypes.WarpLogInfo, metrics *MessageRelayerMetrics, messageCreator message.Creator) error {
 	r.logger.Info(
 		"Relaying message",
