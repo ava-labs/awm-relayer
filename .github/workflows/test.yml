@@ -20,13 +20,13 @@ jobs:
     runs-on: ubuntu-20.04
 
     steps:
-      - name: Checkout awm-relayer repository
-        uses: actions/checkout@v4
-
       - name: Setup Go
         uses: actions/setup-go@v4
         with:
           go-version: ${{ env.GO_VERSION }}
+
+      - name: Checkout awm-relayer repository
+        uses: actions/checkout@v4
 
       - name: Build Relayer
         run: |
