@@ -48,7 +48,6 @@ func NewRelayer(
 	responseChan chan message.InboundMessage,
 	destinationClients map[ids.ID]vms.DestinationClient,
 ) (*Relayer, vms.Subscriber, error) {
-
 	sub := vms.NewSubscriber(logger, sourceSubnetInfo, db)
 
 	subnetID, err := ids.FromString(sourceSubnetInfo.SubnetID)

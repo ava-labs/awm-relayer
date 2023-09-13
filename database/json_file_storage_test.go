@@ -27,9 +27,10 @@ func TestConcurrentWriteReadSingleChain(t *testing.T) {
 	wg := sync.WaitGroup{}
 	for i := 0; i < 10; i++ {
 		wg.Add(1)
+		idx := i
 		go func() {
 			defer wg.Done()
-			testWrite(jsonStorage, networks[0], uint64(i))
+			testWrite(jsonStorage, networks[0], uint64(idx))
 		}()
 	}
 	wg.Wait()
@@ -47,7 +48,6 @@ func TestConcurrentWriteReadSingleChain(t *testing.T) {
 		t.Fatalf("failed to convert latest block to big.Int. err: %v", err)
 	}
 	assert.Equal(t, finalTargetValue, latestProcessedBlock.Uint64(), "latest processed block height is not correct.")
-
 }
 
 // Test that the JSON database can write and read from multiple chains concurrently. Write to any given chain are not concurrent.
