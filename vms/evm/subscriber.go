@@ -226,7 +226,7 @@ func (s *subscriber) ProcessFromHeight(height *big.Int) error {
 	return nil
 }
 
-func (s *subscriber) UpdateLatestProcessedBlock() error {
+func (s *subscriber) SetProcessedBlockHeightToLatest() error {
 	s.logger.Info(
 		"Updating latest processed block in database",
 		zap.String("chainID", s.chainID.String()),

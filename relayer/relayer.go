@@ -152,7 +152,7 @@ func NewRelayer(
 			zap.String("chainID", r.sourceChainID.String()),
 		)
 
-		err := sub.UpdateLatestProcessedBlock()
+		err := sub.SetProcessedBlockHeightToLatest()
 		if err != nil {
 			logger.Warn(
 				"Failed to update latest processed block. Continuing to normal relaying operation",
