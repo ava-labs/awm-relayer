@@ -358,8 +358,7 @@ func TestGetRelayerAccountPrivateKey_set_pk_with_global_env(t *testing.T) {
 		},
 		envSetter: func() {
 			// Overwrite the PK for the first subnet using an env var
-			varName := fmt.Sprintf("%s", accountPrivateKeyEnvVarName)
-			t.Setenv(varName, testPk2)
+			t.Setenv(accountPrivateKeyEnvVarName, testPk2)
 		},
 		expectedOverwritten: true,
 		resultVerifier: func(c Config) bool {
