@@ -35,7 +35,7 @@ To start developing on AWM Relayer, you'll need Golang >= v1.18.1.
 - Run the unit tests
 
 ```sh
-go test ./...
+./scripts/test.sh
 ```
 
 ### Continuous Integration (CI)

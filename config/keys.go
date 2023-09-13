@@ -13,4 +13,5 @@ const (
 	DestinationSubnetsKey = "destination-subnets"
 	EncryptConnectionKey  = "encrypt-connection"
 	AccountPrivateKeyKey  = "account-private-key"
+	StorageLocationKey    = "storage-location"
 )

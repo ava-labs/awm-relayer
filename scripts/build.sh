@@ -30,13 +30,14 @@ if version_lt "$(go_version)" "$go_version_minimum"; then
 fi
 
 # Root directory
-AWM_RELAYER_PATH=$(
+RELAYER_PATH=$(
     cd "$(dirname "${BASH_SOURCE[0]}")"
     cd .. && pwd
 )
 
-# Load the versions
-source "$AWM_RELAYER_PATH"/scripts/versions.sh
+# Load the versions and constants
+source "$RELAYER_PATH"/scripts/versions.sh
+source "$RELAYER_PATH"/scripts/constants.sh
 
 if [[ $# -eq 1 ]]; then
     binary_path=$1
