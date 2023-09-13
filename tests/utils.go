@@ -5,10 +5,23 @@ package tests
 
 import (
 	"fmt"
+	"math/big"
 	"strconv"
 	"strings"
 
+	"github.com/ava-labs/coreth/params"
+	"github.com/ava-labs/subnet-evm/core/types"
+	"github.com/ava-labs/subnet-evm/x/warp"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/onsi/gomega"
+)
+
+var (
+	defaultTeleporterMessageGas       uint64 = 200_000
+	defaultTeleporterMessageGasFeeCap        = big.NewInt(225 * params.GWei)
+	defaultTeleporterMessageGasTipCap        = big.NewInt(params.GWei)
+	defaultTeleporterMessageValue            = common.Big0
+	warpPrecompileAddress                    = warp.Module.Address
 )
 
 func httpToWebsocketURI(uri string, blockchainID string) string {
@@ -37,4 +50,17 @@ func getURIHostAndPort(uri string) (string, uint32, error) {
 	}
 
 	return hostAndPort[0], uint32(port), nil
+}
+
+func newTestTeleporterMessage(chainIDInt *big.Int, nonce uint64, data []byte) *types.Transaction {
+	return types.NewTx(&types.DynamicFeeTx{
+		ChainID:   chainIDInt,
+		Nonce:     nonce,
+		To:        &warpPrecompileAddress,
+		Gas:       defaultTeleporterMessageGas,
+		GasFeeCap: defaultTeleporterMessageGasFeeCap,
+		GasTipCap: defaultTeleporterMessageGasTipCap,
+		Value:     defaultTeleporterMessageValue,
+		Data:      data,
+	})
 }
