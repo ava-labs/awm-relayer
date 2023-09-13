@@ -6,11 +6,12 @@ require (
 	github.com/ava-labs/avalanchego v1.10.2
 	github.com/ava-labs/subnet-evm v0.5.2-warp-rc.0
 	github.com/ethereum/go-ethereum v1.10.26
-	github.com/golang/mock v1.6.0
+	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.16.0
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.16.0
 	github.com/stretchr/testify v1.8.4
+	go.uber.org/mock v0.2.0
 	go.uber.org/zap v1.25.0
 	golang.org/x/exp v0.0.0-20230206171751-46f607a40771
 )
@@ -18,6 +19,7 @@ require (
 require (
 	github.com/deckarep/golang-set v1.8.0 // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
+	github.com/golang/mock v1.6.0 // indirect
 	github.com/hashicorp/golang-lru v0.5.5-0.20210104140557-80c98217689d // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/magiconair/properties v1.8.7 // indirect

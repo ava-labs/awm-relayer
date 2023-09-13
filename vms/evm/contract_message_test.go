@@ -7,11 +7,44 @@ import (
 	"encoding/hex"
 	"testing"
 
+	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/utils/logging"
+	"github.com/ava-labs/avalanchego/vms/platformvm/warp"
 	"github.com/ava-labs/awm-relayer/config"
-	"github.com/golang/mock/gomock"
+	warpPayload "github.com/ava-labs/subnet-evm/warp/payload"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/mock/gomock"
 )
+
+// nolint: unused
+// Used to create a valid unsigned message for testing. Should not be used directly in tests.
+func createUnsignedMessage() *warp.UnsignedMessage {
+	sourceChainID, err := ids.FromString("yH8D7ThNJkxmtkuv2jgBa4P1Rn3Qpr4pPr7QYNfcdoS6k6HWp")
+	if err != nil {
+		return nil
+	}
+	destinationChainID, err := ids.FromString("11111111111111111111111111111111LpoYY")
+	if err != nil {
+		return nil
+	}
+
+	payload, err := warpPayload.NewAddressedPayload(
+		common.HexToAddress("27aE10273D17Cd7e80de8580A51f476960626e5f"),
+		common.Hash(destinationChainID),
+		common.HexToAddress("1234123412341234123412341234123412341234"),
+		[]byte{},
+	)
+	if err != nil {
+		return nil
+	}
+
+	unsignedMsg, err := warp.NewUnsignedMessage(0, sourceChainID, payload.Bytes())
+	if err != nil {
+		return nil
+	}
+	return unsignedMsg
+}
 
 func TestUnpack(t *testing.T) {
 	ctrl := gomock.NewController(t)
