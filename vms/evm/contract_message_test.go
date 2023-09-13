@@ -17,6 +17,7 @@ import (
 	"go.uber.org/mock/gomock"
 )
 
+// nolint: unused
 // Used to create a valid unsigned message for testing. Should not be used directly in tests.
 func createUnsignedMessage() *warp.UnsignedMessage {
 	sourceChainID, err := ids.FromString("yH8D7ThNJkxmtkuv2jgBa4P1Rn3Qpr4pPr7QYNfcdoS6k6HWp")

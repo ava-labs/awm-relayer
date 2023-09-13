@@ -20,10 +20,8 @@ jobs:
     runs-on: ubuntu-20.04
 
     steps:
-      - name: Checkout repository
+      - name: Checkout awm-relayer repository
         uses: actions/checkout@v4
-        with:
-          path: awm-relayer
 
       - name: Setup Go
         uses: actions/setup-go@v4
