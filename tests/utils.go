@@ -4,11 +4,14 @@
 package tests
 
 import (
+	"encoding/hex"
 	"fmt"
 	"math/big"
+	"os"
 	"strconv"
 	"strings"
 
+	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/coreth/params"
 	"github.com/ava-labs/subnet-evm/core/types"
 	"github.com/ava-labs/subnet-evm/x/warp"
@@ -23,6 +26,21 @@ var (
 	defaultTeleporterMessageValue            = common.Big0
 	warpPrecompileAddress                    = warp.Module.Address
 )
+
+// Teleporter contract sendCrossChainMessage input type
+type TeleporterMessageInput struct {
+	DestinationChainID      ids.ID
+	DestinationAddress      common.Address
+	FeeInfo                 FeeInfo
+	RequiredGasLimit        *big.Int
+	Message                 []byte
+	AllowedRelayerAddresses []common.Address
+}
+
+type FeeInfo struct {
+	ContractAddress common.Address
+	Amount          *big.Int
+}
 
 func httpToWebsocketURI(uri string, blockchainID string) string {
 	return fmt.Sprintf("ws://%s/ext/bc/%s/ws", strings.TrimPrefix(uri, "http://"), blockchainID)
@@ -52,15 +70,25 @@ func getURIHostAndPort(uri string) (string, uint32, error) {
 	return hostAndPort[0], uint32(port), nil
 }
 
-func newTestTeleporterMessage(chainIDInt *big.Int, nonce uint64, data []byte) *types.Transaction {
+func newTestTeleporterMessage(chainIDInt *big.Int, teleporterAddress common.Address, nonce uint64, data []byte) *types.Transaction {
 	return types.NewTx(&types.DynamicFeeTx{
 		ChainID:   chainIDInt,
 		Nonce:     nonce,
-		To:        &warpPrecompileAddress,
+		To:        &teleporterAddress,
 		Gas:       defaultTeleporterMessageGas,
 		GasFeeCap: defaultTeleporterMessageGasFeeCap,
 		GasTipCap: defaultTeleporterMessageGasTipCap,
 		Value:     defaultTeleporterMessageValue,
 		Data:      data,
 	})
+}
+
+func readHexTextFile(filename string) []byte {
+	fileData, err := os.ReadFile(filename)
+	gomega.Expect(err).Should(gomega.BeNil())
+	hexString := string(fileData)
+	hexString = hexString[2:] // remove 0x prefix
+	data, err := hex.DecodeString(hexString)
+	gomega.Expect(err).Should(gomega.BeNil())
+	return data
 }
