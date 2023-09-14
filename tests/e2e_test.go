@@ -249,6 +249,7 @@ var _ = ginkgo.Describe("[Relayer E2E]", ginkgo.Ordered, func() {
 			NetworkID:         peers.LocalNetworkID,
 			PChainAPIURL:      chainANodeURIs[0],
 			EncryptConnection: false,
+			StorageLocation:   fmt.Sprintf("%s/.awm-relayer-storage",os.TempDir()),
 			SourceSubnets: []config.SourceSubnet{
 				{
 					SubnetID:          subnetA.String(),
