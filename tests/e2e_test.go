@@ -370,10 +370,9 @@ var _ = ginkgo.Describe("[Relayer E2E]", ginkgo.Ordered, func() {
 
 		// Get the latest block from Subnet B
 		log.Info("Waiting for new block confirmation")
-		var blockHash common.Hash
 		newHead := <-newHeadsB
 		log.Info("Received new head", "height", newHead.Number.Uint64())
-		blockHash = newHead.Hash()
+		blockHash := newHead.Hash()
 
 		block, err := chainBWSClient.BlockByHash(ctx, blockHash)
 		gomega.Expect(err).Should(gomega.BeNil())
@@ -395,6 +394,21 @@ var _ = ginkgo.Describe("[Relayer E2E]", ginkgo.Ordered, func() {
 		receipt, err := chainBWSClient.TransactionReceipt(ctx, txHash)
 		gomega.Expect(err).Should(gomega.BeNil())
 		gomega.Expect(receipt.Status).Should(gomega.Equal(types.ReceiptStatusSuccessful))
+
+		// Try sending the same Teleporter message again. This should fail to be delivered
+		{
+			tx := newTestTeleporterMessage(chainAIDInt, nonceA+1, packedInput)
+			txSigner := types.LatestSignerForChainID(chainAIDInt)
+			signedTx, err := types.SignTx(tx, txSigner, teleporterKey)
+			gomega.Expect(err).Should(gomega.BeNil())
+
+			log.Info("Resending sendWarpMessage transaction", "destinationChainID", blockchainIDB, "txHash", signedTx.Hash())
+			err = chainAWSClient.SendTransaction(ctx, signedTx)
+			gomega.Expect(err).Should(gomega.BeNil())
+
+			// We should not receive a new block on subnet B, since the relayer should have seen the Teleporter message was already delivered
+			gomega.Consistently(newHeadsB, 10*time.Second, 500*time.Millisecond).ShouldNot(gomega.Receive())
+		}
 
 		log.Info("Finished sending warp message, closing down output channel")
 
