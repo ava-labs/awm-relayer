@@ -120,7 +120,6 @@ func (m *messageManager) ShouldSendMessage(warpMessageInfo *vmtypes.WarpMessageI
 		destinationClient,
 		warpMessageInfo,
 		teleporterMessage,
-		senderAddress,
 		destinationChainID,
 	)
 	if err != nil {
@@ -154,7 +153,6 @@ func (m *messageManager) messageDelivered(
 	destinationClient vms.DestinationClient,
 	warpMessageInfo *vmtypes.WarpMessageInfo,
 	teleporterMessage *TeleporterMessage,
-	senderAddress common.Address,
 	destinationChainID ids.ID) (bool, error) {
 	// Check if the message has already been delivered to the destination chain
 	client, ok := destinationClient.Client().(ethclient.Client)
@@ -181,7 +179,6 @@ func (m *messageManager) messageDelivered(
 	protocolAddress := common.BytesToAddress(m.protocolAddress[:])
 	callMessage := interfaces.CallMsg{
 		To:   &protocolAddress,
-		From: senderAddress,
 		Data: data,
 	}
 	result, err := client.CallContract(context.Background(), callMessage, nil)
@@ -203,10 +200,8 @@ func (m *messageManager) messageDelivered(
 		)
 		return false, err
 	}
-	if delivered {
-		return true, nil
-	}
-	return false, nil
+
+	return delivered, nil
 }
 
 // SendMessage extracts the gasLimit and packs the call data to call the receiveCrossChainMessage method of the Teleporter contract,
