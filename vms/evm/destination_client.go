@@ -134,32 +134,24 @@ func (c *destinationClient) SendTx(signedMessage *avalancheWarp.Message,
 		return err
 	}
 
-	// Pack the signed message to be delivered in the storage slots.
-	// The predicate bytes are packed with a delimiter of 0xff.
-	predicateBytes := predicateutils.PackPredicate(signedMessage.Bytes())
-
 	to := common.HexToAddress(toAddress)
-
 	gasFeeCap := baseFee.Mul(baseFee, big.NewInt(BaseFeeFactor))
 	gasFeeCap.Add(gasFeeCap, big.NewInt(MaxPriorityFeePerGas))
 
 	// Construct the actual transaction to broadcast on the destination chain
-	tx := types.NewTx(&types.DynamicFeeTx{
-		ChainID:   destinationChainIDBigInt,
-		Nonce:     c.currentNonce,
-		To:        &to,
-		Gas:       gasLimit,
-		GasFeeCap: gasFeeCap,
-		GasTipCap: gasTipCap,
-		Value:     big.NewInt(0),
-		Data:      callData,
-		AccessList: types.AccessList{
-			{
-				Address:     warp.ContractAddress,
-				StorageKeys: predicateutils.BytesToHashSlice(predicateBytes),
-			},
-		},
-	})
+	tx := predicateutils.NewPredicateTx(
+		destinationChainIDBigInt,
+		c.currentNonce,
+		&to,
+		gasLimit,
+		gasFeeCap,
+		gasTipCap,
+		big.NewInt(0),
+		callData,
+		types.AccessList{},
+		warp.ContractAddress,
+		signedMessage.Bytes(),
+	)
 
 	// Sign and send the transaction on the destination chain
 	signer := types.LatestSignerForChainID(destinationChainIDBigInt)

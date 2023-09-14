@@ -33,23 +33,16 @@ func testTeleporterMessage(messageID int64) TeleporterMessage {
 	return m
 }
 
-// Pack the SendCrossChainMessage event type. PackEvent is documented as not supporting struct types, so this should be used
-// with caution. Here, we only use it for testing purposes. In a real setting, the Teleporter contract should pack the event.
-func packTeleporterMessage(destinationChainID common.Hash, message TeleporterMessage) ([]byte, error) {
-	_, hashes, err := EVMTeleporterContractABI.PackEvent("SendCrossChainMessage", destinationChainID, message.MessageID, message)
-	return hashes, err
-}
-
 func TestPackUnpackTeleporterMessage(t *testing.T) {
 	message := testTeleporterMessage(4)
 
-	b, err := packTeleporterMessage(common.HexToHash("0x03"), message)
+	b, err := PackTeleporterMessage(common.HexToHash("0x03"), message)
 	if err != nil {
 		t.Errorf("failed to pack teleporter message: %v", err)
 		t.FailNow()
 	}
 
-	unpacked, err := unpackTeleporterMessage(b)
+	unpacked, err := UnpackTeleporterMessage(b)
 	if err != nil {
 		t.Errorf("failed to unpack teleporter message: %v", err)
 		t.FailNow()

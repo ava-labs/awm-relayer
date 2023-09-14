@@ -39,7 +39,7 @@ var (
 				EncryptConnection: false,
 				MessageContracts: map[string]MessageProtocolConfig{
 					testAddress: {
-						MessageFormat: "teleporter",
+						MessageFormat: TELEPORTER.String(),
 					},
 				},
 			},
