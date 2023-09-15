@@ -253,10 +253,12 @@ var _ = ginkgo.Describe("[Relayer E2E]", ginkgo.Ordered, func() {
 		gomega.Expect(err).Should(gomega.BeNil())
 
 		baseFeeA, err := chainARPCClient.EstimateBaseFee(context.Background())
+		gomega.Expect(err).Should(gomega.BeNil())
 		gasFeeCapA := baseFeeA.Mul(baseFeeA, big.NewInt(relayerEvm.BaseFeeFactor))
 		gasFeeCapA.Add(gasFeeCapA, big.NewInt(relayerEvm.MaxPriorityFeePerGas))
 
 		baseFeeB, err := chainBRPCClient.EstimateBaseFee(context.Background())
+		gomega.Expect(err).Should(gomega.BeNil())
 		gasFeeCapB := baseFeeB.Mul(baseFeeB, big.NewInt(relayerEvm.BaseFeeFactor))
 		gasFeeCapB.Add(gasFeeCapB, big.NewInt(relayerEvm.MaxPriorityFeePerGas))
 
@@ -306,6 +308,7 @@ var _ = ginkgo.Describe("[Relayer E2E]", ginkgo.Ordered, func() {
 		// Deploy Teleporter on the two subnets
 		{
 			rpcClient, err := rpc.DialContext(ctx, chainARPCURI)
+			gomega.Expect(err).Should(gomega.BeNil())
 			err = rpcClient.CallContext(ctx, nil, "eth_sendRawTransaction", hexutil.Encode(teleporterDeployerTransaction))
 			gomega.Expect(err).Should(gomega.BeNil())
 			time.Sleep(5 * time.Second)
@@ -315,6 +318,7 @@ var _ = ginkgo.Describe("[Relayer E2E]", ginkgo.Ordered, func() {
 		}
 		{
 			rpcClient, err := rpc.DialContext(ctx, chainBRPCURI)
+			gomega.Expect(err).Should(gomega.BeNil())
 			err = rpcClient.CallContext(ctx, nil, "eth_sendRawTransaction", hexutil.Encode(teleporterDeployerTransaction))
 			gomega.Expect(err).Should(gomega.BeNil())
 			time.Sleep(5 * time.Second)
@@ -415,6 +419,7 @@ var _ = ginkgo.Describe("[Relayer E2E]", ginkgo.Ordered, func() {
 
 		log.Info("Packing teleporter message", "nonceA", nonceA, "nonceB", nonceB)
 		payload, err = teleporter.PackTeleporterMessage(common.Hash(blockchainIDB), teleporterMessage)
+		gomega.Expect(err).Should(gomega.BeNil())
 
 		data, err := teleporter.EVMTeleporterContractABI.Pack(
 			"sendCrossChainMessage",
@@ -566,7 +571,6 @@ var _ = ginkgo.Describe("[Relayer E2E]", ginkgo.Ordered, func() {
 		gomega.Expect(err).Should(gomega.BeNil())
 
 		// Modify the JSON database to force the relayer to re-process old blocks
-
 		jsonDB.Put(blockchainIDA, []byte(database.LatestProcessedBlockKey), []byte("0"))
 		jsonDB.Put(blockchainIDB, []byte(database.LatestProcessedBlockKey), []byte("0"))
 

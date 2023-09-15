@@ -17,7 +17,6 @@ import (
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/subnet-evm/core/types"
 	"github.com/ava-labs/subnet-evm/params"
-	"github.com/ava-labs/subnet-evm/x/warp"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/onsi/gomega"
@@ -28,7 +27,6 @@ var (
 	defaultTeleporterMessageGasFeeCap        = big.NewInt(225 * params.GWei)
 	defaultTeleporterMessageGasTipCap        = big.NewInt(params.GWei)
 	defaultTeleporterMessageValue            = common.Big0
-	warpPrecompileAddress                    = warp.Module.Address
 )
 
 // Teleporter contract sendCrossChainMessage input type
