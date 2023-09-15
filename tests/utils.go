@@ -46,6 +46,10 @@ func httpToWebsocketURI(uri string, blockchainID string) string {
 	return fmt.Sprintf("ws://%s/ext/bc/%s/ws", strings.TrimPrefix(uri, "http://"), blockchainID)
 }
 
+func httpToRPCURI(uri string, blockchainID string) string {
+	return fmt.Sprintf("http://%s/ext/bc/%s/rpc", strings.TrimPrefix(uri, "http://"), blockchainID)
+}
+
 func getURIHostAndPort(uri string) (string, uint32, error) {
 	// At a minimum uri should have http:// of 7 characters
 	gomega.Expect(len(uri)).Should(gomega.BeNumerically(">", 7))

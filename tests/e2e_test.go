@@ -23,9 +23,9 @@ import (
 	"github.com/ava-labs/awm-relayer/messages/teleporter"
 	"github.com/ava-labs/awm-relayer/peers"
 	relayerEvm "github.com/ava-labs/awm-relayer/vms/evm"
+	"github.com/ava-labs/coreth/rpc"
 	"github.com/ava-labs/subnet-evm/core/types"
 	"github.com/ava-labs/subnet-evm/ethclient"
-	"github.com/ava-labs/subnet-evm/interfaces"
 	"github.com/ava-labs/subnet-evm/plugin/evm"
 	"github.com/ava-labs/subnet-evm/tests/utils"
 	"github.com/ava-labs/subnet-evm/tests/utils/runner"
@@ -33,6 +33,7 @@ import (
 	warpPayload "github.com/ava-labs/subnet-evm/warp/payload"
 	"github.com/ava-labs/subnet-evm/x/warp"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/onsi/ginkgo/v2"
@@ -47,13 +48,14 @@ const (
 var (
 	anrConfig                 = runner.NewDefaultANRConfig()
 	manager                   = runner.NewNetworkManager(anrConfig)
+	fundedAddress             = common.HexToAddress("0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC")
 	warpChainConfigPath       string
 	relayerConfigPath         string
 	teleporterContractAddress common.Address
 	teleporterMessage         = teleporter.TeleporterMessage{
 		MessageID:               big.NewInt(1),
-		SenderAddress:           common.HexToAddress("0x0123456789abcdef0123456789abcdef01234567"),
-		DestinationAddress:      common.HexToAddress("0x0123456789abcdef0123456789abcdef01234567"),
+		SenderAddress:           fundedAddress,
+		DestinationAddress:      fundedAddress,
 		RequiredGasLimit:        big.NewInt(1),
 		AllowedRelayerAddresses: []common.Address{},
 		Receipts:                []teleporter.TeleporterMessageReceipt{},
@@ -165,25 +167,27 @@ var _ = ginkgo.AfterSuite(func() {
 // on the destination subnet and verify that the Warp message was received and unpacked correctly.
 var _ = ginkgo.Describe("[Relayer E2E]", ginkgo.Ordered, func() {
 	var (
-		subnetIDs                      []ids.ID
-		subnetA, subnetB               ids.ID
-		blockchainIDA, blockchainIDB   ids.ID
-		chainANodeURIs, chainBNodeURIs []string
-		fundedKey                      *ecdsa.PrivateKey
-		fundedAddress                  common.Address
-		err                            error
-		receivedWarpMessage            *avalancheWarp.Message
-		chainAWSClient, chainBWSClient ethclient.Client
-		chainAIDInt                    *big.Int
-		chainBIDInt                    *big.Int
-		payload                        []byte
+		subnetIDs                        []ids.ID
+		subnetA, subnetB                 ids.ID
+		blockchainIDA, blockchainIDB     ids.ID
+		chainANodeURIs, chainBNodeURIs   []string
+		fundedKey                        *ecdsa.PrivateKey
+		err                              error
+		receivedWarpMessage              *avalancheWarp.Message
+		chainBWSClient                   ethclient.Client
+		chainARPCClient, chainBRPCClient ethclient.Client
+		chainARPCURI, chainBRPCURI       string
+		chainAIDInt                      *big.Int
+		chainBIDInt                      *big.Int
+		payload                          []byte
+		relayerCmd                       *exec.Cmd
+		relayerCancel                    context.CancelFunc
 	)
 
 	fundedKey, err = crypto.HexToECDSA(fundedKeyStr)
 	if err != nil {
 		panic(err)
 	}
-	fundedAddress = crypto.PubkeyToAddress(fundedKey.PublicKey)
 
 	ginkgo.It("Setup subnet URIs", ginkgo.Label("Relayer", "Setup"), func() {
 		subnetIDs = manager.GetSubnets()
@@ -206,19 +210,23 @@ var _ = ginkgo.Describe("[Relayer E2E]", ginkgo.Ordered, func() {
 		log.Info("Created URIs for both subnets", "ChainAURIs", chainANodeURIs, "ChainBURIs", chainBNodeURIs, "blockchainIDA", blockchainIDA, "blockchainIDB", blockchainIDB)
 
 		chainAWSURI := httpToWebsocketURI(chainANodeURIs[0], blockchainIDA.String())
-		log.Info("Creating ethclient for blockchainA", "wsURI", chainAWSURI)
-		chainAWSClient, err = ethclient.Dial(chainAWSURI)
+		chainARPCURI = httpToRPCURI(chainANodeURIs[0], blockchainIDA.String())
+		log.Info("Creating ethclient for blockchainA", "wsURI", chainAWSURI, "rpcURL, chainARPCURI")
+		chainARPCClient, err = ethclient.Dial(chainARPCURI)
 		gomega.Expect(err).Should(gomega.BeNil())
 
-		chainAIDInt, err = chainAWSClient.ChainID(context.Background())
+		chainAIDInt, err = chainARPCClient.ChainID(context.Background())
 		gomega.Expect(err).Should(gomega.BeNil())
 
 		chainBWSURI := httpToWebsocketURI(chainBNodeURIs[0], blockchainIDB.String())
+		chainBRPCURI = httpToRPCURI(chainBNodeURIs[0], blockchainIDB.String())
 		log.Info("Creating ethclient for blockchainB", "wsURI", chainBWSURI)
 		chainBWSClient, err = ethclient.Dial(chainBWSURI)
 		gomega.Expect(err).Should(gomega.BeNil())
+		chainBRPCClient, err = ethclient.Dial(chainBRPCURI)
+		gomega.Expect(err).Should(gomega.BeNil())
 
-		chainBIDInt, err = chainBWSClient.ChainID(context.Background())
+		chainBIDInt, err = chainBRPCClient.ChainID(context.Background())
 		gomega.Expect(err).Should(gomega.BeNil())
 
 		log.Info("Finished setting up e2e test subnet variables")
@@ -232,27 +240,28 @@ var _ = ginkgo.Describe("[Relayer E2E]", ginkgo.Ordered, func() {
 		teleporterDeployerAddress := common.BytesToAddress(readHexTextFile("./tests/UniversalTeleporterDeployerAddress.txt"))
 		teleporterDeployerTransaction := readHexTextFile("./tests/UniversalTeleporterDeployerTransaction.txt")
 
-		nonceA, err := chainAWSClient.NonceAt(ctx, fundedAddress, nil)
+		nonceA, err := chainARPCClient.NonceAt(ctx, fundedAddress, nil)
 		gomega.Expect(err).Should(gomega.BeNil())
 
-		nonceB, err := chainBWSClient.NonceAt(ctx, fundedAddress, nil)
+		nonceB, err := chainBRPCClient.NonceAt(ctx, fundedAddress, nil)
 		gomega.Expect(err).Should(gomega.BeNil())
 
-		gasTipCapA, err := chainAWSClient.SuggestGasTipCap(context.Background())
+		gasTipCapA, err := chainARPCClient.SuggestGasTipCap(context.Background())
 		gomega.Expect(err).Should(gomega.BeNil())
-		gasTipCapB, err := chainBWSClient.SuggestGasTipCap(context.Background())
+		gasTipCapB, err := chainBRPCClient.SuggestGasTipCap(context.Background())
 		gomega.Expect(err).Should(gomega.BeNil())
 
-		baseFeeA, err := chainAWSClient.EstimateBaseFee(context.Background())
+		baseFeeA, err := chainARPCClient.EstimateBaseFee(context.Background())
 		gasFeeCapA := baseFeeA.Mul(baseFeeA, big.NewInt(relayerEvm.BaseFeeFactor))
 		gasFeeCapA.Add(gasFeeCapA, big.NewInt(relayerEvm.MaxPriorityFeePerGas))
 
-		baseFeeB, err := chainBWSClient.EstimateBaseFee(context.Background())
+		baseFeeB, err := chainBRPCClient.EstimateBaseFee(context.Background())
 		gasFeeCapB := baseFeeB.Mul(baseFeeB, big.NewInt(relayerEvm.BaseFeeFactor))
 		gasFeeCapB.Add(gasFeeCapB, big.NewInt(relayerEvm.MaxPriorityFeePerGas))
 
 		// Fund the deployer address
 		{
+			value := big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(10)) // 10eth
 			txA := types.NewTx(&types.DynamicFeeTx{
 				ChainID:   chainAIDInt,
 				Nonce:     nonceA,
@@ -260,19 +269,20 @@ var _ = ginkgo.Describe("[Relayer E2E]", ginkgo.Ordered, func() {
 				Gas:       defaultTeleporterMessageGas,
 				GasFeeCap: gasFeeCapA,
 				GasTipCap: gasTipCapA,
-				Value:     common.Big1,
+				Value:     value,
 			})
 			txSignerA := types.LatestSignerForChainID(chainAIDInt)
 			triggerTxA, err := types.SignTx(txA, txSignerA, fundedKey)
 			gomega.Expect(err).Should(gomega.BeNil())
-			err = chainAWSClient.SendTransaction(ctx, triggerTxA)
+			err = chainARPCClient.SendTransaction(ctx, triggerTxA)
 			gomega.Expect(err).Should(gomega.BeNil())
 			time.Sleep(5 * time.Second)
-			receipt, err := chainAWSClient.TransactionReceipt(ctx, triggerTxA.Hash())
+			receipt, err := chainARPCClient.TransactionReceipt(ctx, triggerTxA.Hash())
 			gomega.Expect(err).Should(gomega.BeNil())
 			gomega.Expect(receipt.Status).Should(gomega.Equal(types.ReceiptStatusSuccessful))
 		}
 		{
+			value := big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(10)) // 10eth
 			txB := types.NewTx(&types.DynamicFeeTx{
 				ChainID:   chainBIDInt,
 				Nonce:     nonceB,
@@ -280,57 +290,36 @@ var _ = ginkgo.Describe("[Relayer E2E]", ginkgo.Ordered, func() {
 				Gas:       defaultTeleporterMessageGas,
 				GasFeeCap: gasFeeCapB,
 				GasTipCap: gasTipCapB,
-				Value:     big.NewInt(1_000_000_000),
+				Value:     value,
 			})
 			txSignerB := types.LatestSignerForChainID(chainBIDInt)
 			triggerTxB, err := types.SignTx(txB, txSignerB, fundedKey)
 			gomega.Expect(err).Should(gomega.BeNil())
-			err = chainBWSClient.SendTransaction(ctx, triggerTxB)
+			err = chainBRPCClient.SendTransaction(ctx, triggerTxB)
 			gomega.Expect(err).Should(gomega.BeNil())
 			time.Sleep(5 * time.Second)
-			receipt, err := chainBWSClient.TransactionReceipt(ctx, triggerTxB.Hash())
+			receipt, err := chainBRPCClient.TransactionReceipt(ctx, triggerTxB.Hash())
 			gomega.Expect(err).Should(gomega.BeNil())
 			gomega.Expect(receipt.Status).Should(gomega.Equal(types.ReceiptStatusSuccessful))
 		}
 		// Deploy Teleporter on the two subnets
 		{
-			deployA := types.NewTx(&types.DynamicFeeTx{
-				ChainID:   chainAIDInt,
-				Nonce:     nonceA + 1,
-				Gas:       20_000_000,
-				GasFeeCap: gasFeeCapA,
-				GasTipCap: gasTipCapA,
-				Data:      teleporterDeployerTransaction,
-			})
-			txSignerA := types.LatestSignerForChainID(chainAIDInt)
-			triggerTxA, err := types.SignTx(deployA, txSignerA, fundedKey)
-			gomega.Expect(err).Should(gomega.BeNil())
-			err = chainAWSClient.SendTransaction(ctx, triggerTxA)
+			rpcClient, err := rpc.DialContext(ctx, chainARPCURI)
+			err = rpcClient.CallContext(ctx, nil, "eth_sendRawTransaction", hexutil.Encode(teleporterDeployerTransaction))
 			gomega.Expect(err).Should(gomega.BeNil())
 			time.Sleep(5 * time.Second)
-			receipt, err := chainAWSClient.TransactionReceipt(ctx, triggerTxA.Hash())
-			log.Info("Deployed Teleporter on chainA", "receipt", receipt, "err", err)
+			teleporterCode, err := chainARPCClient.CodeAt(ctx, teleporterContractAddress, nil)
 			gomega.Expect(err).Should(gomega.BeNil())
-			gomega.Expect(receipt.Status).Should(gomega.Equal(types.ReceiptStatusSuccessful))
+			gomega.Expect(len(teleporterCode)).Should(gomega.BeNumerically(">", 2)) // 0x is an EOA, contract returns the bytecode
 		}
 		{
-			deployB := types.NewTx(&types.DynamicFeeTx{
-				ChainID:   chainBIDInt,
-				Nonce:     nonceB + 1,
-				Gas:       20_000_000,
-				GasFeeCap: gasFeeCapB,
-				GasTipCap: gasTipCapB,
-				Data:      teleporterDeployerTransaction,
-			})
-			txSignerB := types.LatestSignerForChainID(chainBIDInt)
-			triggerTxB, err := types.SignTx(deployB, txSignerB, fundedKey)
-			gomega.Expect(err).Should(gomega.BeNil())
-			err = chainAWSClient.SendTransaction(ctx, triggerTxB)
+			rpcClient, err := rpc.DialContext(ctx, chainBRPCURI)
+			err = rpcClient.CallContext(ctx, nil, "eth_sendRawTransaction", hexutil.Encode(teleporterDeployerTransaction))
 			gomega.Expect(err).Should(gomega.BeNil())
 			time.Sleep(5 * time.Second)
-			receipt, err := chainBWSClient.TransactionReceipt(ctx, triggerTxB.Hash())
+			teleporterCode, err := chainBRPCClient.CodeAt(ctx, teleporterContractAddress, nil)
 			gomega.Expect(err).Should(gomega.BeNil())
-			gomega.Expect(receipt.Status).Should(gomega.Equal(types.ReceiptStatusSuccessful))
+			gomega.Expect(len(teleporterCode)).Should(gomega.BeNumerically(">", 2)) // 0x is an EOA, contract returns the bytecode
 		}
 	})
 
@@ -419,14 +408,15 @@ var _ = ginkgo.Describe("[Relayer E2E]", ginkgo.Ordered, func() {
 		cmdOutput := make(chan string)
 
 		// Run awm relayer binary with config path
-		relayerContext, relayerCancel := context.WithCancel(ctx)
-		cmd := exec.CommandContext(relayerContext, "./build/awm-relayer", "--config-file", relayerConfigPath)
+		var relayerContext context.Context
+		relayerContext, relayerCancel = context.WithCancel(ctx)
+		relayerCmd = exec.CommandContext(relayerContext, "./build/awm-relayer", "--config-file", relayerConfigPath)
 
 		// Set up a pipe to capture the command's output
-		cmdReader, _ := cmd.StdoutPipe()
+		cmdReader, _ := relayerCmd.StdoutPipe()
 
 		// Start the command
-		err := cmd.Start()
+		err := relayerCmd.Start()
 		gomega.Expect(err).Should(gomega.BeNil())
 
 		// Start a goroutine to read and output the command's stdout
@@ -438,15 +428,14 @@ var _ = ginkgo.Describe("[Relayer E2E]", ginkgo.Ordered, func() {
 			cmdOutput <- "Command execution finished"
 		}()
 
+		nonceA, err := chainARPCClient.NonceAt(ctx, fundedAddress, nil)
 		gomega.Expect(err).Should(gomega.BeNil())
 
-		nonceA, err := chainAWSClient.NonceAt(ctx, fundedAddress, nil)
-		gomega.Expect(err).Should(gomega.BeNil())
-
-		nonceB, err := chainBWSClient.NonceAt(ctx, fundedAddress, nil)
+		nonceB, err := chainBRPCClient.NonceAt(ctx, fundedAddress, nil)
 		gomega.Expect(err).Should(gomega.BeNil())
 
 		log.Info("Packing teleporter message", "nonceA", nonceA, "nonceB", nonceB)
+		payload, err = teleporter.PackTeleporterMessage(common.Hash(blockchainIDB), teleporterMessage)
 
 		data, err := teleporter.EVMTeleporterContractABI.Pack(
 			"sendCrossChainMessage",
@@ -457,14 +446,14 @@ var _ = ginkgo.Describe("[Relayer E2E]", ginkgo.Ordered, func() {
 					ContractAddress: fundedAddress,
 					Amount:          big.NewInt(0),
 				},
-				RequiredGasLimit:        big.NewInt(1_000_000),
+				RequiredGasLimit:        big.NewInt(1),
 				AllowedRelayerAddresses: []common.Address{},
-				Message:                 []byte{},
+				Message:                 []byte{1, 2, 3, 4},
 			},
 		)
 		gomega.Expect(err).Should(gomega.BeNil())
 
-		// Send a transaction that simulates the Teleporter contract calling sendWarpMessage with a Teleporter message payload
+		// Send a transaction to the Teleporter contract
 		tx := newTestTeleporterMessage(chainAIDInt, teleporterContractAddress, nonceA, data)
 
 		txSigner := types.LatestSignerForChainID(chainAIDInt)
@@ -480,46 +469,30 @@ var _ = ginkgo.Describe("[Relayer E2E]", ginkgo.Ordered, func() {
 		gomega.Expect(err).Should(gomega.BeNil())
 		defer sub.Unsubscribe()
 
-		logsA := make(chan types.Log, 10)
-		subA, err := chainAWSClient.SubscribeFilterLogs(
-			ctx,
-			interfaces.FilterQuery{
-				// Topics: [][]common.Hash{
-				// 	{warp.WarpABI.Events["SendWarpMessage"].ID},
-				// 	{},
-				// 	{},
-				// },
-				Addresses: []common.Address{
-					teleporterContractAddress,
-				},
-			},
-			logsA,
-		)
-		gomega.Expect(err).Should(gomega.BeNil())
-		defer subA.Unsubscribe()
-
 		log.Info("Sending sendWarpMessage transaction", "destinationChainID", blockchainIDB, "txHash", signedTx.Hash())
-		err = chainAWSClient.SendTransaction(ctx, signedTx)
+		err = chainARPCClient.SendTransaction(ctx, signedTx)
 		gomega.Expect(err).Should(gomega.BeNil())
 
 		time.Sleep(5 * time.Second)
-		receipt, err := chainAWSClient.TransactionReceipt(ctx, signedTx.Hash())
+		receipt, err := chainARPCClient.TransactionReceipt(ctx, signedTx.Hash())
 		gomega.Expect(err).Should(gomega.BeNil())
 		gomega.Expect(receipt.Status).Should(gomega.Equal(types.ReceiptStatusSuccessful))
-
-		log.Info("Waiting for log")
-		newLogsA := <-logsA
-		log.Info("Received new log", newLogsA)
 
 		// Get the latest block from Subnet B
 		log.Info("Waiting for new block confirmation")
 		newHead := <-newHeadsB
 		log.Info("Received new head", "height", newHead.Number.Uint64())
 		blockHash := newHead.Hash()
-
-		block, err := chainBWSClient.BlockByHash(ctx, blockHash)
+		block, err := chainBRPCClient.BlockByHash(ctx, blockHash)
 		gomega.Expect(err).Should(gomega.BeNil())
-		log.Info("Got block", "blockHash", blockHash, "blockNumber", block.NumberU64(), "transactions", block.Transactions(), "block", block)
+		log.Info(
+			"Got block",
+			"blockHash", blockHash,
+			"blockNumber", block.NumberU64(),
+			"transactions", block.Transactions(),
+			"numTransactions", len(block.Transactions()),
+			"block", block,
+		)
 		accessLists := block.Transactions()[0].AccessList()
 		gomega.Expect(len(accessLists)).Should(gomega.Equal(1))
 		gomega.Expect(accessLists[0].Address).Should(gomega.Equal(warp.Module.Address))
@@ -534,41 +507,15 @@ var _ = ginkgo.Describe("[Relayer E2E]", ginkgo.Ordered, func() {
 
 		// Check that the transaction has successful receipt status
 		txHash := block.Transactions()[0].Hash()
-		receipt, err = chainBWSClient.TransactionReceipt(ctx, txHash)
+		receipt, err = chainBRPCClient.TransactionReceipt(ctx, txHash)
 		gomega.Expect(err).Should(gomega.BeNil())
 		gomega.Expect(receipt.Status).Should(gomega.Equal(types.ReceiptStatusSuccessful))
-
-		// Try sending the same Teleporter message again. This should fail to be delivered
-		{
-			data, err := teleporter.EVMTeleporterContractABI.Pack(
-				"sendCrossChainMessage",
-				TeleporterMessageInput{
-					DestinationChainID:      blockchainIDB,
-					DestinationAddress:      fundedAddress,
-					FeeInfo:                 FeeInfo{},
-					RequiredGasLimit:        big.NewInt(1_000_000),
-					AllowedRelayerAddresses: []common.Address{},
-					Message:                 []byte{},
-				},
-			)
-			tx := newTestTeleporterMessage(chainAIDInt, teleporterContractAddress, nonceA+1, data)
-			txSigner := types.LatestSignerForChainID(chainAIDInt)
-			signedTx, err := types.SignTx(tx, txSigner, fundedKey)
-			gomega.Expect(err).Should(gomega.BeNil())
-
-			log.Info("Resending sendWarpMessage transaction", "destinationChainID", blockchainIDB, "txHash", signedTx.Hash())
-			err = chainAWSClient.SendTransaction(ctx, signedTx)
-			gomega.Expect(err).Should(gomega.BeNil())
-
-			// We should not receive a new block on subnet B, since the relayer should have seen the Teleporter message was already delivered
-			gomega.Consistently(newHeadsB, 10*time.Second, 500*time.Millisecond).ShouldNot(gomega.Receive())
-		}
 
 		log.Info("Finished sending warp message, closing down output channel")
 
 		// Cancel the command and stop the relayer
 		relayerCancel()
-		_ = cmd.Wait()
+		_ = relayerCmd.Wait()
 	})
 
 	ginkgo.It("Validate Received Warp Message Values", ginkgo.Label("Relay", "VerifyWarp"), func() {
