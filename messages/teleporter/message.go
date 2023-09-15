@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/subnet-evm/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 )
@@ -28,10 +29,17 @@ type TeleporterMessageReceipt struct {
 	RelayerRewardAddress common.Address `json:"relayerRewardAddress"`
 }
 
-// ReceiveCrossChainMessageInput is the input to the ReceiveCrossChainMessage
-// in the contract deployed on the receiving chain
+// ReceiveCrossChainMessageInput is the input to receiveCrossChainMessage call
+// in the contract deployed on the destination chain
 type ReceiveCrossChainMessageInput struct {
 	RelayerRewardAddress common.Address `json:"relayerRewardAddress"`
+}
+
+// MessageReceivedInput is the input to messageReceived call
+// in the contract deployed on the destination chain
+type MessageReceivedInput struct {
+	OriginChainID ids.ID   `json:"relayerRewardAddress"`
+	MessageID     *big.Int `json:"messageID"`
 }
 
 // unpack Teleporter message bytes according to EVM ABI encoding rules
@@ -59,4 +67,14 @@ func UnpackTeleporterMessage(messageBytes []byte) (*TeleporterMessage, error) {
 
 func packReceiverMessage(inputStruct ReceiveCrossChainMessageInput) ([]byte, error) {
 	return EVMTeleporterContractABI.Pack("receiveCrossChainMessage", inputStruct.RelayerRewardAddress)
+}
+
+func packMessageReceivedMessage(inputStruct MessageReceivedInput) ([]byte, error) {
+	return EVMTeleporterContractABI.Pack("messageReceived", inputStruct.OriginChainID, inputStruct.MessageID)
+}
+
+func unpackMessageReceivedResult(result []byte) (bool, error) {
+	var success bool
+	err := EVMTeleporterContractABI.UnpackIntoInterface(&success, "messageReceived", result)
+	return success, err
 }

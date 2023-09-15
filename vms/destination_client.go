@@ -22,8 +22,14 @@ type DestinationClient interface {
 	// TODO: Make generic for any VM.
 	SendTx(signedMessage *warp.Message, toAddress string, gasLimit uint64, callData []byte) error
 
-	// Allowed checks if the relayer is allowed to relay the message according to the VM rules and the message metadata
-	Allowed(chainID ids.ID, allowedRelayers []common.Address) bool
+	// Client returns the underlying client for the destination chain
+	Client() interface{}
+
+	// SenderAddress returns the address of the relayer on the destination chain
+	SenderAddress() common.Address
+
+	// DestinationChainID returns the ID of the destination chain
+	DestinationChainID() ids.ID
 }
 
 func NewDestinationClient(logger logging.Logger, subnetInfo config.DestinationSubnet) (DestinationClient, error) {

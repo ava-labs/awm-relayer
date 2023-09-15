@@ -124,10 +124,11 @@ func TestGetDestinationRPCEndpoint(t *testing.T) {
 	}
 }
 
-func TestGetSourceSubnetWSEndpoint(t *testing.T) {
+func TestGetSourceSubnetEndpoints(t *testing.T) {
 	testCases := []struct {
-		s              SourceSubnet
-		expectedResult string
+		s                 SourceSubnet
+		expectedWsResult  string
+		expectedRpcResult string
 	}{
 		{
 			s: SourceSubnet{
@@ -137,7 +138,8 @@ func TestGetSourceSubnetWSEndpoint(t *testing.T) {
 				ChainID:           testChainID,
 				SubnetID:          testSubnetID,
 			},
-			expectedResult: fmt.Sprintf("ws://127.0.0.1:9650/ext/bc/%s/ws", testChainID),
+			expectedWsResult:  fmt.Sprintf("ws://127.0.0.1:9650/ext/bc/%s/ws", testChainID),
+			expectedRpcResult: fmt.Sprintf("http://127.0.0.1:9650/ext/bc/%s/rpc", testChainID),
 		},
 		{
 			s: SourceSubnet{
@@ -147,7 +149,8 @@ func TestGetSourceSubnetWSEndpoint(t *testing.T) {
 				ChainID:           testChainID,
 				SubnetID:          testSubnetID,
 			},
-			expectedResult: fmt.Sprintf("wss://127.0.0.1:9650/ext/bc/%s/ws", testChainID),
+			expectedWsResult:  fmt.Sprintf("wss://127.0.0.1:9650/ext/bc/%s/ws", testChainID),
+			expectedRpcResult: fmt.Sprintf("https://127.0.0.1:9650/ext/bc/%s/rpc", testChainID),
 		},
 		{
 			s: SourceSubnet{
@@ -157,7 +160,8 @@ func TestGetSourceSubnetWSEndpoint(t *testing.T) {
 				ChainID:           testChainID,
 				SubnetID:          testSubnetID,
 			},
-			expectedResult: fmt.Sprintf("ws://api.avax.network/ext/bc/%s/ws", testChainID),
+			expectedWsResult:  fmt.Sprintf("ws://api.avax.network/ext/bc/%s/ws", testChainID),
+			expectedRpcResult: fmt.Sprintf("http://api.avax.network/ext/bc/%s/rpc", testChainID),
 		},
 		{
 			s: SourceSubnet{
@@ -167,7 +171,8 @@ func TestGetSourceSubnetWSEndpoint(t *testing.T) {
 				ChainID:           testChainID,
 				SubnetID:          primarySubnetID,
 			},
-			expectedResult: "ws://127.0.0.1:9650/ext/bc/C/ws",
+			expectedWsResult:  "ws://127.0.0.1:9650/ext/bc/C/ws",
+			expectedRpcResult: "http://127.0.0.1:9650/ext/bc/C/rpc",
 		},
 		{
 			s: SourceSubnet{
@@ -176,15 +181,17 @@ func TestGetSourceSubnetWSEndpoint(t *testing.T) {
 				APINodePort:       9650,
 				ChainID:           testChainID,
 				SubnetID:          testSubnetID,
-				WSEndpoint:        "wss://subnets.avax.network/mysubnet/ws", // overrides all other settings used to construct the endpoint
+				WSEndpoint:        "wss://subnets.avax.network/mysubnet/ws",    // overrides all other settings used to construct the endpoint
+				RPCEndpoint:       "https://subnets.avax.network/mysubnet/rpc", // overrides all other settings used to construct the endpoint
 			},
-			expectedResult: "wss://subnets.avax.network/mysubnet/ws",
+			expectedWsResult:  "wss://subnets.avax.network/mysubnet/ws",
+			expectedRpcResult: "https://subnets.avax.network/mysubnet/rpc",
 		},
 	}
 
 	for i, testCase := range testCases {
-		res := testCase.s.GetNodeWSEndpoint()
-		assert.Equal(t, testCase.expectedResult, res, fmt.Sprintf("test case %d failed", i))
+		assert.Equal(t, testCase.expectedWsResult, testCase.s.GetNodeWSEndpoint(), fmt.Sprintf("test case %d failed", i))
+		assert.Equal(t, testCase.expectedRpcResult, testCase.s.GetNodeRPCEndpoint(), fmt.Sprintf("test case %d failed", i))
 	}
 }
 
