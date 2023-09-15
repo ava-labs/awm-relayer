@@ -4,18 +4,22 @@
 package tests
 
 import (
+	"bufio"
+	"context"
 	"encoding/hex"
 	"fmt"
 	"math/big"
 	"os"
+	"os/exec"
 	"strconv"
 	"strings"
 
 	"github.com/ava-labs/avalanchego/ids"
-	"github.com/ava-labs/coreth/params"
 	"github.com/ava-labs/subnet-evm/core/types"
+	"github.com/ava-labs/subnet-evm/params"
 	"github.com/ava-labs/subnet-evm/x/warp"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/onsi/gomega"
 )
 
@@ -40,6 +44,32 @@ type TeleporterMessageInput struct {
 type FeeInfo struct {
 	ContractAddress common.Address
 	Amount          *big.Int
+}
+
+func runRelayerExecutable(ctx context.Context) (*exec.Cmd, context.CancelFunc) {
+	cmdOutput := make(chan string)
+
+	// Run awm relayer binary with config path
+	var relayerContext context.Context
+	relayerContext, relayerCancel := context.WithCancel(ctx)
+	relayerCmd := exec.CommandContext(relayerContext, "./build/awm-relayer", "--config-file", relayerConfigPath)
+
+	// Set up a pipe to capture the command's output
+	cmdReader, _ := relayerCmd.StdoutPipe()
+
+	// Start the command
+	err := relayerCmd.Start()
+	gomega.Expect(err).Should(gomega.BeNil())
+
+	// Start a goroutine to read and output the command's stdout
+	go func() {
+		scanner := bufio.NewScanner(cmdReader)
+		for scanner.Scan() {
+			log.Info(scanner.Text())
+		}
+		cmdOutput <- "Command execution finished"
+	}()
+	return relayerCmd, relayerCancel
 }
 
 func httpToWebsocketURI(uri string, blockchainID string) string {

@@ -4,7 +4,6 @@
 package tests
 
 import (
-	"bufio"
 	"context"
 	"crypto/ecdsa"
 	"encoding/json"
@@ -20,6 +19,7 @@ import (
 	"github.com/ava-labs/avalanchego/utils/logging"
 	avalancheWarp "github.com/ava-labs/avalanchego/vms/platformvm/warp"
 	"github.com/ava-labs/awm-relayer/config"
+	"github.com/ava-labs/awm-relayer/database"
 	"github.com/ava-labs/awm-relayer/messages/teleporter"
 	"github.com/ava-labs/awm-relayer/peers"
 	relayerEvm "github.com/ava-labs/awm-relayer/vms/evm"
@@ -61,6 +61,7 @@ var (
 		Receipts:                []teleporter.TeleporterMessageReceipt{},
 		Message:                 []byte{1, 2, 3, 4},
 	}
+	storageLocation = fmt.Sprintf("%s/.awm-relayer-storage", os.TempDir())
 )
 
 func TestE2E(t *testing.T) {
@@ -347,7 +348,7 @@ var _ = ginkgo.Describe("[Relayer E2E]", ginkgo.Ordered, func() {
 			NetworkID:         peers.LocalNetworkID,
 			PChainAPIURL:      chainANodeURIs[0],
 			EncryptConnection: false,
-			StorageLocation:   fmt.Sprintf("%s/.awm-relayer-storage", os.TempDir()),
+			StorageLocation:   storageLocation,
 			SourceSubnets: []config.SourceSubnet{
 				{
 					SubnetID:          subnetA.String(),
@@ -404,29 +405,7 @@ var _ = ginkgo.Describe("[Relayer E2E]", ginkgo.Ordered, func() {
 	ginkgo.It("Send Message from A to B", ginkgo.Label("Warp", "SendWarp"), func() {
 		ctx := context.Background()
 
-		// Create a channel to communicate with the goroutine
-		cmdOutput := make(chan string)
-
-		// Run awm relayer binary with config path
-		var relayerContext context.Context
-		relayerContext, relayerCancel = context.WithCancel(ctx)
-		relayerCmd = exec.CommandContext(relayerContext, "./build/awm-relayer", "--config-file", relayerConfigPath)
-
-		// Set up a pipe to capture the command's output
-		cmdReader, _ := relayerCmd.StdoutPipe()
-
-		// Start the command
-		err := relayerCmd.Start()
-		gomega.Expect(err).Should(gomega.BeNil())
-
-		// Start a goroutine to read and output the command's stdout
-		go func() {
-			scanner := bufio.NewScanner(cmdReader)
-			for scanner.Scan() {
-				log.Info(scanner.Text())
-			}
-			cmdOutput <- "Command execution finished"
-		}()
+		relayerCmd, relayerCancel = runRelayerExecutable(ctx)
 
 		nonceA, err := chainARPCClient.NonceAt(ctx, fundedAddress, nil)
 		gomega.Expect(err).Should(gomega.BeNil())
@@ -511,6 +490,61 @@ var _ = ginkgo.Describe("[Relayer E2E]", ginkgo.Ordered, func() {
 		gomega.Expect(err).Should(gomega.BeNil())
 		gomega.Expect(receipt.Status).Should(gomega.Equal(types.ReceiptStatusSuccessful))
 
+		// // Try sending the same Teleporter message again. This should fail to be delivered
+		// {
+		// 	// Kill the relayer, then reset the warden db
+		// 	relayerCancel()
+		// 	_ = relayerCmd.Wait()
+
+		// 	// Run awm relayer binary with config path
+		// 	var relayerContext context.Context
+		// 	relayerContext, relayerCancel = context.WithCancel(ctx)
+		// 	relayerCmd := exec.CommandContext(relayerContext, "./build/awm-relayer", "--config-file", relayerConfigPath)
+
+		// 	// Set up a pipe to capture the command's output
+		// 	cmdReader, _ := relayerCmd.StdoutPipe()
+
+		// 	// Start the command
+		// 	err := relayerCmd.Start()
+		// 	gomega.Expect(err).Should(gomega.BeNil())
+
+		// 	// Start a goroutine to read and output the command's stdout
+		// 	go func() {
+		// 		scanner := bufio.NewScanner(cmdReader)
+		// 		for scanner.Scan() {
+		// 			log.Info(scanner.Text())
+		// 		}
+		// 		cmdOutput <- "Command execution finished"
+		// 	}()
+		// }
+		// {
+		// 	data, err := teleporter.EVMTeleporterContractABI.Pack(
+		// 		"sendCrossChainMessage",
+		// 		TeleporterMessageInput{
+		// 			DestinationChainID: blockchainIDB,
+		// 			DestinationAddress: fundedAddress,
+		// 			FeeInfo: FeeInfo{
+		// 				ContractAddress: fundedAddress,
+		// 				Amount:          big.NewInt(0),
+		// 			},
+		// 			RequiredGasLimit:        big.NewInt(1_000_000),
+		// 			AllowedRelayerAddresses: []common.Address{},
+		// 			Message:                 []byte{},
+		// 		},
+		// 	)
+		// 	tx := newTestTeleporterMessage(chainAIDInt, teleporterContractAddress, nonceA+1, data)
+		// 	txSigner := types.LatestSignerForChainID(chainAIDInt)
+		// 	signedTx, err := types.SignTx(tx, txSigner, fundedKey)
+		// 	gomega.Expect(err).Should(gomega.BeNil())
+
+		// 	log.Info("Resending sendWarpMessage transaction", "destinationChainID", blockchainIDB, "txHash", signedTx.Hash())
+		// 	err = chainARPCClient.SendTransaction(ctx, signedTx)
+		// 	gomega.Expect(err).Should(gomega.BeNil())
+
+		// 	// We should not receive a new block on subnet B, since the relayer should have seen the Teleporter message was already delivered
+		// 	gomega.Consistently(newHeadsB, 10*time.Second, 500*time.Millisecond).ShouldNot(gomega.Receive())
+		// }
+
 		log.Info("Finished sending warp message, closing down output channel")
 
 		// Cancel the command and stop the relayer
@@ -518,7 +552,42 @@ var _ = ginkgo.Describe("[Relayer E2E]", ginkgo.Ordered, func() {
 		_ = relayerCmd.Wait()
 	})
 
-	ginkgo.It("Validate Received Warp Message Values", ginkgo.Label("Relay", "VerifyWarp"), func() {
+	ginkgo.It("Try relaying already delivered message", ginkgo.Label("Relayer", "RelayerAlreadyDeliveredMessage"), func() {
+		ctx := context.Background()
+		logger := logging.NewLogger(
+			"awm-relayer",
+			logging.NewWrappedCore(
+				logging.Info,
+				os.Stdout,
+				logging.JSON.ConsoleEncoder(),
+			),
+		)
+		jsonDB, err := database.NewJSONFileStorage(logger, storageLocation, []ids.ID{blockchainIDA, blockchainIDB})
+		gomega.Expect(err).Should(gomega.BeNil())
+
+		// Modify the JSON database to force the relayer to re-process old blocks
+
+		jsonDB.Put(blockchainIDA, []byte(database.LatestProcessedBlockKey), []byte("0"))
+		jsonDB.Put(blockchainIDB, []byte(database.LatestProcessedBlockKey), []byte("0"))
+
+		// Subscribe to the destination chain block published
+		newHeadsB := make(chan *types.Header, 10)
+		sub, err := chainBWSClient.SubscribeNewHead(ctx, newHeadsB)
+		gomega.Expect(err).Should(gomega.BeNil())
+		defer sub.Unsubscribe()
+
+		// Run the relayer
+		relayerCmd, relayerCancel = runRelayerExecutable(ctx)
+
+		// We should not receive a new block on subnet B, since the relayer should have seen the Teleporter message was already delivered
+		gomega.Consistently(newHeadsB, 10*time.Second, 500*time.Millisecond).ShouldNot(gomega.Receive())
+
+		// Cancel the command and stop the relayer
+		relayerCancel()
+		_ = relayerCmd.Wait()
+	})
+
+	ginkgo.It("Validate Received Warp Message Values", ginkgo.Label("Relaery", "VerifyWarp"), func() {
 		gomega.Expect(receivedWarpMessage.SourceChainID).Should(gomega.Equal(blockchainIDA))
 		addressedPayload, err := warpPayload.ParseAddressedPayload(receivedWarpMessage.Payload)
 		gomega.Expect(err).Should(gomega.BeNil())
