@@ -495,61 +495,6 @@ var _ = ginkgo.Describe("[Relayer E2E]", ginkgo.Ordered, func() {
 		gomega.Expect(err).Should(gomega.BeNil())
 		gomega.Expect(receipt.Status).Should(gomega.Equal(types.ReceiptStatusSuccessful))
 
-		// // Try sending the same Teleporter message again. This should fail to be delivered
-		// {
-		// 	// Kill the relayer, then reset the warden db
-		// 	relayerCancel()
-		// 	_ = relayerCmd.Wait()
-
-		// 	// Run awm relayer binary with config path
-		// 	var relayerContext context.Context
-		// 	relayerContext, relayerCancel = context.WithCancel(ctx)
-		// 	relayerCmd := exec.CommandContext(relayerContext, "./build/awm-relayer", "--config-file", relayerConfigPath)
-
-		// 	// Set up a pipe to capture the command's output
-		// 	cmdReader, _ := relayerCmd.StdoutPipe()
-
-		// 	// Start the command
-		// 	err := relayerCmd.Start()
-		// 	gomega.Expect(err).Should(gomega.BeNil())
-
-		// 	// Start a goroutine to read and output the command's stdout
-		// 	go func() {
-		// 		scanner := bufio.NewScanner(cmdReader)
-		// 		for scanner.Scan() {
-		// 			log.Info(scanner.Text())
-		// 		}
-		// 		cmdOutput <- "Command execution finished"
-		// 	}()
-		// }
-		// {
-		// 	data, err := teleporter.EVMTeleporterContractABI.Pack(
-		// 		"sendCrossChainMessage",
-		// 		TeleporterMessageInput{
-		// 			DestinationChainID: blockchainIDB,
-		// 			DestinationAddress: fundedAddress,
-		// 			FeeInfo: FeeInfo{
-		// 				ContractAddress: fundedAddress,
-		// 				Amount:          big.NewInt(0),
-		// 			},
-		// 			RequiredGasLimit:        big.NewInt(1_000_000),
-		// 			AllowedRelayerAddresses: []common.Address{},
-		// 			Message:                 []byte{},
-		// 		},
-		// 	)
-		// 	tx := newTestTeleporterMessage(chainAIDInt, teleporterContractAddress, nonceA+1, data)
-		// 	txSigner := types.LatestSignerForChainID(chainAIDInt)
-		// 	signedTx, err := types.SignTx(tx, txSigner, fundedKey)
-		// 	gomega.Expect(err).Should(gomega.BeNil())
-
-		// 	log.Info("Resending sendWarpMessage transaction", "destinationChainID", blockchainIDB, "txHash", signedTx.Hash())
-		// 	err = chainARPCClient.SendTransaction(ctx, signedTx)
-		// 	gomega.Expect(err).Should(gomega.BeNil())
-
-		// 	// We should not receive a new block on subnet B, since the relayer should have seen the Teleporter message was already delivered
-		// 	gomega.Consistently(newHeadsB, 10*time.Second, 500*time.Millisecond).ShouldNot(gomega.Receive())
-		// }
-
 		log.Info("Finished sending warp message, closing down output channel")
 
 		// Cancel the command and stop the relayer
