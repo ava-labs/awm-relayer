@@ -15,6 +15,7 @@ import (
 	"strings"
 
 	"github.com/ava-labs/avalanchego/ids"
+	"github.com/ava-labs/awm-relayer/utils"
 	"github.com/ava-labs/subnet-evm/core/types"
 	"github.com/ava-labs/subnet-evm/params"
 	"github.com/ethereum/go-ethereum/common"
@@ -118,8 +119,7 @@ func newTestTeleporterMessage(chainIDInt *big.Int, teleporterAddress common.Addr
 func readHexTextFile(filename string) []byte {
 	fileData, err := os.ReadFile(filename)
 	gomega.Expect(err).Should(gomega.BeNil())
-	hexString := string(fileData)
-	hexString = hexString[2:] // remove 0x prefix
+	hexString := utils.SanitizeHexString(string(fileData))
 	data, err := hex.DecodeString(hexString)
 	gomega.Expect(err).Should(gomega.BeNil())
 	return data

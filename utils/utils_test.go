@@ -58,7 +58,7 @@ func TestConvertProtocol(t *testing.T) {
 	}
 }
 
-func TestSanitizeHashString(t *testing.T) {
+func TestSanitizeHexString(t *testing.T) {
 	testCases := []struct {
 		hash           string
 		expectedResult string
@@ -80,7 +80,7 @@ func TestSanitizeHashString(t *testing.T) {
 		},
 	}
 	for i, testCase := range testCases {
-		actualResult := SanitizeHashString(testCase.hash)
+		actualResult := SanitizeHexString(testCase.hash)
 		if actualResult != testCase.expectedResult {
 			t.Errorf("test case %d had unexpected result. Actual: %s, Expected: %s", i, actualResult, testCase.expectedResult)
 		}

@@ -302,8 +302,8 @@ func TestGetRelayerAccountPrivateKey_set_pk_in_config(t *testing.T) {
 		resultVerifier: func(c Config) bool {
 			// All destination subnets should have the default private key
 			for i, subnet := range c.DestinationSubnets {
-				if subnet.AccountPrivateKey != utils.SanitizeHashString(testValidConfig.DestinationSubnets[i].AccountPrivateKey) {
-					fmt.Printf("expected: %s, got: %s\n", utils.SanitizeHashString(testValidConfig.DestinationSubnets[i].AccountPrivateKey), subnet.AccountPrivateKey)
+				if subnet.AccountPrivateKey != utils.SanitizeHexString(testValidConfig.DestinationSubnets[i].AccountPrivateKey) {
+					fmt.Printf("expected: %s, got: %s\n", utils.SanitizeHexString(testValidConfig.DestinationSubnets[i].AccountPrivateKey), subnet.AccountPrivateKey)
 					return false
 				}
 			}
@@ -332,12 +332,12 @@ func TestGetRelayerAccountPrivateKey_set_pk_with_subnet_env(t *testing.T) {
 		expectedOverwritten: true,
 		resultVerifier: func(c Config) bool {
 			// All destination subnets should have testPk1
-			if c.DestinationSubnets[0].AccountPrivateKey != utils.SanitizeHashString(testPk2) {
-				fmt.Printf("expected: %s, got: %s\n", utils.SanitizeHashString(testPk2), c.DestinationSubnets[0].AccountPrivateKey)
+			if c.DestinationSubnets[0].AccountPrivateKey != utils.SanitizeHexString(testPk2) {
+				fmt.Printf("expected: %s, got: %s\n", utils.SanitizeHexString(testPk2), c.DestinationSubnets[0].AccountPrivateKey)
 				return false
 			}
-			if c.DestinationSubnets[1].AccountPrivateKey != utils.SanitizeHashString(testPk1) {
-				fmt.Printf("expected: %s, got: %s\n", utils.SanitizeHashString(testPk1), c.DestinationSubnets[1].AccountPrivateKey)
+			if c.DestinationSubnets[1].AccountPrivateKey != utils.SanitizeHexString(testPk1) {
+				fmt.Printf("expected: %s, got: %s\n", utils.SanitizeHexString(testPk1), c.DestinationSubnets[1].AccountPrivateKey)
 				return false
 			}
 			return true
@@ -364,8 +364,8 @@ func TestGetRelayerAccountPrivateKey_set_pk_with_global_env(t *testing.T) {
 		resultVerifier: func(c Config) bool {
 			// All destination subnets should have testPk2
 			for _, subnet := range c.DestinationSubnets {
-				if subnet.AccountPrivateKey != utils.SanitizeHashString(testPk2) {
-					fmt.Printf("expected: %s, got: %s\n", utils.SanitizeHashString(testPk2), subnet.AccountPrivateKey)
+				if subnet.AccountPrivateKey != utils.SanitizeHexString(testPk2) {
+					fmt.Printf("expected: %s, got: %s\n", utils.SanitizeHexString(testPk2), subnet.AccountPrivateKey)
 					return false
 				}
 			}
