@@ -12,6 +12,7 @@ import (
 	"github.com/ava-labs/avalanchego/vms/platformvm/warp"
 	"github.com/ava-labs/awm-relayer/config"
 	"github.com/ava-labs/awm-relayer/vms"
+	mock_evm "github.com/ava-labs/awm-relayer/vms/evm/mocks"
 	mock_vms "github.com/ava-labs/awm-relayer/vms/mocks"
 	"github.com/ava-labs/awm-relayer/vms/vmtypes"
 	"github.com/ethereum/go-ethereum/common"
@@ -28,13 +29,14 @@ var (
 		},
 	}
 	destinationChainIDString = "S4mMqUXe7vHsGiRAma6bv3CKnyaLssyAxmQ2KvFpX1KEvfFCD"
+	validRelayerAddress      = common.HexToAddress("0x0123456789abcdef0123456789abcdef01234567")
 	validTeleporterMessage   = TeleporterMessage{
 		MessageID:          big.NewInt(1),
 		SenderAddress:      common.HexToAddress("0x0123456789abcdef0123456789abcdef01234567"),
 		DestinationAddress: common.HexToAddress("0x0123456789abcdef0123456789abcdef01234567"),
 		RequiredGasLimit:   big.NewInt(2),
 		AllowedRelayerAddresses: []common.Address{
-			common.HexToAddress("0x0123456789abcdef0123456789abcdef01234567"),
+			validRelayerAddress,
 		},
 		Receipts: []TeleporterMessageReceipt{
 			{
@@ -56,6 +58,7 @@ func TestShouldSendMessage(t *testing.T) {
 	destinationClients := map[ids.ID]vms.DestinationClient{
 		destinationChainID: mockClient,
 	}
+
 	messageManager, err := NewMessageManager(
 		logger,
 		messageProtocolAddress,
@@ -67,16 +70,26 @@ func TestShouldSendMessage(t *testing.T) {
 	_, validMessageBytes, err := packSendCrossChainMessageEvent(common.HexToHash(destinationChainID.Hex()), validTeleporterMessage)
 	require.NoError(t, err)
 
+	messageNotDelivered, err := packMessageReceivedOutput(false)
+	require.NoError(t, err)
+
+	messageDelivered, err := packMessageReceivedOutput(true)
+	require.NoError(t, err)
+
 	warpUnsignedMessage, err := warp.NewUnsignedMessage(0, ids.Empty, validMessageBytes)
 	require.NoError(t, err)
 	testCases := []struct {
-		name               string
-		destinationChainID ids.ID
-		warpMessageInfo    *vmtypes.WarpMessageInfo
-		allowedResult      bool
-		allowedTimes       int
-		expectedError      bool
-		expectedResult     bool
+		name                string
+		destinationChainID  ids.ID
+		warpMessageInfo     *vmtypes.WarpMessageInfo
+		senderAddressResult common.Address
+		senderAddressTimes  int
+		clientResult        *mock_evm.MockClient
+		clientTimes         int
+		callContractResult  []byte
+		callContractTimes   int
+		expectedError       bool
+		expectedResult      bool
 	}{
 		{
 			name:               "valid message",
@@ -85,9 +98,13 @@ func TestShouldSendMessage(t *testing.T) {
 				WarpUnsignedMessage: warpUnsignedMessage,
 				WarpPayload:         validMessageBytes,
 			},
-			allowedResult:  true,
-			allowedTimes:   1,
-			expectedResult: true,
+			senderAddressResult: validRelayerAddress,
+			senderAddressTimes:  1,
+			clientResult:        mock_evm.NewMockClient(ctrl),
+			clientTimes:         1,
+			callContractResult:  messageNotDelivered,
+			callContractTimes:   1,
+			expectedResult:      true,
 		},
 		{
 			name:               "invalid message",
@@ -114,14 +131,33 @@ func TestShouldSendMessage(t *testing.T) {
 				WarpUnsignedMessage: warpUnsignedMessage,
 				WarpPayload:         validMessageBytes,
 			},
-			allowedResult:  false,
-			allowedTimes:   1,
-			expectedResult: false,
+			senderAddressResult: common.Address{},
+			senderAddressTimes:  1,
+			expectedResult:      false,
+		},
+		{
+			name:               "message already delivered",
+			destinationChainID: destinationChainID,
+			warpMessageInfo: &vmtypes.WarpMessageInfo{
+				WarpUnsignedMessage: warpUnsignedMessage,
+				WarpPayload:         validMessageBytes,
+			},
+			senderAddressResult: validRelayerAddress,
+			senderAddressTimes:  1,
+			clientResult:        mock_evm.NewMockClient(ctrl),
+			clientTimes:         1,
+			callContractResult:  messageDelivered,
+			callContractTimes:   1,
+			expectedResult:      false,
 		},
 	}
 	for _, test := range testCases {
 		t.Run(test.name, func(t *testing.T) {
-			mockClient.EXPECT().Allowed(gomock.Any(), gomock.Any()).Return(test.allowedResult).Times(test.allowedTimes)
+			mockClient.EXPECT().SenderAddress().Return(test.senderAddressResult).Times(test.senderAddressTimes)
+			mockClient.EXPECT().Client().Return(test.clientResult).Times(test.clientTimes)
+			if test.clientResult != nil {
+				test.clientResult.EXPECT().CallContract(gomock.Any(), gomock.Any(), gomock.Any()).Return(test.callContractResult, nil).Times(test.callContractTimes)
+			}
 			result, err := messageManager.ShouldSendMessage(test.warpMessageInfo, test.destinationChainID)
 			if test.expectedError {
 				require.Error(t, err)

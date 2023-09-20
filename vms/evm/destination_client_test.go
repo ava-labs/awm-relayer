@@ -9,12 +9,10 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/utils/logging"
 	avalancheWarp "github.com/ava-labs/avalanchego/vms/platformvm/warp"
 	"github.com/ava-labs/awm-relayer/config"
 	mock_ethclient "github.com/ava-labs/awm-relayer/vms/evm/mocks"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 )
@@ -114,80 +112,6 @@ func TestSendTx(t *testing.T) {
 			} else {
 				require.NoError(t, err)
 			}
-		})
-	}
-}
-
-func TestIsAllowedRelayer(t *testing.T) {
-	_, eoa, err := destinationSubnet.GetRelayerAccountInfo()
-	require.NoError(t, err)
-
-	tdc := &destinationClient{
-		logger: logging.NoLog{},
-		eoa:    eoa,
-	}
-
-	invalidRelayer := common.Address{1}
-	testCases := []struct {
-		name            string
-		allowedRelayers []common.Address
-		expected        bool
-	}{
-		{
-			name:            "empty allowed relayers",
-			allowedRelayers: []common.Address{},
-			expected:        true,
-		},
-		{
-			name:            "invalid relayer",
-			allowedRelayers: []common.Address{invalidRelayer},
-			expected:        false,
-		},
-		{
-			name:            "valid relayer",
-			allowedRelayers: []common.Address{eoa},
-			expected:        true,
-		},
-	}
-
-	for _, test := range testCases {
-		t.Run(test.name, func(t *testing.T) {
-			output := tdc.isAllowedRelayer(test.allowedRelayers)
-			require.Equal(t, test.expected, output)
-		})
-	}
-}
-
-func TestIsDestination(t *testing.T) {
-	validChainID := ids.ID{1, 2, 3, 4, 5, 6, 7, 8}
-	invalidChainID := ids.Empty
-	logger := logging.NoLog{}
-	tdc := &destinationClient{
-		logger:             logger,
-		destinationChainID: validChainID,
-	}
-
-	testCases := []struct {
-		name     string
-		chainID  ids.ID
-		expected bool
-	}{
-		{
-			name:     "valid",
-			chainID:  validChainID,
-			expected: true,
-		},
-		{
-			name:     "invalid",
-			chainID:  invalidChainID,
-			expected: false,
-		},
-	}
-
-	for _, test := range testCases {
-		t.Run(test.name, func(t *testing.T) {
-			output := tdc.isDestination(test.chainID)
-			require.Equal(t, test.expected, output)
 		})
 	}
 }
