@@ -65,11 +65,11 @@ func UnpackTeleporterMessage(messageBytes []byte) (*TeleporterMessage, error) {
 	return &teleporterMessage.TeleporterMessage, nil
 }
 
-func packReceiverMessage(inputStruct ReceiveCrossChainMessageInput) ([]byte, error) {
+func PackReceiverMessage(inputStruct ReceiveCrossChainMessageInput) ([]byte, error) {
 	return EVMTeleporterContractABI.Pack("receiveCrossChainMessage", inputStruct.RelayerRewardAddress)
 }
 
-func packMessageReceivedMessage(inputStruct MessageReceivedInput) ([]byte, error) {
+func PackMessageReceivedMessage(inputStruct MessageReceivedInput) ([]byte, error) {
 	return EVMTeleporterContractABI.Pack("messageReceived", inputStruct.OriginChainID, inputStruct.MessageID)
 }
 
