@@ -163,8 +163,8 @@ func TestShouldSendMessage(t *testing.T) {
 				require.Error(t, err)
 			} else {
 				require.NoError(t, err)
+				require.Equal(t, test.expectedResult, result)
 			}
-			require.Equal(t, test.expectedResult, result)
 		})
 	}
 }

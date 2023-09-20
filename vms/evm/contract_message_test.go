@@ -47,26 +47,44 @@ func createUnsignedMessage() *warp.UnsignedMessage {
 }
 
 func TestUnpack(t *testing.T) {
-	ctrl := logging.NewMockLogger(gomock.NewController(t))
-	m := NewContractMessage(ctrl, config.SourceSubnet{})
+	mockLogger := logging.NewMockLogger(gomock.NewController(t))
+	m := NewContractMessage(mockLogger, config.SourceSubnet{})
 
 	testCases := []struct {
-		input     string
-		networkID uint32
+		name          string
+		input         string
+		networkID     uint32
+		errorLogTimes int
+		expectError   bool
 	}{
 		{
-			input:     "0000000000007fc93d85c6d62c5b2ac0b519c87010ea5294012d1e407030d6acd0021cac10d50000005200000000000027ae10273d17cd7e80de8580a51f476960626e5f0000000000000000000000000000000000000000000000000000000000000000123412341234123412341234123412341234123400000000",
-			networkID: 0,
+			name:          "valid",
+			input:         "0000000000007fc93d85c6d62c5b2ac0b519c87010ea5294012d1e407030d6acd0021cac10d50000005200000000000027ae10273d17cd7e80de8580a51f476960626e5f0000000000000000000000000000000000000000000000000000000000000000123412341234123412341234123412341234123400000000",
+			networkID:     0,
+			errorLogTimes: 0,
+			expectError:   false,
+		},
+		{
+			name:          "invalid",
+			errorLogTimes: 1,
+			input:         "1000000000007fc93d85c6d62c5b2ac0b519c87010ea5294012d1e407030d6acd0021cac10d50000005200000000000027ae10273d17cd7e80de8580a51f476960626e5f0000000000000000000000000000000000000000000000000000000000000000123412341234123412341234123412341234123400000000",
+			expectError:   true,
 		},
 	}
 
 	for _, testCase := range testCases {
-		input, err := hex.DecodeString(testCase.input)
-		require.NoError(t, err)
+		t.Run(testCase.name, func(t *testing.T) {
+			input, err := hex.DecodeString(testCase.input)
+			require.NoError(t, err)
 
-		msg, err := m.UnpackWarpMessage(input)
-		require.NoError(t, err)
-
-		require.Equal(t, testCase.networkID, msg.WarpUnsignedMessage.NetworkID)
+			mockLogger.EXPECT().Error(gomock.Any(), gomock.Any()).Times(testCase.errorLogTimes)
+			msg, err := m.UnpackWarpMessage(input)
+			if testCase.expectError {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+				require.Equal(t, testCase.networkID, msg.WarpUnsignedMessage.NetworkID)
+			}
+		})
 	}
 }
