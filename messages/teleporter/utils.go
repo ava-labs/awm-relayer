@@ -9,7 +9,6 @@ import (
 
 	"github.com/ava-labs/avalanchego/utils/math"
 	"github.com/ava-labs/awm-relayer/utils"
-	"github.com/ethereum/go-ethereum/common"
 )
 
 const (
@@ -47,11 +46,4 @@ func CalculateReceiveMessageGasLimit(numSigners int, executionRequiredGasLimit *
 	}
 
 	return res, nil
-}
-
-// Pack the SendCrossChainMessage event type. PackEvent is documented as not supporting struct types, so this should be used
-// with caution. Here, we only use it for testing purposes. In a real setting, the Teleporter contract should pack the event.
-func PackSendCrossChainMessageEvent(destinationChainID common.Hash, message TeleporterMessage) ([]byte, error) {
-	_, hashes, err := EVMTeleporterContractABI.PackEvent("SendCrossChainMessage", destinationChainID, message.MessageID, message)
-	return hashes, err
 }

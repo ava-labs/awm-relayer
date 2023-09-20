@@ -164,7 +164,7 @@ func (m *messageManager) messageDelivered(
 		return false, errors.New("destination client is not an Ethereum client")
 	}
 
-	data, err := PackMessageReceivedMessage(MessageReceivedInput{
+	data, err := PackMessageReceived(MessageReceivedInput{
 		OriginChainID: warpMessageInfo.WarpUnsignedMessage.SourceChainID,
 		MessageID:     teleporterMessage.MessageID,
 	})
@@ -253,7 +253,7 @@ func (m *messageManager) SendMessage(signedMessage *warp.Message, parsedVmPayloa
 		return err
 	}
 	// Construct the transaction call data to call the receive cross chain message method of the receiver precompile.
-	callData, err := PackReceiverMessage(ReceiveCrossChainMessageInput{
+	callData, err := PackReceiveCrossChainMessage(ReceiveCrossChainMessageInput{
 		RelayerRewardAddress: common.HexToAddress(m.messageConfig.RewardAddress),
 	})
 	if err != nil {
