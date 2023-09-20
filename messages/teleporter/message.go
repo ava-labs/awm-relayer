@@ -73,7 +73,7 @@ func packMessageReceivedMessage(inputStruct MessageReceivedInput) ([]byte, error
 	return EVMTeleporterContractABI.Pack("messageReceived", inputStruct.OriginChainID, inputStruct.MessageID)
 }
 
-func unpackMessageReceivedResult(result []byte) (bool, error) {
+func UnpackMessageReceivedResult(result []byte) (bool, error) {
 	var success bool
 	err := EVMTeleporterContractABI.UnpackIntoInterface(&success, "messageReceived", result)
 	return success, err

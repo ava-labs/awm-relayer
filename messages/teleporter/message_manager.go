@@ -191,7 +191,7 @@ func (m *messageManager) messageDelivered(
 		return false, err
 	}
 	// check the contract call result
-	delivered, err := unpackMessageReceivedResult(result)
+	delivered, err := UnpackMessageReceivedResult(result)
 	if err != nil {
 		m.logger.Error(
 			"Failed unpacking messageReceived result.",
