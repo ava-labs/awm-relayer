@@ -3,9 +3,10 @@ module github.com/ava-labs/awm-relayer
 go 1.18
 
 require (
-	github.com/ava-labs/avalanchego v1.10.9
-	github.com/ava-labs/subnet-evm v0.5.6-0.20230831214243-27e0ca9c1e40
+	github.com/ava-labs/avalanchego v1.10.10
+	github.com/ava-labs/subnet-evm v0.5.6
 	github.com/ethereum/go-ethereum v1.12.0
+	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.16.0
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.16.0
@@ -30,7 +31,6 @@ require (
 	github.com/magiconair/properties v1.8.7 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/pelletier/go-toml/v2 v2.0.8 // indirect
-	github.com/pkg/errors v0.9.1 // indirect
 	github.com/rogpeppe/go-internal v1.9.0 // indirect
 	github.com/spf13/afero v1.9.5 // indirect
 	github.com/spf13/cast v1.5.1 // indirect
