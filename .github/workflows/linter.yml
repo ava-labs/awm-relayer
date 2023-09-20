@@ -1,7 +1,7 @@
 # Copyright (C) 2023, Ava Labs, Inc. All rights reserved.
 # See the file LICENSE for licensing terms.
 
-name: Run Relayer Unit Tests
+name: Run Golang Linter
 
 on:
   push:
@@ -9,7 +9,7 @@ on:
       - '*'
 
 jobs:
-  build-test-relayer:
+  golangci:
     runs-on: ubuntu-20.04
 
     steps:
@@ -22,15 +22,11 @@ jobs:
       uses: actions/setup-go@v4
       with:
         go-version: '1.20.7'
+        check-latest: true
 
-    - name: Build Relayer
-      run: |
-        cd awm-relayer
-        go mod tidy
-        ./scripts/build.sh
-
-    - name: Run Relayer Unit Tests
-      run: |
-        cd awm-relayer
-        ./scripts/test.sh
-
+    - name: golangci-lint
+      uses: golangci/golangci-lint-action@v3
+      with:
+        version: v1.51
+        working-directory: ./awm-relayer
+        args: --timeout 10m
