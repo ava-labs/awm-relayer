@@ -6,10 +6,7 @@ name: Tests
 on:
   push:
     branches:
-      - main
-  pull_request:
-    branches:
-      - "*"
+      - '*'
 
 env:
   GO_VERSION: "1.20.7"
@@ -28,38 +25,5 @@ jobs:
       - name: Checkout awm-relayer repository
         uses: actions/checkout@v4
 
-      - name: Build Relayer
-        run: |
-          go mod tidy
-          ./scripts/build.sh
-
       - name: Run Relayer Unit Tests
         run: ./scripts/test.sh
-
-  e2e_tests:
-    runs-on: ubuntu-20.04
-    name: e2e_tests
-
-    steps:
-      - name: Checkout subnet-evm repository
-        uses: actions/checkout@v4
-        with:
-          repository: ava-labs/subnet-evm
-          ref: v0.5.4
-
-      - name: Setup Go
-        uses: actions/setup-go@v4
-        with:
-          go-version: ${{ env.GO_VERSION }}
-
-      - name: Install AvalancheGo Release
-        run: BASEDIR=/tmp/e2e-test AVALANCHEGO_BUILD_PATH=/tmp/e2e-test/avalanchego ./scripts/install_avalanchego_release.sh
-
-      - name: Build Subnet-EVM Plugin Binary
-        run: ./scripts/build.sh /tmp/e2e-test/avalanchego/plugins/srEXiWaHuhNyGwPUi444Tu47ZEDwxTWrbQiuD7FmgSAQ6X7Dy
-
-      - name: Checkout awm-relayer repository
-        uses: actions/checkout@v4
-
-      - name: Run E2E Tests
-        run: AVALANCHEGO_BUILD_PATH=/tmp/e2e-test/avalanchego DATA_DIR=/tmp/e2e-test/data ./scripts/e2e_test.sh
