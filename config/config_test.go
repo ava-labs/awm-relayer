@@ -61,10 +61,12 @@ var (
 
 func TestGetDestinationRPCEndpoint(t *testing.T) {
 	testCases := []struct {
+		name           string
 		s              DestinationSubnet
 		expectedResult string
 	}{
 		{
+			name: "No encrypt connection",
 			s: DestinationSubnet{
 				EncryptConnection: false,
 				APINodeHost:       "127.0.0.1",
@@ -75,6 +77,7 @@ func TestGetDestinationRPCEndpoint(t *testing.T) {
 			expectedResult: fmt.Sprintf("http://127.0.0.1:9650/ext/bc/%s/rpc", testChainID),
 		},
 		{
+			name: "Encrypt connection",
 			s: DestinationSubnet{
 				EncryptConnection: true,
 				APINodeHost:       "127.0.0.1",
@@ -85,6 +88,7 @@ func TestGetDestinationRPCEndpoint(t *testing.T) {
 			expectedResult: fmt.Sprintf("https://127.0.0.1:9650/ext/bc/%s/rpc", testChainID),
 		},
 		{
+			name: "No port",
 			s: DestinationSubnet{
 				EncryptConnection: false,
 				APINodeHost:       "api.avax.network",
@@ -95,6 +99,7 @@ func TestGetDestinationRPCEndpoint(t *testing.T) {
 			expectedResult: fmt.Sprintf("http://api.avax.network/ext/bc/%s/rpc", testChainID),
 		},
 		{
+			name: "Primary subnet",
 			s: DestinationSubnet{
 				EncryptConnection: false,
 				APINodeHost:       "127.0.0.1",
@@ -105,6 +110,7 @@ func TestGetDestinationRPCEndpoint(t *testing.T) {
 			expectedResult: "http://127.0.0.1:9650/ext/bc/C/rpc",
 		},
 		{
+			name: "Override with set rpc endpoint",
 			s: DestinationSubnet{
 				EncryptConnection: false,
 				APINodeHost:       "127.0.0.1",
@@ -117,8 +123,8 @@ func TestGetDestinationRPCEndpoint(t *testing.T) {
 		},
 	}
 
-	for i, testCase := range testCases {
-		t.Run(fmt.Sprintf("test_%d", i), func(t *testing.T) {
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
 			res := testCase.s.GetNodeRPCEndpoint()
 			require.Equal(t, testCase.expectedResult, res)
 		})
@@ -127,11 +133,13 @@ func TestGetDestinationRPCEndpoint(t *testing.T) {
 
 func TestGetSourceSubnetEndpoints(t *testing.T) {
 	testCases := []struct {
+		name              string
 		s                 SourceSubnet
 		expectedWsResult  string
 		expectedRpcResult string
 	}{
 		{
+			name: "No encrypt connection",
 			s: SourceSubnet{
 				EncryptConnection: false,
 				APINodeHost:       "127.0.0.1",
@@ -143,6 +151,7 @@ func TestGetSourceSubnetEndpoints(t *testing.T) {
 			expectedRpcResult: fmt.Sprintf("http://127.0.0.1:9650/ext/bc/%s/rpc", testChainID),
 		},
 		{
+			name: "Encrypt connection",
 			s: SourceSubnet{
 				EncryptConnection: true,
 				APINodeHost:       "127.0.0.1",
@@ -154,6 +163,7 @@ func TestGetSourceSubnetEndpoints(t *testing.T) {
 			expectedRpcResult: fmt.Sprintf("https://127.0.0.1:9650/ext/bc/%s/rpc", testChainID),
 		},
 		{
+			name: "No port",
 			s: SourceSubnet{
 				EncryptConnection: false,
 				APINodeHost:       "api.avax.network",
@@ -165,6 +175,7 @@ func TestGetSourceSubnetEndpoints(t *testing.T) {
 			expectedRpcResult: fmt.Sprintf("http://api.avax.network/ext/bc/%s/rpc", testChainID),
 		},
 		{
+			name: "Primary subnet",
 			s: SourceSubnet{
 				EncryptConnection: false,
 				APINodeHost:       "127.0.0.1",
@@ -176,6 +187,7 @@ func TestGetSourceSubnetEndpoints(t *testing.T) {
 			expectedRpcResult: "http://127.0.0.1:9650/ext/bc/C/rpc",
 		},
 		{
+			name: "Override with set endpoints",
 			s: SourceSubnet{
 				EncryptConnection: false,
 				APINodeHost:       "127.0.0.1",
@@ -190,8 +202,8 @@ func TestGetSourceSubnetEndpoints(t *testing.T) {
 		},
 	}
 
-	for i, testCase := range testCases {
-		t.Run(fmt.Sprintf("test_%d", i), func(t *testing.T) {
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
 			require.Equal(t, testCase.expectedWsResult, testCase.s.GetNodeWSEndpoint())
 			require.Equal(t, testCase.expectedRpcResult, testCase.s.GetNodeRPCEndpoint())
 		})
@@ -206,11 +218,12 @@ func TestGetRelayerAccountInfo(t *testing.T) {
 	}
 
 	testCases := []struct {
+		name           string
 		s              DestinationSubnet
 		expectedResult retStruct
 	}{
-		// valid
 		{
+			name: "valid",
 			s: DestinationSubnet{
 				AccountPrivateKey: "56289e99c94b6912bfc12adc093c9b51124f0dc54ac7a766b2bc5ccf558d8027",
 			},
@@ -222,8 +235,8 @@ func TestGetRelayerAccountInfo(t *testing.T) {
 				err:  nil,
 			},
 		},
-		// invalid, with 0x prefix. Should be sanitized before being set in DestinationSubnet
 		{
+			name: "invalid 0x prefix",
 			s: DestinationSubnet{
 				AccountPrivateKey: "0x56289e99c94b6912bfc12adc093c9b51124f0dc54ac7a766b2bc5ccf558d8027",
 			},
@@ -235,8 +248,8 @@ func TestGetRelayerAccountInfo(t *testing.T) {
 				err:  ErrInvalidPrivateKey,
 			},
 		},
-		// invalid
 		{
+			name: "invalid private key",
 			s: DestinationSubnet{
 				AccountPrivateKey: "invalid56289e99c94b6912bfc12adc093c9b51124f0dc54ac7a766b2bc5ccf558d8027",
 			},
@@ -250,8 +263,8 @@ func TestGetRelayerAccountInfo(t *testing.T) {
 		},
 	}
 
-	for i, testCase := range testCases {
-		t.Run(fmt.Sprintf("test_%d", i), func(t *testing.T) {
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
 			pk, addr, err := testCase.s.GetRelayerAccountInfo()
 			require.Equal(t, testCase.expectedResult.err, err)
 			if err == nil {
