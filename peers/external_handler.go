@@ -71,17 +71,8 @@ func NewRelayerExternalHandler(
 // async, we must call OnFinishedHandling manually across all code paths.
 //
 // This diagram illustrates how HandleInbound forwards relevant AppResponses to the corresponding Teleporter message relayer.
-// On startup, one TeleporterRelayer goroutine is created per source subnet, which listens to the subscriber for cross-chain messages
-// When a cross-chain message is picked up by a TeleporterRelayer, a teleporterMessageRelayer goroutine is created and closed
-// once the cross-chain message is delivered. Messages are routed through the resulting tree structure:
-//
-// 								  TeleporterRelayer/source subnet       teleporterMessageRelayer/Teleporter message
-//
-//                       		{ TeleporterRelayer.responseChan --...  { teleporterMessageRelayer.messageResponseChan (consumer)
-// HandleInbound (producer) --->{ TeleporterRelayer.responseChan ------>{ teleporterMessageRelayer.messageResponseChan (consumer)
-//                       		{			  ...					    {						...
-//                       		{ TeleporterRelayer.responseChan --...  { teleporterMessageRelayer.messageResponseChan (consumer)
-
+// On startup, one Relayer goroutine is created per source subnet, which listens to the subscriber for cross-chain messages
+// When a cross-chain message is picked up by a Relayer, HandleInbound routes AppResponses traffic to the appropriate Relayer
 func (h *RelayerExternalHandler) HandleInbound(_ context.Context, inboundMessage message.InboundMessage) {
 	h.log.Debug(
 		"receiving message",
@@ -133,7 +124,6 @@ func (h *RelayerExternalHandler) HandleInbound(_ context.Context, inboundMessage
 
 			h.responseChans[chainID] <- inboundMessage
 		}(inboundMessage, chainID)
-
 	} else {
 		inboundMessage.OnFinishedHandling()
 	}

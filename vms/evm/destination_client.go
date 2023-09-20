@@ -95,18 +95,18 @@ func NewDestinationClient(logger logging.Logger, subnetInfo config.DestinationSu
 	}, nil
 }
 
-func (tdc *destinationClient) SendTx(signedMessage *avalancheWarp.Message,
+func (c *destinationClient) SendTx(signedMessage *avalancheWarp.Message,
 	toAddress string,
 	gasLimit uint64,
 	callData []byte) error {
 	// Synchronize teleporter message requests to the same destination chain so that message ordering is preserved
-	tdc.lock.Lock()
-	defer tdc.lock.Unlock()
+	c.lock.Lock()
+	defer c.lock.Unlock()
 	// We need the global 32-byte representation of the destination chain ID, as well as the destination's configured chainID
 	// Without the destination's configured chainID, transaction signature verification will fail
-	destinationChainIDBigInt, err := tdc.client.ChainID(context.Background())
+	destinationChainIDBigInt, err := c.client.ChainID(context.Background())
 	if err != nil {
-		tdc.logger.Error(
+		c.logger.Error(
 			"Failed to get chain ID from destination chain endpoint",
 			zap.Error(err),
 		)
@@ -114,9 +114,9 @@ func (tdc *destinationClient) SendTx(signedMessage *avalancheWarp.Message,
 	}
 
 	// Get the current base fee estimation, which is based on the previous blocks gas usage.
-	baseFee, err := tdc.client.EstimateBaseFee(context.Background())
+	baseFee, err := c.client.EstimateBaseFee(context.Background())
 	if err != nil {
-		tdc.logger.Error(
+		c.logger.Error(
 			"Failed to get base fee",
 			zap.Error(err),
 		)
@@ -125,9 +125,9 @@ func (tdc *destinationClient) SendTx(signedMessage *avalancheWarp.Message,
 
 	// Get the suggested gas tip cap of the network
 	// TODO: Add a configurable ceiling to this value
-	gasTipCap, err := tdc.client.SuggestGasTipCap(context.Background())
+	gasTipCap, err := c.client.SuggestGasTipCap(context.Background())
 	if err != nil {
-		tdc.logger.Error(
+		c.logger.Error(
 			"Failed to get gas tip cap",
 			zap.Error(err),
 		)
@@ -146,7 +146,7 @@ func (tdc *destinationClient) SendTx(signedMessage *avalancheWarp.Message,
 	// Construct the actual transaction to broadcast on the destination chain
 	tx := types.NewTx(&types.DynamicFeeTx{
 		ChainID:   destinationChainIDBigInt,
-		Nonce:     tdc.currentNonce,
+		Nonce:     c.currentNonce,
 		To:        &to,
 		Gas:       gasLimit,
 		GasFeeCap: gasFeeCap,
@@ -163,17 +163,17 @@ func (tdc *destinationClient) SendTx(signedMessage *avalancheWarp.Message,
 
 	// Sign and send the transaction on the destination chain
 	signer := types.LatestSignerForChainID(destinationChainIDBigInt)
-	signedTx, err := types.SignTx(tx, signer, tdc.pk)
+	signedTx, err := types.SignTx(tx, signer, c.pk)
 	if err != nil {
-		tdc.logger.Error(
+		c.logger.Error(
 			"Failed to sign transaction",
 			zap.Error(err),
 		)
 		return err
 	}
 
-	if err := tdc.client.SendTransaction(context.Background(), signedTx); err != nil {
-		tdc.logger.Error(
+	if err := c.client.SendTransaction(context.Background(), signedTx); err != nil {
+		c.logger.Error(
 			"Failed to send transaction",
 			zap.Error(err),
 		)
@@ -182,8 +182,8 @@ func (tdc *destinationClient) SendTx(signedMessage *avalancheWarp.Message,
 
 	// Increment the nonce to use on the destination chain now that we've sent
 	// a transaction using the current value.
-	tdc.currentNonce++
-	tdc.logger.Info(
+	c.currentNonce++
+	c.logger.Info(
 		"Sent transaction",
 		zap.String("txID", signedTx.Hash().String()),
 	)
@@ -191,34 +191,14 @@ func (tdc *destinationClient) SendTx(signedMessage *avalancheWarp.Message,
 	return nil
 }
 
-func (tdc *destinationClient) isDestination(chainID ids.ID) bool {
-	if chainID != tdc.destinationChainID {
-		tdc.logger.Info(
-			"Destination chain ID for message not supported by relayer.",
-			zap.String("chainID", chainID.String()),
-		)
-		return false
-	}
-	return true
+func (c *destinationClient) Client() interface{} {
+	return c.client
 }
 
-func (tdc *destinationClient) isAllowedRelayer(allowedRelayers []common.Address) bool {
-	// If no allowed relayer addresses were set, then anyone can relay it.
-	if len(allowedRelayers) == 0 {
-		return true
-	}
-
-	for _, addr := range allowedRelayers {
-		if addr == tdc.eoa {
-			return true
-		}
-	}
-
-	tdc.logger.Info("Relayer EOA not allowed to deliver this message.")
-	return false
+func (c *destinationClient) SenderAddress() common.Address {
+	return c.eoa
 }
 
-func (tdc *destinationClient) Allowed(chainID ids.ID, allowedRelayers []common.Address) bool {
-	return tdc.isDestination(chainID) &&
-		tdc.isAllowedRelayer(allowedRelayers)
+func (c *destinationClient) DestinationChainID() ids.ID {
+	return c.destinationChainID
 }
