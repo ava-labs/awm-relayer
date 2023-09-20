@@ -418,7 +418,7 @@ var _ = ginkgo.Describe("[Relayer E2E]", ginkgo.Ordered, func() {
 		Expect(err).Should(BeNil())
 
 		log.Info("Packing teleporter message", "nonceA", nonceA, "nonceB", nonceB)
-		payload, err = teleporter.PackTeleporterMessage(common.Hash(blockchainIDB), teleporterMessage)
+		payload, err = teleporter.PackSendCrossChainMessageEvent(common.Hash(blockchainIDB), teleporterMessage)
 		Expect(err).Should(BeNil())
 
 		data, err := teleporter.EVMTeleporterContractABI.Pack(

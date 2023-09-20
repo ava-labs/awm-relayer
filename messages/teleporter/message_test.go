@@ -36,7 +36,7 @@ func testTeleporterMessage(messageID int64) TeleporterMessage {
 func TestPackUnpackTeleporterMessage(t *testing.T) {
 	message := testTeleporterMessage(4)
 
-	b, err := PackTeleporterMessage(common.HexToHash("0x03"), message)
+	b, err := PackSendCrossChainMessageEvent(common.HexToHash("0x03"), message)
 	if err != nil {
 		t.Errorf("failed to pack teleporter message: %v", err)
 		t.FailNow()

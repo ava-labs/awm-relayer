@@ -51,7 +51,7 @@ func CalculateReceiveMessageGasLimit(numSigners int, executionRequiredGasLimit *
 
 // Pack the SendCrossChainMessage event type. PackEvent is documented as not supporting struct types, so this should be used
 // with caution. Here, we only use it for testing purposes. In a real setting, the Teleporter contract should pack the event.
-func PackTeleporterMessage(destinationChainID common.Hash, message TeleporterMessage) ([]byte, error) {
+func PackSendCrossChainMessageEvent(destinationChainID common.Hash, message TeleporterMessage) ([]byte, error) {
 	_, hashes, err := EVMTeleporterContractABI.PackEvent("SendCrossChainMessage", destinationChainID, message.MessageID, message)
 	return hashes, err
 }
