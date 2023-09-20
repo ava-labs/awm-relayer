@@ -164,7 +164,7 @@ func (m *messageManager) messageDelivered(
 		return false, errors.New("destination client is not an Ethereum client")
 	}
 
-	data, err := packMessageReceivedMessage(MessageReceivedInput{
+	data, err := PackMessageReceivedMessage(MessageReceivedInput{
 		OriginChainID: warpMessageInfo.WarpUnsignedMessage.SourceChainID,
 		MessageID:     teleporterMessage.MessageID,
 	})
