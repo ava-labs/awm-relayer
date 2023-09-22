@@ -55,7 +55,6 @@ func CheckStakeWeightExceedsThreshold(accumulatedSignatureWeight *big.Int, total
 
 // BigToHashSafe ensures that a bignum value is able to fit into a 32 byte buffer before converting it to a common.Hash
 // Returns an error if overflow/truncation would occur by trying to perfom this operation.
-// TODO is this function still needed? It works for negative numbers now.
 func BigToHashSafe(in *big.Int) (common.Hash, error) {
 	if in == nil {
 		return common.Hash{}, ErrNilInput
