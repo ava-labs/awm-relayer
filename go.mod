@@ -3,7 +3,7 @@ module github.com/ava-labs/awm-relayer
 go 1.18
 
 require (
-	github.com/ava-labs/avalanchego v1.10.9
+	github.com/ava-labs/avalanchego v1.10.10
 	github.com/ava-labs/subnet-evm v0.5.4
 	github.com/ethereum/go-ethereum v1.12.0
 	github.com/pkg/errors v0.9.1
