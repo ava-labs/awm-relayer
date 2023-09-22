@@ -1,6 +1,8 @@
 // Copyright (C) 2023, Ava Labs, Inc. All rights reserved.
 // See the file LICENSE for licensing terms.
 
+//go:generate mockgen -source=$GOFILE -destination=./mocks/mock_destination_client.go -package=mocks
+
 package vms
 
 import (
@@ -44,8 +46,8 @@ func NewDestinationClient(logger logging.Logger, subnetInfo config.DestinationSu
 // CreateDestinationClients creates destination clients for all subnets configured as destinations
 func CreateDestinationClients(logger logging.Logger, relayerConfig config.Config) (map[ids.ID]DestinationClient, error) {
 	destinationClients := make(map[ids.ID]DestinationClient)
-	for _, s := range relayerConfig.DestinationSubnets {
-		chainID, err := ids.FromString(s.ChainID)
+	for _, subnetInfo := range relayerConfig.DestinationSubnets {
+		chainID, err := ids.FromString(subnetInfo.ChainID)
 		if err != nil {
 			logger.Error(
 				"Failed to decode base-58 encoded source chain ID",
@@ -61,7 +63,7 @@ func CreateDestinationClients(logger logging.Logger, relayerConfig config.Config
 			continue
 		}
 
-		destinationClient, err := NewDestinationClient(logger, s)
+		destinationClient, err := NewDestinationClient(logger, subnetInfo)
 		if err != nil {
 			logger.Error(
 				"Could not create destination client",

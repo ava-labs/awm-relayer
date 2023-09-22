@@ -38,7 +38,7 @@ type ReceiveCrossChainMessageInput struct {
 // MessageReceivedInput is the input to messageReceived call
 // in the contract deployed on the destination chain
 type MessageReceivedInput struct {
-	OriginChainID ids.ID   `json:"relayerRewardAddress"`
+	OriginChainID ids.ID   `json:"originChainID"`
 	MessageID     *big.Int `json:"messageID"`
 }
 
@@ -71,6 +71,10 @@ func packReceiverMessage(inputStruct ReceiveCrossChainMessageInput) ([]byte, err
 
 func packMessageReceivedMessage(inputStruct MessageReceivedInput) ([]byte, error) {
 	return EVMTeleporterContractABI.Pack("messageReceived", inputStruct.OriginChainID, inputStruct.MessageID)
+}
+
+func packMessageReceivedOutput(success bool) ([]byte, error) {
+	return EVMTeleporterContractABI.PackOutput("messageReceived", success)
 }
 
 func unpackMessageReceivedResult(result []byte) (bool, error) {

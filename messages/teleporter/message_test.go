@@ -5,12 +5,11 @@ package teleporter
 
 import (
 	"bytes"
-	"encoding/hex"
 	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func testTeleporterMessage(messageID int64) TeleporterMessage {
@@ -35,49 +34,41 @@ func testTeleporterMessage(messageID int64) TeleporterMessage {
 
 // Pack the SendCrossChainMessage event type. PackEvent is documented as not supporting struct types, so this should be used
 // with caution. Here, we only use it for testing purposes. In a real setting, the Teleporter contract should pack the event.
-func packTeleporterMessage(destinationChainID common.Hash, message TeleporterMessage) ([]byte, error) {
-	_, hashes, err := EVMTeleporterContractABI.PackEvent("SendCrossChainMessage", destinationChainID, message.MessageID, message)
-	return hashes, err
+func packSendCrossChainMessageEvent(destinationChainID common.Hash, message TeleporterMessage) ([]common.Hash, []byte, error) {
+	return EVMTeleporterContractABI.PackEvent("SendCrossChainMessage", destinationChainID, message.MessageID, message)
 }
 
 func TestPackUnpackTeleporterMessage(t *testing.T) {
-	message := testTeleporterMessage(4)
+	var (
+		messageID          int64       = 4
+		destinationChainID common.Hash = common.HexToHash("0x03")
+	)
+	message := testTeleporterMessage(messageID)
 
-	b, err := packTeleporterMessage(common.HexToHash("0x03"), message)
-	if err != nil {
-		t.Errorf("failed to pack teleporter message: %v", err)
-		t.FailNow()
-	}
+	topics, b, err := packSendCrossChainMessageEvent(destinationChainID, message)
+	require.NoError(t, err)
+
+	// Three events where the first event topics[0] is the event signature.
+	require.Equal(t, len(topics), 3)
+	require.Equal(t, destinationChainID, topics[1])
+	require.Equal(t, new(big.Int).SetInt64(messageID), topics[2].Big())
 
 	unpacked, err := unpackTeleporterMessage(b)
-	if err != nil {
-		t.Errorf("failed to unpack teleporter message: %v", err)
-		t.FailNow()
-	}
+	require.NoError(t, err)
 
-	if unpacked.MessageID.Cmp(message.MessageID) != 0 {
-		t.Errorf("message ids do not match. expected: %d actual: %d", message.MessageID.Uint64(), unpacked.MessageID.Uint64())
-	}
-	if unpacked.SenderAddress != message.SenderAddress {
-		t.Errorf("sender addresses do not match. expected: %s actual: %s", message.SenderAddress.Hex(), unpacked.SenderAddress.Hex())
-	}
-	if unpacked.DestinationAddress != message.DestinationAddress {
-		t.Errorf("destination addresses do not match. expected: %s actual: %s", message.DestinationAddress.Hex(), unpacked.DestinationAddress.Hex())
-	}
-	if unpacked.RequiredGasLimit.Cmp(message.RequiredGasLimit) != 0 {
-		t.Errorf("required gas limits do not match. expected: %d actual: %d", message.RequiredGasLimit.Uint64(), unpacked.RequiredGasLimit.Uint64())
-	}
+	require.Equal(t, message.MessageID, unpacked.MessageID)
+	require.Equal(t, message.SenderAddress, unpacked.SenderAddress)
+	require.Equal(t, message.DestinationAddress, unpacked.DestinationAddress)
+	require.Equal(t, message.RequiredGasLimit, unpacked.RequiredGasLimit)
+
 	for i := 0; i < len(message.AllowedRelayerAddresses); i++ {
-		if unpacked.AllowedRelayerAddresses[i] != message.AllowedRelayerAddresses[i] {
-			t.Errorf("allowed relayer addresses %d do not match. expected: %s actual: %s", i, message.AllowedRelayerAddresses[i].Hex(), unpacked.AllowedRelayerAddresses[i].Hex())
-		}
-	}
-	for i := 0; i < len(message.Receipts); i++ {
-		assert.Equal(t, 0, unpacked.Receipts[i].ReceivedMessageID.Cmp(message.Receipts[i].ReceivedMessageID))
-		assert.Equal(t, message.Receipts[i].RelayerRewardAddress, unpacked.Receipts[i].RelayerRewardAddress)
+		require.Equal(t, unpacked.AllowedRelayerAddresses[i], message.AllowedRelayerAddresses[i])
 	}
 
-	if !bytes.Equal(unpacked.Message, message.Message) {
-		t.Errorf("messages do not match. expected: %s actual: %s", hex.EncodeToString(message.Message), hex.EncodeToString(unpacked.Message))
+	for i := 0; i < len(message.Receipts); i++ {
+		require.Equal(t, message.Receipts[i].ReceivedMessageID, unpacked.Receipts[i].ReceivedMessageID)
+		require.Equal(t, message.Receipts[i].RelayerRewardAddress, unpacked.Receipts[i].RelayerRewardAddress)
 	}
+
+	require.True(t, bytes.Equal(message.Message, unpacked.Message))
 }
