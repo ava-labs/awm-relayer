@@ -53,5 +53,5 @@ func (m *contractMessage) UnpackWarpMessage(unsignedMsgBytes []byte) (*vmtypes.W
 		WarpUnsignedMessage: unsignedMsg,
 		WarpPayload:         warpPayload.Payload,
 	}
-	return &messageInfo, err
+	return &messageInfo, nil
 }

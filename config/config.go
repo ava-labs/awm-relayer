@@ -42,6 +42,7 @@ type SourceSubnet struct {
 	APINodeHost       string                           `mapstructure:"api-node-host" json:"api-node-host"`
 	APINodePort       uint32                           `mapstructure:"api-node-port" json:"api-node-port"`
 	EncryptConnection bool                             `mapstructure:"encrypt-connection" json:"encrypt-connection"`
+	RPCEndpoint       string                           `mapstructure:"rpc-endpoint" json:"rpc-endpoint"`
 	WSEndpoint        string                           `mapstructure:"ws-endpoint" json:"ws-endpoint"`
 	MessageContracts  map[string]MessageProtocolConfig `mapstructure:"message-contracts" json:"message-contracts"`
 }
@@ -62,6 +63,7 @@ type Config struct {
 	NetworkID          uint32              `mapstructure:"network-id" json:"network-id"`
 	PChainAPIURL       string              `mapstructure:"p-chain-api-url" json:"p-chain-api-url"`
 	EncryptConnection  bool                `mapstructure:"encrypt-connection" json:"encrypt-connection"`
+	StorageLocation    string              `mapstructure:"storage-location" json:"storage-location"`
 	SourceSubnets      []SourceSubnet      `mapstructure:"source-subnets" json:"source-subnets"`
 	DestinationSubnets []DestinationSubnet `mapstructure:"destination-subnets" json:"destination-subnets"`
 }
@@ -71,6 +73,7 @@ func SetDefaultConfigValues(v *viper.Viper) {
 	v.SetDefault(NetworkIDKey, constants.MainnetID)
 	v.SetDefault(PChainAPIURLKey, "https://api.avax.network")
 	v.SetDefault(EncryptConnectionKey, true)
+	v.SetDefault(StorageLocationKey, "./.awm-relayer-storage")
 }
 
 // BuildConfig constructs the relayer config using Viper.
@@ -99,6 +102,7 @@ func BuildConfig(v *viper.Viper) (Config, bool, error) {
 	cfg.NetworkID = v.GetUint32(NetworkIDKey)
 	cfg.PChainAPIURL = v.GetString(PChainAPIURLKey)
 	cfg.EncryptConnection = v.GetBool(EncryptConnectionKey)
+	cfg.StorageLocation = v.GetString(StorageLocationKey)
 	if err := v.UnmarshalKey(DestinationSubnetsKey, &cfg.DestinationSubnets); err != nil {
 		return Config{}, false, fmt.Errorf("failed to unmarshal destination subnets: %v", err)
 	}
@@ -215,6 +219,9 @@ func (s *SourceSubnet) Validate() error {
 	if _, err := url.ParseRequestURI(s.GetNodeWSEndpoint()); err != nil {
 		return fmt.Errorf("invalid relayer subscribe URL in source subnet configuration: %v", err)
 	}
+	if _, err := url.ParseRequestURI(s.GetNodeRPCEndpoint()); err != nil {
+		return fmt.Errorf("invalid relayer RPC URL in source subnet configuration: %v", err)
+	}
 
 	// Validate the VM specific settings
 	switch ParseVM(s.VM) {
@@ -267,7 +274,13 @@ func (s *DestinationSubnet) Validate() error {
 	return nil
 }
 
-func constructURL(protocol string, host string, port uint32, encrypt bool) string {
+func constructURL(protocol string, host string, port uint32, encrypt bool, chainIDStr string, subnetIDStr string) string {
+	var protocolPathMap = map[string]string{
+		"http": "rpc",
+		"ws":   "ws",
+	}
+	path := protocolPathMap[protocol]
+
 	if encrypt {
 		protocol = protocol + "s"
 	}
@@ -275,7 +288,11 @@ func constructURL(protocol string, host string, port uint32, encrypt bool) strin
 	if port != 0 {
 		portStr = fmt.Sprintf(":%d", port)
 	}
-	return fmt.Sprintf("%s://%s%s", protocol, host, portStr)
+	subnetID, _ := ids.FromString(subnetIDStr) // already validated in Validate()
+	if subnetID == constants.PrimaryNetworkID {
+		chainIDStr = cChainIdentifierString
+	}
+	return fmt.Sprintf("%s://%s%s/ext/bc/%s/%s", protocol, host, portStr, chainIDStr, path)
 }
 
 // Constructs an RPC endpoint for the subnet.
@@ -286,13 +303,38 @@ func (s *DestinationSubnet) GetNodeRPCEndpoint() string {
 	if s.RPCEndpoint != "" {
 		return s.RPCEndpoint
 	}
-	baseUrl := constructURL("http", s.APINodeHost, s.APINodePort, s.EncryptConnection)
-	chainID := s.ChainID
-	subnetID, _ := ids.FromString(s.SubnetID) // already validated in Validate()
-	if subnetID == constants.PrimaryNetworkID {
-		chainID = cChainIdentifierString
+
+	// Save this result for future use
+	s.RPCEndpoint = constructURL(
+		"http",
+		s.APINodeHost,
+		s.APINodePort,
+		s.EncryptConnection,
+		s.ChainID,
+		s.SubnetID,
+	)
+	return s.RPCEndpoint
+}
+
+// Constructs an RPC endpoint for the subnet.
+// If the RPCEndpoint field is set in the configuration, returns that directly.
+// Otherwise, constructs the endpoint from the APINodeHost, APINodePort, and EncryptConnection fields,
+// following the /ext/bc/{chainID}/rpc format.
+func (s *SourceSubnet) GetNodeRPCEndpoint() string {
+	if s.RPCEndpoint != "" {
+		return s.RPCEndpoint
 	}
-	return fmt.Sprintf("%s/ext/bc/%s/rpc", baseUrl, chainID)
+
+	// Save this result for future use
+	s.RPCEndpoint = constructURL(
+		"http",
+		s.APINodeHost,
+		s.APINodePort,
+		s.EncryptConnection,
+		s.ChainID,
+		s.SubnetID,
+	)
+	return s.RPCEndpoint
 }
 
 // Constructs a WS endpoint for the subnet.
@@ -303,13 +345,17 @@ func (s *SourceSubnet) GetNodeWSEndpoint() string {
 	if s.WSEndpoint != "" {
 		return s.WSEndpoint
 	}
-	baseUrl := constructURL("ws", s.APINodeHost, s.APINodePort, s.EncryptConnection)
-	chainID := s.ChainID
-	subnetID, _ := ids.FromString(s.SubnetID) // already validated in Validate()
-	if subnetID == constants.PrimaryNetworkID {
-		chainID = cChainIdentifierString
-	}
-	return fmt.Sprintf("%s/ext/bc/%s/ws", baseUrl, chainID)
+
+	// Save this result for future use
+	s.WSEndpoint = constructURL(
+		"ws",
+		s.APINodeHost,
+		s.APINodePort,
+		s.EncryptConnection,
+		s.ChainID,
+		s.SubnetID,
+	)
+	return s.WSEndpoint
 }
 
 // Get the private key and derive the wallet address from a relayer's configured private key for a given destination subnet.

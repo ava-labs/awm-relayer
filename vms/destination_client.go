@@ -1,6 +1,8 @@
 // Copyright (C) 2023, Ava Labs, Inc. All rights reserved.
 // See the file LICENSE for licensing terms.
 
+//go:generate mockgen -source=$GOFILE -destination=./mocks/mock_destination_client.go -package=mocks
+
 package vms
 
 import (
@@ -22,8 +24,14 @@ type DestinationClient interface {
 	// TODO: Make generic for any VM.
 	SendTx(signedMessage *warp.Message, toAddress string, gasLimit uint64, callData []byte) error
 
-	// Allowed checks if the relayer is allowed to relay the message according to the VM rules and the message metadata
-	Allowed(chainID ids.ID, allowedRelayers []common.Address) bool
+	// Client returns the underlying client for the destination chain
+	Client() interface{}
+
+	// SenderAddress returns the address of the relayer on the destination chain
+	SenderAddress() common.Address
+
+	// DestinationChainID returns the ID of the destination chain
+	DestinationChainID() ids.ID
 }
 
 func NewDestinationClient(logger logging.Logger, subnetInfo config.DestinationSubnet) (DestinationClient, error) {
@@ -38,8 +46,8 @@ func NewDestinationClient(logger logging.Logger, subnetInfo config.DestinationSu
 // CreateDestinationClients creates destination clients for all subnets configured as destinations
 func CreateDestinationClients(logger logging.Logger, relayerConfig config.Config) (map[ids.ID]DestinationClient, error) {
 	destinationClients := make(map[ids.ID]DestinationClient)
-	for _, s := range relayerConfig.DestinationSubnets {
-		chainID, err := ids.FromString(s.ChainID)
+	for _, subnetInfo := range relayerConfig.DestinationSubnets {
+		chainID, err := ids.FromString(subnetInfo.ChainID)
 		if err != nil {
 			logger.Error(
 				"Failed to decode base-58 encoded source chain ID",
@@ -55,7 +63,7 @@ func CreateDestinationClients(logger logging.Logger, relayerConfig config.Config
 			continue
 		}
 
-		destinationClient, err := NewDestinationClient(logger, s)
+		destinationClient, err := NewDestinationClient(logger, subnetInfo)
 		if err != nil {
 			logger.Error(
 				"Could not create destination client",

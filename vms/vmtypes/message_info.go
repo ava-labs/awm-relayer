@@ -17,4 +17,5 @@ type WarpLogInfo struct {
 	DestinationAddress common.Hash
 	SourceTxID         []byte
 	UnsignedMsgBytes   []byte
+	BlockNumber        uint64
 }

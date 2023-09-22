@@ -1,6 +1,8 @@
 // Copyright (C) 2023, Ava Labs, Inc. All rights reserved.
 // See the file LICENSE for licensing terms.
 
+//go:generate mockgen -source=$GOFILE -destination=./mocks/mock_message_manager.go -package=mocks
+
 package messages
 
 import (
@@ -20,6 +22,7 @@ import (
 // for each message protocol, and performs the sending to the destination chain.
 type MessageManager interface {
 	// ShouldSendMessage returns true if the message should be sent to the destination chain
+	// If an error is returned, the boolean should be ignored by the caller.
 	ShouldSendMessage(warpMessageInfo *vmtypes.WarpMessageInfo, destinationChainID ids.ID) (bool, error)
 	// SendMessage sends the signed message to the destination chain. The payload parsed according to
 	// the VM rules is also passed in, since MessageManager does not assume any particular VM

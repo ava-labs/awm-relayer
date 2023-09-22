@@ -1,0 +1,32 @@
+# Copyright (C) 2023, Ava Labs, Inc. All rights reserved.
+# See the file LICENSE for licensing terms.
+
+name: Run Golang Linter
+
+on:
+  push:
+    branches:
+      - '*'
+
+jobs:
+  golangci:
+    runs-on: ubuntu-20.04
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        path: awm-relayer
+
+    - name: Setup Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.20.7'
+        check-latest: true
+
+    - name: golangci-lint
+      uses: golangci/golangci-lint-action@v3
+      with:
+        version: v1.51
+        working-directory: ./awm-relayer
+        args: --timeout 10m

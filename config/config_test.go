@@ -14,7 +14,6 @@ import (
 
 	"github.com/ava-labs/awm-relayer/utils"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -39,7 +38,7 @@ var (
 				EncryptConnection: false,
 				MessageContracts: map[string]MessageProtocolConfig{
 					testAddress: {
-						MessageFormat: "teleporter",
+						MessageFormat: TELEPORTER.String(),
 					},
 				},
 			},
@@ -62,10 +61,12 @@ var (
 
 func TestGetDestinationRPCEndpoint(t *testing.T) {
 	testCases := []struct {
+		name           string
 		s              DestinationSubnet
 		expectedResult string
 	}{
 		{
+			name: "No encrypt connection",
 			s: DestinationSubnet{
 				EncryptConnection: false,
 				APINodeHost:       "127.0.0.1",
@@ -76,6 +77,7 @@ func TestGetDestinationRPCEndpoint(t *testing.T) {
 			expectedResult: fmt.Sprintf("http://127.0.0.1:9650/ext/bc/%s/rpc", testChainID),
 		},
 		{
+			name: "Encrypt connection",
 			s: DestinationSubnet{
 				EncryptConnection: true,
 				APINodeHost:       "127.0.0.1",
@@ -86,6 +88,7 @@ func TestGetDestinationRPCEndpoint(t *testing.T) {
 			expectedResult: fmt.Sprintf("https://127.0.0.1:9650/ext/bc/%s/rpc", testChainID),
 		},
 		{
+			name: "No port",
 			s: DestinationSubnet{
 				EncryptConnection: false,
 				APINodeHost:       "api.avax.network",
@@ -96,6 +99,7 @@ func TestGetDestinationRPCEndpoint(t *testing.T) {
 			expectedResult: fmt.Sprintf("http://api.avax.network/ext/bc/%s/rpc", testChainID),
 		},
 		{
+			name: "Primary subnet",
 			s: DestinationSubnet{
 				EncryptConnection: false,
 				APINodeHost:       "127.0.0.1",
@@ -106,6 +110,7 @@ func TestGetDestinationRPCEndpoint(t *testing.T) {
 			expectedResult: "http://127.0.0.1:9650/ext/bc/C/rpc",
 		},
 		{
+			name: "Override with set rpc endpoint",
 			s: DestinationSubnet{
 				EncryptConnection: false,
 				APINodeHost:       "127.0.0.1",
@@ -118,18 +123,23 @@ func TestGetDestinationRPCEndpoint(t *testing.T) {
 		},
 	}
 
-	for i, testCase := range testCases {
-		res := testCase.s.GetNodeRPCEndpoint()
-		assert.Equal(t, testCase.expectedResult, res, fmt.Sprintf("test case %d failed", i))
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			res := testCase.s.GetNodeRPCEndpoint()
+			require.Equal(t, testCase.expectedResult, res)
+		})
 	}
 }
 
-func TestGetSourceSubnetWSEndpoint(t *testing.T) {
+func TestGetSourceSubnetEndpoints(t *testing.T) {
 	testCases := []struct {
-		s              SourceSubnet
-		expectedResult string
+		name              string
+		s                 SourceSubnet
+		expectedWsResult  string
+		expectedRpcResult string
 	}{
 		{
+			name: "No encrypt connection",
 			s: SourceSubnet{
 				EncryptConnection: false,
 				APINodeHost:       "127.0.0.1",
@@ -137,9 +147,11 @@ func TestGetSourceSubnetWSEndpoint(t *testing.T) {
 				ChainID:           testChainID,
 				SubnetID:          testSubnetID,
 			},
-			expectedResult: fmt.Sprintf("ws://127.0.0.1:9650/ext/bc/%s/ws", testChainID),
+			expectedWsResult:  fmt.Sprintf("ws://127.0.0.1:9650/ext/bc/%s/ws", testChainID),
+			expectedRpcResult: fmt.Sprintf("http://127.0.0.1:9650/ext/bc/%s/rpc", testChainID),
 		},
 		{
+			name: "Encrypt connection",
 			s: SourceSubnet{
 				EncryptConnection: true,
 				APINodeHost:       "127.0.0.1",
@@ -147,9 +159,11 @@ func TestGetSourceSubnetWSEndpoint(t *testing.T) {
 				ChainID:           testChainID,
 				SubnetID:          testSubnetID,
 			},
-			expectedResult: fmt.Sprintf("wss://127.0.0.1:9650/ext/bc/%s/ws", testChainID),
+			expectedWsResult:  fmt.Sprintf("wss://127.0.0.1:9650/ext/bc/%s/ws", testChainID),
+			expectedRpcResult: fmt.Sprintf("https://127.0.0.1:9650/ext/bc/%s/rpc", testChainID),
 		},
 		{
+			name: "No port",
 			s: SourceSubnet{
 				EncryptConnection: false,
 				APINodeHost:       "api.avax.network",
@@ -157,9 +171,11 @@ func TestGetSourceSubnetWSEndpoint(t *testing.T) {
 				ChainID:           testChainID,
 				SubnetID:          testSubnetID,
 			},
-			expectedResult: fmt.Sprintf("ws://api.avax.network/ext/bc/%s/ws", testChainID),
+			expectedWsResult:  fmt.Sprintf("ws://api.avax.network/ext/bc/%s/ws", testChainID),
+			expectedRpcResult: fmt.Sprintf("http://api.avax.network/ext/bc/%s/rpc", testChainID),
 		},
 		{
+			name: "Primary subnet",
 			s: SourceSubnet{
 				EncryptConnection: false,
 				APINodeHost:       "127.0.0.1",
@@ -167,24 +183,30 @@ func TestGetSourceSubnetWSEndpoint(t *testing.T) {
 				ChainID:           testChainID,
 				SubnetID:          primarySubnetID,
 			},
-			expectedResult: "ws://127.0.0.1:9650/ext/bc/C/ws",
+			expectedWsResult:  "ws://127.0.0.1:9650/ext/bc/C/ws",
+			expectedRpcResult: "http://127.0.0.1:9650/ext/bc/C/rpc",
 		},
 		{
+			name: "Override with set endpoints",
 			s: SourceSubnet{
 				EncryptConnection: false,
 				APINodeHost:       "127.0.0.1",
 				APINodePort:       9650,
 				ChainID:           testChainID,
 				SubnetID:          testSubnetID,
-				WSEndpoint:        "wss://subnets.avax.network/mysubnet/ws", // overrides all other settings used to construct the endpoint
+				WSEndpoint:        "wss://subnets.avax.network/mysubnet/ws",    // overrides all other settings used to construct the endpoint
+				RPCEndpoint:       "https://subnets.avax.network/mysubnet/rpc", // overrides all other settings used to construct the endpoint
 			},
-			expectedResult: "wss://subnets.avax.network/mysubnet/ws",
+			expectedWsResult:  "wss://subnets.avax.network/mysubnet/ws",
+			expectedRpcResult: "https://subnets.avax.network/mysubnet/rpc",
 		},
 	}
 
-	for i, testCase := range testCases {
-		res := testCase.s.GetNodeWSEndpoint()
-		assert.Equal(t, testCase.expectedResult, res, fmt.Sprintf("test case %d failed", i))
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			require.Equal(t, testCase.expectedWsResult, testCase.s.GetNodeWSEndpoint())
+			require.Equal(t, testCase.expectedRpcResult, testCase.s.GetNodeRPCEndpoint())
+		})
 	}
 }
 
@@ -196,11 +218,12 @@ func TestGetRelayerAccountInfo(t *testing.T) {
 	}
 
 	testCases := []struct {
+		name           string
 		s              DestinationSubnet
 		expectedResult retStruct
 	}{
-		// valid
 		{
+			name: "valid",
 			s: DestinationSubnet{
 				AccountPrivateKey: "56289e99c94b6912bfc12adc093c9b51124f0dc54ac7a766b2bc5ccf558d8027",
 			},
@@ -212,8 +235,8 @@ func TestGetRelayerAccountInfo(t *testing.T) {
 				err:  nil,
 			},
 		},
-		// invalid, with 0x prefix. Should be sanitized before being set in DestinationSubnet
 		{
+			name: "invalid 0x prefix",
 			s: DestinationSubnet{
 				AccountPrivateKey: "0x56289e99c94b6912bfc12adc093c9b51124f0dc54ac7a766b2bc5ccf558d8027",
 			},
@@ -225,8 +248,8 @@ func TestGetRelayerAccountInfo(t *testing.T) {
 				err:  ErrInvalidPrivateKey,
 			},
 		},
-		// invalid
 		{
+			name: "invalid private key",
 			s: DestinationSubnet{
 				AccountPrivateKey: "invalid56289e99c94b6912bfc12adc093c9b51124f0dc54ac7a766b2bc5ccf558d8027",
 			},
@@ -240,13 +263,15 @@ func TestGetRelayerAccountInfo(t *testing.T) {
 		},
 	}
 
-	for i, testCase := range testCases {
-		pk, addr, err := testCase.s.GetRelayerAccountInfo()
-		assert.Equal(t, testCase.expectedResult.err, err, fmt.Sprintf("test case %d had unexpected error", i))
-		if err == nil {
-			assert.Equal(t, testCase.expectedResult.pk.D.Int64(), pk.D.Int64(), fmt.Sprintf("test case %d had mismatched pk", i))
-			assert.Equal(t, testCase.expectedResult.addr, addr, fmt.Sprintf("test case %d had mismatched address", i))
-		}
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			pk, addr, err := testCase.s.GetRelayerAccountInfo()
+			require.Equal(t, testCase.expectedResult.err, err)
+			if err == nil {
+				require.Equal(t, testCase.expectedResult.pk.D.Int64(), pk.D.Int64())
+				require.Equal(t, testCase.expectedResult.addr, addr)
+			}
+		})
 	}
 }
 
@@ -263,12 +288,11 @@ type getRelayerAccountPrivateKeyTestCase struct {
 
 // Sets up the config file temporary environment and runs the test case.
 func runGetRelayerAccountPrivateKeyTest(t *testing.T, testCase getRelayerAccountPrivateKeyTestCase) {
-	require := require.New(t)
 	root := t.TempDir()
 
 	cfg := testCase.configModifier(testCase.baseConfig)
 	cfgBytes, err := json.Marshal(cfg)
-	require.NoError(err)
+	require.NoError(t, err)
 
 	configFile := setupConfigJSON(t, root, string(cfgBytes))
 
@@ -277,13 +301,12 @@ func runGetRelayerAccountPrivateKeyTest(t *testing.T, testCase getRelayerAccount
 
 	fs := BuildFlagSet()
 	v, err := BuildViper(fs, flags)
-	require.NoError(err)
+	require.NoError(t, err)
 	parsedCfg, optionOverwritten, err := BuildConfig(v)
-	require.NoError(err)
-	assert.Equal(t, optionOverwritten, testCase.expectedOverwritten)
-	if !testCase.resultVerifier(parsedCfg) {
-		t.Errorf("unexpected config.")
-	}
+	require.NoError(t, err)
+	require.Equal(t, optionOverwritten, testCase.expectedOverwritten)
+
+	require.True(t, testCase.resultVerifier(parsedCfg))
 }
 
 func TestGetRelayerAccountPrivateKey_set_pk_in_config(t *testing.T) {
@@ -351,8 +374,7 @@ func TestGetRelayerAccountPrivateKey_set_pk_with_global_env(t *testing.T) {
 		},
 		envSetter: func() {
 			// Overwrite the PK for the first subnet using an env var
-			varName := fmt.Sprintf("%s", accountPrivateKeyEnvVarName)
-			t.Setenv(varName, testPk2)
+			t.Setenv(accountPrivateKeyEnvVarName, testPk2)
 		},
 		expectedOverwritten: true,
 		resultVerifier: func(c Config) bool {
@@ -374,4 +396,17 @@ func setupConfigJSON(t *testing.T, rootPath string, value string) string {
 	configFilePath := filepath.Join(rootPath, "config.json")
 	require.NoError(t, os.WriteFile(configFilePath, []byte(value), 0o600))
 	return configFilePath
+}
+
+func TestGetRelayerAccountInfoSkipChainConfigCheckCompatible(t *testing.T) {
+	accountPrivateKey := "56289e99c94b6912bfc12adc093c9b51124f0dc54ac7a766b2bc5ccf558d8027"
+	expectedAddress := "0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC"
+
+	info := DestinationSubnet{
+		AccountPrivateKey: accountPrivateKey,
+	}
+	_, address, err := info.GetRelayerAccountInfo()
+
+	require.NoError(t, err)
+	require.Equal(t, expectedAddress, address.String())
 }
