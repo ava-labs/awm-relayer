@@ -311,7 +311,7 @@ func (r *messageRelayer) createSignedMessage(requestID uint32) (*warp.Message, e
 					}
 
 					// As soon as the signatures exceed the stake weight threshold we try to aggregate and send the transaction.
-					if utils.CheckStakeWeightExceedsThreshold(accumulatedSignatureWeight, totalValidatorWeight) {
+					if utils.CheckStakeWeightExceedsThreshold(accumulatedSignatureWeight, totalValidatorWeight, utils.DefaultQuorumNumerator, utils.DefaultQuorumDenominator) {
 						aggSig, vdrBitSet, err := r.aggregateSignatures(signatureMap)
 						if err != nil {
 							r.logger.Error(
