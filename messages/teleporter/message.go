@@ -33,6 +33,7 @@ type TeleporterMessageReceipt struct {
 // in the contract deployed on the destination chain
 type ReceiveCrossChainMessageInput struct {
 	RelayerRewardAddress common.Address `json:"relayerRewardAddress"`
+	Index                uint32         `json:"index"`
 }
 
 // MessageReceivedInput is the input to messageReceived call
