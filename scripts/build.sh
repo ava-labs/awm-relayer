@@ -49,5 +49,5 @@ else
 fi
 
 # Build AWM Relayer, which is run as a standalone process
-echo "Building AWM Relayer Version: $awm_relayer_version at $binary_path"
+echo "Building AWM Relayer Version: $AWM_RELAYER_VERSION at $binary_path"
 go build -o "$binary_path" "main/"*.go
