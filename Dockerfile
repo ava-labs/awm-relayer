@@ -1,5 +1,5 @@
 ### Build Stage ###
-FROM golang:1.20.7-bullseye as build
+FROM golang:1.20.8-bullseye as build
 
 WORKDIR /go/src
 # Copy the code into the container
@@ -9,7 +9,7 @@ RUN go mod tidy
 RUN bash ./scripts/build.sh
 
 ### RUN Stage ###
-FROM golang:1.20.7
+FROM golang:1.20.8
 COPY --from=build /go/src/build/awm-relayer /usr/bin/awm-relayer
 EXPOSE 8080
 USER 1001
