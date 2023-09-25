@@ -69,6 +69,14 @@ github.com/ava-labs/coreth v0.12.5-rc.3 h1:cpmC+fSZMsO4gaFWqXHzAHrJACf05u5HPAYmw
 github.com/ava-labs/coreth v0.12.5-rc.3/go.mod h1:HI+jTIflnDFBd0bledgkgid1Uurwr8q1h7zb3LsFsSo=
 github.com/ava-labs/subnet-evm v0.5.4 h1:4+UHva8rhGlvH4gDYpI0Lt6/J5ie1DqQa6kEmbebArI=
 github.com/ava-labs/subnet-evm v0.5.4/go.mod h1:PAyhfYnECzA17N62i7OAdKazjfSsN2l8KR5nOspg39I=
+github.com/ava-labs/teleporter v0.0.0-20230925192902-bd6f6520e257 h1:m6X0DP8IGtuXbaggmMeKWrkAd5NSSHpRHgdLgX7tIbw=
+github.com/ava-labs/teleporter v0.0.0-20230925192902-bd6f6520e257/go.mod h1:hK/p4P7DckpwCc9AwvKId6EMGFTEevoF6BlpeZlCxY0=
+github.com/ava-labs/teleporter v0.0.0-20230925194238-36c22e7ed8bc h1:Qc1ZjO6b7BQt7kqUdDIozjnx51wNVbgn+tX9FR6ibWg=
+github.com/ava-labs/teleporter v0.0.0-20230925194238-36c22e7ed8bc/go.mod h1:hK/p4P7DckpwCc9AwvKId6EMGFTEevoF6BlpeZlCxY0=
+github.com/ava-labs/teleporter v0.0.0-20230925195539-ed4340646b6b h1:C9cQ7cNhSB8Y0qEgTDuP+3WtqG1Fkj/yioUXql5NI8o=
+github.com/ava-labs/teleporter v0.0.0-20230925195539-ed4340646b6b/go.mod h1:hK/p4P7DckpwCc9AwvKId6EMGFTEevoF6BlpeZlCxY0=
+github.com/ava-labs/teleporter v0.0.0-20230925201328-8b8c9abc32cd h1:hyhu7x+0i+HZ9mk9W98H4+KGoqqKqcUxgG/FSuuUDj4=
+github.com/ava-labs/teleporter v0.0.0-20230925201328-8b8c9abc32cd/go.mod h1:hK/p4P7DckpwCc9AwvKId6EMGFTEevoF6BlpeZlCxY0=
 github.com/aymerick/raymond v2.0.3-0.20180322193309-b565731e1464+incompatible/go.mod h1:osfaiScAUVup+UC9Nfq76eWqDhXlp+4UYaA8uhTBO6g=
 github.com/beorn7/perks v1.0.1 h1:VlbKKnNfV8bJzeqoa4cOKqO6bYr3WgKZxO8Z16+hsOM=
 github.com/beorn7/perks v1.0.1/go.mod h1:G2ZrVWU2WbWT9wwq4/hrbKbnv/1ERSJQ0ibhJ6rlkpw=

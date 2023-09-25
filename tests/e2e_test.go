@@ -5,7 +5,7 @@ package tests
 
 import (
 	"context"
-	"crypto/ecdsa"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"math/big"
@@ -14,7 +14,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ava-labs/avalanche-network-runner/rpcpb"
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/utils/logging"
 	avalancheWarp "github.com/ava-labs/avalanchego/vms/platformvm/warp"
@@ -22,53 +21,30 @@ import (
 	"github.com/ava-labs/awm-relayer/database"
 	"github.com/ava-labs/awm-relayer/messages/teleporter"
 	"github.com/ava-labs/awm-relayer/peers"
-	relayerEvm "github.com/ava-labs/awm-relayer/vms/evm"
-	"github.com/ava-labs/coreth/rpc"
+	"github.com/ava-labs/awm-relayer/utils"
 	"github.com/ava-labs/subnet-evm/core/types"
-	"github.com/ava-labs/subnet-evm/ethclient"
-	"github.com/ava-labs/subnet-evm/plugin/evm"
-	"github.com/ava-labs/subnet-evm/tests/utils/runner"
 	predicateutils "github.com/ava-labs/subnet-evm/utils/predicate"
 	warpPayload "github.com/ava-labs/subnet-evm/warp/payload"
 	"github.com/ava-labs/subnet-evm/x/warp"
+	testUtils "github.com/ava-labs/teleporter/tests/utils"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
-const (
-	fundedKeyStr    = "56289e99c94b6912bfc12adc093c9b51124f0dc54ac7a766b2bc5ccf558d8027"
-	warpGenesisFile = "./tests/warp-genesis.json"
-)
-
 var (
-	anrConfig                 = runner.NewDefaultANRConfig()
-	manager                   = runner.NewNetworkManager(anrConfig)
-	fundedAddress             = common.HexToAddress("0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC")
-	warpChainConfigPath       string
-	relayerConfigPath         string
-	teleporterContractAddress common.Address
-	teleporterMessage         = teleporter.TeleporterMessage{
+	relayerConfigPath string
+	teleporterMessage = teleporter.TeleporterMessage{
 		MessageID:               big.NewInt(1),
-		SenderAddress:           fundedAddress,
-		DestinationAddress:      fundedAddress,
+		SenderAddress:           testUtils.FundedAddress,
+		DestinationAddress:      testUtils.FundedAddress,
 		RequiredGasLimit:        big.NewInt(1),
 		AllowedRelayerAddresses: []common.Address{},
 		Receipts:                []teleporter.TeleporterMessageReceipt{},
 		Message:                 []byte{1, 2, 3, 4},
 	}
-	storageLocation                  = fmt.Sprintf("%s/.awm-relayer-storage", os.TempDir())
-	subnetIDs                        []ids.ID
-	subnetA, subnetB                 ids.ID
-	fundedKey                        *ecdsa.PrivateKey
-	chainBWSClient                   ethclient.Client
-	chainARPCClient, chainBRPCClient ethclient.Client
-	chainARPCURI, chainBRPCURI       string
-	chainAIDInt, chainBIDInt         *big.Int
-	blockchainIDA, blockchainIDB     ids.ID
-	chainANodeURIs, chainBNodeURIs   []string
+	storageLocation = fmt.Sprintf("%s/.awm-relayer-storage", os.TempDir())
 )
 
 func TestE2E(t *testing.T) {
@@ -85,209 +61,16 @@ func TestE2E(t *testing.T) {
 // Adds two disjoint sets of 5 of the new validator nodes to validate two new subnets with a
 // a single Subnet-EVM blockchain.
 var _ = ginkgo.BeforeSuite(func() {
-	ctx := context.Background()
-	var err error
-
-	// Name 10 new validators (which should have BLS key registered)
-	subnetANodeNames := []string{}
-	subnetBNodeNames := []string{}
-	for i := 1; i <= 10; i++ {
-		n := fmt.Sprintf("node%d-bls", i)
-		if i <= 5 {
-			subnetANodeNames = append(subnetANodeNames, n)
-		} else {
-			subnetBNodeNames = append(subnetBNodeNames, n)
-		}
-	}
-	f, err := os.CreateTemp(os.TempDir(), "config.json")
-	Expect(err).Should(BeNil())
-	_, err = f.Write([]byte(`{"warp-api-enabled": true}`))
-	Expect(err).Should(BeNil())
-	warpChainConfigPath = f.Name()
-
-	// Make sure that the warp genesis file exists
-	_, err = os.Stat(warpGenesisFile)
-	Expect(err).Should(BeNil())
-
-	// Construct the network using the avalanche-network-runner
-	_, err = manager.StartDefaultNetwork(ctx)
-	Expect(err).Should(BeNil())
-	err = manager.SetupNetwork(
-		ctx,
-		anrConfig.AvalancheGoExecPath,
-		[]*rpcpb.BlockchainSpec{
-			{
-				VmName:      evm.IDStr,
-				Genesis:     warpGenesisFile,
-				ChainConfig: warpChainConfigPath,
-				SubnetSpec: &rpcpb.SubnetSpec{
-					SubnetConfig: "",
-					Participants: subnetANodeNames,
-				},
-			},
-			{
-				VmName:      evm.IDStr,
-				Genesis:     warpGenesisFile,
-				ChainConfig: warpChainConfigPath,
-				SubnetSpec: &rpcpb.SubnetSpec{
-					SubnetConfig: "",
-					Participants: subnetBNodeNames,
-				},
-			},
-		},
-	)
-	Expect(err).Should(BeNil())
-
-	// Issue transactions to activate the proposerVM fork on the receiving chain
-	fundedKey, err = crypto.HexToECDSA(fundedKeyStr)
-	Expect(err).Should(BeNil())
-	setUpProposerVm(ctx, fundedKey, manager, 1)
-
-	// Setup subnet URIs
-	subnetIDs = manager.GetSubnets()
-	Expect(len(subnetIDs)).Should(Equal(2))
-
-	subnetA = subnetIDs[0]
-	subnetADetails, ok := manager.GetSubnet(subnetA)
-	Expect(ok).Should(BeTrue())
-	Expect(len(subnetADetails.ValidatorURIs)).Should(Equal(5))
-	blockchainIDA = subnetADetails.BlockchainID
-	chainANodeURIs = append(chainANodeURIs, subnetADetails.ValidatorURIs...)
-
-	subnetB = subnetIDs[1]
-	subnetBDetails, ok := manager.GetSubnet(subnetB)
-	Expect(ok).Should(BeTrue())
-	Expect(len(subnetBDetails.ValidatorURIs)).Should(Equal(5))
-	blockchainIDB = subnetBDetails.BlockchainID
-	chainBNodeURIs = append(chainBNodeURIs, subnetBDetails.ValidatorURIs...)
-
-	log.Info("Created URIs for both subnets", "ChainAURIs", chainANodeURIs, "ChainBURIs", chainBNodeURIs, "blockchainIDA", blockchainIDA, "blockchainIDB", blockchainIDB)
-	log.Info("subnet ID", "subnetA", subnetADetails.SubnetID, "subnetB", subnetBDetails.SubnetID)
-
-	chainAWSURI := httpToWebsocketURI(chainANodeURIs[0], blockchainIDA.String())
-	chainARPCURI = httpToRPCURI(chainANodeURIs[0], blockchainIDA.String())
-	log.Info("Creating ethclient for blockchainA", "wsURI", chainAWSURI, "rpcURL, chainARPCURI")
-	chainARPCClient, err = ethclient.Dial(chainARPCURI)
-	Expect(err).Should(BeNil())
-
-	chainAIDInt, err = chainARPCClient.ChainID(context.Background())
-	Expect(err).Should(BeNil())
-
-	chainBWSURI := httpToWebsocketURI(chainBNodeURIs[0], blockchainIDB.String())
-	chainBRPCURI = httpToRPCURI(chainBNodeURIs[0], blockchainIDB.String())
-	log.Info("Creating ethclient for blockchainB", "wsURI", chainBWSURI)
-	chainBWSClient, err = ethclient.Dial(chainBWSURI)
-	Expect(err).Should(BeNil())
-	chainBRPCClient, err = ethclient.Dial(chainBRPCURI)
-	Expect(err).Should(BeNil())
-
-	chainBIDInt, err = chainBRPCClient.ChainID(context.Background())
-	Expect(err).Should(BeNil())
-	log.Info("Finished setting up e2e test subnet variables")
-
-	log.Info("Deploying Teleporter contract to subnets")
-	// Read in the Teleporter contract information
-	teleporterContractAddress = common.HexToAddress(readHexTextFile("./tests/UniversalTeleporterMessengerContractAddress.txt"))
+	testUtils.SetupNetwork()
+	teleporterContractAddress := common.HexToAddress(readHexTextFile("./tests/UniversalTeleporterMessengerContractAddress.txt"))
 	teleporterDeployerAddress := common.HexToAddress(readHexTextFile("./tests/UniversalTeleporterDeployerAddress.txt"))
-	teleporterDeployerTransaction := readHexTextFile("./tests/UniversalTeleporterDeployerTransaction.txt")
-
-	nonceA, err := chainARPCClient.NonceAt(ctx, fundedAddress, nil)
+	teleporterDeployerTransactionStr := readHexTextFile("./tests/UniversalTeleporterDeployerTransaction.txt")
+	teleporterDeployerTransaction, err := hex.DecodeString(utils.SanitizeHexString(teleporterDeployerTransactionStr))
 	Expect(err).Should(BeNil())
-
-	nonceB, err := chainBRPCClient.NonceAt(ctx, fundedAddress, nil)
-	Expect(err).Should(BeNil())
-
-	gasTipCapA, err := chainARPCClient.SuggestGasTipCap(context.Background())
-	Expect(err).Should(BeNil())
-	gasTipCapB, err := chainBRPCClient.SuggestGasTipCap(context.Background())
-	Expect(err).Should(BeNil())
-
-	baseFeeA, err := chainARPCClient.EstimateBaseFee(context.Background())
-	Expect(err).Should(BeNil())
-	gasFeeCapA := baseFeeA.Mul(baseFeeA, big.NewInt(relayerEvm.BaseFeeFactor))
-	gasFeeCapA.Add(gasFeeCapA, big.NewInt(relayerEvm.MaxPriorityFeePerGas))
-
-	baseFeeB, err := chainBRPCClient.EstimateBaseFee(context.Background())
-	Expect(err).Should(BeNil())
-	gasFeeCapB := baseFeeB.Mul(baseFeeB, big.NewInt(relayerEvm.BaseFeeFactor))
-	gasFeeCapB.Add(gasFeeCapB, big.NewInt(relayerEvm.MaxPriorityFeePerGas))
-
-	// Fund the deployer address
-	{
-		value := big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(10)) // 10eth
-		txA := types.NewTx(&types.DynamicFeeTx{
-			ChainID:   chainAIDInt,
-			Nonce:     nonceA,
-			To:        &teleporterDeployerAddress,
-			Gas:       defaultTeleporterMessageGas,
-			GasFeeCap: gasFeeCapA,
-			GasTipCap: gasTipCapA,
-			Value:     value,
-		})
-		txSignerA := types.LatestSignerForChainID(chainAIDInt)
-		triggerTxA, err := types.SignTx(txA, txSignerA, fundedKey)
-		Expect(err).Should(BeNil())
-		err = chainARPCClient.SendTransaction(ctx, triggerTxA)
-		Expect(err).Should(BeNil())
-		time.Sleep(5 * time.Second)
-		receipt, err := chainARPCClient.TransactionReceipt(ctx, triggerTxA.Hash())
-		Expect(err).Should(BeNil())
-		Expect(receipt.Status).Should(Equal(types.ReceiptStatusSuccessful))
-	}
-	{
-		value := big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(10)) // 10eth
-		txB := types.NewTx(&types.DynamicFeeTx{
-			ChainID:   chainBIDInt,
-			Nonce:     nonceB,
-			To:        &teleporterDeployerAddress,
-			Gas:       defaultTeleporterMessageGas,
-			GasFeeCap: gasFeeCapB,
-			GasTipCap: gasTipCapB,
-			Value:     value,
-		})
-		txSignerB := types.LatestSignerForChainID(chainBIDInt)
-		triggerTxB, err := types.SignTx(txB, txSignerB, fundedKey)
-		Expect(err).Should(BeNil())
-		err = chainBRPCClient.SendTransaction(ctx, triggerTxB)
-		Expect(err).Should(BeNil())
-		time.Sleep(5 * time.Second)
-		receipt, err := chainBRPCClient.TransactionReceipt(ctx, triggerTxB.Hash())
-		Expect(err).Should(BeNil())
-		Expect(receipt.Status).Should(Equal(types.ReceiptStatusSuccessful))
-	}
-	// Deploy Teleporter on the two subnets
-	{
-		rpcClient, err := rpc.DialContext(ctx, chainARPCURI)
-		Expect(err).Should(BeNil())
-		err = rpcClient.CallContext(ctx, nil, "eth_sendRawTransaction", teleporterDeployerTransaction)
-		Expect(err).Should(BeNil())
-		time.Sleep(5 * time.Second)
-		teleporterCode, err := chainARPCClient.CodeAt(ctx, teleporterContractAddress, nil)
-		Expect(err).Should(BeNil())
-		Expect(len(teleporterCode)).Should(BeNumerically(">", 2)) // 0x is an EOA, contract returns the bytecode
-	}
-	{
-		rpcClient, err := rpc.DialContext(ctx, chainBRPCURI)
-		Expect(err).Should(BeNil())
-		err = rpcClient.CallContext(ctx, nil, "eth_sendRawTransaction", teleporterDeployerTransaction)
-		Expect(err).Should(BeNil())
-		time.Sleep(5 * time.Second)
-		teleporterCode, err := chainBRPCClient.CodeAt(ctx, teleporterContractAddress, nil)
-		Expect(err).Should(BeNil())
-		Expect(len(teleporterCode)).Should(BeNumerically(">", 2)) // 0x is an EOA, contract returns the bytecode
-	}
-	log.Info("Finished deploying Teleporter contracts")
-
-	log.Info("Set up ginkgo before suite")
+	testUtils.DeployTeleporterContract(teleporterDeployerTransaction, teleporterDeployerAddress, teleporterContractAddress)
 })
 
-var _ = ginkgo.AfterSuite(func() {
-	log.Info("Running ginkgo after suite")
-	Expect(manager).ShouldNot(BeNil())
-	Expect(manager.TeardownNetwork()).Should(BeNil())
-	Expect(os.Remove(warpChainConfigPath)).Should(BeNil())
-	Expect(os.Remove(relayerConfigPath)).Should(BeNil())
-})
+var _ = ginkgo.AfterSuite(testUtils.TearDownNetwork)
 
 // Ginkgo describe node that acts as a container for the relayer e2e tests. This test suite
 // will run in order, starting off by setting up the subnet URIs and creating a relayer config
@@ -304,43 +87,43 @@ var _ = ginkgo.Describe("[Relayer E2E]", ginkgo.Ordered, func() {
 	)
 
 	ginkgo.It("Set up relayer config", ginkgo.Label("Relayer", "Setup Relayer"), func() {
-		hostA, portA, err := getURIHostAndPort(chainANodeURIs[0])
+		hostA, portA, err := getURIHostAndPort(testUtils.ChainANodeURIs[0])
 		Expect(err).Should(BeNil())
 
-		hostB, portB, err := getURIHostAndPort(chainBNodeURIs[0])
+		hostB, portB, err := getURIHostAndPort(testUtils.ChainBNodeURIs[0])
 		Expect(err).Should(BeNil())
 
 		log.Info(
 			"Setting up relayer config",
 			"hostA", hostA,
 			"portA", portA,
-			"blockChainA", blockchainIDA.String(),
+			"blockChainA", testUtils.BlockchainIDA.String(),
 			"hostB", hostB,
 			"portB", portB,
-			"blockChainB", blockchainIDB.String(),
-			"subnetA", subnetA.String(),
-			"subnetB", subnetB.String(),
+			"blockChainB", testUtils.BlockchainIDB.String(),
+			"testUtils.SubnetA", testUtils.SubnetA.String(),
+			"testUtils.SubnetB", testUtils.SubnetB.String(),
 		)
 
 		relayerConfig := config.Config{
 			LogLevel:          logging.Info.LowerString(),
 			NetworkID:         peers.LocalNetworkID,
-			PChainAPIURL:      chainANodeURIs[0],
+			PChainAPIURL:      testUtils.ChainANodeURIs[0],
 			EncryptConnection: false,
 			StorageLocation:   storageLocation,
 			SourceSubnets: []config.SourceSubnet{
 				{
-					SubnetID:          subnetA.String(),
-					ChainID:           blockchainIDA.String(),
+					SubnetID:          testUtils.SubnetA.String(),
+					ChainID:           testUtils.BlockchainIDA.String(),
 					VM:                config.EVM.String(),
 					EncryptConnection: false,
 					APINodeHost:       hostA,
 					APINodePort:       portA,
 					MessageContracts: map[string]config.MessageProtocolConfig{
-						teleporterContractAddress.Hex(): {
+						testUtils.TeleporterContractAddress.Hex(): {
 							MessageFormat: config.TELEPORTER.String(),
 							Settings: map[string]interface{}{
-								"reward-address": fundedAddress.Hex(),
+								"reward-address": testUtils.FundedAddress.Hex(),
 							},
 						},
 					},
@@ -348,13 +131,13 @@ var _ = ginkgo.Describe("[Relayer E2E]", ginkgo.Ordered, func() {
 			},
 			DestinationSubnets: []config.DestinationSubnet{
 				{
-					SubnetID:          subnetB.String(),
-					ChainID:           blockchainIDB.String(),
+					SubnetID:          testUtils.SubnetB.String(),
+					ChainID:           testUtils.BlockchainIDB.String(),
 					VM:                config.EVM.String(),
 					EncryptConnection: false,
 					APINodeHost:       hostB,
 					APINodePort:       portB,
-					AccountPrivateKey: fundedKeyStr,
+					AccountPrivateKey: testUtils.FundedKeyStr,
 				},
 			},
 		}
@@ -386,23 +169,23 @@ var _ = ginkgo.Describe("[Relayer E2E]", ginkgo.Ordered, func() {
 
 		relayerCmd, relayerCancel = runRelayerExecutable(ctx)
 
-		nonceA, err := chainARPCClient.NonceAt(ctx, fundedAddress, nil)
+		nonceA, err := testUtils.ChainARPCClient.NonceAt(ctx, testUtils.FundedAddress, nil)
 		Expect(err).Should(BeNil())
 
-		nonceB, err := chainBRPCClient.NonceAt(ctx, fundedAddress, nil)
+		nonceB, err := testUtils.ChainBRPCClient.NonceAt(ctx, testUtils.FundedAddress, nil)
 		Expect(err).Should(BeNil())
 
 		log.Info("Packing teleporter message", "nonceA", nonceA, "nonceB", nonceB)
-		payload, err = teleporter.PackSendCrossChainMessageEvent(common.Hash(blockchainIDB), teleporterMessage)
+		payload, err = teleporter.PackSendCrossChainMessageEvent(common.Hash(testUtils.BlockchainIDB), teleporterMessage)
 		Expect(err).Should(BeNil())
 
 		data, err := teleporter.EVMTeleporterContractABI.Pack(
 			"sendCrossChainMessage",
 			TeleporterMessageInput{
-				DestinationChainID: blockchainIDB,
-				DestinationAddress: fundedAddress,
+				DestinationChainID: testUtils.BlockchainIDB,
+				DestinationAddress: testUtils.FundedAddress,
 				FeeInfo: FeeInfo{
-					ContractAddress: fundedAddress,
+					ContractAddress: testUtils.FundedAddress,
 					Amount:          big.NewInt(0),
 				},
 				RequiredGasLimit:        big.NewInt(1),
@@ -413,10 +196,10 @@ var _ = ginkgo.Describe("[Relayer E2E]", ginkgo.Ordered, func() {
 		Expect(err).Should(BeNil())
 
 		// Send a transaction to the Teleporter contract
-		tx := newTestTeleporterMessage(chainAIDInt, teleporterContractAddress, nonceA, data)
+		tx := newTestTeleporterMessage(testUtils.ChainAIDInt, testUtils.TeleporterContractAddress, nonceA, data)
 
-		txSigner := types.LatestSignerForChainID(chainAIDInt)
-		signedTx, err := types.SignTx(tx, txSigner, fundedKey)
+		txSigner := types.LatestSignerForChainID(testUtils.ChainAIDInt)
+		signedTx, err := types.SignTx(tx, txSigner, testUtils.FundedKey)
 		Expect(err).Should(BeNil())
 
 		// Sleep for some time to make sure relayer has started up and subscribed.
@@ -424,16 +207,16 @@ var _ = ginkgo.Describe("[Relayer E2E]", ginkgo.Ordered, func() {
 		log.Info("Subscribing to new heads on destination chain")
 
 		newHeadsB := make(chan *types.Header, 10)
-		sub, err := chainBWSClient.SubscribeNewHead(ctx, newHeadsB)
+		sub, err := testUtils.ChainBWSClient.SubscribeNewHead(ctx, newHeadsB)
 		Expect(err).Should(BeNil())
 		defer sub.Unsubscribe()
 
-		log.Info("Sending sendWarpMessage transaction", "destinationChainID", blockchainIDB, "txHash", signedTx.Hash())
-		err = chainARPCClient.SendTransaction(ctx, signedTx)
+		log.Info("Sending sendWarpMessage transaction", "destinationChainID", testUtils.BlockchainIDB, "txHash", signedTx.Hash())
+		err = testUtils.ChainARPCClient.SendTransaction(ctx, signedTx)
 		Expect(err).Should(BeNil())
 
 		time.Sleep(5 * time.Second)
-		receipt, err := chainARPCClient.TransactionReceipt(ctx, signedTx.Hash())
+		receipt, err := testUtils.ChainARPCClient.TransactionReceipt(ctx, signedTx.Hash())
 		Expect(err).Should(BeNil())
 		Expect(receipt.Status).Should(Equal(types.ReceiptStatusSuccessful))
 
@@ -442,7 +225,7 @@ var _ = ginkgo.Describe("[Relayer E2E]", ginkgo.Ordered, func() {
 		newHead := <-newHeadsB
 		log.Info("Received new head", "height", newHead.Number.Uint64())
 		blockHash := newHead.Hash()
-		block, err := chainBRPCClient.BlockByHash(ctx, blockHash)
+		block, err := testUtils.ChainBRPCClient.BlockByHash(ctx, blockHash)
 		Expect(err).Should(BeNil())
 		log.Info(
 			"Got block",
@@ -466,7 +249,7 @@ var _ = ginkgo.Describe("[Relayer E2E]", ginkgo.Ordered, func() {
 
 		// Check that the transaction has successful receipt status
 		txHash := block.Transactions()[0].Hash()
-		receipt, err = chainBRPCClient.TransactionReceipt(ctx, txHash)
+		receipt, err = testUtils.ChainBRPCClient.TransactionReceipt(ctx, txHash)
 		Expect(err).Should(BeNil())
 		Expect(receipt.Status).Should(Equal(types.ReceiptStatusSuccessful))
 
@@ -487,16 +270,16 @@ var _ = ginkgo.Describe("[Relayer E2E]", ginkgo.Ordered, func() {
 				logging.JSON.ConsoleEncoder(),
 			),
 		)
-		jsonDB, err := database.NewJSONFileStorage(logger, storageLocation, []ids.ID{blockchainIDA, blockchainIDB})
+		jsonDB, err := database.NewJSONFileStorage(logger, storageLocation, []ids.ID{testUtils.BlockchainIDA, testUtils.BlockchainIDB})
 		Expect(err).Should(BeNil())
 
 		// Modify the JSON database to force the relayer to re-process old blocks
-		jsonDB.Put(blockchainIDA, []byte(database.LatestProcessedBlockKey), []byte("0"))
-		jsonDB.Put(blockchainIDB, []byte(database.LatestProcessedBlockKey), []byte("0"))
+		jsonDB.Put(testUtils.BlockchainIDA, []byte(database.LatestProcessedBlockKey), []byte("0"))
+		jsonDB.Put(testUtils.BlockchainIDB, []byte(database.LatestProcessedBlockKey), []byte("0"))
 
 		// Subscribe to the destination chain block published
 		newHeadsB := make(chan *types.Header, 10)
-		sub, err := chainBWSClient.SubscribeNewHead(ctx, newHeadsB)
+		sub, err := testUtils.ChainBWSClient.SubscribeNewHead(ctx, newHeadsB)
 		Expect(err).Should(BeNil())
 		defer sub.Unsubscribe()
 
@@ -512,14 +295,14 @@ var _ = ginkgo.Describe("[Relayer E2E]", ginkgo.Ordered, func() {
 	})
 
 	ginkgo.It("Validate Received Warp Message Values", ginkgo.Label("Relaery", "VerifyWarp"), func() {
-		Expect(receivedWarpMessage.SourceChainID).Should(Equal(blockchainIDA))
+		Expect(receivedWarpMessage.SourceChainID).Should(Equal(testUtils.BlockchainIDA))
 		addressedPayload, err := warpPayload.ParseAddressedPayload(receivedWarpMessage.Payload)
 		Expect(err).Should(BeNil())
 
 		receivedDestinationID, err := ids.ToID(addressedPayload.DestinationChainID.Bytes())
 		Expect(err).Should(BeNil())
-		Expect(receivedDestinationID).Should(Equal(blockchainIDB))
-		Expect(addressedPayload.DestinationAddress).Should(Equal(teleporterContractAddress))
+		Expect(receivedDestinationID).Should(Equal(testUtils.BlockchainIDB))
+		Expect(addressedPayload.DestinationAddress).Should(Equal(testUtils.TeleporterContractAddress))
 		Expect(addressedPayload.Payload).Should(Equal(payload))
 
 		// Check that the teleporter message is correct
