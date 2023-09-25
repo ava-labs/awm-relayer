@@ -40,7 +40,7 @@ type ReceiveCrossChainMessageInput struct {
 // MessageReceivedInput is the input to messageReceived call
 // in the contract deployed on the destination chain
 type MessageReceivedInput struct {
-	OriginChainID ids.ID   `json:"relayerRewardAddress"`
+	OriginChainID ids.ID   `json:"originChainID"`
 	MessageID     *big.Int `json:"messageID"`
 }
 
@@ -82,6 +82,10 @@ func UnpackMessageReceivedResult(result []byte) (bool, error) {
 	var success bool
 	err := EVMTeleporterContractABI.UnpackIntoInterface(&success, "messageReceived", result)
 	return success, err
+}
+
+func PackMessageReceivedOutput(success bool) ([]byte, error) {
+	return EVMTeleporterContractABI.PackOutput("messageReceived", success)
 }
 
 // CAUTION: PackEvent is documented as not supporting struct types, so this should only be used for testing puposes.
