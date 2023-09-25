@@ -24,6 +24,8 @@ type TeleporterMessage struct {
 	Message                 []byte                     `json:"message"`
 }
 
+// TeleporterMessageReceipt corresponds to the receipt of a Teleporter message ID
+// and the relayer reward address for that message
 type TeleporterMessageReceipt struct {
 	ReceivedMessageID    *big.Int       `json:"receivedMessageID"`
 	RelayerRewardAddress common.Address `json:"relayerRewardAddress"`
@@ -39,12 +41,12 @@ type ReceiveCrossChainMessageInput struct {
 // MessageReceivedInput is the input to messageReceived call
 // in the contract deployed on the destination chain
 type MessageReceivedInput struct {
-	OriginChainID ids.ID   `json:"relayerRewardAddress"`
+	OriginChainID ids.ID   `json:"originChainID"`
 	MessageID     *big.Int `json:"messageID"`
 }
 
-// unpack Teleporter message bytes according to EVM ABI encoding rules
-func unpackTeleporterMessage(messageBytes []byte) (*TeleporterMessage, error) {
+// UnpackTeleporterMessage unpacks message bytes according to EVM ABI encoding rules into a TeleporterMessage
+func UnpackTeleporterMessage(messageBytes []byte) (*TeleporterMessage, error) {
 	args := abi.Arguments{
 		{
 			Name: "teleporterMessage",
@@ -66,16 +68,31 @@ func unpackTeleporterMessage(messageBytes []byte) (*TeleporterMessage, error) {
 	return &teleporterMessage.TeleporterMessage, nil
 }
 
-func packReceiverMessage(inputStruct ReceiveCrossChainMessageInput) ([]byte, error) {
+// PackReceiveCrossChainMessage packs a ReceiveCrossChainMessageInput to form a call to the receiveCrossChainMessage function
+func PackReceiveCrossChainMessage(inputStruct ReceiveCrossChainMessageInput) ([]byte, error) {
 	return EVMTeleporterContractABI.Pack("receiveCrossChainMessage", inputStruct.RelayerRewardAddress)
 }
 
-func packMessageReceivedMessage(inputStruct MessageReceivedInput) ([]byte, error) {
+// PackMessageReceived packs a MessageReceivedInput to form a call to the messageReceived function
+func PackMessageReceived(inputStruct MessageReceivedInput) ([]byte, error) {
 	return EVMTeleporterContractABI.Pack("messageReceived", inputStruct.OriginChainID, inputStruct.MessageID)
 }
 
-func unpackMessageReceivedResult(result []byte) (bool, error) {
+// UnpackMessageReceivedResult attempts to unpack result bytes to a bool indicating whether the message was received
+func UnpackMessageReceivedResult(result []byte) (bool, error) {
 	var success bool
 	err := EVMTeleporterContractABI.UnpackIntoInterface(&success, "messageReceived", result)
 	return success, err
+}
+
+func PackMessageReceivedOutput(success bool) ([]byte, error) {
+	return EVMTeleporterContractABI.PackOutput("messageReceived", success)
+}
+
+// CAUTION: PackEvent is documented as not supporting struct types, so this should only be used for testing puposes.
+// In a real setting, the Teleporter contract should pack the event.
+// PackSendCrossChainMessageEvent packs the SendCrossChainMessage event type.
+func PackSendCrossChainMessageEvent(destinationChainID common.Hash, message TeleporterMessage) ([]byte, error) {
+	_, hashes, err := EVMTeleporterContractABI.PackEvent("SendCrossChainMessage", destinationChainID, message.MessageID, message)
+	return hashes, err
 }

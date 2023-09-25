@@ -26,8 +26,6 @@ const (
 )
 
 var (
-	Uint256Max = (&big.Int{}).SetBytes(common.Hex2Bytes("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF"))
-
 	// Errors
 	ErrNilInput = errors.New("nil input")
 	ErrTooLarge = errors.New("exceeds uint256 maximum value")
@@ -38,18 +36,17 @@ var (
 //
 
 // CheckStakeWeightExceedsThreshold returns true if the accumulated signature weight is at least [quorumNum]/[quorumDen] of [totalWeight].
-func CheckStakeWeightExceedsThreshold(accumulatedSignatureWeight *big.Int, totalWeight uint64) bool {
+func CheckStakeWeightExceedsThreshold(accumulatedSignatureWeight *big.Int, totalWeight uint64, quorumNumerator uint64, quorumDenominator uint64) bool {
 	if accumulatedSignatureWeight == nil {
 		return false
 	}
 
 	// Verifies that quorumNum * totalWeight <= quorumDen * sigWeight
-	scaledTotalWeight := new(big.Int).SetUint64(totalWeight)
-	scaledTotalWeight.Mul(scaledTotalWeight, new(big.Int).SetUint64(DefaultQuorumNumerator))
-	scaledSigWeight := new(big.Int).Mul(accumulatedSignatureWeight, new(big.Int).SetUint64(DefaultQuorumDenominator))
+	totalWeightBI := new(big.Int).SetUint64(totalWeight)
+	scaledTotalWeight := new(big.Int).Mul(totalWeightBI, new(big.Int).SetUint64(quorumNumerator))
+	scaledSigWeight := new(big.Int).Mul(accumulatedSignatureWeight, new(big.Int).SetUint64(quorumDenominator))
 
-	thresholdMet := scaledTotalWeight.Cmp(scaledSigWeight) != 1
-	return thresholdMet
+	return scaledTotalWeight.Cmp(scaledSigWeight) != 1
 }
 
 //
@@ -63,11 +60,12 @@ func BigToHashSafe(in *big.Int) (common.Hash, error) {
 		return common.Hash{}, ErrNilInput
 	}
 
-	if in.Cmp(Uint256Max) > 0 {
+	bytes := in.Bytes()
+	if len(bytes) > common.HashLength {
 		return common.Hash{}, ErrTooLarge
 	}
 
-	return common.BigToHash(in), nil
+	return common.BytesToHash(bytes), nil
 }
 
 func ConvertProtocol(URLString, protocol string) (string, error) {
@@ -87,15 +85,15 @@ func ConvertProtocol(URLString, protocol string) (string, error) {
 	return u.String(), nil
 }
 
-// SanitizeHashString removes the "0x" prefix from a hex hash string if it exists.
+// SanitizeHexString removes the "0x" prefix from a hex string if it exists.
 // Otherwise, returns the original string.
-func SanitizeHashString(hash string) string {
-	if len(hash)%2 != 0 || len(hash) < 2 {
-		return hash
+func SanitizeHexString(hex string) string {
+	if len(hex)%2 != 0 || len(hex) < 2 {
+		return hex
 	}
 
-	if hash[:2] == "0x" {
-		return hash[2:]
+	if hex[:2] == "0x" {
+		return hex[2:]
 	}
-	return hash
+	return hex
 }

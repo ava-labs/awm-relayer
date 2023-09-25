@@ -2,3 +2,8 @@ build/
 __debug_bin
 
 .vscode*
+
+# Ginkgo test outputs
+main.log
+server.log
+*.test
