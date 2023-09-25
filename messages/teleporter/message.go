@@ -70,7 +70,7 @@ func UnpackTeleporterMessage(messageBytes []byte) (*TeleporterMessage, error) {
 
 // PackReceiveCrossChainMessage packs a ReceiveCrossChainMessageInput to form a call to the receiveCrossChainMessage function
 func PackReceiveCrossChainMessage(inputStruct ReceiveCrossChainMessageInput) ([]byte, error) {
-	return EVMTeleporterContractABI.Pack("receiveCrossChainMessage", inputStruct.RelayerRewardAddress)
+	return EVMTeleporterContractABI.Pack("receiveCrossChainMessage", inputStruct.RelayerRewardAddress, inputStruct.Index)
 }
 
 // PackMessageReceived packs a MessageReceivedInput to form a call to the messageReceived function
