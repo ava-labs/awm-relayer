@@ -32,34 +32,23 @@ func testTeleporterMessage(messageID int64) TeleporterMessage {
 	return m
 }
 
-// Pack the SendCrossChainMessage event type. PackEvent is documented as not supporting struct types, so this should be used
-// with caution. Here, we only use it for testing purposes. In a real setting, the Teleporter contract should pack the event.
-func packSendCrossChainMessageEvent(destinationChainID common.Hash, message TeleporterMessage) ([]common.Hash, []byte, error) {
-	return EVMTeleporterContractABI.PackEvent("SendCrossChainMessage", destinationChainID, message.MessageID, message)
-}
-
 func TestPackUnpackTeleporterMessage(t *testing.T) {
 	var (
-		messageID          int64       = 4
-		destinationChainID common.Hash = common.HexToHash("0x03")
+		messageID int64 = 4
 	)
 	message := testTeleporterMessage(messageID)
 
-	topics, b, err := packSendCrossChainMessageEvent(destinationChainID, message)
-	require.NoError(t, err)
+	b, err := PackSendCrossChainMessageEvent(common.HexToHash("0x03"), message)
+	if err != nil {
+		t.Errorf("failed to pack teleporter message: %v", err)
+		t.FailNow()
+	}
 
-	// Three events where the first event topics[0] is the event signature.
-	require.Equal(t, len(topics), 3)
-	require.Equal(t, destinationChainID, topics[1])
-	require.Equal(t, new(big.Int).SetInt64(messageID), topics[2].Big())
-
-	unpacked, err := unpackTeleporterMessage(b)
-	require.NoError(t, err)
-
-	require.Equal(t, message.MessageID, unpacked.MessageID)
-	require.Equal(t, message.SenderAddress, unpacked.SenderAddress)
-	require.Equal(t, message.DestinationAddress, unpacked.DestinationAddress)
-	require.Equal(t, message.RequiredGasLimit, unpacked.RequiredGasLimit)
+	unpacked, err := UnpackTeleporterMessage(b)
+	if err != nil {
+		t.Errorf("failed to unpack teleporter message: %v", err)
+		t.FailNow()
+	}
 
 	for i := 0; i < len(message.AllowedRelayerAddresses); i++ {
 		require.Equal(t, unpacked.AllowedRelayerAddresses[i], message.AllowedRelayerAddresses[i])

@@ -69,7 +69,7 @@ func TestConvertProtocol(t *testing.T) {
 	}
 }
 
-func TestSanitizeHashString(t *testing.T) {
+func TestSanitizeHexString(t *testing.T) {
 	testCases := []struct {
 		name           string
 		hash           string
@@ -93,7 +93,7 @@ func TestSanitizeHashString(t *testing.T) {
 	}
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
-			actualResult := SanitizeHashString(testCase.hash)
+			actualResult := SanitizeHexString(testCase.hash)
 			require.Equal(t, testCase.expectedResult, actualResult)
 		})
 	}

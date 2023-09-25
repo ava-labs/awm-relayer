@@ -14,6 +14,7 @@ import (
 
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/utils/constants"
+	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/avalanchego/utils/set"
 	"github.com/ava-labs/awm-relayer/utils"
 	"github.com/ethereum/go-ethereum/common"
@@ -69,7 +70,7 @@ type Config struct {
 }
 
 func SetDefaultConfigValues(v *viper.Viper) {
-	v.SetDefault(LogLevelKey, "info")
+	v.SetDefault(LogLevelKey, logging.Info.String())
 	v.SetDefault(NetworkIDKey, constants.MainnetID)
 	v.SetDefault(PChainAPIURLKey, "https://api.avax.network")
 	v.SetDefault(EncryptConnectionKey, true)
@@ -118,7 +119,7 @@ func BuildConfig(v *viper.Viper) (Config, bool, error) {
 	if accountPrivateKey != "" {
 		optionOverwritten = true
 		for i := range cfg.DestinationSubnets {
-			cfg.DestinationSubnets[i].AccountPrivateKey = utils.SanitizeHashString(accountPrivateKey)
+			cfg.DestinationSubnets[i].AccountPrivateKey = utils.SanitizeHexString(accountPrivateKey)
 		}
 	} else {
 		// Otherwise, check for private keys suffixed with the chain ID and set it for that subnet
@@ -127,9 +128,9 @@ func BuildConfig(v *viper.Viper) (Config, bool, error) {
 			subnetAccountPrivateKey := os.Getenv(fmt.Sprintf("%s_%s", accountPrivateKeyEnvVarName, subnet.ChainID))
 			if subnetAccountPrivateKey != "" {
 				optionOverwritten = true
-				cfg.DestinationSubnets[i].AccountPrivateKey = utils.SanitizeHashString(subnetAccountPrivateKey)
+				cfg.DestinationSubnets[i].AccountPrivateKey = utils.SanitizeHexString(subnetAccountPrivateKey)
 			} else {
-				cfg.DestinationSubnets[i].AccountPrivateKey = utils.SanitizeHashString(cfg.DestinationSubnets[i].AccountPrivateKey)
+				cfg.DestinationSubnets[i].AccountPrivateKey = utils.SanitizeHexString(cfg.DestinationSubnets[i].AccountPrivateKey)
 			}
 		}
 	}

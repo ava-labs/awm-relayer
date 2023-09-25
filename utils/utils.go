@@ -85,15 +85,15 @@ func ConvertProtocol(URLString, protocol string) (string, error) {
 	return u.String(), nil
 }
 
-// SanitizeHashString removes the "0x" prefix from a hex hash string if it exists.
+// SanitizeHexString removes the "0x" prefix from a hex string if it exists.
 // Otherwise, returns the original string.
-func SanitizeHashString(hash string) string {
-	if len(hash)%2 != 0 || len(hash) < 2 {
-		return hash
+func SanitizeHexString(hex string) string {
+	if len(hex)%2 != 0 || len(hex) < 2 {
+		return hex
 	}
 
-	if hash[:2] == "0x" {
-		return hash[2:]
+	if hex[:2] == "0x" {
+		return hex[2:]
 	}
-	return hash
+	return hex
 }

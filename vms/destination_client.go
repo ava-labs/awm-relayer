@@ -51,6 +51,7 @@ func CreateDestinationClients(logger logging.Logger, relayerConfig config.Config
 		if err != nil {
 			logger.Error(
 				"Failed to decode base-58 encoded source chain ID",
+				zap.String("chainID", chainID.String()),
 				zap.Error(err),
 			)
 			return nil, err
@@ -67,6 +68,7 @@ func CreateDestinationClients(logger logging.Logger, relayerConfig config.Config
 		if err != nil {
 			logger.Error(
 				"Could not create destination client",
+				zap.String("chainID", chainID.String()),
 				zap.Error(err),
 			)
 			return nil, err

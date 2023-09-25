@@ -67,13 +67,13 @@ func TestShouldSendMessage(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	_, validMessageBytes, err := packSendCrossChainMessageEvent(common.HexToHash(destinationChainID.Hex()), validTeleporterMessage)
+	validMessageBytes, err := PackSendCrossChainMessageEvent(common.HexToHash(destinationChainID.Hex()), validTeleporterMessage)
 	require.NoError(t, err)
 
-	messageNotDelivered, err := packMessageReceivedOutput(false)
+	messageNotDelivered, err := PackMessageReceivedOutput(false)
 	require.NoError(t, err)
 
-	messageDelivered, err := packMessageReceivedOutput(true)
+	messageDelivered, err := PackMessageReceivedOutput(true)
 	require.NoError(t, err)
 
 	warpUnsignedMessage, err := warp.NewUnsignedMessage(0, ids.Empty, validMessageBytes)

@@ -91,7 +91,7 @@ func isAllowedRelayer(allowedRelayers []common.Address, eoa common.Address) bool
 // ShouldSendMessage returns true if the message should be sent to the destination chain
 func (m *messageManager) ShouldSendMessage(warpMessageInfo *vmtypes.WarpMessageInfo, destinationChainID ids.ID) (bool, error) {
 	// Unpack the teleporter message and add it to the cache
-	teleporterMessage, err := unpackTeleporterMessage(warpMessageInfo.WarpPayload)
+	teleporterMessage, err := UnpackTeleporterMessage(warpMessageInfo.WarpPayload)
 	if err != nil {
 		m.logger.Error(
 			"Failed unpacking teleporter message.",
@@ -164,7 +164,7 @@ func (m *messageManager) messageDelivered(
 		return false, errors.New("destination client is not an Ethereum client")
 	}
 
-	data, err := packMessageReceivedMessage(MessageReceivedInput{
+	data, err := PackMessageReceived(MessageReceivedInput{
 		OriginChainID: warpMessageInfo.WarpUnsignedMessage.SourceChainID,
 		MessageID:     teleporterMessage.MessageID,
 	})
@@ -191,7 +191,7 @@ func (m *messageManager) messageDelivered(
 		return false, err
 	}
 	// check the contract call result
-	delivered, err := unpackMessageReceivedResult(result)
+	delivered, err := UnpackMessageReceivedResult(result)
 	if err != nil {
 		m.logger.Error(
 			"Failed unpacking messageReceived result.",
@@ -215,7 +215,7 @@ func (m *messageManager) SendMessage(signedMessage *warp.Message, parsedVmPayloa
 			zap.String("warpMessageID", signedMessage.ID().String()),
 		)
 		var err error
-		teleporterMessage, err = unpackTeleporterMessage(parsedVmPayload)
+		teleporterMessage, err = UnpackTeleporterMessage(parsedVmPayload)
 		if err != nil {
 			m.logger.Error(
 				"Failed unpacking teleporter message.",
@@ -253,7 +253,7 @@ func (m *messageManager) SendMessage(signedMessage *warp.Message, parsedVmPayloa
 		return err
 	}
 	// Construct the transaction call data to call the receive cross chain message method of the receiver precompile.
-	callData, err := packReceiverMessage(ReceiveCrossChainMessageInput{
+	callData, err := PackReceiveCrossChainMessage(ReceiveCrossChainMessageInput{
 		RelayerRewardAddress: common.HexToAddress(m.messageConfig.RewardAddress),
 	})
 	if err != nil {
