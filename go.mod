@@ -21,7 +21,7 @@ require (
 
 require (
 	github.com/Microsoft/go-winio v0.5.2 // indirect
-	github.com/ava-labs/teleporter v0.0.0-20230925201328-8b8c9abc32cd // indirect
+	github.com/ava-labs/teleporter v0.0.0-20230925203622-f24fe9bc9e34 // indirect
 	github.com/cockroachdb/errors v1.9.1 // indirect
 	github.com/cockroachdb/logtags v0.0.0-20230118201751-21c54148d20b // indirect
 	github.com/cockroachdb/pebble v0.0.0-20230209160836-829675f94811 // indirect
