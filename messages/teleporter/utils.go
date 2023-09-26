@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	receiveMessageGasLimitBufferAmount = 100_000
+	receiveMessageGasLimitBufferAmount = 100_000_0
 )
 
 var (
