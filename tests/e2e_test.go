@@ -511,7 +511,7 @@ var _ = ginkgo.Describe("[Relayer E2E]", ginkgo.Ordered, func() {
 		_ = relayerCmd.Wait()
 	})
 
-	ginkgo.It("Validate Received Warp Message Values", ginkgo.Label("Relaery", "VerifyWarp"), func() {
+	ginkgo.It("Validate Received Warp Message Values", ginkgo.Label("Relayer", "VerifyWarp"), func() {
 		Expect(receivedWarpMessage.SourceChainID).Should(Equal(blockchainIDA))
 		addressedPayload, err := warpPayload.ParseAddressedPayload(receivedWarpMessage.Payload)
 		Expect(err).Should(BeNil())
