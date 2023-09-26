@@ -33,10 +33,10 @@ type TeleporterMessageReceipt struct {
 
 // ReceiveCrossChainMessageInput is the input to receiveCrossChainMessage call
 // in the contract deployed on the destination chain
-// - index: specifies the warp message in the transaction's storage slots.
+// - messageIndex: specifies the warp message in the transaction's storage slots.
 type ReceiveCrossChainMessageInput struct {
+	MessageIndex         uint32         `json:"messageIndex"`
 	RelayerRewardAddress common.Address `json:"relayerRewardAddress"`
-	Index                uint32         `json:"index"`
 }
 
 // MessageReceivedInput is the input to messageReceived call
@@ -71,7 +71,7 @@ func UnpackTeleporterMessage(messageBytes []byte) (*TeleporterMessage, error) {
 
 // PackReceiveCrossChainMessage packs a ReceiveCrossChainMessageInput to form a call to the receiveCrossChainMessage function
 func PackReceiveCrossChainMessage(inputStruct ReceiveCrossChainMessageInput) ([]byte, error) {
-	return EVMTeleporterContractABI.Pack("receiveCrossChainMessage", inputStruct.RelayerRewardAddress, inputStruct.Index)
+	return EVMTeleporterContractABI.Pack("receiveCrossChainMessage", inputStruct.MessageIndex, inputStruct.RelayerRewardAddress)
 }
 
 // PackMessageReceived packs a MessageReceivedInput to form a call to the messageReceived function
