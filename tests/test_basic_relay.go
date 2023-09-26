@@ -181,7 +181,7 @@ var _ = ginkgo.Describe("[Relayer E2E]", ginkgo.Ordered, func() {
 		Expect(err).Should(BeNil())
 		defer sub.Unsubscribe()
 
-		log.Info("Sending sendWarpMessage transaction", "destinationChainID", teleporterTestUtils.BlockchainIDB, "txHash", signedTx.Hash())
+		log.Info("Sending teleporter transaction", "destinationChainID", teleporterTestUtils.BlockchainIDB, "txHash", signedTx.Hash())
 		err = teleporterTestUtils.ChainARPCClient.SendTransaction(ctx, signedTx)
 		Expect(err).Should(BeNil())
 
@@ -189,6 +189,13 @@ var _ = ginkgo.Describe("[Relayer E2E]", ginkgo.Ordered, func() {
 		receipt, err := teleporterTestUtils.ChainARPCClient.TransactionReceipt(ctx, signedTx.Hash())
 		Expect(err).Should(BeNil())
 		Expect(receipt.Status).Should(Equal(types.ReceiptStatusSuccessful))
+
+		sendCrossChainMessageLog := receipt.Logs[0]
+		var sendEvent teleporterTestUtils.SendCrossChainMessageEvent
+		err = teleporter.EVMTeleporterContractABI.UnpackIntoInterface(&sendEvent, "SendCrossChainMessage", sendCrossChainMessageLog.Data)
+		Expect(err).Should(BeNil())
+		log.Info(fmt.Sprintf("Sent teleporter message: %#v", sendEvent))
+		teleporterMessageID := sendEvent.Message.MessageID
 
 		// Get the latest block from Subnet B
 		log.Info("Waiting for new block confirmation")
@@ -222,6 +229,14 @@ var _ = ginkgo.Describe("[Relayer E2E]", ginkgo.Ordered, func() {
 		receipt, err = teleporterTestUtils.ChainBRPCClient.TransactionReceipt(ctx, txHash)
 		Expect(err).Should(BeNil())
 		Expect(receipt.Status).Should(Equal(types.ReceiptStatusSuccessful))
+
+		// Check that the transaction emits ReceiveCrossChainMessage
+		receiveCrossChainMessageLog := receipt.Logs[0]
+		var receiveEvent teleporterTestUtils.ReceiveCrossChainMessageEvent
+		err = teleporter.EVMTeleporterContractABI.UnpackIntoInterface(&receiveEvent, "ReceiveCrossChainMessage", receiveCrossChainMessageLog.Data)
+		Expect(err).Should(BeNil())
+		log.Info(fmt.Sprintf("Received teleporter message: %#v", receiveEvent))
+		Expect(receiveEvent.Message.MessageID.Uint64()).Should(Equal(teleporterMessageID.Uint64()))
 
 		log.Info("Finished sending warp message, closing down output channel")
 

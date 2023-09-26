@@ -29,11 +29,13 @@ func TestE2E(t *testing.T) {
 	ginkgo.RunSpecs(t, "Relayer e2e test")
 }
 
-// BeforeSuite starts the default network and adds 10 new nodes as validators with BLS keys
-// registered on the P-Chain.
-// Adds two disjoint sets of 5 of the new validator nodes to validate two new subnets with a
-// a single Subnet-EVM blockchain.
-var _ = ginkgo.BeforeSuite(func() {
+// Define the Relayer before and after suite functions.
+var _ = ginkgo.BeforeSuite(setupSuite)
+
+var _ = ginkgo.AfterSuite(teleporterTestUtils.TearDownNetwork)
+
+// Sets up the warp-enabled network and deploys the teleporter contract to each of the subnets
+func setupSuite() {
 	teleporterTestUtils.SetupNetwork(warpGenesisFile)
 	teleporterContractAddress := common.HexToAddress(testUtils.ReadHexTextFile("./tests/utils/UniversalTeleporterMessengerContractAddress.txt"))
 	teleporterDeployerAddress := common.HexToAddress(testUtils.ReadHexTextFile("./tests/utils/UniversalTeleporterDeployerAddress.txt"))
@@ -41,6 +43,4 @@ var _ = ginkgo.BeforeSuite(func() {
 	teleporterDeployerTransaction, err := hex.DecodeString(utils.SanitizeHexString(teleporterDeployerTransactionStr))
 	Expect(err).Should(BeNil())
 	teleporterTestUtils.DeployTeleporterContract(teleporterDeployerTransaction, teleporterDeployerAddress, teleporterContractAddress)
-})
-
-var _ = ginkgo.AfterSuite(teleporterTestUtils.TearDownNetwork)
+}
