@@ -134,7 +134,7 @@ var _ = ginkgo.Describe("[Relayer E2E]", ginkgo.Ordered, func() {
 	})
 
 	// Send a transaction to Subnet A to issue a Warp Message from the Teleporter contract to Subnet B
-	ginkgo.It("Send Message from A to B", ginkgo.Label("Warp", "SendWarp"), func() {
+	ginkgo.It("Send Message from A to B", ginkgo.Label("Relayer", "SendTeleporter"), func() {
 		ctx := context.Background()
 
 		relayerCmd, relayerCancel = testUtils.RunRelayerExecutable(ctx, relayerConfigPath)
