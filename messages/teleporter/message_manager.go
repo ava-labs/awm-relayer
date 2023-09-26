@@ -254,6 +254,7 @@ func (m *messageManager) SendMessage(signedMessage *warp.Message, parsedVmPayloa
 	}
 	// Construct the transaction call data to call the receive cross chain message method of the receiver precompile.
 	callData, err := PackReceiveCrossChainMessage(ReceiveCrossChainMessageInput{
+		MessageIndex:         uint32(0),
 		RelayerRewardAddress: common.HexToAddress(m.messageConfig.RewardAddress),
 	})
 	if err != nil {

@@ -6,10 +6,10 @@ name: Tests
 on:
   push:
     branches:
-      - '*'
+      - "*"
 
 env:
-  GO_VERSION: "1.20.7"
+  GO_VERSION: "1.20.8"
 
 jobs:
   test_relayer:
