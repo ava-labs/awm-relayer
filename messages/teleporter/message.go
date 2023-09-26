@@ -33,6 +33,7 @@ type TeleporterMessageReceipt struct {
 
 // ReceiveCrossChainMessageInput is the input to receiveCrossChainMessage call
 // in the contract deployed on the destination chain
+// - index: specifies the warp message in the transaction's storage slots.
 type ReceiveCrossChainMessageInput struct {
 	RelayerRewardAddress common.Address `json:"relayerRewardAddress"`
 	Index                uint32         `json:"index"`
