@@ -10,6 +10,7 @@ import (
 	"github.com/ava-labs/awm-relayer/config"
 	"github.com/ava-labs/awm-relayer/database"
 	"github.com/ava-labs/awm-relayer/vms/evm"
+	"github.com/ava-labs/awm-relayer/vms/evm_block_hash"
 	"github.com/ava-labs/awm-relayer/vms/vmtypes"
 )
 
@@ -39,12 +40,13 @@ type Subscriber interface {
 	Cancel()
 }
 
-// TODONOW: add evm_blockhash type
 // NewSubscriber returns a concrete Subscriber according to the VM specified by [subnetInfo]
 func NewSubscriber(logger logging.Logger, subnetInfo config.SourceSubnet, db database.RelayerDatabase) Subscriber {
 	switch config.ParseVM(subnetInfo.VM) {
 	case config.EVM:
 		return evm.NewSubscriber(logger, subnetInfo, db)
+	case config.EVM_BLOCKHASH:
+		return evm_block_hash.NewSubscriber(logger, subnetInfo, db)
 	default:
 		return nil
 	}

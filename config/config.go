@@ -22,6 +22,9 @@ import (
 	"github.com/spf13/viper"
 )
 
+// global config singleton
+var globalConfig Config
+
 const (
 	relayerPrivateKeyBytes      = 32
 	accountPrivateKeyEnvVarName = "ACCOUNT_PRIVATE_KEY"
@@ -77,7 +80,7 @@ func SetDefaultConfigValues(v *viper.Viper) {
 	v.SetDefault(StorageLocationKey, "./.awm-relayer-storage")
 }
 
-// BuildConfig constructs the relayer config using Viper.
+// BuildConfig constructs the relayer config using Viper. Also sets the global Config singleton
 // The following precedence order is used. Each item takes precedence over the item below it:
 //  1. Flags
 //  2. Environment variables
@@ -151,6 +154,8 @@ func BuildConfig(v *viper.Viper) (Config, bool, error) {
 		return Config{}, false, err
 	}
 	cfg.PChainAPIURL = pChainapiUrl
+
+	globalConfig = cfg
 
 	return cfg, optionOverwritten, nil
 }
@@ -372,4 +377,9 @@ func (s *DestinationSubnet) GetRelayerAccountInfo() (*ecdsa.PrivateKey, common.A
 	pkBytes := pk.PublicKey.X.Bytes()
 	pkBytes = append(pkBytes, pk.PublicKey.Y.Bytes()...)
 	return pk, common.BytesToAddress(crypto.Keccak256(pkBytes)), nil
+}
+
+// Global Config singleton getters
+func GetNetworkID() uint32 {
+	return globalConfig.NetworkID
 }

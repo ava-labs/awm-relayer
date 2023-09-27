@@ -77,7 +77,6 @@ func newMessageRelayer(
 }
 
 func (r *messageRelayer) relayMessage(requestID uint32, messageManager messages.MessageManager) error {
-	// TODONOW: blockPublisher messageManager should decide based on configured time/block interval
 	shouldSend, err := messageManager.ShouldSendMessage(r.warpMessageInfo, r.destinationChainID)
 	if err != nil {
 		r.logger.Error(
@@ -109,7 +108,6 @@ func (r *messageRelayer) relayMessage(requestID uint32, messageManager messages.
 	// create signed message latency (ms)
 	r.setCreateSignedMessageLatencyMS(float64(time.Since(startCreateSignedMessageTime).Milliseconds()))
 
-	// TODONOW: blockPublisher messageManager should send message to destination chain
 	err = messageManager.SendMessage(signedMessage, r.warpMessageInfo.WarpPayload, r.destinationChainID)
 	if err != nil {
 		r.logger.Error(

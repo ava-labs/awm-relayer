@@ -54,10 +54,11 @@ func NewMessageManager(
 
 // ShouldSendMessage returns true if the message should be sent to the destination chain
 func (m *messageManager) ShouldSendMessage(warpMessageInfo *vmtypes.WarpMessageInfo, destinationChainID ids.ID) (bool, error) {
-	// TODONOW: send the message to the destination chain
+	// TODONOW: check if the message should be sent to the destination chain based on the configured block/time interval
 	return true, nil
 }
 
 func (m *messageManager) SendMessage(signedMessage *warp.Message, parsedVmPayload []byte, destinationChainID ids.ID) error {
+	// TODONOW: send the message to the destination chain
 	return nil
 }
