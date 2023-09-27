@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/pkg/errors"
@@ -17,8 +16,8 @@ type destinationInfo struct {
 	Interval string `json:"interval"`
 
 	useTimeInterval     bool
-	blockInterval       int
-	timeIntervalSeconds time.Duration
+	blockInterval       uint64
+	timeIntervalSeconds uint64
 }
 
 type Config struct {
@@ -43,12 +42,12 @@ func (c *Config) Validate() error {
 		}
 
 		// Intervals must be either a positive integer, or a positive integer followed by "s"
-		interval, isSeconds, err := parsePositiveIntWithSuffix(destinationInfo.Interval)
+		interval, isSeconds, err := parseIntervalWithSuffix(destinationInfo.Interval)
 		if err != nil {
 			return errors.Wrap(err, fmt.Sprintf("invalid interval in block hash publisher configuration. Provided interval: %s", destinationInfo.Interval))
 		}
 		if isSeconds {
-			c.DestinationChains[i].timeIntervalSeconds = time.Duration(interval) * time.Second
+			c.DestinationChains[i].timeIntervalSeconds = interval
 		} else {
 			c.DestinationChains[i].blockInterval = interval
 		}
@@ -57,7 +56,7 @@ func (c *Config) Validate() error {
 	return nil
 }
 
-func parsePositiveIntWithSuffix(input string) (int, bool, error) {
+func parseIntervalWithSuffix(input string) (uint64, bool, error) {
 	// Check if the input string is empty
 	if input == "" {
 		return 0, false, fmt.Errorf("empty string")
@@ -79,5 +78,5 @@ func parsePositiveIntWithSuffix(input string) (int, bool, error) {
 		return 0, false, err
 	}
 
-	return intValue, hasSuffix, nil
+	return uint64(intValue), hasSuffix, nil
 }

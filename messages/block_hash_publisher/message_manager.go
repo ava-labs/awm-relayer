@@ -20,16 +20,22 @@ const (
 )
 
 type destinationSenderInfo struct {
-	client       vms.DestinationClient
-	address      common.Address
-	lastTimeSent time.Time
-	lastBlock    uint64
+	client  vms.DestinationClient
+	address common.Address
+
+	useTimeInterval     bool
+	timeIntervalSeconds uint64
+	blockInterval       uint64
+
+	lastApprovedTime  uint64
+	lastTimeSent      uint64
+	lastApprovedBlock uint64
+	lastBlock         uint64
 }
 
 type messageManager struct {
-	messageConfig Config
-	destinations  map[ids.ID]destinationSenderInfo
-	logger        logging.Logger
+	destinations map[ids.ID]*destinationSenderInfo
+	logger       logging.Logger
 }
 
 func NewMessageManager(
@@ -58,7 +64,7 @@ func NewMessageManager(
 		return nil, err
 	}
 
-	destinations := make(map[ids.ID]destinationSenderInfo)
+	destinations := make(map[ids.ID]*destinationSenderInfo)
 	for _, destination := range messageConfig.DestinationChains {
 		destinationID, err := ids.FromString(destination.ChainID)
 		if err != nil {
@@ -68,39 +74,40 @@ func NewMessageManager(
 			)
 			return nil, err
 		}
-		destinations[destinationID] = destinationSenderInfo{
-			address: common.HexToAddress(destination.Address),
-			client:  destinationClients[destinationID],
+		destinations[destinationID] = &destinationSenderInfo{
+			useTimeInterval:     destination.useTimeInterval,
+			timeIntervalSeconds: uint64(destination.timeIntervalSeconds),
+			address:             common.HexToAddress(destination.Address),
+			client:              destinationClients[destinationID],
 		}
 	}
 
 	return &messageManager{
-		messageConfig: messageConfig,
-		destinations:  destinations,
-		logger:        logger,
+		destinations: destinations,
+		logger:       logger,
 	}, nil
 }
 
 // ShouldSendMessage returns true if the message should be sent to the destination chain
 func (m *messageManager) ShouldSendMessage(warpMessageInfo *vmtypes.WarpMessageInfo, destinationChainID ids.ID) (bool, error) {
-	// TODONOW: check if the message should be sent to the destination chain based on the configured block/time interval
 	destination, ok := m.destinations[destinationChainID]
 	if !ok {
 		return false, fmt.Errorf("relayer not configured to deliver to destination. destinationChainID=%s", destinationChainID)
 	}
-	// TODO: config should be a map of destinationChainID -> config
-	// TODO: need to get the height+timestamp of the block with the hash
-	if m.messageConfig.DestinationChains[destinationChainID].useTimeInterval {
-		interval := m.messageConfig.DestinationChains[destinationChainID].timeIntervalSeconds
-		if time.Since(destination.lastTimeSent) < interval {
+	if destination.useTimeInterval {
+		interval := destination.timeIntervalSeconds
+		if time.Unix(int64(warpMessageInfo.BlockTimestamp), 0).Sub(time.Unix(int64(destination.lastTimeSent), 0)) < (time.Duration(interval) * time.Second) {
 			return false, nil
 		}
 	} else {
-		interval := m.messageConfig.DestinationChains[destinationChainID].blockInterval
+		interval := destination.blockInterval
 		if warpMessageInfo.BlockNumber-destination.lastBlock < uint64(interval) {
 			return false, nil
 		}
 	}
+	// Set the last approved block/time here. We don't set the last sent block/time until the message is actually sent
+	destination.lastApprovedBlock = warpMessageInfo.BlockNumber
+	destination.lastApprovedTime = warpMessageInfo.BlockTimestamp
 	return true, nil
 }
 
@@ -123,7 +130,10 @@ func (m *messageManager) SendMessage(signedMessage *warp.Message, parsedVmPayloa
 		)
 		return err
 	}
-	// TODONOW: set the time/block number of the last sent message
+
+	// Set the last sent block/time
+	destination.lastTimeSent = destination.lastApprovedTime
+	destination.lastBlock = destination.lastApprovedBlock
 	m.logger.Info(
 		"Sent message to destination chain",
 		zap.String("destinationChainID", destinationChainID.String()),

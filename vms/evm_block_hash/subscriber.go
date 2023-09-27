@@ -37,7 +37,7 @@ type subscriber struct {
 	nodeWSURL  string
 	nodeRPCURL string
 	chainID    ids.ID
-	logsChan   chan vmtypes.WarpLogInfo
+	logsChan   chan vmtypes.WarpMessageInfo
 	blocks     <-chan *types.Header
 	sub        interfaces.Subscription
 	networkID  uint32
@@ -57,7 +57,7 @@ func NewSubscriber(logger logging.Logger, subnetInfo config.SourceSubnet, db dat
 		return nil
 	}
 
-	logs := make(chan vmtypes.WarpLogInfo, maxClientSubscriptionBuffer)
+	logs := make(chan vmtypes.WarpMessageInfo, maxClientSubscriptionBuffer)
 
 	return &subscriber{
 		nodeWSURL:  subnetInfo.GetNodeWSEndpoint(),
@@ -128,7 +128,7 @@ func (s *subscriber) dialAndSubscribe() error {
 	return nil
 }
 
-func (s *subscriber) NewWarpLogInfo(block *types.Header) (*vmtypes.WarpLogInfo, error) {
+func (s *subscriber) NewWarpMessageInfo(block *types.Header) (*vmtypes.WarpMessageInfo, error) {
 	blockHashPayload, err := payload.NewBlockHashPayload(block.Hash())
 	if err != nil {
 		return nil, err
@@ -142,7 +142,7 @@ func (s *subscriber) NewWarpLogInfo(block *types.Header) (*vmtypes.WarpLogInfo, 
 		return nil, err
 	}
 
-	return &vmtypes.WarpLogInfo{
+	return &vmtypes.WarpMessageInfo{
 		UnsignedMsgBytes: unsignedMessage.Bytes(),
 		BlockNumber:      block.Number.Uint64(),
 		BlockTimestamp:   block.Time,
@@ -152,7 +152,7 @@ func (s *subscriber) NewWarpLogInfo(block *types.Header) (*vmtypes.WarpLogInfo, 
 // forward logs from the concrete log channel to the interface channel
 func (s *subscriber) forwardLogs() {
 	for block := range s.blocks {
-		messageInfo, err := s.NewWarpLogInfo(block)
+		messageInfo, err := s.NewWarpMessageInfo(block)
 		if err != nil {
 			s.logger.Error(
 				"Invalid log. Continuing.",
@@ -175,7 +175,7 @@ func (s *subscriber) SetProcessedBlockHeightToLatest() error {
 	return nil
 }
 
-func (s *subscriber) Logs() <-chan vmtypes.WarpLogInfo {
+func (s *subscriber) Logs() <-chan vmtypes.WarpMessageInfo {
 	return s.logsChan
 }
 

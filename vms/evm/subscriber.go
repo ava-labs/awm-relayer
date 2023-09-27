@@ -55,7 +55,7 @@ type subscriber struct {
 	nodeWSURL  string
 	nodeRPCURL string
 	chainID    ids.ID
-	logsChan   chan vmtypes.WarpLogInfo
+	logsChan   chan vmtypes.WarpMessageInfo
 	evmLog     <-chan types.Log
 	sub        interfaces.Subscription
 
@@ -74,7 +74,7 @@ func NewSubscriber(logger logging.Logger, subnetInfo config.SourceSubnet, db dat
 		return nil
 	}
 
-	logs := make(chan vmtypes.WarpLogInfo, maxClientSubscriptionBuffer)
+	logs := make(chan vmtypes.WarpMessageInfo, maxClientSubscriptionBuffer)
 
 	return &subscriber{
 		nodeWSURL:  subnetInfo.GetNodeWSEndpoint(),
@@ -86,7 +86,7 @@ func NewSubscriber(logger logging.Logger, subnetInfo config.SourceSubnet, db dat
 	}
 }
 
-func (s *subscriber) NewWarpLogInfo(log types.Log) (*vmtypes.WarpLogInfo, error) {
+func (s *subscriber) NewWarpMessageInfo(log types.Log) (*vmtypes.WarpMessageInfo, error) {
 	if len(log.Topics) != 4 {
 		s.logger.Error(
 			"Log did not have the correct number of topics",
@@ -111,7 +111,7 @@ func (s *subscriber) NewWarpLogInfo(log types.Log) (*vmtypes.WarpLogInfo, error)
 		return nil, ErrInvalidLog
 	}
 
-	return &vmtypes.WarpLogInfo{
+	return &vmtypes.WarpMessageInfo{
 		DestinationChainID: destinationChainID,
 		DestinationAddress: log.Topics[2],
 		SourceAddress:      log.Topics[3],
@@ -124,7 +124,7 @@ func (s *subscriber) NewWarpLogInfo(log types.Log) (*vmtypes.WarpLogInfo, error)
 // forward logs from the concrete log channel to the interface channel
 func (s *subscriber) forwardLogs() {
 	for msgLog := range s.evmLog {
-		messageInfo, err := s.NewWarpLogInfo(msgLog)
+		messageInfo, err := s.NewWarpMessageInfo(msgLog)
 		if err != nil {
 			s.logger.Error(
 				"Invalid log. Continuing.",
@@ -211,7 +211,7 @@ func (s *subscriber) ProcessFromHeight(height *big.Int) error {
 		zap.String("chainID", s.chainID.String()),
 	)
 	for _, log := range logs {
-		messageInfo, err := s.NewWarpLogInfo(log)
+		messageInfo, err := s.NewWarpMessageInfo(log)
 		if err != nil {
 			s.logger.Error(
 				"Invalid log when processing from height. Continuing.",
@@ -321,7 +321,7 @@ func (s *subscriber) dialAndSubscribe() error {
 	return nil
 }
 
-func (s *subscriber) Logs() <-chan vmtypes.WarpLogInfo {
+func (s *subscriber) Logs() <-chan vmtypes.WarpMessageInfo {
 	return s.logsChan
 }
 

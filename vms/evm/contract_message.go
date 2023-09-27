@@ -22,14 +22,14 @@ func NewContractMessage(logger logging.Logger, subnetInfo config.SourceSubnet) *
 	}
 }
 
-func (m *contractMessage) UnpackWarpMessage(unsignedMsgBytes []byte) (*vmtypes.WarpMessageInfo, error) {
-	unsignedMsg, err := avalancheWarp.ParseUnsignedMessage(unsignedMsgBytes)
+func (m *contractMessage) UnpackWarpMessage(warpMessageInfo *vmtypes.WarpMessageInfo) error {
+	unsignedMsg, err := avalancheWarp.ParseUnsignedMessage(warpMessageInfo.UnsignedMsgBytes)
 	if err != nil {
 		m.logger.Error(
 			"Failed parsing unsigned message",
 			zap.Error(err),
 		)
-		return nil, err
+		return err
 	}
 	err = unsignedMsg.Initialize()
 	if err != nil {
@@ -37,7 +37,7 @@ func (m *contractMessage) UnpackWarpMessage(unsignedMsgBytes []byte) (*vmtypes.W
 			"Failed initializing unsigned message",
 			zap.Error(err),
 		)
-		return nil, err
+		return err
 	}
 
 	warpPayload, err := warpPayload.ParseAddressedPayload(unsignedMsg.Payload)
@@ -46,12 +46,11 @@ func (m *contractMessage) UnpackWarpMessage(unsignedMsgBytes []byte) (*vmtypes.W
 			"Failed parsing addressed payload",
 			zap.Error(err),
 		)
-		return nil, err
+		return err
 	}
 
-	messageInfo := vmtypes.WarpMessageInfo{
-		WarpUnsignedMessage: unsignedMsg,
-		WarpPayload:         warpPayload.Payload,
-	}
-	return &messageInfo, nil
+	warpMessageInfo.WarpUnsignedMessage = unsignedMsg
+	warpMessageInfo.WarpPayload = warpPayload.Payload
+
+	return nil
 }
