@@ -60,7 +60,7 @@ func newMessageRelayer(
 	logger logging.Logger,
 	metrics *MessageRelayerMetrics,
 	relayer *Relayer,
-	warpMessage *warp.UnsignedMessage,
+	warpMessage *warp.UnsignedMessage, // TODONOW: store WarpMessageInfo
 	destinationChainID ids.ID,
 	messageResponseChan chan message.InboundMessage,
 	messageCreator message.Creator,
@@ -76,7 +76,9 @@ func newMessageRelayer(
 	}
 }
 
+// TODONOW: remove WarpMessageInfo param
 func (r *messageRelayer) relayMessage(warpMessageInfo *vmtypes.WarpMessageInfo, requestID uint32, messageManager messages.MessageManager) error {
+	// TODONOW: blockPublisher messageManager should decide based on configured time/block interval
 	shouldSend, err := messageManager.ShouldSendMessage(warpMessageInfo, r.destinationChainID)
 	if err != nil {
 		r.logger.Error(
@@ -108,6 +110,7 @@ func (r *messageRelayer) relayMessage(warpMessageInfo *vmtypes.WarpMessageInfo, 
 	// create signed message latency (ms)
 	r.setCreateSignedMessageLatencyMS(float64(time.Since(startCreateSignedMessageTime).Milliseconds()))
 
+	// TODONOW: blockPublisher messageManager should send message to destination chain
 	err = messageManager.SendMessage(signedMessage, warpMessageInfo.WarpPayload, r.destinationChainID)
 	if err != nil {
 		r.logger.Error(

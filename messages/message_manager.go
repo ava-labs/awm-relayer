@@ -12,6 +12,7 @@ import (
 	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/avalanchego/vms/platformvm/warp"
 	"github.com/ava-labs/awm-relayer/config"
+	"github.com/ava-labs/awm-relayer/messages/block_hash_publisher"
 	"github.com/ava-labs/awm-relayer/messages/teleporter"
 	"github.com/ava-labs/awm-relayer/vms"
 	"github.com/ava-labs/awm-relayer/vms/vmtypes"
@@ -40,7 +41,15 @@ func NewMessageManager(
 	format := messageProtocolConfig.MessageFormat
 	switch config.ParseMessageProtocol(format) {
 	case config.TELEPORTER:
-		return teleporter.NewMessageManager(logger,
+		return teleporter.NewMessageManager(
+			logger,
+			messageProtocolAddress,
+			messageProtocolConfig,
+			destinationClients,
+		)
+	case config.BLOCK_HASH_PUBLISHER:
+		return block_hash_publisher.NewMessageManager(
+			logger,
 			messageProtocolAddress,
 			messageProtocolConfig,
 			destinationClients,

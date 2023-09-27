@@ -34,6 +34,7 @@ type DestinationClient interface {
 	DestinationChainID() ids.ID
 }
 
+// TODONOW: evm_blockhash type creates new evm client
 func NewDestinationClient(logger logging.Logger, subnetInfo config.DestinationSubnet) (DestinationClient, error) {
 	switch config.ParseVM(subnetInfo.VM) {
 	case config.EVM:

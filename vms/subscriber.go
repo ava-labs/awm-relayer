@@ -39,6 +39,7 @@ type Subscriber interface {
 	Cancel()
 }
 
+// TODONOW: add evm_blockhash type
 // NewSubscriber returns a concrete Subscriber according to the VM specified by [subnetInfo]
 func NewSubscriber(logger logging.Logger, subnetInfo config.SourceSubnet, db database.RelayerDatabase) Subscriber {
 	switch config.ParseVM(subnetInfo.VM) {

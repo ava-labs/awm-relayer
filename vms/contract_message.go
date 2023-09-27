@@ -15,6 +15,7 @@ type ContractMessage interface {
 	UnpackWarpMessage(unsignedMsgBytes []byte) (*vmtypes.WarpMessageInfo, error)
 }
 
+// TODONOW: add evm_blockhash type
 func NewContractMessage(logger logging.Logger, subnetInfo config.SourceSubnet) ContractMessage {
 	switch config.ParseVM(subnetInfo.VM) {
 	case config.EVM:
