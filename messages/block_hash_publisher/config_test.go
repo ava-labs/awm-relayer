@@ -26,10 +26,12 @@ func TestConfigValidate(t *testing.T) {
 			destinationChains: []destinationInfo{
 				{
 					ChainID:  "9asUA3QckLh7vGnFQiiUJGPTx8KE4nFtP8c1wTWJuP8XiWW75",
+					Address:  "0x50A46AA7b2eCBe2B1AbB7df865B9A87f5eed8635",
 					Interval: "10",
 				},
 				{
 					ChainID:  "9asUA3QckLh7vGnFQiiUJGPTx8KE4nFtP8c1wTWJuP8XiWW75",
+					Address:  "0x50A46AA7b2eCBe2B1AbB7df865B9A87f5eed8635",
 					Interval: "10s",
 				},
 			},
@@ -50,6 +52,7 @@ func TestConfigValidate(t *testing.T) {
 			destinationChains: []destinationInfo{
 				{
 					ChainID:  "9asUA3QckLh7vGnFQiiUJGPTx8KE4nFtP8c1wTWJuP8XiWW7",
+					Address:  "0x50A46AA7b2eCBe2B1AbB7df865B9A87f5eed8635",
 					Interval: "10",
 				},
 			},
@@ -60,6 +63,7 @@ func TestConfigValidate(t *testing.T) {
 			destinationChains: []destinationInfo{
 				{
 					ChainID:  "9asUA3QckLh7vGnFQiiUJGPTx8KE4nFtP8c1wTWJuP8XiWW75",
+					Address:  "0x50A46AA7b2eCBe2B1AbB7df865B9A87f5eed8635",
 					Interval: "4r",
 				},
 			},
@@ -70,6 +74,7 @@ func TestConfigValidate(t *testing.T) {
 			destinationChains: []destinationInfo{
 				{
 					ChainID:  "9asUA3QckLh7vGnFQiiUJGPTx8KE4nFtP8c1wTWJuP8XiWW75",
+					Address:  "0x50A46AA7b2eCBe2B1AbB7df865B9A87f5eed8635",
 					Interval: "l",
 				},
 			},
@@ -80,7 +85,19 @@ func TestConfigValidate(t *testing.T) {
 			destinationChains: []destinationInfo{
 				{
 					ChainID:  "9asUA3QckLh7vGnFQiiUJGPTx8KE4nFtP8c1wTWJuP8XiWW75",
+					Address:  "0x50A46AA7b2eCBe2B1AbB7df865B9A87f5eed8635",
 					Interval: "",
+				},
+			},
+			isError: true,
+		},
+		{
+			name: "invalid address",
+			destinationChains: []destinationInfo{
+				{
+					ChainID:  "9asUA3QckLh7vGnFQiiUJGPTx8KE4nFtP8c1wTWJuP8XiWW75",
+					Address:  "0x50A46AA7b2eCBe2B1AbB7df865B9A87f5eed863",
+					Interval: "10",
 				},
 			},
 			isError: true,

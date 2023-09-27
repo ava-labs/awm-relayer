@@ -145,6 +145,7 @@ func (s *subscriber) NewWarpLogInfo(block *types.Header) (*vmtypes.WarpLogInfo, 
 	return &vmtypes.WarpLogInfo{
 		UnsignedMsgBytes: unsignedMessage.Bytes(),
 		BlockNumber:      block.Number.Uint64(),
+		BlockTimestamp:   block.Time,
 	}, nil
 }
 

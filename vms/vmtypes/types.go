@@ -12,6 +12,7 @@ import (
 //
 
 // WarpMessageInfo is used internally to provide access to warp message info emitted by the sender
+// TODO combine this with WarpLogInfo
 type WarpMessageInfo struct {
 	WarpUnsignedMessage *warp.UnsignedMessage
 	WarpPayload         []byte

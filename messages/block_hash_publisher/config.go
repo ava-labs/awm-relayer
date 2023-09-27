@@ -1,6 +1,7 @@
 package block_hash_publisher
 
 import (
+	"encoding/hex"
 	"fmt"
 	"strconv"
 	"strings"
@@ -12,6 +13,7 @@ import (
 
 type destinationInfo struct {
 	ChainID  string `json:"chain-id"`
+	Address  string `json:"address"`
 	Interval string `json:"interval"`
 
 	useTimeInterval     bool
@@ -25,8 +27,19 @@ type Config struct {
 
 func (c *Config) Validate() error {
 	for i, destinationInfo := range c.DestinationChains {
+		// Check if the chainID is valid
 		if _, err := ids.FromString(destinationInfo.ChainID); err != nil {
 			return errors.Wrap(err, fmt.Sprintf("invalid subnetID in block hash publisher configuration. Provided ID: %s", destinationInfo.ChainID))
+		}
+
+		// Check if the address is valid
+		addr := destinationInfo.Address
+		if strings.HasPrefix(addr, "0x") {
+			addr = addr[2:]
+		}
+		_, err := hex.DecodeString(addr)
+		if err != nil {
+			return errors.Wrap(err, fmt.Sprintf("invalid address in block hash publisher configuration. Provided address: %s", destinationInfo.Address))
 		}
 
 		// Intervals must be either a positive integer, or a positive integer followed by "s"
