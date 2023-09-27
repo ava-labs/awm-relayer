@@ -48,7 +48,7 @@ var (
 // Each messageRelayer runs in its own goroutine.
 type messageRelayer struct {
 	relayer             *Relayer
-	warpMessage         *warp.UnsignedMessage
+	warpMessageInfo     *vmtypes.WarpMessageInfo
 	destinationChainID  ids.ID
 	messageResponseChan chan message.InboundMessage
 	logger              logging.Logger
@@ -60,14 +60,14 @@ func newMessageRelayer(
 	logger logging.Logger,
 	metrics *MessageRelayerMetrics,
 	relayer *Relayer,
-	warpMessage *warp.UnsignedMessage, // TODONOW: store WarpMessageInfo
+	warpMessageInfo *vmtypes.WarpMessageInfo,
 	destinationChainID ids.ID,
 	messageResponseChan chan message.InboundMessage,
 	messageCreator message.Creator,
 ) *messageRelayer {
 	return &messageRelayer{
 		relayer:             relayer,
-		warpMessage:         warpMessage,
+		warpMessageInfo:     warpMessageInfo,
 		destinationChainID:  destinationChainID,
 		messageResponseChan: messageResponseChan,
 		logger:              logger,
@@ -76,10 +76,9 @@ func newMessageRelayer(
 	}
 }
 
-// TODONOW: remove WarpMessageInfo param
-func (r *messageRelayer) relayMessage(warpMessageInfo *vmtypes.WarpMessageInfo, requestID uint32, messageManager messages.MessageManager) error {
+func (r *messageRelayer) relayMessage(requestID uint32, messageManager messages.MessageManager) error {
 	// TODONOW: blockPublisher messageManager should decide based on configured time/block interval
-	shouldSend, err := messageManager.ShouldSendMessage(warpMessageInfo, r.destinationChainID)
+	shouldSend, err := messageManager.ShouldSendMessage(r.warpMessageInfo, r.destinationChainID)
 	if err != nil {
 		r.logger.Error(
 			"Failed to check if message should be sent",
@@ -111,7 +110,7 @@ func (r *messageRelayer) relayMessage(warpMessageInfo *vmtypes.WarpMessageInfo, 
 	r.setCreateSignedMessageLatencyMS(float64(time.Since(startCreateSignedMessageTime).Milliseconds()))
 
 	// TODONOW: blockPublisher messageManager should send message to destination chain
-	err = messageManager.SendMessage(signedMessage, warpMessageInfo.WarpPayload, r.destinationChainID)
+	err = messageManager.SendMessage(signedMessage, r.warpMessageInfo.WarpPayload, r.destinationChainID)
 	if err != nil {
 		r.logger.Error(
 			"Failed to send warp message",
@@ -134,6 +133,8 @@ func (r *messageRelayer) createSignedMessage(requestID uint32) (*warp.Message, e
 		"Starting relayer routine",
 		zap.String("destinationChainID", r.destinationChainID.String()),
 	)
+
+	sourceChainID := r.warpMessageInfo.WarpUnsignedMessage.SourceChainID
 
 	// Get the current canonical validator set of the source subnet.
 	validatorSet, totalValidatorWeight, err := r.getCurrentCanonicalValidatorSet()
@@ -177,7 +178,7 @@ func (r *messageRelayer) createSignedMessage(requestID uint32) (*warp.Message, e
 
 	// Construct the request
 	req := msg.SignatureRequest{
-		MessageID: r.warpMessage.ID(),
+		MessageID: r.warpMessageInfo.WarpUnsignedMessage.ID(),
 	}
 	reqBytes, err := msg.RequestToBytes(codec, req)
 	if err != nil {
@@ -189,7 +190,7 @@ func (r *messageRelayer) createSignedMessage(requestID uint32) (*warp.Message, e
 		return nil, err
 	}
 
-	outMsg, err := r.messageCreator.AppRequest(r.warpMessage.SourceChainID, requestID, peers.DefaultAppRequestTimeout, reqBytes)
+	outMsg, err := r.messageCreator.AppRequest(sourceChainID, requestID, peers.DefaultAppRequestTimeout, reqBytes)
 	if err != nil {
 		r.logger.Error(
 			"Failed to create app request message",
@@ -232,8 +233,8 @@ func (r *messageRelayer) createSignedMessage(requestID uint32) (*warp.Message, e
 			// Register a timeout response for each queried node
 			reqID := ids.RequestID{
 				NodeID:             nodeID,
-				SourceChainID:      r.warpMessage.SourceChainID,
-				DestinationChainID: r.warpMessage.SourceChainID,
+				SourceChainID:      sourceChainID,
+				DestinationChainID: sourceChainID,
 				RequestID:          requestID,
 				Op:                 byte(message.AppResponseOp),
 			}
@@ -325,7 +326,7 @@ func (r *messageRelayer) createSignedMessage(requestID uint32) (*warp.Message, e
 							return nil, err
 						}
 
-						signedMsg, err := warp.NewMessage(r.warpMessage, &warp.BitSetSignature{
+						signedMsg, err := warp.NewMessage(r.warpMessageInfo.WarpUnsignedMessage, &warp.BitSetSignature{
 							Signers:   vdrBitSet.Bytes(),
 							Signature: *(*[bls.SignatureLen]byte)(bls.SignatureToBytes(aggSig)),
 						})
@@ -474,7 +475,7 @@ func (r *messageRelayer) isValidSignatureResponse(
 		return blsSignatureBuf{}, false
 	}
 
-	if !bls.Verify(pubKey, sig, r.warpMessage.Bytes()) {
+	if !bls.Verify(pubKey, sig, r.warpMessageInfo.WarpUnsignedMessage.Bytes()) {
 		r.logger.Debug(
 			"Failed verification for signature",
 			zap.String("destinationChainID", r.destinationChainID.String()),

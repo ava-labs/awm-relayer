@@ -207,7 +207,7 @@ func (r *Relayer) RelayMessage(warpLogInfo *vmtypes.WarpLogInfo, metrics *Messag
 	}
 
 	// Create and run the message relayer to attempt to deliver the message to the destination chain
-	messageRelayer := newMessageRelayer(r.logger, metrics, r, warpMessageInfo.WarpUnsignedMessage, warpLogInfo.DestinationChainID, r.responseChan, messageCreator)
+	messageRelayer := newMessageRelayer(r.logger, metrics, r, warpMessageInfo, warpLogInfo.DestinationChainID, r.responseChan, messageCreator)
 	if err != nil {
 		r.logger.Error(
 			"Failed to create message relayer",
@@ -218,7 +218,7 @@ func (r *Relayer) RelayMessage(warpLogInfo *vmtypes.WarpLogInfo, metrics *Messag
 
 	// Relay the message to the destination. Messages from a given source chain must be processed in serial in order to
 	// guarantee that the previous block (n-1) is fully processed by the relayer when processing a given log from block n.
-	err = messageRelayer.relayMessage(warpMessageInfo, r.currentRequestID, messageManager)
+	err = messageRelayer.relayMessage(r.currentRequestID, messageManager)
 	if err != nil {
 		r.logger.Error(
 			"Failed to run message relayer",
