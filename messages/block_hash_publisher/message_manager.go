@@ -11,6 +11,7 @@ import (
 	"github.com/ava-labs/awm-relayer/config"
 	"github.com/ava-labs/awm-relayer/vms"
 	"github.com/ava-labs/awm-relayer/vms/vmtypes"
+	teleporter_block_hash "github.com/ava-labs/teleporter/abis/go/teleporter-block-hash"
 	"github.com/ethereum/go-ethereum/common"
 	"go.uber.org/zap"
 )
@@ -112,15 +113,34 @@ func (m *messageManager) ShouldSendMessage(warpMessageInfo *vmtypes.WarpMessageI
 }
 
 func (m *messageManager) SendMessage(signedMessage *warp.Message, parsedVmPayload []byte, destinationChainID ids.ID) error {
-	// TODONOW: Set the calldata by packing the ABI arguments
-	var callData []byte
+	m.logger.Info(
+		"Sending message to destination chain",
+		zap.String("destinationChainID", destinationChainID.String()),
+		zap.String("warpMessageID", signedMessage.ID().String()),
+	)
+	// Construct the transaction call data to call the receive cross chain message method of the receiver precompile.
+	callData, err := teleporter_block_hash.PackReceiveBlockHash(teleporter_block_hash.ReceiveBlockHashInput{
+		MessageIndex:  uint32(0),
+		SourceChainID: signedMessage.SourceChainID,
+	})
+	if err != nil {
+		m.logger.Error(
+			"Failed packing receiveCrossChainMessage call data",
+			zap.Error(err),
+			zap.Uint32("messageIndex", 0),
+			zap.String("sourceChainID", signedMessage.SourceChainID.String()),
+			zap.String("destinationChainID", destinationChainID.String()),
+			zap.String("warpMessageID", signedMessage.ID().String()),
+		)
+		return err
+	}
 
 	// Get the correct destination client from the global map
 	destination, ok := m.destinations[destinationChainID]
 	if !ok {
 		return fmt.Errorf("relayer not configured to deliver to destination. destinationChainID=%s", destinationChainID)
 	}
-	err := destination.client.SendTx(signedMessage, destination.address.Hex(), publishBlockHashGasLimit, callData)
+	err = destination.client.SendTx(signedMessage, destination.address.Hex(), publishBlockHashGasLimit, callData)
 	if err != nil {
 		m.logger.Error(
 			"Failed to send tx.",
