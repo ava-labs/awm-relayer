@@ -151,7 +151,7 @@ var _ = ginkgo.Describe("[Relayer E2E]", ginkgo.Ordered, func() {
 
 		data, err := teleporter.EVMTeleporterContractABI.Pack(
 			"sendCrossChainMessage",
-			teleporterTestUtils.TeleporterMessageInput{
+			teleporterTestUtils.SendCrossChainMessageInput{
 				DestinationChainID: teleporterTestUtils.BlockchainIDB,
 				DestinationAddress: teleporterTestUtils.FundedAddress,
 				FeeInfo: teleporterTestUtils.FeeInfo{
