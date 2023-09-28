@@ -61,25 +61,12 @@ Unit tests can be ran locally by running the command in root of the project:
 
 ### E2E tests
 
-E2E tests are ran as part of CI, but can also be ran locally. To run the E2E tests locally, you'll need to do the following:
-- Install Gingko following the intructions [here](https://onsi.github.io/ginkgo/#installing-ginkgo)
-- Clone `subnet-evm` from [Github](https://github.com/ava-labs/subnet-evm) and checkout the correct version as specified in `go.mod` or `scripts/versions.sh`
+E2E tests are ran as part of CI, but can also be ran locally with the `--local` flag. To run the E2E tests locally, you'll need to install Gingko following the intructions [here](https://onsi.github.io/ginkgo/#installing-ginkgo)
 
-Next, set up the `avalanchego` build path and `subnet-evm` binary, making sure to install everything in a writeable location (here we use `~/tmp`):
-
+Next, provide the path to the `subnet-evm` repository and the path to a writeable data directory (here we use the `~/subnet-evm` and `~/tmp/e2e-test`) to use for the tests:
 ```bash
-cd subnet-evm
-BASEDIR=~/tmp/e2e-test AVALANCHEGO_BUILD_PATH=~/tmp/e2e-test/avalanchego ./scripts/install_avalanchego_release.sh
-./scripts/build.sh ~/tmp/e2e-test/avalanchego/plugins/srEXiWaHuhNyGwPUi444Tu47ZEDwxTWrbQiuD7FmgSAQ6X7Dy
+./scripts/e2e_test.sh --local --subnet-evm ~/subnet-evm --data-dir ~/tmp/e2e-test
 ```
-
-Then, in the root of the `awm-relayer` project, run:
-
-```bash
-AVALANCHEGO_BUILD_PATH=~/tmp/e2e-test/avalanchego DATA_DIR=~/tmp/e2e-test/data ./scripts/e2e_test.sh
-```
-
-Note that any additional E2E tests that run VMs other than `subnet-evm` will need to install and setup the VM binary in the same way.
 ### Generate Mocks
 
 We use [gomock](https://pkg.go.dev/go.uber.org/mock/gomock) to generate mocks for testing. To generate mocks, run the following command at the root of the project:
