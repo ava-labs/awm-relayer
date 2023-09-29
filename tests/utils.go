@@ -21,8 +21,11 @@ import (
 	"github.com/ava-labs/subnet-evm/tests/utils"
 	"github.com/ava-labs/subnet-evm/tests/utils/runner"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/rlp"
 	. "github.com/onsi/gomega"
+	"github.com/pkg/errors"
 )
 
 var (
@@ -139,4 +142,19 @@ func setUpProposerVm(ctx context.Context, fundedKey *ecdsa.PrivateKey, manager *
 
 	err = utils.IssueTxsToActivateProposerVMFork(ctx, chainIDInt, fundedKey, client)
 	Expect(err).Should(BeNil())
+}
+
+// TODONOW: remove this once available in teleporter
+func deriveEVMContractAddress(sender common.Address, nonce uint64) (common.Address, error) {
+	type AddressNonce struct {
+		Address common.Address
+		Nonce   uint64
+	}
+	addressNonce := AddressNonce{sender, nonce}
+	rlpEncoded, err := rlp.EncodeToBytes(addressNonce)
+	if err != nil {
+		return common.Address{}, errors.Wrap(err, "Failed to RLP encode address and nonce value.")
+	}
+	hash := crypto.Keccak256Hash(rlpEncoded)
+	return common.HexToAddress(fmt.Sprintf("0x%x", hash.Bytes()[12:])), nil
 }

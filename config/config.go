@@ -237,6 +237,9 @@ func (s *SourceSubnet) Validate() error {
 				return fmt.Errorf("invalid message contract address in EVM source subnet: %s", messageContractAddress)
 			}
 		}
+	case EVM_BLOCKHASH:
+		// No additional validation required
+		// TODONOW: we shouldn't require an address as the key for block hash publisher
 	default:
 		return fmt.Errorf("unsupported VM type for source subnet: %v", s.VM)
 	}

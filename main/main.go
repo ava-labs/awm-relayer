@@ -229,7 +229,7 @@ func runRelayer(logger logging.Logger,
 		select {
 		case txLog := <-subscriber.Logs():
 			logger.Info(
-				"Handling Teleporter submit message log.",
+				"Handling message log.",
 				zap.String("txId", hex.EncodeToString(txLog.SourceTxID)),
 				zap.String("originChainId", sourceSubnetInfo.ChainID),
 				zap.String("destinationChainId", txLog.DestinationChainID.String()),

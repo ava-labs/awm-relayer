@@ -17,7 +17,7 @@ import (
 )
 
 const (
-	publishBlockHashGasLimit = 100000 // TODONOW: set the correct gas limit
+	publishBlockHashGasLimit = 1000000 // TODONOW: set the correct gas limit
 )
 
 type destinationSenderInfo struct {
@@ -45,7 +45,7 @@ func NewMessageManager(
 	messageProtocolConfig config.MessageProtocolConfig,
 	destinationClients map[ids.ID]vms.DestinationClient,
 ) (*messageManager, error) {
-	// Marshal the map and unmarshal into the Teleporter config
+	// Marshal the map and unmarshal into the Block Hash Publisher config
 	data, err := json.Marshal(messageProtocolConfig.Settings)
 	if err != nil {
 		logger.Error("Failed to marshal Block Hash Publisher config")
@@ -64,6 +64,7 @@ func NewMessageManager(
 		)
 		return nil, err
 	}
+	logger.Info("DEBUG CONFIG", zap.String("config", fmt.Sprintf("%#v", messageConfig)))
 
 	destinations := make(map[ids.ID]*destinationSenderInfo)
 	for _, destination := range messageConfig.DestinationChains {
@@ -78,9 +79,12 @@ func NewMessageManager(
 		destinations[destinationID] = &destinationSenderInfo{
 			useTimeInterval:     destination.useTimeInterval,
 			timeIntervalSeconds: uint64(destination.timeIntervalSeconds),
+			blockInterval:       uint64(destination.blockInterval),
 			address:             common.HexToAddress(destination.Address),
 			client:              destinationClients[destinationID],
 		}
+		logger.Info("DEBUG DESTINATIONS", zap.String("address", destinations[destinationID].address.String()))
+
 	}
 
 	return &messageManager{
@@ -93,6 +97,15 @@ func NewMessageManager(
 func (m *messageManager) ShouldSendMessage(warpMessageInfo *vmtypes.WarpMessageInfo, destinationChainID ids.ID) (bool, error) {
 	destination, ok := m.destinations[destinationChainID]
 	if !ok {
+		var destinationIDs []string
+		for id := range m.destinations {
+			destinationIDs = append(destinationIDs, id.String())
+		}
+		m.logger.Info(
+			"DEBUG",
+			zap.String("destinationChainID", destinationChainID.String()),
+			zap.String("configuredDestinations", fmt.Sprintf("%#v", destinationIDs)),
+		)
 		return false, fmt.Errorf("relayer not configured to deliver to destination. destinationChainID=%s", destinationChainID)
 	}
 	if destination.useTimeInterval {
@@ -103,12 +116,24 @@ func (m *messageManager) ShouldSendMessage(warpMessageInfo *vmtypes.WarpMessageI
 	} else {
 		interval := destination.blockInterval
 		if warpMessageInfo.BlockNumber-destination.lastBlock < uint64(interval) {
+			m.logger.Info(
+				"DEBUG",
+				zap.String("decision", "Not sending"),
+				zap.Int("blockNum", int(warpMessageInfo.BlockNumber)),
+				zap.Int("lastBlockNum", int(destination.lastBlock)),
+			)
 			return false, nil
 		}
 	}
 	// Set the last approved block/time here. We don't set the last sent block/time until the message is actually sent
 	destination.lastApprovedBlock = warpMessageInfo.BlockNumber
 	destination.lastApprovedTime = warpMessageInfo.BlockTimestamp
+	m.logger.Info(
+		"DEBUG",
+		zap.String("decision", "Sending"),
+		zap.Int("blockNum", int(warpMessageInfo.BlockNumber)),
+		zap.Int("lastBlockNum", int(destination.lastBlock)),
+	)
 	return true, nil
 }
 

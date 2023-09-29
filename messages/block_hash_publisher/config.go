@@ -28,11 +28,14 @@ func (c *Config) Validate() error {
 	for i, destinationInfo := range c.DestinationChains {
 		// Check if the chainID is valid
 		if _, err := ids.FromString(destinationInfo.ChainID); err != nil {
-			return errors.Wrap(err, fmt.Sprintf("invalid subnetID in block hash publisher configuration. Provided ID: %s", destinationInfo.ChainID))
+			return errors.Wrap(err, fmt.Sprintf("invalid chainID in block hash publisher configuration. Provided ID: %s", destinationInfo.ChainID))
 		}
 
 		// Check if the address is valid
 		addr := destinationInfo.Address
+		if addr == "" {
+			return errors.New("empty address in block hash publisher configuration")
+		}
 		if strings.HasPrefix(addr, "0x") {
 			addr = addr[2:]
 		}
