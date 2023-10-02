@@ -34,6 +34,10 @@ var _ = ginkgo.BeforeSuite(setupSuite)
 
 var _ = ginkgo.AfterSuite(teleporterTestUtils.TearDownNetwork)
 
+var _ = ginkgo.Describe("[AWM Relayer Integration Tests", func() {
+	ginkgo.It("Basic Relay", BasicRelay)
+})
+
 // Sets up the warp-enabled network and deploys the teleporter contract to each of the subnets
 func setupSuite() {
 	teleporterTestUtils.SetupNetwork(warpGenesisFile)
