@@ -194,7 +194,7 @@ func (r *Relayer) RelayMessage(warpMessageInfo *vmtypes.WarpMessageInfo, metrics
 		zap.String("warpMessageID", warpMessageInfo.WarpUnsignedMessage.ID().String()),
 	)
 
-	// Check that the warp message is from a support message protocol contract address.
+	// Check that the warp message is from a supported message protocol contract address.
 	messageManager, supportedMessageProtocol := r.messageManagers[warpMessageInfo.SourceAddress]
 	if !supportedMessageProtocol {
 		// Do not return an error here because it is expected for there to be messages from other contracts

@@ -34,6 +34,21 @@ type destinationSenderInfo struct {
 	lastBlock         uint64
 }
 
+func (d *destinationSenderInfo) shouldSend(blockTimestamp uint64, blockNumber uint64) bool {
+	if d.useTimeInterval {
+		interval := d.timeIntervalSeconds
+		if time.Unix(int64(blockTimestamp), 0).Sub(time.Unix(int64(d.lastTimeSent), 0)) < (time.Duration(interval) * time.Second) {
+			return false
+		}
+	} else {
+		interval := d.blockInterval
+		if blockNumber-d.lastBlock < uint64(interval) {
+			return false
+		}
+	}
+	return true
+}
+
 type messageManager struct {
 	destinations map[ids.ID]*destinationSenderInfo
 	logger       logging.Logger
@@ -83,8 +98,6 @@ func NewMessageManager(
 			address:             common.HexToAddress(destination.Address),
 			client:              destinationClients[destinationID],
 		}
-		logger.Info("DEBUG DESTINATIONS", zap.String("address", destinations[destinationID].address.String()))
-
 	}
 
 	return &messageManager{
@@ -93,96 +106,71 @@ func NewMessageManager(
 	}, nil
 }
 
-// ShouldSendMessage returns true if the message should be sent to the destination chain
-func (m *messageManager) ShouldSendMessage(warpMessageInfo *vmtypes.WarpMessageInfo, destinationChainID ids.ID) (bool, error) {
-	destination, ok := m.destinations[destinationChainID]
-	if !ok {
-		var destinationIDs []string
-		for id := range m.destinations {
-			destinationIDs = append(destinationIDs, id.String())
-		}
-		m.logger.Info(
-			"DEBUG",
-			zap.String("destinationChainID", destinationChainID.String()),
-			zap.String("configuredDestinations", fmt.Sprintf("%#v", destinationIDs)),
-		)
-		return false, fmt.Errorf("relayer not configured to deliver to destination. destinationChainID=%s", destinationChainID)
-	}
-	if destination.useTimeInterval {
-		interval := destination.timeIntervalSeconds
-		if time.Unix(int64(warpMessageInfo.BlockTimestamp), 0).Sub(time.Unix(int64(destination.lastTimeSent), 0)) < (time.Duration(interval) * time.Second) {
-			return false, nil
-		}
-	} else {
-		interval := destination.blockInterval
-		if warpMessageInfo.BlockNumber-destination.lastBlock < uint64(interval) {
-			m.logger.Info(
-				"DEBUG",
-				zap.String("decision", "Not sending"),
-				zap.Int("blockNum", int(warpMessageInfo.BlockNumber)),
-				zap.Int("lastBlockNum", int(destination.lastBlock)),
-			)
-			return false, nil
+// ShouldSendMessage returns true if the message should be sent to ANY of the configured destination chains
+// This saves us from having to aggregate signatures in that case. Decisions about which destination chains to send to are made in SendMessage
+func (m *messageManager) ShouldSendMessage(warpMessageInfo *vmtypes.WarpMessageInfo, _ ids.ID) (bool, error) {
+	for _, destination := range m.destinations {
+		if destination.shouldSend(warpMessageInfo.BlockTimestamp, warpMessageInfo.BlockNumber) {
+			return true, nil
 		}
 	}
-	// Set the last approved block/time here. We don't set the last sent block/time until the message is actually sent
-	destination.lastApprovedBlock = warpMessageInfo.BlockNumber
-	destination.lastApprovedTime = warpMessageInfo.BlockTimestamp
-	m.logger.Info(
-		"DEBUG",
-		zap.String("decision", "Sending"),
-		zap.Int("blockNum", int(warpMessageInfo.BlockNumber)),
-		zap.Int("lastBlockNum", int(destination.lastBlock)),
-	)
-	return true, nil
+	return false, nil
 }
 
-func (m *messageManager) SendMessage(signedMessage *warp.Message, parsedVmPayload []byte, destinationChainID ids.ID) error {
+func (m *messageManager) SendMessage(signedMessage *warp.Message, warpMessageInfo *vmtypes.WarpMessageInfo, _ ids.ID) error {
 	m.logger.Info(
-		"Sending message to destination chain",
-		zap.String("destinationChainID", destinationChainID.String()),
-		zap.String("warpMessageID", signedMessage.ID().String()),
+		"DEBUG SENDING",
+		zap.String("destinationInfo", fmt.Sprintf("%#v", m.destinations)),
+		zap.Uint64("blockTimestampe", warpMessageInfo.BlockTimestamp),
+		zap.Uint64("blockNumber", warpMessageInfo.BlockNumber),
 	)
-	// Construct the transaction call data to call the receive cross chain message method of the receiver precompile.
-	callData, err := teleporter_block_hash.PackReceiveBlockHash(teleporter_block_hash.ReceiveBlockHashInput{
-		MessageIndex:  uint32(0),
-		SourceChainID: signedMessage.SourceChainID,
-	})
-	if err != nil {
-		m.logger.Error(
-			"Failed packing receiveCrossChainMessage call data",
-			zap.Error(err),
-			zap.Uint32("messageIndex", 0),
-			zap.String("sourceChainID", signedMessage.SourceChainID.String()),
+	for destinationChainID, destination := range m.destinations {
+		if !destination.shouldSend(warpMessageInfo.BlockTimestamp, warpMessageInfo.BlockNumber) {
+			continue
+		}
+
+		m.logger.Info(
+			"Sending message to destination chain",
 			zap.String("destinationChainID", destinationChainID.String()),
 			zap.String("warpMessageID", signedMessage.ID().String()),
 		)
-		return err
-	}
+		// Construct the transaction call data to call the receive cross chain message method of the receiver precompile.
+		callData, err := teleporter_block_hash.PackReceiveBlockHash(teleporter_block_hash.ReceiveBlockHashInput{
+			MessageIndex:  uint32(0),
+			SourceChainID: signedMessage.SourceChainID,
+		})
+		if err != nil {
+			m.logger.Error(
+				"Failed packing receiveCrossChainMessage call data",
+				zap.Error(err),
+				zap.Uint32("messageIndex", 0),
+				zap.String("sourceChainID", signedMessage.SourceChainID.String()),
+				zap.String("destinationChainID", destinationChainID.String()),
+				zap.String("warpMessageID", signedMessage.ID().String()),
+			)
+			return err
+		}
 
-	// Get the correct destination client from the global map
-	destination, ok := m.destinations[destinationChainID]
-	if !ok {
-		return fmt.Errorf("relayer not configured to deliver to destination. destinationChainID=%s", destinationChainID)
-	}
-	err = destination.client.SendTx(signedMessage, destination.address.Hex(), publishBlockHashGasLimit, callData)
-	if err != nil {
-		m.logger.Error(
-			"Failed to send tx.",
+		// Get the correct destination client from the global map
+		err = destination.client.SendTx(signedMessage, destination.address.Hex(), publishBlockHashGasLimit, callData)
+		if err != nil {
+			m.logger.Error(
+				"Failed to send tx.",
+				zap.String("destinationChainID", destinationChainID.String()),
+				zap.String("warpMessageID", signedMessage.ID().String()),
+				zap.Error(err),
+			)
+			return err
+		}
+
+		// Set the last sent block/time
+		destination.lastTimeSent = destination.lastApprovedTime
+		destination.lastBlock = destination.lastApprovedBlock
+		m.logger.Info(
+			"Sent message to destination chain",
 			zap.String("destinationChainID", destinationChainID.String()),
 			zap.String("warpMessageID", signedMessage.ID().String()),
-			zap.Error(err),
 		)
-		return err
 	}
-
-	// Set the last sent block/time
-	destination.lastTimeSent = destination.lastApprovedTime
-	destination.lastBlock = destination.lastApprovedBlock
-	m.logger.Info(
-		"Sent message to destination chain",
-		zap.String("destinationChainID", destinationChainID.String()),
-		zap.String("warpMessageID", signedMessage.ID().String()),
-	)
 	return nil
 }

@@ -17,7 +17,7 @@ func NewMessageRelayerMetrics(registerer prometheus.Registerer) *MessageRelayerM
 			Name: "successful_relay_message_count",
 			Help: "Number of messages that relayed successfully",
 		},
-		[]string{"destination_chain_id", "source_chain_id", "source_subnet_id"},
+		[]string{"source_chain_id", "source_subnet_id"},
 	)
 	registerer.MustRegister(successfulRelayMessageCount)
 
@@ -26,7 +26,7 @@ func NewMessageRelayerMetrics(registerer prometheus.Registerer) *MessageRelayerM
 			Name: "create_signed_message_latency_ms",
 			Help: "Latency of creating a signed message in milliseconds",
 		},
-		[]string{"destination_chain_id", "source_chain_id", "source_subnet_id"},
+		[]string{"source_chain_id", "source_subnet_id"},
 	)
 	registerer.MustRegister(createSignedMessageLatencyMS)
 
@@ -35,7 +35,7 @@ func NewMessageRelayerMetrics(registerer prometheus.Registerer) *MessageRelayerM
 			Name: "failed_relay_message_count",
 			Help: "Number of messages that failed to relay",
 		},
-		[]string{"destination_chain_id", "source_chain_id", "source_subnet_id", "failure_reason"},
+		[]string{"source_chain_id", "source_subnet_id", "failure_reason"},
 	)
 	registerer.MustRegister(failedRelayMessageCount)
 

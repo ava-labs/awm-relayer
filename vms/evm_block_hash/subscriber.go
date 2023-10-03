@@ -2,7 +2,6 @@ package evm_block_hash
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"math/big"
@@ -35,14 +34,13 @@ var (
 
 // subscriber implements Subscriber
 type subscriber struct {
-	nodeWSURL           string
-	nodeRPCURL          string
-	chainID             ids.ID
-	logsChan            chan vmtypes.WarpMessageInfo
-	blocks              <-chan *types.Header
-	sub                 interfaces.Subscription
-	networkID           uint32
-	destinationChainIDs []ids.ID
+	nodeWSURL  string
+	nodeRPCURL string
+	chainID    ids.ID
+	logsChan   chan vmtypes.WarpMessageInfo
+	blocks     <-chan *types.Header
+	sub        interfaces.Subscription
+	networkID  uint32
 
 	logger logging.Logger
 	db     database.RelayerDatabase
@@ -61,54 +59,14 @@ func NewSubscriber(logger logging.Logger, subnetInfo config.SourceSubnet, db dat
 
 	logs := make(chan vmtypes.WarpMessageInfo, maxClientSubscriptionBuffer)
 
-	var destinationChainIDs []ids.ID
-	// Extract the destination chain IDs from the EVM Block Hash config
-	for _, cfg := range subnetInfo.MessageContracts {
-		if config.ParseMessageProtocol(cfg.MessageFormat) == config.BLOCK_HASH_PUBLISHER {
-			// Marshal the map and unmarshal into the Block Hash Publisher config
-			data, err := json.Marshal(cfg.Settings)
-			if err != nil {
-				logger.Error("Failed to marshal Block Hash Publisher config")
-				return nil
-			}
-			// TODONOW: Don't repeat the block hash config here. Need to resolve dependency cycle
-			type destinationInfo struct {
-				ChainID  string `json:"chain-id"`
-				Address  string `json:"address"`
-				Interval string `json:"interval"`
-			}
-
-			type config struct {
-				DestinationChains []destinationInfo `json:"destination-chains"`
-			}
-			var messageConfig config
-			if err := json.Unmarshal(data, &messageConfig); err != nil {
-				logger.Error("Failed to unmarshal Block Hash Publisher config")
-				return nil
-			}
-			for _, chainInfo := range messageConfig.DestinationChains {
-				chainID, err := ids.FromString(chainInfo.ChainID)
-				if err != nil {
-					logger.Error(
-						"Failed to decode base-58 encoded destination chain ID",
-						zap.Error(err),
-					)
-					return nil
-				}
-				destinationChainIDs = append(destinationChainIDs, chainID)
-			}
-		}
-	}
-
 	return &subscriber{
-		nodeWSURL:           subnetInfo.GetNodeWSEndpoint(),
-		nodeRPCURL:          subnetInfo.GetNodeRPCEndpoint(),
-		chainID:             chainID,
-		logger:              logger,
-		db:                  db,
-		logsChan:            logs,
-		networkID:           config.GetNetworkID(),
-		destinationChainIDs: destinationChainIDs,
+		nodeWSURL:  subnetInfo.GetNodeWSEndpoint(),
+		nodeRPCURL: subnetInfo.GetNodeRPCEndpoint(),
+		chainID:    chainID,
+		logger:     logger,
+		db:         db,
+		logsChan:   logs,
+		networkID:  config.GetNetworkID(),
 	}
 }
 
@@ -170,7 +128,7 @@ func (s *subscriber) dialAndSubscribe() error {
 	return nil
 }
 
-func (s *subscriber) NewWarpMessageInfo(block *types.Header, destinationChainID ids.ID) (*vmtypes.WarpMessageInfo, error) {
+func (s *subscriber) NewWarpMessageInfo(block *types.Header) (*vmtypes.WarpMessageInfo, error) {
 	blockHashPayload, err := payload.NewBlockHashPayload(block.Hash())
 	if err != nil {
 		return nil, err
@@ -185,30 +143,29 @@ func (s *subscriber) NewWarpMessageInfo(block *types.Header, destinationChainID 
 	}
 
 	return &vmtypes.WarpMessageInfo{
-		DestinationChainID: destinationChainID,
-		UnsignedMsgBytes:   unsignedMessage.Bytes(),
-		BlockNumber:        block.Number.Uint64(),
-		BlockTimestamp:     block.Time,
+		UnsignedMsgBytes: unsignedMessage.Bytes(),
+		BlockNumber:      block.Number.Uint64(),
+		BlockTimestamp:   block.Time,
 	}, nil
 }
 
 // forward logs from the concrete log channel to the interface channel
 func (s *subscriber) forwardLogs() {
-	s.logger.Info("DEBUG Forwarding logs")
+	// TODO: When publishing anycast messages from the C-Chain, we need to create
+	// a separate aggregate signature for each destination chain.
+	// The easiest thing to do would be to fan out here and produce new logs for each of
+	// the destinations, but that may introduce a cyclic dependency between this package
+	// and the anycast message protocol package.
 	for block := range s.blocks {
-		// Fan out to all destination chains
-		for _, destinationChainID := range s.destinationChainIDs {
-			s.logger.Info("DEBUG forwarding to destination", zap.String("destinationChainID", destinationChainID.String()))
-			messageInfo, err := s.NewWarpMessageInfo(block, destinationChainID)
-			if err != nil {
-				s.logger.Error(
-					"Invalid log. Continuing.",
-					zap.Error(err),
-				)
-				continue
-			}
-			s.logsChan <- *messageInfo
+		messageInfo, err := s.NewWarpMessageInfo(block)
+		if err != nil {
+			s.logger.Error(
+				"Invalid log. Continuing.",
+				zap.Error(err),
+			)
+			continue
 		}
+		s.logsChan <- *messageInfo
 	}
 }
 

@@ -23,13 +23,11 @@ import (
 	"github.com/ava-labs/awm-relayer/messages/teleporter"
 	"github.com/ava-labs/awm-relayer/peers"
 	relayerEvm "github.com/ava-labs/awm-relayer/vms/evm"
-	"github.com/ava-labs/subnet-evm/accounts/abi"
 	"github.com/ava-labs/subnet-evm/core/types"
 	"github.com/ava-labs/subnet-evm/ethclient"
 	"github.com/ava-labs/subnet-evm/interfaces"
 	"github.com/ava-labs/subnet-evm/plugin/evm"
 	"github.com/ava-labs/subnet-evm/tests/utils/runner"
-	teleporter_block_hash "github.com/ava-labs/teleporter/abis/go/teleporter-block-hash"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -537,7 +535,7 @@ var _ = ginkgo.Describe("[Relayer Publish Block Hash]", ginkgo.Ordered, func() {
 		relayerCancel             context.CancelFunc
 		blockHashReceiverAddressB common.Address
 		subnetAHashes             []common.Hash
-		blockHashABI              *abi.ABI
+		// blockHashABI              *abi.ABI
 	)
 	ginkgo.It("Deploy block hash receiver", ginkgo.Label("Relayer", "DeployBlockHashReceiver"), func() {
 		ctx := context.Background()
@@ -568,8 +566,8 @@ var _ = ginkgo.Describe("[Relayer Publish Block Hash]", ginkgo.Ordered, func() {
 		// 	chainBRPCClient,
 		// )
 		// Expect(err).Should(BeNil())
-		blockHashABI, err = teleporter_block_hash.TeleporterBlockHashMetaData.GetAbi()
-		Expect(err).Should(BeNil())
+		// blockHashABI, err = teleporter_block_hash.TeleporterBlockHashMetaData.GetAbi()
+		// Expect(err).Should(BeNil())
 		blockHashReceiverAddressB, err = deriveEVMContractAddress(fundedAddress, nonceB)
 		Expect(err).Should(BeNil())
 
@@ -773,7 +771,6 @@ var _ = ginkgo.Describe("[Relayer Publish Block Hash]", ginkgo.Ordered, func() {
 			// Expect(err).Should(BeNil())
 			// Expect(receipt.Status).Should(Equal(types.ReceiptStatusSuccessful))
 
-			log.Info("event", blockHashABI.Events["ReceiveBlockHash"].ID.String()) //TODONOW remove this
 			logs, err := chainBRPCClient.FilterLogs(ctx, interfaces.FilterQuery{
 				// BlockHash: &blockHashB,
 				Addresses: []common.Address{blockHashReceiverAddressB},
