@@ -77,10 +77,6 @@ func newMessageRelayer(
 }
 
 func (r *messageRelayer) relayMessage(requestID uint32, messageManager messages.MessageManager) error {
-	// TODONOW: destinationChainID may be nil/empty, in which case it is an anycast message -> set by subscriber
-	// ShouldSendMessage makes decisions based ONLY on the message contents, not the relayer config.
-	// This means that it won't make any decisions about anycase messages based on the relayer config.
-	// SendMessage handles sending anycast messages to the correct destination chain, based on the relayer config
 	shouldSend, err := messageManager.ShouldSendMessage(r.warpMessageInfo, r.destinationChainID)
 	if err != nil {
 		r.logger.Error(

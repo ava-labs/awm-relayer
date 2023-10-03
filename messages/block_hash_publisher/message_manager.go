@@ -109,6 +109,7 @@ func NewMessageManager(
 // ShouldSendMessage returns true if the message should be sent to ANY of the configured destination chains
 // This saves us from having to aggregate signatures in that case. Decisions about which destination chains to send to are made in SendMessage
 func (m *messageManager) ShouldSendMessage(warpMessageInfo *vmtypes.WarpMessageInfo, _ ids.ID) (bool, error) {
+	// TODO: Handle the primary network case. If it's the primary network, only check the passed in destinationChainID
 	for _, destination := range m.destinations {
 		if destination.shouldSend(warpMessageInfo.BlockTimestamp, warpMessageInfo.BlockNumber) {
 			return true, nil
@@ -118,6 +119,7 @@ func (m *messageManager) ShouldSendMessage(warpMessageInfo *vmtypes.WarpMessageI
 }
 
 func (m *messageManager) SendMessage(signedMessage *warp.Message, warpMessageInfo *vmtypes.WarpMessageInfo, _ ids.ID) error {
+	// TODO: Handle the primary network case. If it's the primary network, only send to the passed in destinationChainID
 	m.logger.Info(
 		"DEBUG SENDING",
 		zap.String("destinationInfo", fmt.Sprintf("%#v", m.destinations)),

@@ -72,6 +72,7 @@ func NewRelayer(
 	messageManagers := make(map[common.Hash]messages.MessageManager)
 	for address, config := range sourceSubnetInfo.MessageContracts {
 		addressHash := common.HexToHash(address)
+		// TODO: To handle the primary network case, the messageManager needs to know if its source subnet is the primary network
 		messageManager, err := messages.NewMessageManager(logger, addressHash, config, destinationClients)
 		if err != nil {
 			logger.Error(
@@ -205,6 +206,12 @@ func (r *Relayer) RelayMessage(warpMessageInfo *vmtypes.WarpMessageInfo, metrics
 		)
 		return nil
 	}
+
+	// TODO: To handle anycasting for the primary network, we need to call newMessageRelayer in a loop for each of the
+	// configured destinations. We can get the configured destinations from messageManage.
+	// This is necessary because in the primary network case, each destination will have a different aggregate signature.
+	// For anycasting from any other network, we only need to create a single aggregate signature, so we fan out in
+	// messageManager instead.
 
 	// Create and run the message relayer to attempt to deliver the message to the destination chain
 	messageRelayer := newMessageRelayer(r.logger, metrics, r, warpMessageInfo, warpMessageInfo.DestinationChainID, r.responseChan, messageCreator)
