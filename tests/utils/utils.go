@@ -25,6 +25,7 @@ func RunRelayerExecutable(ctx context.Context, relayerConfigPath string) (*exec.
 	cmdReader, _ := relayerCmd.StdoutPipe()
 
 	// Start the command
+	log.Info("Starting the relayer executable")
 	err := relayerCmd.Start()
 	Expect(err).Should(BeNil())
 

@@ -49,8 +49,6 @@ The relayer consists of the following components:
 
 ## Testing
 
----
-
 ### Unit tests
 
 Unit tests can be ran locally by running the command in root of the project:

@@ -143,6 +143,7 @@ func BasicRelay() {
 	//
 	// Send a transaction to Subnet A to issue a Warp Message from the Teleporter contract to Subnet B
 	//
+	log.Info("Sending transaction from Subnet A to Subnet B")
 	ctx := context.Background()
 
 	relayerCmd, relayerCancel = testUtils.RunRelayerExecutable(ctx, relayerConfigPath)
@@ -161,14 +162,14 @@ func BasicRelay() {
 		"sendCrossChainMessage",
 		teleporterTestUtils.SendCrossChainMessageInput{
 			DestinationChainID: subnetBInfo.BlockchainID,
-			DestinationAddress: fundedAddress,
+			DestinationAddress: teleporterMessage.DestinationAddress,
 			FeeInfo: teleporterTestUtils.FeeInfo{
 				ContractAddress: fundedAddress,
 				Amount:          big.NewInt(0),
 			},
-			RequiredGasLimit:        big.NewInt(1),
-			AllowedRelayerAddresses: []common.Address{},
-			Message:                 []byte{1, 2, 3, 4},
+			RequiredGasLimit:        teleporterMessage.RequiredGasLimit,
+			AllowedRelayerAddresses: teleporterMessage.AllowedRelayerAddresses,
+			Message:                 teleporterMessage.Message,
 		},
 	)
 	Expect(err).Should(BeNil())
@@ -253,6 +254,7 @@ func BasicRelay() {
 	//
 	// Try Relaying Already Delivered Message
 	//
+	log.Info("Creating new relayer instance to test already delivered message")
 	logger := logging.NewLogger(
 		"awm-relayer",
 		logging.NewWrappedCore(
@@ -272,6 +274,7 @@ func BasicRelay() {
 	relayerCmd, relayerCancel = testUtils.RunRelayerExecutable(ctx, relayerConfigPath)
 
 	// We should not receive a new block on subnet B, since the relayer should have seen the Teleporter message was already delivered
+	log.Info("Waiting for 10s to ensure no new block confirmations on destination chain")
 	Consistently(newHeadsB, 10*time.Second, 500*time.Millisecond).ShouldNot(Receive())
 
 	// Cancel the command and stop the relayer
@@ -281,6 +284,7 @@ func BasicRelay() {
 	//
 	// Validate Received Warp Message Values
 	//
+	log.Info("Validating received warp message")
 	Expect(receivedWarpMessage.SourceChainID).Should(Equal(subnetAInfo.BlockchainID))
 	addressedPayload, err := warpPayload.ParseAddressedPayload(receivedWarpMessage.Payload)
 	Expect(err).Should(BeNil())
