@@ -65,14 +65,10 @@ github.com/ava-labs/avalanche-network-runner v1.7.2 h1:XFad/wZfYzDnqbLzPAPPRYU3a
 github.com/ava-labs/avalanche-network-runner v1.7.2/go.mod h1:naLveusSrP7YgTAqRykD1SyLOAUilCp9jGjk3MDxoPI=
 github.com/ava-labs/avalanchego v1.10.10 h1:EYX4LVotcfdtIQ0nJSBTcoisubx/Bzk2tM1aP3yiYiw=
 github.com/ava-labs/avalanchego v1.10.10/go.mod h1:6UA0nxxTvvpyuCbP2DSzx9+7uWQfQx9DPApK8JptLiE=
-github.com/ava-labs/coreth v0.12.5-rc.6 h1:OajGUyKkO5Q82XSuMa8T5UD6QywtCHUiZ4Tv3RFmRBU=
-github.com/ava-labs/coreth v0.12.5-rc.6/go.mod h1:s5wVyy+5UCCk2m0Tq3jVmy0UqOpKBDYqRE13gInCJVs=
+github.com/ava-labs/coreth v0.12.5 h1:6oc27mXwobakWoSn9ouAgcmIVu7uqKRldSsVlU1j9Ig=
+github.com/ava-labs/coreth v0.12.5/go.mod h1:OWr/wa5fqyYiluncLnFthbwPkm01d3XHGAWOgUU0w5k=
 github.com/ava-labs/subnet-evm v0.5.6 h1:u+xBvEExOa362Up02hgSgeF+aqDona57whhRIeEIim8=
 github.com/ava-labs/subnet-evm v0.5.6/go.mod h1:desGY3ghT+Ner+oqxeovwF37eM4dmMQbYZECONPQU9w=
-github.com/ava-labs/teleporter v0.0.0-20231002210825-d5f6d7f8583a h1:KOj9SYdVCK736YyklPqBgOrlMP7JfN5L88mOl2dPj88=
-github.com/ava-labs/teleporter v0.0.0-20231002210825-d5f6d7f8583a/go.mod h1:nyjuYCBefAGCkKDhmJIxh8iTAczapQxwxj/7FC4g9sU=
-github.com/ava-labs/teleporter v0.0.0-20231004214459-caa08b68d3b4 h1:1gYjG8pi1EnHBZbuXPZKwlzZ6UztlCcaif9o9+CG6K0=
-github.com/ava-labs/teleporter v0.0.0-20231004214459-caa08b68d3b4/go.mod h1:nyjuYCBefAGCkKDhmJIxh8iTAczapQxwxj/7FC4g9sU=
 github.com/ava-labs/teleporter v0.0.0-20231004221622-b655bfe85981 h1:beCzXayPAc9obFYmPyF7WOfyPCIYWThUIB9Jcxbtgq0=
 github.com/ava-labs/teleporter v0.0.0-20231004221622-b655bfe85981/go.mod h1:nyjuYCBefAGCkKDhmJIxh8iTAczapQxwxj/7FC4g9sU=
 github.com/aymerick/raymond v2.0.3-0.20180322193309-b565731e1464+incompatible/go.mod h1:osfaiScAUVup+UC9Nfq76eWqDhXlp+4UYaA8uhTBO6g=
