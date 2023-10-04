@@ -22,18 +22,28 @@ func RunRelayerExecutable(ctx context.Context, relayerConfigPath string) (*exec.
 	relayerCmd := exec.CommandContext(relayerContext, "./build/awm-relayer", "--config-file", relayerConfigPath)
 
 	// Set up a pipe to capture the command's output
-	cmdReader, _ := relayerCmd.StdoutPipe()
+	cmdStdOutReader, err := relayerCmd.StdoutPipe()
+	Expect(err).Should(BeNil())
+	cmdStdErrReader, err := relayerCmd.StderrPipe()
+	Expect(err).Should(BeNil())
 
 	// Start the command
 	log.Info("Starting the relayer executable")
-	err := relayerCmd.Start()
+	err = relayerCmd.Start()
 	Expect(err).Should(BeNil())
 
-	// Start a goroutine to read and output the command's stdout
+	// Start goroutines to read and output the command's stdout and stderr
 	go func() {
-		scanner := bufio.NewScanner(cmdReader)
+		scanner := bufio.NewScanner(cmdStdOutReader)
 		for scanner.Scan() {
 			log.Info(scanner.Text())
+		}
+		cmdOutput <- "Command execution finished"
+	}()
+	go func() {
+		scanner := bufio.NewScanner(cmdStdErrReader)
+		for scanner.Scan() {
+			log.Error(scanner.Text())
 		}
 		cmdOutput <- "Command execution finished"
 	}()
