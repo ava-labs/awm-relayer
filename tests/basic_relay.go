@@ -252,6 +252,25 @@ func BasicRelay() {
 	_ = relayerCmd.Wait()
 
 	//
+	// Validate Received Warp Message Values
+	//
+	log.Info("Validating received warp message")
+	Expect(receivedWarpMessage.SourceChainID).Should(Equal(subnetAInfo.BlockchainID))
+	addressedPayload, err := warpPayload.ParseAddressedPayload(receivedWarpMessage.Payload)
+	Expect(err).Should(BeNil())
+
+	receivedDestinationID, err := ids.ToID(addressedPayload.DestinationChainID.Bytes())
+	Expect(err).Should(BeNil())
+	Expect(receivedDestinationID).Should(Equal(subnetBInfo.BlockchainID))
+	Expect(addressedPayload.DestinationAddress).Should(Equal(teleporterContractAddress))
+	Expect(addressedPayload.Payload).Should(Equal(payload))
+
+	// Check that the teleporter message is correct
+	receivedTeleporterMessage, err := teleporter.UnpackTeleporterMessage(addressedPayload.Payload)
+	Expect(err).Should(BeNil())
+	Expect(*receivedTeleporterMessage).Should(Equal(teleporterMessage))
+
+	//
 	// Try Relaying Already Delivered Message
 	//
 	log.Info("Creating new relayer instance to test already delivered message")
@@ -280,23 +299,4 @@ func BasicRelay() {
 	// Cancel the command and stop the relayer
 	relayerCancel()
 	_ = relayerCmd.Wait()
-
-	//
-	// Validate Received Warp Message Values
-	//
-	log.Info("Validating received warp message")
-	Expect(receivedWarpMessage.SourceChainID).Should(Equal(subnetAInfo.BlockchainID))
-	addressedPayload, err := warpPayload.ParseAddressedPayload(receivedWarpMessage.Payload)
-	Expect(err).Should(BeNil())
-
-	receivedDestinationID, err := ids.ToID(addressedPayload.DestinationChainID.Bytes())
-	Expect(err).Should(BeNil())
-	Expect(receivedDestinationID).Should(Equal(subnetBInfo.BlockchainID))
-	Expect(addressedPayload.DestinationAddress).Should(Equal(teleporterContractAddress))
-	Expect(addressedPayload.Payload).Should(Equal(payload))
-
-	// Check that the teleporter message is correct
-	receivedTeleporterMessage, err := teleporter.UnpackTeleporterMessage(addressedPayload.Payload)
-	Expect(err).Should(BeNil())
-	Expect(*receivedTeleporterMessage).Should(Equal(teleporterMessage))
 }
