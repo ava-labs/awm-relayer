@@ -23,11 +23,13 @@ import (
 	"github.com/ava-labs/awm-relayer/messages/teleporter"
 	"github.com/ava-labs/awm-relayer/peers"
 	relayerEvm "github.com/ava-labs/awm-relayer/vms/evm"
+	"github.com/ava-labs/subnet-evm/accounts/abi"
 	"github.com/ava-labs/subnet-evm/core/types"
 	"github.com/ava-labs/subnet-evm/ethclient"
 	"github.com/ava-labs/subnet-evm/interfaces"
 	"github.com/ava-labs/subnet-evm/plugin/evm"
 	"github.com/ava-labs/subnet-evm/tests/utils/runner"
+	teleporter_block_hash "github.com/ava-labs/teleporter/abis/go/teleporter-block-hash"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -535,7 +537,7 @@ var _ = ginkgo.Describe("[Relayer Publish Block Hash]", ginkgo.Ordered, func() {
 		relayerCancel             context.CancelFunc
 		blockHashReceiverAddressB common.Address
 		subnetAHashes             []common.Hash
-		// blockHashABI              *abi.ABI
+		blockHashABI              *abi.ABI
 	)
 	ginkgo.It("Deploy block hash receiver", ginkgo.Label("Relayer", "DeployBlockHashReceiver"), func() {
 		ctx := context.Background()
@@ -566,8 +568,8 @@ var _ = ginkgo.Describe("[Relayer Publish Block Hash]", ginkgo.Ordered, func() {
 		// 	chainBRPCClient,
 		// )
 		// Expect(err).Should(BeNil())
-		// blockHashABI, err = teleporter_block_hash.TeleporterBlockHashMetaData.GetAbi()
-		// Expect(err).Should(BeNil())
+		blockHashABI, err = teleporter_block_hash.TeleporterBlockHashMetaData.GetAbi()
+		Expect(err).Should(BeNil())
 		blockHashReceiverAddressB, err = deriveEVMContractAddress(fundedAddress, nonceB)
 		Expect(err).Should(BeNil())
 
@@ -720,11 +722,9 @@ var _ = ginkgo.Describe("[Relayer Publish Block Hash]", ginkgo.Ordered, func() {
 		defer subB.Unsubscribe()
 
 		// TODONOW: not necessarily true, since the block height might be < 5
-		// Send 6 transactions to produce 6 blocks on subnet A
-		// We expect the first and the sixth txs to be published by the relayer, since the relayer
-		// will be initialized with the "latest published block" to be height 0
-
-		for i := 0; i < 6; i++ {
+		// Send 5 transactions to produce 5 blocks on subnet A
+		// We expect at exactly one of the block hashes to be published by the relayer
+		for i := 0; i < 5; i++ {
 			value := big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(1)) // 1eth
 			txA := types.NewTx(&types.DynamicFeeTx{
 				ChainID:   chainAIDInt,
@@ -772,13 +772,13 @@ var _ = ginkgo.Describe("[Relayer Publish Block Hash]", ginkgo.Ordered, func() {
 			// Expect(receipt.Status).Should(Equal(types.ReceiptStatusSuccessful))
 
 			logs, err := chainBRPCClient.FilterLogs(ctx, interfaces.FilterQuery{
-				// BlockHash: &blockHashB,
+				BlockHash: &blockHashB,
 				Addresses: []common.Address{blockHashReceiverAddressB},
-				// Topics: [][]common.Hash{
-				// 	{
-				// 		blockHashABI.Events["ReceiveBlockHash"].ID,
-				// 	},
-				// },
+				Topics: [][]common.Hash{
+					{
+						blockHashABI.Events["ReceiveBlockHash"].ID,
+					},
+				},
 			})
 			Expect(err).Should(BeNil())
 			log.Info("Logs", "logs", logs)
