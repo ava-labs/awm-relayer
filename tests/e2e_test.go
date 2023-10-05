@@ -35,7 +35,7 @@ var _ = ginkgo.BeforeSuite(setupSuite)
 var _ = ginkgo.AfterSuite(teleporterTestUtils.TearDownNetwork)
 
 var _ = ginkgo.Describe("[AWM Relayer Integration Tests", func() {
-	// ginkgo.It("Basic Relay", BasicRelay)
+	ginkgo.It("Basic Relay", BasicRelay)
 	ginkgo.It("Publish Block Hashes", PublishBlockHashes)
 })
 
