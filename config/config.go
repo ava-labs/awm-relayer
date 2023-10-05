@@ -239,7 +239,6 @@ func (s *SourceSubnet) Validate() error {
 		}
 	case EVM_BLOCKHASH:
 		// No additional validation required
-		// TODONOW: we shouldn't require an address as the key for block hash publisher
 	default:
 		return fmt.Errorf("unsupported VM type for source subnet: %v", s.VM)
 	}

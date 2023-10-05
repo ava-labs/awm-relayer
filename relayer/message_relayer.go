@@ -108,7 +108,6 @@ func (r *messageRelayer) relayMessage(requestID uint32, messageManager messages.
 	// create signed message latency (ms)
 	r.setCreateSignedMessageLatencyMS(float64(time.Since(startCreateSignedMessageTime).Milliseconds()))
 
-	r.logger.Info("DEBUG: About to send message")
 	err = messageManager.SendMessage(signedMessage, r.warpMessageInfo, r.destinationChainID)
 	if err != nil {
 		r.logger.Error(
