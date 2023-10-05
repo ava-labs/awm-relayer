@@ -2,7 +2,6 @@ package block_hash_publisher
 
 import (
 	"encoding/json"
-	"fmt"
 	"time"
 
 	"github.com/ava-labs/avalanchego/ids"
@@ -17,7 +16,7 @@ import (
 )
 
 const (
-	publishBlockHashGasLimit = 1000000 // TODONOW: set the correct gas limit
+	publishBlockHashGasLimit = 275000
 )
 
 type destinationSenderInfo struct {
@@ -28,10 +27,8 @@ type destinationSenderInfo struct {
 	timeIntervalSeconds uint64
 	blockInterval       uint64
 
-	lastApprovedTime  uint64
-	lastTimeSent      uint64
-	lastApprovedBlock uint64
-	lastBlock         uint64
+	lastTimeSent uint64
+	lastBlock    uint64
 }
 
 func (d *destinationSenderInfo) shouldSend(blockTimestamp uint64, blockNumber uint64) bool {
@@ -79,7 +76,6 @@ func NewMessageManager(
 		)
 		return nil, err
 	}
-	logger.Info("DEBUG CONFIG", zap.String("config", fmt.Sprintf("%#v", messageConfig)))
 
 	destinations := make(map[ids.ID]*destinationSenderInfo)
 	for _, destination := range messageConfig.DestinationChains {
@@ -120,14 +116,13 @@ func (m *messageManager) ShouldSendMessage(warpMessageInfo *vmtypes.WarpMessageI
 
 func (m *messageManager) SendMessage(signedMessage *warp.Message, warpMessageInfo *vmtypes.WarpMessageInfo, _ ids.ID) error {
 	// TODO: Handle the primary network case. If it's the primary network, only send to the passed in destinationChainID
-	m.logger.Info(
-		"DEBUG SENDING",
-		zap.String("destinationInfo", fmt.Sprintf("%#v", m.destinations)),
-		zap.Uint64("blockTimestampe", warpMessageInfo.BlockTimestamp),
-		zap.Uint64("blockNumber", warpMessageInfo.BlockNumber),
-	)
 	for destinationChainID, destination := range m.destinations {
 		if !destination.shouldSend(warpMessageInfo.BlockTimestamp, warpMessageInfo.BlockNumber) {
+			m.logger.Debug(
+				"Not sending message to destination chain",
+				zap.String("destinationChainID", destinationChainID.String()),
+				zap.String("warpMessageID", signedMessage.ID().String()),
+			)
 			continue
 		}
 
@@ -166,8 +161,8 @@ func (m *messageManager) SendMessage(signedMessage *warp.Message, warpMessageInf
 		}
 
 		// Set the last sent block/time
-		destination.lastTimeSent = destination.lastApprovedTime
-		destination.lastBlock = destination.lastApprovedBlock
+		destination.lastTimeSent = warpMessageInfo.BlockTimestamp
+		destination.lastBlock = warpMessageInfo.BlockNumber
 		m.logger.Info(
 			"Sent message to destination chain",
 			zap.String("destinationChainID", destinationChainID.String()),
