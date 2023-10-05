@@ -46,33 +46,12 @@ func PublishBlockHashes() {
 	// Deploy block hash receiver on Subnet B
 	//
 	ctx := context.Background()
-	blockHashReceiverByteCode := testUtils.ReadHexTextFile("./tests/BlockHashReceiverByteCode.txt")
+
+	blockHashReceiverByteCode := testUtils.ReadHexTextFile("./tests/utils/BlockHashReceiverByteCode.txt")
 
 	nonceB, err := subnetBInfo.ChainWSClient.NonceAt(ctx, fundedAddress, nil)
 	Expect(err).Should(BeNil())
 
-	// gasTipCapA, err := subnetAInfo.ChainWSClient.SuggestGasTipCap(context.Background())
-	// Expect(err).Should(BeNil())
-
-	// baseFeeA, err := subnetAInfo.ChainWSClient.EstimateBaseFee(context.Background())
-	// Expect(err).Should(BeNil())
-	// gasFeeCapA := baseFeeA.Mul(baseFeeA, big.NewInt(relayerEvm.BaseFeeFactor))
-	// gasFeeCapA.Add(gasFeeCapA, big.NewInt(relayerEvm.MaxPriorityFeePerGas))
-
-	// contractAuth, err := bind.NewKeyedTransactorWithChainID(fundedKey, big.NewInt(peers.LocalNetworkID))
-	// contractAuth.Nonce = big.NewInt(int64(nonceA))
-	// contractAuth.GasFeeCap = gasFeeCapA
-	// contractAuth.GasTipCap = gasTipCapA
-	// contractAuth.GasLimit = 1000000
-
-	// Expect(err).Should(BeNil())
-	// blockHashReceiverAddressB, _, _, err = bind.DeployContract(
-	// 	contractAuth,
-	// 	*blockHashABI,
-	// 	common.FromHex(blockHashReceiverByteCode),
-	// 	subnetBInfo.ChainWSClient,
-	// )
-	// Expect(err).Should(BeNil())
 	blockHashABI, err = teleporter_block_hash.TeleporterBlockHashMetaData.GetAbi()
 	Expect(err).Should(BeNil())
 	blockHashReceiverAddressB, err = deploymentUtils.DeriveEVMContractAddress(fundedAddress, nonceB)
@@ -112,7 +91,7 @@ func PublishBlockHashes() {
 	err = cmd.Run()
 	Expect(err).Should(BeNil())
 
-	time.Sleep(5 * time.Second)
+	// Confirm successful deployment
 	deployedCode, err := subnetBInfo.ChainWSClient.CodeAt(ctx, blockHashReceiverAddressB, nil)
 	Expect(err).Should(BeNil())
 	Expect(len(deployedCode)).Should(BeNumerically(">", 2)) // 0x is an EOA, contract returns the bytecode
@@ -202,7 +181,6 @@ func PublishBlockHashes() {
 	//
 	// Build Relayer
 	//
-	// Build the awm-relayer binary
 	cmd = exec.Command("./scripts/build.sh")
 	out, err := cmd.CombinedOutput()
 	fmt.Println(string(out))
@@ -212,8 +190,6 @@ func PublishBlockHashes() {
 	// Publish block hashes
 	//
 	relayerCmd, relayerCancel = testUtils.RunRelayerExecutable(ctx, relayerConfigPath)
-	nonceA, err := subnetAInfo.ChainWSClient.NonceAt(ctx, fundedAddress, nil)
-	Expect(err).Should(BeNil())
 
 	destinationAddress := common.HexToAddress("0x0000000000000000000000000000000000000000")
 	gasTipCapA, err := subnetAInfo.ChainWSClient.SuggestGasTipCap(context.Background())
@@ -225,25 +201,20 @@ func PublishBlockHashes() {
 	gasFeeCapA.Add(gasFeeCapA, big.NewInt(relayerEvm.MaxPriorityFeePerGas))
 
 	// Subscribe to the destination chain block published
-	newHeadsA := make(chan *types.Header, 10)
-	subA, err := subnetAInfo.ChainWSClient.SubscribeNewHead(ctx, newHeadsA)
-	Expect(err).Should(BeNil())
-	defer subA.Unsubscribe()
-
-	// Subscribe to the destination chain block published
 	newHeadsB := make(chan *types.Header, 10)
 	subB, err := subnetBInfo.ChainWSClient.SubscribeNewHead(ctx, newHeadsB)
 	Expect(err).Should(BeNil())
 	defer subB.Unsubscribe()
 
 	// Send 5 transactions to produce 5 blocks on subnet A
-	// We expect at exactly one of the block hashes to be published by the relayer
+	// We expect exactly one of the block hashes to be published by the relayer
 	for i := 0; i < 5; i++ {
-		// TODONOW: Utilize teleporterTestUtils tx sending/signing utils
+		nonceA, err := subnetAInfo.ChainWSClient.NonceAt(ctx, fundedAddress, nil)
+		Expect(err).Should(BeNil())
 		value := big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(1)) // 1eth
 		txA := types.NewTx(&types.DynamicFeeTx{
 			ChainID:   subnetAInfo.ChainIDInt,
-			Nonce:     nonceA + uint64(i),
+			Nonce:     nonceA,
 			To:        &destinationAddress,
 			Gas:       teleporterTestUtils.DefaultTeleporterTransactionGas,
 			GasFeeCap: gasFeeCapA,
@@ -251,99 +222,56 @@ func PublishBlockHashes() {
 			Value:     value,
 		})
 		txSignerA := types.LatestSignerForChainID(subnetAInfo.ChainIDInt)
+
 		triggerTxA, err := types.SignTx(txA, txSignerA, fundedKey)
 		Expect(err).Should(BeNil())
-		err = subnetAInfo.ChainWSClient.SendTransaction(ctx, triggerTxA)
-		Expect(err).Should(BeNil())
 
-		log.Info("Waiting for new block confirmation", "block", i)
-		newHeadA := <-newHeadsA
-		subnetAHashes = append(subnetAHashes, newHeadA.Hash())
+		receipt := teleporterTestUtils.SendTransactionAndWaitForAcceptance(ctx, subnetAInfo.ChainWSClient, triggerTxA)
+
+		log.Info("Sent block on destination", "blockHash", receipt.BlockHash)
+		subnetAHashes = append(subnetAHashes, receipt.BlockHash)
 	}
 
-	time.Sleep(5 * time.Second)
+	// Listen on the destination chain for the published  block hash
+	newHeadB := <-newHeadsB
+	log.Info("Fetching log from the newly produced block")
 
-	for {
-		newHeadB := <-newHeadsB
-		log.Info("Fetching log from the newly produced block")
+	blockHashB := newHeadB.Hash()
 
-		blockHashB := newHeadB.Hash()
-
-		block, err := subnetBInfo.ChainWSClient.BlockByHash(ctx, blockHashB)
-		Expect(err).Should(BeNil())
-		txs := block.Transactions()
-		log.Info(fmt.Sprintf("numTxs: %d", len(txs)))
-		for _, tx := range txs {
-			log.Info(fmt.Sprintf("txHash: %s", tx.Hash().String()))
-			log.Info(fmt.Sprintf("to: %s", tx.To().String()))
-			log.Info(fmt.Sprintf("data: %s", hex.EncodeToString(tx.Data())))
-			receipt, err := subnetBInfo.ChainWSClient.TransactionReceipt(ctx, tx.Hash())
-			Expect(err).Should(BeNil())
-			Expect(receipt.Status).Should(Equal(types.ReceiptStatusSuccessful))
-		}
-
-		// receipt, err := subnetBInfo.ChainWSClient.TransactionReceipt(ctx, blockHashB)
-		// Expect(err).Should(BeNil())
-		// Expect(receipt.Status).Should(Equal(types.ReceiptStatusSuccessful))
-
-		logs, err := subnetBInfo.ChainWSClient.FilterLogs(ctx, interfaces.FilterQuery{
-			BlockHash: &blockHashB,
-			Addresses: []common.Address{blockHashReceiverAddressB},
-			Topics: [][]common.Hash{
-				{
-					blockHashABI.Events["ReceiveBlockHash"].ID,
-				},
+	logs, err := subnetBInfo.ChainWSClient.FilterLogs(ctx, interfaces.FilterQuery{
+		BlockHash: &blockHashB,
+		Addresses: []common.Address{blockHashReceiverAddressB},
+		Topics: [][]common.Hash{
+			{
+				blockHashABI.Events["ReceiveBlockHash"].ID,
 			},
-		})
-		Expect(err).Should(BeNil())
-		log.Info("Logs", "logs", logs)
+		},
+	})
+	Expect(err).Should(BeNil())
+
+	bind, err := teleporter_block_hash.NewTeleporterBlockHash(blockHashReceiverAddressB, subnetBInfo.ChainWSClient)
+	Expect(err).Should(BeNil())
+	event, err := bind.ParseReceiveBlockHash(logs[0])
+	Expect(err).Should(BeNil())
+
+	// The published block hash should match one of the ones sent on Subnet A
+	foundHash := false
+	for _, blockHash := range subnetAHashes {
+		if hex.EncodeToString(blockHash[:]) == hex.EncodeToString(event.BlockHash[:]) {
+			foundHash = true
+			break
+		}
 	}
-	// // Wait for new blocks on B. We are expecting 2 new blocks
-	// {
-	// 	newHeadB := <-newHeadsB
-	// 	blockHashB := newHeadB.Hash()
+	if !foundHash {
+		Expect(false).Should(BeTrue(), "published block hash does not match any of the sent block hashes")
+	}
+	log.Info("Received published block hash on destination", "blockHash", hex.EncodeToString(event.BlockHash[:]))
 
-	// 	log.Info("Fetching relevant warp logs from the newly produced block")
-	// 	logs, err := subnetBInfo.ChainWSClient.FilterLogs(ctx, interfaces.FilterQuery{
-	// 		BlockHash: &blockHashB,
-	// 		// Addresses: []common.Address{blockHashReceiverAddressB},
-	// 		// Topics: [][]common.Hash{
-	// 		// 	{
-	// 		// 		blockHashABI.Events["ReceiveBlockHash"].ID,
-	// 		// 	},
-	// 		// },
-	// 	})
-	// 	log.Info("Logs", "logs", logs)
-	// 	Expect(err).Should(BeNil())
-	// 	Expect(len(logs)).Should(Equal(1))
-
-	// 	Expect(logs[0].Topics[2]).Should(Equal(subnetAHashes[0]))
-	// }
-	// {
-	// 	newHeadB := <-newHeadsB
-	// 	blockHashB := newHeadB.Hash()
-
-	// 	log.Info("Fetching relevant warp logs from the newly produced block")
-	// 	logs, err := subnetBInfo.ChainWSClient.FilterLogs(ctx, interfaces.FilterQuery{
-	// 		BlockHash: &blockHashB,
-	// 		Addresses: []common.Address{blockHashReceiverAddressB},
-	// 		Topics: [][]common.Hash{
-	// 			{
-	// 				blockHashABI.Events["ReceiveBlockHash"].ID,
-	// 			},
-	// 		},
-	// 	})
-	// 	Expect(err).Should(BeNil())
-	// 	Expect(len(logs)).Should(Equal(1))
-
-	// 	Expect(logs[0].Topics[2]).Should(Equal(subnetAHashes[5]))
-	// }
+	// We shouldn't receive any more blocks, since the relayer is configured to publish once every 5 blocks on the source
+	log.Info("Waiting for 10s to ensure no new block confirmations on destination chain")
+	Consistently(newHeadsB, 10*time.Second, 500*time.Millisecond).ShouldNot(Receive())
 
 	// Cancel the command and stop the relayer
 	relayerCancel()
 	_ = relayerCmd.Wait()
-
-	//
-	// Verify received block hash
-	//
 }
