@@ -14,15 +14,18 @@ import (
 	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/awm-relayer/config"
 	"github.com/ava-labs/awm-relayer/peers"
+	testUtils "github.com/ava-labs/awm-relayer/tests/utils"
 	relayerEvm "github.com/ava-labs/awm-relayer/vms/evm"
 	"github.com/ava-labs/subnet-evm/accounts/abi"
 	"github.com/ava-labs/subnet-evm/core/types"
 	"github.com/ava-labs/subnet-evm/interfaces"
 	teleporter_block_hash "github.com/ava-labs/teleporter/abis/go/teleporter-block-hash"
+	deploymentUtils "github.com/ava-labs/teleporter/contract-deployment/utils"
 	teleporterTestUtils "github.com/ava-labs/teleporter/tests/utils"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/log"
+
 	. "github.com/onsi/gomega"
 )
 
@@ -43,7 +46,7 @@ func PublishBlockHashes() {
 	// Deploy block hash receiver on Subnet B
 	//
 	ctx := context.Background()
-	blockHashReceiverByteCode := readHexTextFile("./tests/BlockHashReceiverByteCode.txt")
+	blockHashReceiverByteCode := testUtils.ReadHexTextFile("./tests/BlockHashReceiverByteCode.txt")
 
 	nonceB, err := subnetBInfo.ChainWSClient.NonceAt(ctx, fundedAddress, nil)
 	Expect(err).Should(BeNil())
@@ -72,26 +75,36 @@ func PublishBlockHashes() {
 	// Expect(err).Should(BeNil())
 	blockHashABI, err = teleporter_block_hash.TeleporterBlockHashMetaData.GetAbi()
 	Expect(err).Should(BeNil())
-	blockHashReceiverAddressB, err = deriveEVMContractAddress(fundedAddress, nonceB)
+	blockHashReceiverAddressB, err = deploymentUtils.DeriveEVMContractAddress(fundedAddress, nonceB)
 	Expect(err).Should(BeNil())
 
 	cmdOutput := make(chan string)
 	cmd := exec.Command(
 		"cast",
 		"send",
-		"--rpc-url", subnetBInfo.ChainWSURI,
+		"--rpc-url", teleporterTestUtils.HttpToRPCURI(subnetBInfo.ChainNodeURIs[0], subnetBInfo.BlockchainID.String()),
 		"--private-key", hexutil.Encode(fundedKey.D.Bytes()),
 		"--create", blockHashReceiverByteCode,
 	)
 
 	// Set up a pipe to capture the command's output
-	cmdReader, _ := cmd.StdoutPipe()
+	cmdReader, err := cmd.StdoutPipe()
+	Expect(err).Should(BeNil())
+	cmdStdErrReader, err := cmd.StderrPipe()
+	Expect(err).Should(BeNil())
 
 	// Start a goroutine to read and output the command's stdout
 	go func() {
 		scanner := bufio.NewScanner(cmdReader)
 		for scanner.Scan() {
 			log.Info(scanner.Text())
+		}
+		cmdOutput <- "Command execution finished"
+	}()
+	go func() {
+		scanner := bufio.NewScanner(cmdStdErrReader)
+		for scanner.Scan() {
+			log.Error(scanner.Text())
 		}
 		cmdOutput <- "Command execution finished"
 	}()
@@ -109,10 +122,10 @@ func PublishBlockHashes() {
 	//
 	// Setup relayer config
 	//
-	hostA, portA, err := getURIHostAndPort(subnetAInfo.ChainNodeURIs[0])
+	hostA, portA, err := teleporterTestUtils.GetURIHostAndPort(subnetAInfo.ChainNodeURIs[0])
 	Expect(err).Should(BeNil())
 
-	hostB, portB, err := getURIHostAndPort(subnetBInfo.ChainNodeURIs[0])
+	hostB, portB, err := teleporterTestUtils.GetURIHostAndPort(subnetBInfo.ChainNodeURIs[0])
 	Expect(err).Should(BeNil())
 
 	log.Info(
@@ -198,7 +211,7 @@ func PublishBlockHashes() {
 	//
 	// Publish block hashes
 	//
-	relayerCmd, relayerCancel = runRelayerExecutable(ctx)
+	relayerCmd, relayerCancel = testUtils.RunRelayerExecutable(ctx, relayerConfigPath)
 	nonceA, err := subnetAInfo.ChainWSClient.NonceAt(ctx, fundedAddress, nil)
 	Expect(err).Should(BeNil())
 
@@ -223,16 +236,16 @@ func PublishBlockHashes() {
 	Expect(err).Should(BeNil())
 	defer subB.Unsubscribe()
 
-	// TODONOW: not necessarily true, since the block height might be < 5
 	// Send 5 transactions to produce 5 blocks on subnet A
 	// We expect at exactly one of the block hashes to be published by the relayer
 	for i := 0; i < 5; i++ {
+		// TODONOW: Utilize teleporterTestUtils tx sending/signing utils
 		value := big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(1)) // 1eth
 		txA := types.NewTx(&types.DynamicFeeTx{
 			ChainID:   subnetAInfo.ChainIDInt,
 			Nonce:     nonceA + uint64(i),
 			To:        &destinationAddress,
-			Gas:       defaultTeleporterMessageGas,
+			Gas:       teleporterTestUtils.DefaultTeleporterTransactionGas,
 			GasFeeCap: gasFeeCapA,
 			GasTipCap: gasTipCapA,
 			Value:     value,
