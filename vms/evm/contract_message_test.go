@@ -11,6 +11,7 @@ import (
 	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/avalanchego/vms/platformvm/warp"
 	"github.com/ava-labs/awm-relayer/config"
+	"github.com/ava-labs/awm-relayer/vms/vmtypes"
 	warpPayload "github.com/ava-labs/subnet-evm/warp/payload"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
@@ -76,14 +77,17 @@ func TestUnpack(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			input, err := hex.DecodeString(testCase.input)
 			require.NoError(t, err)
+			msgInfo := vmtypes.WarpMessageInfo{
+				UnsignedMsgBytes: input,
+			}
 
 			mockLogger.EXPECT().Error(gomock.Any(), gomock.Any()).Times(testCase.errorLogTimes)
-			msg, err := m.UnpackWarpMessage(input)
+			err = m.UnpackWarpMessage(&msgInfo)
 			if testCase.expectError {
 				require.Error(t, err)
 			} else {
 				require.NoError(t, err)
-				require.Equal(t, testCase.networkID, msg.WarpUnsignedMessage.NetworkID)
+				require.Equal(t, testCase.networkID, msgInfo.WarpUnsignedMessage.NetworkID)
 			}
 		})
 	}
