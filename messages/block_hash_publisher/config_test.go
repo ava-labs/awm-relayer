@@ -3,15 +3,14 @@ package block_hash_publisher
 import (
 	"fmt"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 )
 
 type testResult struct {
 	isTimeInterval      bool
-	blockInterval       int
-	timeIntervalSeconds time.Duration
+	blockInterval       uint64
+	timeIntervalSeconds uint64
 }
 
 func TestConfigValidate(t *testing.T) {
@@ -43,7 +42,7 @@ func TestConfigValidate(t *testing.T) {
 				},
 				{
 					isTimeInterval:      true,
-					timeIntervalSeconds: 10 * time.Second,
+					timeIntervalSeconds: 10,
 				},
 			},
 		},

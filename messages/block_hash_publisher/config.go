@@ -36,9 +36,7 @@ func (c *Config) Validate() error {
 		if addr == "" {
 			return errors.New("empty address in block hash publisher configuration")
 		}
-		if strings.HasPrefix(addr, "0x") {
-			addr = addr[2:]
-		}
+		addr = strings.TrimPrefix(addr, "0x")
 		_, err := hex.DecodeString(addr)
 		if err != nil {
 			return errors.Wrap(err, fmt.Sprintf("invalid address in block hash publisher configuration. Provided address: %s", destinationInfo.Address))

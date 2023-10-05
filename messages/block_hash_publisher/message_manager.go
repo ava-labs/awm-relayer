@@ -39,7 +39,7 @@ func (d *destinationSenderInfo) shouldSend(blockTimestamp uint64, blockNumber ui
 		}
 	} else {
 		interval := d.blockInterval
-		if blockNumber-d.lastBlock < uint64(interval) {
+		if blockNumber-d.lastBlock < interval {
 			return false
 		}
 	}
@@ -89,8 +89,8 @@ func NewMessageManager(
 		}
 		destinations[destinationID] = &destinationSenderInfo{
 			useTimeInterval:     destination.useTimeInterval,
-			timeIntervalSeconds: uint64(destination.timeIntervalSeconds),
-			blockInterval:       uint64(destination.blockInterval),
+			timeIntervalSeconds: destination.timeIntervalSeconds,
+			blockInterval:       destination.blockInterval,
 			address:             common.HexToAddress(destination.Address),
 			client:              destinationClients[destinationID],
 		}
