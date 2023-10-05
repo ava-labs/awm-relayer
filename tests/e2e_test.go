@@ -291,6 +291,10 @@ var _ = ginkgo.AfterSuite(func() {
 	Expect(os.Remove(relayerConfigPath)).Should(BeNil())
 })
 
+var _ = ginkgo.Describe("[AWM Relayer Integration Tests", func() {
+	ginkgo.It("Publish Block Hashes", PublishBlockHashes)
+})
+
 // Ginkgo describe node that acts as a container for the relayer e2e tests. This test suite
 // will run in order, starting off by setting up the subnet URIs and creating a relayer config
 // file. It will then build the relayer binary and run it with the config file. The relayer
