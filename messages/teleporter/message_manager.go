@@ -206,7 +206,6 @@ func (m *messageManager) messageDelivered(
 
 // SendMessage extracts the gasLimit and packs the call data to call the receiveCrossChainMessage method of the Teleporter contract,
 // and dispatches transaction construction and broadcast to the destination client
-// TODO: Revisit the caching strategy so we can remove parsedVmPayload as a parameter
 func (m *messageManager) SendMessage(signedMessage *warp.Message, warpMessageInfo *vmtypes.WarpMessageInfo, destinationChainID ids.ID) error {
 	teleporterMessage, ok := m.teleporterMessageCache.Get(signedMessage.ID())
 	if !ok {
