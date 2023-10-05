@@ -6,7 +6,7 @@ require (
 	github.com/ava-labs/avalanche-network-runner v1.7.2
 	github.com/ava-labs/avalanchego v1.10.10
 	github.com/ava-labs/subnet-evm v0.5.6
-	github.com/ava-labs/teleporter v0.0.0-20231005194159-a8e949bd37c9
+	github.com/ava-labs/teleporter v0.0.0-20231005202233-cab06cef8e05
 	github.com/ethereum/go-ethereum v1.12.0
 	github.com/onsi/ginkgo/v2 v2.12.0
 	github.com/onsi/gomega v1.27.10

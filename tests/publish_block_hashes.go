@@ -19,7 +19,7 @@ import (
 	"github.com/ava-labs/subnet-evm/accounts/abi"
 	"github.com/ava-labs/subnet-evm/core/types"
 	"github.com/ava-labs/subnet-evm/interfaces"
-	teleporter_block_hash "github.com/ava-labs/teleporter/abis/TeleporterBlockHashReceiver"
+	teleporter_block_hash "github.com/ava-labs/teleporter/abi-bindings/Teleporter/TeleporterBlockHashReceiver"
 	deploymentUtils "github.com/ava-labs/teleporter/contract-deployment/utils"
 	teleporterTestUtils "github.com/ava-labs/teleporter/tests/utils"
 	"github.com/ethereum/go-ethereum/common"
@@ -52,7 +52,7 @@ func PublishBlockHashes() {
 	nonceB, err := subnetBInfo.ChainWSClient.NonceAt(ctx, fundedAddress, nil)
 	Expect(err).Should(BeNil())
 
-	blockHashABI, err = teleporter_block_hash.TeleporterblockhashreceiverMetaData.GetAbi()
+	blockHashABI, err = teleporter_block_hash.TeleporterBlockHashReceiverMetaData.GetAbi()
 	Expect(err).Should(BeNil())
 	blockHashReceiverAddressB, err = deploymentUtils.DeriveEVMContractAddress(fundedAddress, nonceB)
 	Expect(err).Should(BeNil())
@@ -249,7 +249,7 @@ func PublishBlockHashes() {
 	})
 	Expect(err).Should(BeNil())
 
-	bind, err := teleporter_block_hash.NewTeleporterblockhashreceiver(blockHashReceiverAddressB, subnetBInfo.ChainWSClient)
+	bind, err := teleporter_block_hash.NewTeleporterBlockHashReceiver(blockHashReceiverAddressB, subnetBInfo.ChainWSClient)
 	Expect(err).Should(BeNil())
 	event, err := bind.ParseReceiveBlockHash(logs[0])
 	Expect(err).Should(BeNil())

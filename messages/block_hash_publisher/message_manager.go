@@ -10,7 +10,7 @@ import (
 	"github.com/ava-labs/awm-relayer/config"
 	"github.com/ava-labs/awm-relayer/vms"
 	"github.com/ava-labs/awm-relayer/vms/vmtypes"
-	teleporter_block_hash "github.com/ava-labs/teleporter/abis/TeleporterBlockHashReceiver"
+	teleporter_block_hash "github.com/ava-labs/teleporter/abi-bindings/Teleporter/TeleporterBlockHashReceiver"
 	"github.com/ethereum/go-ethereum/common"
 	"go.uber.org/zap"
 )
