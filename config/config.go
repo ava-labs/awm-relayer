@@ -37,15 +37,16 @@ type MessageProtocolConfig struct {
 	Settings      map[string]interface{} `mapstructure:"settings" json:"settings"`
 }
 type SourceSubnet struct {
-	SubnetID          string                           `mapstructure:"subnet-id" json:"subnet-id"`
-	ChainID           string                           `mapstructure:"chain-id" json:"chain-id"`
-	VM                string                           `mapstructure:"vm" json:"vm"`
-	APINodeHost       string                           `mapstructure:"api-node-host" json:"api-node-host"`
-	APINodePort       uint32                           `mapstructure:"api-node-port" json:"api-node-port"`
-	EncryptConnection bool                             `mapstructure:"encrypt-connection" json:"encrypt-connection"`
-	RPCEndpoint       string                           `mapstructure:"rpc-endpoint" json:"rpc-endpoint"`
-	WSEndpoint        string                           `mapstructure:"ws-endpoint" json:"ws-endpoint"`
-	MessageContracts  map[string]MessageProtocolConfig `mapstructure:"message-contracts" json:"message-contracts"`
+	SubnetID            string                           `mapstructure:"subnet-id" json:"subnet-id"`
+	ChainID             string                           `mapstructure:"chain-id" json:"chain-id"`
+	VM                  string                           `mapstructure:"vm" json:"vm"`
+	APINodeHost         string                           `mapstructure:"api-node-host" json:"api-node-host"`
+	APINodePort         uint32                           `mapstructure:"api-node-port" json:"api-node-port"`
+	EncryptConnection   bool                             `mapstructure:"encrypt-connection" json:"encrypt-connection"`
+	RPCEndpoint         string                           `mapstructure:"rpc-endpoint" json:"rpc-endpoint"`
+	WSEndpoint          string                           `mapstructure:"ws-endpoint" json:"ws-endpoint"`
+	MessageContracts    map[string]MessageProtocolConfig `mapstructure:"message-contracts" json:"message-contracts"`
+	AllowedDestinations []string                         `mapstructure:"allowed-destinations" json:"allowed-destinations"`
 }
 
 type DestinationSubnet struct {
@@ -191,23 +192,34 @@ func (c *Config) Validate() error {
 }
 
 // GetSourceIDs returns the Subnet and Chain IDs of all subnets configured as a source
-func (cfg *Config) GetSourceIDs() ([]ids.ID, []ids.ID, error) {
+func (cfg *Config) GetSourceIDs() ([]ids.ID, []ids.ID, map[ids.ID]map[ids.ID]bool, error) {
 	var sourceSubnetIDs []ids.ID
 	var sourceChainIDs []ids.ID
+	var allowedDestinationChaiIDMap map[ids.ID]map[ids.ID]bool
 	for _, s := range cfg.SourceSubnets {
 		subnetID, err := ids.FromString(s.SubnetID)
 		if err != nil {
-			return nil, nil, fmt.Errorf("invalid subnetID in configuration. error: %v", err)
+			return nil, nil, nil, fmt.Errorf("invalid subnetID in configuration. error: %v", err)
 		}
 		sourceSubnetIDs = append(sourceSubnetIDs, subnetID)
 
 		chainID, err := ids.FromString(s.ChainID)
 		if err != nil {
-			return nil, nil, fmt.Errorf("invalid subnetID in configuration. error: %v", err)
+			return nil, nil, nil, fmt.Errorf("invalid subnetID in configuration. error: %v", err)
 		}
 		sourceChainIDs = append(sourceChainIDs, chainID)
+
+		allowedDestinationChaiIDs := make(map[ids.ID]bool)
+		for _, chainIDStr := range s.AllowedDestinations {
+			chainID, err := ids.FromString(chainIDStr)
+			if err != nil {
+				return nil, nil, nil, fmt.Errorf("invalid chainID in configuration. error: %v", err)
+			}
+			allowedDestinationChaiIDs[chainID] = true
+		}
+		allowedDestinationChaiIDMap[chainID] = allowedDestinationChaiIDs
 	}
-	return sourceSubnetIDs, sourceChainIDs, nil
+	return sourceSubnetIDs, sourceChainIDs, allowedDestinationChaiIDMap, nil
 }
 
 func (s *SourceSubnet) Validate() error {
@@ -241,6 +253,13 @@ func (s *SourceSubnet) Validate() error {
 		protocol := ParseMessageProtocol(messageConfig.MessageFormat)
 		if protocol == UNKNOWN_MESSAGE_PROTOCOL {
 			return fmt.Errorf("unsupported message protocol for source subnet: %s", messageConfig.MessageFormat)
+		}
+	}
+
+	// Validate the allowed destinations
+	for _, chainIDs := range s.AllowedDestinations {
+		if _, err := ids.FromString(chainIDs); err != nil {
+			return fmt.Errorf("invalid chainID in source subnet configuration. Provided ID: %s", chainIDs)
 		}
 	}
 

@@ -58,12 +58,16 @@ func TestShouldSendMessage(t *testing.T) {
 	destinationClients := map[ids.ID]vms.DestinationClient{
 		destinationChainID: mockClient,
 	}
+	allowedDestinationChainIDs := map[ids.ID]bool{
+		destinationChainID: true,
+	}
 
 	messageManager, err := NewMessageManager(
 		logger,
 		messageProtocolAddress,
 		messageProtocolConfig,
 		destinationClients,
+		allowedDestinationChainIDs,
 	)
 	require.NoError(t, err)
 

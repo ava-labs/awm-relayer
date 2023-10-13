@@ -47,6 +47,7 @@ func NewRelayer(
 	network *peers.AppRequestNetwork,
 	responseChan chan message.InboundMessage,
 	destinationClients map[ids.ID]vms.DestinationClient,
+	allowedDestinationChainIDs map[ids.ID]bool,
 ) (*Relayer, vms.Subscriber, error) {
 	sub := vms.NewSubscriber(logger, sourceSubnetInfo, db)
 
@@ -72,7 +73,7 @@ func NewRelayer(
 	messageManagers := make(map[common.Hash]messages.MessageManager)
 	for address, config := range sourceSubnetInfo.MessageContracts {
 		addressHash := common.HexToHash(address)
-		messageManager, err := messages.NewMessageManager(logger, addressHash, config, destinationClients)
+		messageManager, err := messages.NewMessageManager(logger, addressHash, config, destinationClients, allowedDestinationChainIDs)
 		if err != nil {
 			logger.Error(
 				"Failed to create message manager",

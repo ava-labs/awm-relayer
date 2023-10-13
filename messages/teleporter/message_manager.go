@@ -34,6 +34,7 @@ type messageManager struct {
 	// The cache is keyed by the Warp message ID, NOT the Teleporter message ID
 	teleporterMessageCache *cache.LRU[ids.ID, *TeleporterMessage]
 	destinationClients     map[ids.ID]vms.DestinationClient
+	allowedDestinations    map[ids.ID]bool
 
 	logger logging.Logger
 }
@@ -43,6 +44,7 @@ func NewMessageManager(
 	messageProtocolAddress common.Hash,
 	messageProtocolConfig config.MessageProtocolConfig,
 	destinationClients map[ids.ID]vms.DestinationClient,
+	allowedDestinations map[ids.ID]bool,
 ) (*messageManager, error) {
 	// Marshal the map and unmarshal into the Teleporter config
 	data, err := json.Marshal(messageProtocolConfig.Settings)
@@ -71,6 +73,7 @@ func NewMessageManager(
 		teleporterMessageCache: teleporterMessageCache,
 		destinationClients:     destinationClients,
 		logger:                 logger,
+		allowedDestinations:    allowedDestinations,
 	}, nil
 }
 
@@ -98,6 +101,16 @@ func (m *messageManager) ShouldSendMessage(warpMessageInfo *vmtypes.WarpMessageI
 			zap.String("warpMessageID", warpMessageInfo.WarpUnsignedMessage.ID().String()),
 		)
 		return false, err
+	}
+
+	if _, exist := m.allowedDestinations[destinationChainID]; !exist {
+		m.logger.Info(
+			"Destination chain not allowed to receive messages.",
+			zap.String("destinationChainID", destinationChainID.String()),
+			zap.String("warpMessageID", warpMessageInfo.WarpUnsignedMessage.ID().String()),
+			zap.String("teleporterMessageID", teleporterMessage.MessageID.String()),
+		)
+		return false, nil
 	}
 
 	// Get the correct destination client from the global map

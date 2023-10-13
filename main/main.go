@@ -86,7 +86,7 @@ func main() {
 
 	// Initialize the global app request network
 	logger.Info("Initializing app request network")
-	sourceSubnetIDs, sourceChainIDs, err := cfg.GetSourceIDs()
+	sourceSubnetIDs, sourceChainIDs, allowedDestinationChainIDs, err := cfg.GetSourceIDs()
 	if err != nil {
 		logger.Error(
 			"Failed to get source IDs",
@@ -177,7 +177,7 @@ func main() {
 				wg.Done()
 				healthy.Store(false)
 			}()
-			runRelayer(logger, metrics, db, subnetInfo, pChainClient, network, responseChans[chainID], destinationClients, messageCreator)
+			runRelayer(logger, metrics, db, subnetInfo, pChainClient, network, responseChans[chainID], destinationClients, messageCreator, allowedDestinationChainIDs[chainID])
 			logger.Info(
 				"Relayer exiting.",
 				zap.String("chainID", chainID.String()),
@@ -197,6 +197,7 @@ func runRelayer(logger logging.Logger,
 	responseChan chan message.InboundMessage,
 	destinationClients map[ids.ID]vms.DestinationClient,
 	messageCreator message.Creator,
+	allowedDestinationChainIDs map[ids.ID]bool,
 ) {
 	logger.Info(
 		"Creating relayer",
@@ -211,6 +212,7 @@ func runRelayer(logger logging.Logger,
 		network,
 		responseChan,
 		destinationClients,
+		allowedDestinationChainIDs,
 	)
 	if err != nil {
 		logger.Error(
