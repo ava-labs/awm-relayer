@@ -191,7 +191,7 @@ func (c *Config) Validate() error {
 	return nil
 }
 
-// GetSourceIDs returns the Subnet and Chain IDs of all subnets configured as a source
+// GetSourceIDs returns the Subnet, Chain IDs and Allowed Destination Chain IDs of all subnets configured as a source
 func (cfg *Config) GetSourceIDs() ([]ids.ID, []ids.ID, map[ids.ID]map[ids.ID]bool, error) {
 	var sourceSubnetIDs []ids.ID
 	var sourceChainIDs []ids.ID
