@@ -103,7 +103,15 @@ func (m *messageManager) ShouldSendMessage(warpMessageInfo *vmtypes.WarpMessageI
 		return false, err
 	}
 
-	if _, exist := m.allowedDestinations[destinationChainID]; !exist {
+	// Get the correct destination client from the global map
+	destinationClient, ok := m.destinationClients[destinationChainID]
+	if !ok {
+		return false, fmt.Errorf("relayer not configured to deliver to destination. destinationChainID=%s", destinationChainID.String())
+	}
+
+	// If allowedDestinations is empty, then all destinations are allowed
+	// If allowedDestinations is not empty, then only the allowed destinations are allowed
+	if _, exist := m.allowedDestinations[destinationChainID]; !exist && len(m.allowedDestinations) > 0 {
 		m.logger.Info(
 			"Destination chain not allowed to receive messages.",
 			zap.String("destinationChainID", destinationChainID.String()),
@@ -113,11 +121,6 @@ func (m *messageManager) ShouldSendMessage(warpMessageInfo *vmtypes.WarpMessageI
 		return false, nil
 	}
 
-	// Get the correct destination client from the global map
-	destinationClient, ok := m.destinationClients[destinationChainID]
-	if !ok {
-		return false, fmt.Errorf("relayer not configured to deliver to destination. destinationChainID=%s", destinationChainID.String())
-	}
 	senderAddress := destinationClient.SenderAddress()
 	if !isAllowedRelayer(teleporterMessage.AllowedRelayerAddresses, senderAddress) {
 		m.logger.Info(
