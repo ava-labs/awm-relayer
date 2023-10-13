@@ -27,11 +27,6 @@ func RunRelayerExecutable(ctx context.Context, relayerConfigPath string) (*exec.
 	cmdStdErrReader, err := relayerCmd.StderrPipe()
 	Expect(err).Should(BeNil())
 
-	// Start the command
-	log.Info("Starting the relayer executable")
-	err = relayerCmd.Start()
-	Expect(err).Should(BeNil())
-
 	// Start goroutines to read and output the command's stdout and stderr
 	go func() {
 		scanner := bufio.NewScanner(cmdStdOutReader)
@@ -47,6 +42,12 @@ func RunRelayerExecutable(ctx context.Context, relayerConfigPath string) (*exec.
 		}
 		cmdOutput <- "Command execution finished"
 	}()
+
+	// Start the command
+	log.Info("Starting the relayer executable")
+	err = relayerCmd.Start()
+	Expect(err).Should(BeNil())
+
 	return relayerCmd, relayerCancel
 }
 

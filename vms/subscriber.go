@@ -10,6 +10,7 @@ import (
 	"github.com/ava-labs/awm-relayer/config"
 	"github.com/ava-labs/awm-relayer/database"
 	"github.com/ava-labs/awm-relayer/vms/evm"
+	"github.com/ava-labs/awm-relayer/vms/evm_block_hash"
 	"github.com/ava-labs/awm-relayer/vms/vmtypes"
 )
 
@@ -29,7 +30,7 @@ type Subscriber interface {
 	Subscribe() error
 
 	// Logs returns the channel that the subscription writes events to
-	Logs() <-chan vmtypes.WarpLogInfo
+	Logs() <-chan vmtypes.WarpMessageInfo
 
 	// Err returns the channel that the subscription writes errors to
 	// If an error is sent to this channel, the subscription should be closed
@@ -44,6 +45,8 @@ func NewSubscriber(logger logging.Logger, subnetInfo config.SourceSubnet, db dat
 	switch config.ParseVM(subnetInfo.VM) {
 	case config.EVM:
 		return evm.NewSubscriber(logger, subnetInfo, db)
+	case config.EVM_BLOCKHASH:
+		return evm_block_hash.NewSubscriber(logger, subnetInfo, db)
 	default:
 		return nil
 	}

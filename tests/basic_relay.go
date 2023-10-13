@@ -22,7 +22,7 @@ import (
 	predicateutils "github.com/ava-labs/subnet-evm/utils/predicate"
 	warpPayload "github.com/ava-labs/subnet-evm/warp/payload"
 	"github.com/ava-labs/subnet-evm/x/warp"
-	teleportermessenger "github.com/ava-labs/teleporter/abis/TeleporterMessenger"
+	teleportermessenger "github.com/ava-labs/teleporter/abi-bindings/Teleporter/TeleporterMessenger"
 	teleporterTestUtils "github.com/ava-labs/teleporter/tests/utils"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
@@ -180,7 +180,7 @@ func BasicRelay() {
 	log.Info("Sending teleporter transaction", "destinationChainID", subnetBInfo.BlockchainID, "txHash", signedTx.Hash())
 	receipt := teleporterTestUtils.SendTransactionAndWaitForAcceptance(ctx, subnetAInfo.ChainWSClient, signedTx)
 
-	bind, err := teleportermessenger.NewTeleportermessenger(teleporterContractAddress, subnetAInfo.ChainWSClient)
+	bind, err := teleportermessenger.NewTeleporterMessenger(teleporterContractAddress, subnetAInfo.ChainWSClient)
 	Expect(err).Should(BeNil())
 	sendEvent, err := teleporterTestUtils.GetSendEventFromLogs(receipt.Logs, bind)
 	Expect(err).Should(BeNil())
@@ -222,7 +222,7 @@ func BasicRelay() {
 	Expect(receipt.Status).Should(Equal(types.ReceiptStatusSuccessful))
 
 	// Check that the transaction emits ReceiveCrossChainMessage
-	bind, err = teleportermessenger.NewTeleportermessenger(teleporterContractAddress, subnetBInfo.ChainWSClient)
+	bind, err = teleportermessenger.NewTeleporterMessenger(teleporterContractAddress, subnetBInfo.ChainWSClient)
 	Expect(err).Should(BeNil())
 
 	receiveEvent, err := teleporterTestUtils.GetReceiveEventFromLogs(receipt.Logs, bind)

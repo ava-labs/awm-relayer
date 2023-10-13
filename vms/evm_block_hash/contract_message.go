@@ -1,7 +1,4 @@
-// Copyright (C) 2023, Ava Labs, Inc. All rights reserved.
-// See the file LICENSE for licensing terms.
-
-package evm
+package evm_block_hash
 
 import (
 	"github.com/ava-labs/avalanchego/utils/logging"
@@ -40,7 +37,7 @@ func (m *contractMessage) UnpackWarpMessage(warpMessageInfo *vmtypes.WarpMessage
 		return err
 	}
 
-	warpPayload, err := warpPayload.ParseAddressedPayload(unsignedMsg.Payload)
+	warpPayload, err := warpPayload.ParseBlockHashPayload(unsignedMsg.Payload)
 	if err != nil {
 		m.logger.Error(
 			"Failed parsing addressed payload",
@@ -50,7 +47,7 @@ func (m *contractMessage) UnpackWarpMessage(warpMessageInfo *vmtypes.WarpMessage
 	}
 
 	warpMessageInfo.WarpUnsignedMessage = unsignedMsg
-	warpMessageInfo.WarpPayload = warpPayload.Payload
+	warpMessageInfo.WarpPayload = warpPayload.BlockHash.Bytes()
 
 	return nil
 }

@@ -72,6 +72,7 @@ func NewRelayer(
 	messageManagers := make(map[common.Hash]messages.MessageManager)
 	for address, config := range sourceSubnetInfo.MessageContracts {
 		addressHash := common.HexToHash(address)
+		// TODO: To handle the primary network case, the messageManager needs to know if its source subnet is the primary network
 		messageManager, err := messages.NewMessageManager(logger, addressHash, config, destinationClients)
 		if err != nil {
 			logger.Error(
@@ -172,14 +173,14 @@ func NewRelayer(
 }
 
 // RelayMessage relays a single warp message to the destination chain. Warp message relay requests from the same origin chain are processed serially
-func (r *Relayer) RelayMessage(warpLogInfo *vmtypes.WarpLogInfo, metrics *MessageRelayerMetrics, messageCreator message.Creator) error {
+func (r *Relayer) RelayMessage(warpMessageInfo *vmtypes.WarpMessageInfo, metrics *MessageRelayerMetrics, messageCreator message.Creator) error {
 	r.logger.Info(
 		"Relaying message",
 		zap.String("chainID", r.sourceChainID.String()),
 	)
 
 	// Unpack the VM message bytes into a Warp message
-	warpMessageInfo, err := r.contractMessage.UnpackWarpMessage(warpLogInfo.UnsignedMsgBytes)
+	err := r.contractMessage.UnpackWarpMessage(warpMessageInfo)
 	if err != nil {
 		r.logger.Error(
 			"Failed to unpack sender message",
@@ -194,20 +195,26 @@ func (r *Relayer) RelayMessage(warpLogInfo *vmtypes.WarpLogInfo, metrics *Messag
 		zap.String("warpMessageID", warpMessageInfo.WarpUnsignedMessage.ID().String()),
 	)
 
-	// Check that the warp message is from a support message protocol contract address.
-	messageManager, supportedMessageProtocol := r.messageManagers[warpLogInfo.SourceAddress]
+	// Check that the warp message is from a supported message protocol contract address.
+	messageManager, supportedMessageProtocol := r.messageManagers[warpMessageInfo.SourceAddress]
 	if !supportedMessageProtocol {
 		// Do not return an error here because it is expected for there to be messages from other contracts
 		// than just the ones supported by a single relayer instance.
 		r.logger.Debug(
 			"Warp message from unsupported message protocol address. Not relaying.",
-			zap.String("protocolAddress", warpLogInfo.SourceAddress.Hex()),
+			zap.String("protocolAddress", warpMessageInfo.SourceAddress.Hex()),
 		)
 		return nil
 	}
 
+	// TODO: To handle anycasting for the primary network, we need to call newMessageRelayer in a loop for each of the
+	// configured destinations. We can get the configured destinations from messageManage.
+	// This is necessary because in the primary network case, each destination will have a different aggregate signature.
+	// For anycasting from any other network, we only need to create a single aggregate signature, so we fan out in
+	// messageManager instead.
+
 	// Create and run the message relayer to attempt to deliver the message to the destination chain
-	messageRelayer := newMessageRelayer(r.logger, metrics, r, warpMessageInfo.WarpUnsignedMessage, warpLogInfo.DestinationChainID, r.responseChan, messageCreator)
+	messageRelayer := newMessageRelayer(r.logger, metrics, r, warpMessageInfo, warpMessageInfo.DestinationChainID, r.responseChan, messageCreator)
 	if err != nil {
 		r.logger.Error(
 			"Failed to create message relayer",
@@ -218,7 +225,7 @@ func (r *Relayer) RelayMessage(warpLogInfo *vmtypes.WarpLogInfo, metrics *Messag
 
 	// Relay the message to the destination. Messages from a given source chain must be processed in serial in order to
 	// guarantee that the previous block (n-1) is fully processed by the relayer when processing a given log from block n.
-	err = messageRelayer.relayMessage(warpMessageInfo, r.currentRequestID, messageManager)
+	err = messageRelayer.relayMessage(r.currentRequestID, messageManager)
 	if err != nil {
 		r.logger.Error(
 			"Failed to run message relayer",
@@ -233,7 +240,7 @@ func (r *Relayer) RelayMessage(warpLogInfo *vmtypes.WarpLogInfo, metrics *Messag
 	r.currentRequestID++
 
 	// Update the database with the latest processed block height
-	err = r.db.Put(r.sourceChainID, []byte(database.LatestProcessedBlockKey), []byte(strconv.FormatUint(warpLogInfo.BlockNumber, 10)))
+	err = r.db.Put(r.sourceChainID, []byte(database.LatestProcessedBlockKey), []byte(strconv.FormatUint(warpMessageInfo.BlockNumber, 10)))
 	if err != nil {
 		r.logger.Error(
 			fmt.Sprintf("failed to put %s into database", database.LatestProcessedBlockKey),
