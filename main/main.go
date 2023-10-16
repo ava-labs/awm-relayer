@@ -177,7 +177,7 @@ func main() {
 				wg.Done()
 				healthy.Store(false)
 			}()
-			runRelayer(logger, metrics, db, subnetInfo, pChainClient, network, responseChans[chainID], destinationClients, messageCreator, allowedDestinationChainIDs[chainID])
+			runRelayer(logger, metrics, db, subnetInfo, pChainClient, network, responseChans[chainID], destinationClients, messageCreator)
 			logger.Info(
 				"Relayer exiting.",
 				zap.String("chainID", chainID.String()),
@@ -197,7 +197,6 @@ func runRelayer(logger logging.Logger,
 	responseChan chan message.InboundMessage,
 	destinationClients map[ids.ID]vms.DestinationClient,
 	messageCreator message.Creator,
-	allowedDestinationChainIDs map[ids.ID]bool,
 ) {
 	logger.Info(
 		"Creating relayer",
@@ -212,7 +211,6 @@ func runRelayer(logger logging.Logger,
 		network,
 		responseChan,
 		destinationClients,
-		allowedDestinationChainIDs,
 	)
 	if err != nil {
 		logger.Error(
