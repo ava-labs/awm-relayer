@@ -113,7 +113,7 @@ func (m *messageManager) ShouldSendMessage(warpMessageInfo *vmtypes.WarpMessageI
 	// If allowedDestinations is not empty, then only the allowed destinations are allowed
 	if _, exist := m.allowedDestinations[destinationChainID]; !exist && len(m.allowedDestinations) > 0 {
 		m.logger.Info(
-			"Destination chain not allowed to receive messages.",
+			"Relayer not configured to relay between source and destination",
 			zap.String("destinationChainID", destinationChainID.String()),
 			zap.String("warpMessageID", warpMessageInfo.WarpUnsignedMessage.ID().String()),
 			zap.String("teleporterMessageID", teleporterMessage.MessageID.String()),

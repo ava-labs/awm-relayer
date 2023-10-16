@@ -47,7 +47,6 @@ func NewRelayer(
 	network *peers.AppRequestNetwork,
 	responseChan chan message.InboundMessage,
 	destinationClients map[ids.ID]vms.DestinationClient,
-	allowedDestinationChainIDs map[ids.ID]bool,
 ) (*Relayer, vms.Subscriber, error) {
 	sub := vms.NewSubscriber(logger, sourceSubnetInfo, db)
 
@@ -64,6 +63,15 @@ func NewRelayer(
 	if err != nil {
 		logger.Error(
 			"Failed to decode base-58 encoded source chain ID",
+			zap.Error(err),
+		)
+		return nil, nil, err
+	}
+
+	allowedDestinationChainIDs, err := sourceSubnetInfo.GetAllowedDestination()
+	if err != nil {
+		logger.Error(
+			"Failed to get allowed destination",
 			zap.Error(err),
 		)
 		return nil, nil, err

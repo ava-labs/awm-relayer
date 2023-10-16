@@ -86,7 +86,7 @@ func main() {
 
 	// Initialize the global app request network
 	logger.Info("Initializing app request network")
-	sourceSubnetIDs, sourceChainIDs, allowedDestinationChainIDs, err := cfg.GetSourceIDs()
+	sourceSubnetIDs, sourceChainIDs, err := cfg.GetSourceIDs()
 	if err != nil {
 		logger.Error(
 			"Failed to get source IDs",
