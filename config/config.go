@@ -188,6 +188,17 @@ func (c *Config) Validate() error {
 		destinationChains.Add(s.ChainID)
 	}
 
+	// Validate all the allowed destinations are configured as a destination subnet
+	for _, s := range c.SourceSubnets {
+		for _, chainID := range s.AllowedDestinations {
+			if !destinationChains.Contains(chainID) {
+				return fmt.Errorf("configured source subnet %s has an allowed destination chain ID %s that is not configured as a destination subnet",
+					s.ChainID,
+					chainID)
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -195,7 +206,7 @@ func (c *Config) Validate() error {
 func (cfg *Config) GetSourceIDs() ([]ids.ID, []ids.ID, map[ids.ID]map[ids.ID]bool, error) {
 	var sourceSubnetIDs []ids.ID
 	var sourceChainIDs []ids.ID
-	var allowedDestinationChaiIDMap map[ids.ID]map[ids.ID]bool
+	allowedDestinationChainIDMap := make(map[ids.ID]map[ids.ID]bool)
 	for _, s := range cfg.SourceSubnets {
 		subnetID, err := ids.FromString(s.SubnetID)
 		if err != nil {
@@ -209,17 +220,17 @@ func (cfg *Config) GetSourceIDs() ([]ids.ID, []ids.ID, map[ids.ID]map[ids.ID]boo
 		}
 		sourceChainIDs = append(sourceChainIDs, chainID)
 
-		allowedDestinationChaiIDs := make(map[ids.ID]bool)
+		allowedDestinationChainIDs := make(map[ids.ID]bool)
 		for _, chainIDStr := range s.AllowedDestinations {
 			chainID, err := ids.FromString(chainIDStr)
 			if err != nil {
 				return nil, nil, nil, fmt.Errorf("invalid chainID in configuration. error: %v", err)
 			}
-			allowedDestinationChaiIDs[chainID] = true
+			allowedDestinationChainIDs[chainID] = true
 		}
-		allowedDestinationChaiIDMap[chainID] = allowedDestinationChaiIDs
+		allowedDestinationChainIDMap[chainID] = allowedDestinationChainIDs
 	}
-	return sourceSubnetIDs, sourceChainIDs, allowedDestinationChaiIDMap, nil
+	return sourceSubnetIDs, sourceChainIDs, allowedDestinationChainIDMap, nil
 }
 
 func (s *SourceSubnet) Validate() error {
