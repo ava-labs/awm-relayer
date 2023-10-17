@@ -22,6 +22,9 @@ import (
 	"github.com/spf13/viper"
 )
 
+// global config singleton
+var globalConfig Config
+
 const (
 	relayerPrivateKeyBytes      = 32
 	accountPrivateKeyEnvVarName = "ACCOUNT_PRIVATE_KEY"
@@ -153,6 +156,8 @@ func BuildConfig(v *viper.Viper) (Config, bool, error) {
 	}
 	cfg.PChainAPIURL = pChainapiUrl
 
+	globalConfig = cfg
+
 	return cfg, optionOverwritten, nil
 }
 
@@ -202,27 +207,7 @@ func (c *Config) Validate() error {
 	return nil
 }
 
-// GetSourceIDs returns the Subnet and Chain IDs of all subnets configured as a source
-func (cfg *Config) GetSourceIDs() ([]ids.ID, []ids.ID, error) {
-	var sourceSubnetIDs []ids.ID
-	var sourceChainIDs []ids.ID
-	for _, s := range cfg.SourceSubnets {
-		subnetID, err := ids.FromString(s.SubnetID)
-		if err != nil {
-			return nil, nil, fmt.Errorf("invalid subnetID in configuration. error: %v", err)
-		}
-		sourceSubnetIDs = append(sourceSubnetIDs, subnetID)
-
-		chainID, err := ids.FromString(s.ChainID)
-		if err != nil {
-			return nil, nil, fmt.Errorf("invalid subnetID in configuration. error: %v", err)
-		}
-		sourceChainIDs = append(sourceChainIDs, chainID)
-	}
-	return sourceSubnetIDs, sourceChainIDs, nil
-}
-
-func (s *SourceSubnet) GetAllowedDestination() (map[ids.ID]bool, error) {
+func (s *SourceSubnet) GetAllowedDestinations() (map[ids.ID]bool, error) {
 	allowedDestinationChainIDs := make(map[ids.ID]bool)
 	for _, chainIDStr := range s.AllowedDestinations {
 		chainID, err := ids.FromString(chainIDStr)
@@ -403,4 +388,28 @@ func (s *DestinationSubnet) GetRelayerAccountInfo() (*ecdsa.PrivateKey, common.A
 	pkBytes := pk.PublicKey.X.Bytes()
 	pkBytes = append(pkBytes, pk.PublicKey.Y.Bytes()...)
 	return pk, common.BytesToAddress(crypto.Keccak256(pkBytes)), nil
+}
+
+//
+// Global config getters
+//
+
+// GetSourceIDs returns the Subnet and Chain IDs of all subnets configured as a source
+func GetSourceIDs() ([]ids.ID, []ids.ID, error) {
+	var sourceSubnetIDs []ids.ID
+	var sourceChainIDs []ids.ID
+	for _, s := range globalConfig.SourceSubnets {
+		subnetID, err := ids.FromString(s.SubnetID)
+		if err != nil {
+			return nil, nil, fmt.Errorf("invalid subnetID in configuration. error: %v", err)
+		}
+		sourceSubnetIDs = append(sourceSubnetIDs, subnetID)
+
+		chainID, err := ids.FromString(s.ChainID)
+		if err != nil {
+			return nil, nil, fmt.Errorf("invalid subnetID in configuration. error: %v", err)
+		}
+		sourceChainIDs = append(sourceChainIDs, chainID)
+	}
+	return sourceSubnetIDs, sourceChainIDs, nil
 }

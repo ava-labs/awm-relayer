@@ -68,7 +68,7 @@ func NewRelayer(
 		return nil, nil, err
 	}
 
-	allowedDestinationChainIDs, err := sourceSubnetInfo.GetAllowedDestination()
+	allowedDestinationChainIDs, err := sourceSubnetInfo.GetAllowedDestinations()
 	if err != nil {
 		logger.Error(
 			"Failed to get allowed destination",
