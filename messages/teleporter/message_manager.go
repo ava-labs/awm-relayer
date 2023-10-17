@@ -115,6 +115,7 @@ func (m *messageManager) ShouldSendMessage(warpMessageInfo *vmtypes.WarpMessageI
 		if allowed, exist := m.allowedDestinations[destinationChainID]; !exist || !allowed {
 			m.logger.Info(
 				"Relayer not configured to relay between source and destination",
+				zap.String("sourceChainID", warpMessageInfo.WarpUnsignedMessage.SourceChainID.String()),
 				zap.String("destinationChainID", destinationChainID.String()),
 				zap.String("warpMessageID", warpMessageInfo.WarpUnsignedMessage.ID().String()),
 				zap.String("teleporterMessageID", teleporterMessage.MessageID.String()),
