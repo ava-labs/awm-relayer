@@ -61,7 +61,7 @@ func TestShouldSendMessage(t *testing.T) {
 	destinationClients := map[ids.ID]vms.DestinationClient{
 		destinationChainID: mockClient,
 	}
-	allowedDestinationChainIDs := map[ids.ID]bool{
+	supportedDestinationsChainIDs := map[ids.ID]bool{
 		destinationChainID: true,
 	}
 
@@ -70,7 +70,7 @@ func TestShouldSendMessage(t *testing.T) {
 		messageProtocolAddress,
 		messageProtocolConfig,
 		destinationClients,
-		allowedDestinationChainIDs,
+		supportedDestinationsChainIDs,
 	)
 	require.NoError(t, err)
 
@@ -86,18 +86,18 @@ func TestShouldSendMessage(t *testing.T) {
 	warpUnsignedMessage, err := warp.NewUnsignedMessage(0, ids.Empty, validMessageBytes)
 	require.NoError(t, err)
 	testCases := []struct {
-		name                      string
-		destinationChainID        ids.ID
-		allowedDestinationChaiIDs map[ids.ID]bool
-		warpMessageInfo           *vmtypes.WarpMessageInfo
-		senderAddressResult       common.Address
-		senderAddressTimes        int
-		clientResult              *mock_evm.MockClient
-		clientTimes               int
-		callContractResult        []byte
-		callContractTimes         int
-		expectedError             bool
-		expectedResult            bool
+		name                         string
+		destinationChainID           ids.ID
+		supportedDestinationsChaiIDs map[ids.ID]bool
+		warpMessageInfo              *vmtypes.WarpMessageInfo
+		senderAddressResult          common.Address
+		senderAddressTimes           int
+		clientResult                 *mock_evm.MockClient
+		clientTimes                  int
+		callContractResult           []byte
+		callContractTimes            int
+		expectedError                bool
+		expectedResult               bool
 	}{
 		{
 			name:               "valid message",
@@ -161,7 +161,7 @@ func TestShouldSendMessage(t *testing.T) {
 		{
 			name:               "destination chain id not allowed",
 			destinationChainID: destinationChainID,
-			allowedDestinationChaiIDs: map[ids.ID]bool{
+			supportedDestinationsChaiIDs: map[ids.ID]bool{
 				chainID: true,
 			},
 			warpMessageInfo: &vmtypes.WarpMessageInfo{
@@ -171,9 +171,9 @@ func TestShouldSendMessage(t *testing.T) {
 			expectedResult: false,
 		},
 		{
-			name:                      "empty allowed destination chain ids",
-			destinationChainID:        destinationChainID,
-			allowedDestinationChaiIDs: map[ids.ID]bool{},
+			name:                         "empty allowed destination chain ids",
+			destinationChainID:           destinationChainID,
+			supportedDestinationsChaiIDs: map[ids.ID]bool{},
 			warpMessageInfo: &vmtypes.WarpMessageInfo{
 				WarpUnsignedMessage: warpUnsignedMessage,
 				WarpPayload:         validMessageBytes,
@@ -194,8 +194,8 @@ func TestShouldSendMessage(t *testing.T) {
 			if test.clientResult != nil {
 				test.clientResult.EXPECT().CallContract(gomock.Any(), gomock.Any(), gomock.Any()).Return(test.callContractResult, nil).Times(test.callContractTimes)
 			}
-			if test.allowedDestinationChaiIDs != nil {
-				messageManager.allowedDestinations = test.allowedDestinationChaiIDs
+			if test.supportedDestinationsChaiIDs != nil {
+				messageManager.supportedDestinationss = test.supportedDestinationsChaiIDs
 			}
 
 			result, err := messageManager.ShouldSendMessage(test.warpMessageInfo, test.destinationChainID)

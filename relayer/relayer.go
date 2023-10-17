@@ -68,7 +68,7 @@ func NewRelayer(
 		return nil, nil, err
 	}
 
-	allowedDestinationChainIDs, err := sourceSubnetInfo.GetAllowedDestinations()
+	supportedDestinationsChainIDs, err := sourceSubnetInfo.GetSupportedDestinations()
 	if err != nil {
 		logger.Error(
 			"Failed to get allowed destination",
@@ -81,7 +81,7 @@ func NewRelayer(
 	messageManagers := make(map[common.Hash]messages.MessageManager)
 	for address, config := range sourceSubnetInfo.MessageContracts {
 		addressHash := common.HexToHash(address)
-		messageManager, err := messages.NewMessageManager(logger, addressHash, config, destinationClients, allowedDestinationChainIDs)
+		messageManager, err := messages.NewMessageManager(logger, addressHash, config, destinationClients, supportedDestinationsChainIDs)
 		if err != nil {
 			logger.Error(
 				"Failed to create message manager",

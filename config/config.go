@@ -40,16 +40,16 @@ type MessageProtocolConfig struct {
 	Settings      map[string]interface{} `mapstructure:"settings" json:"settings"`
 }
 type SourceSubnet struct {
-	SubnetID            string                           `mapstructure:"subnet-id" json:"subnet-id"`
-	ChainID             string                           `mapstructure:"chain-id" json:"chain-id"`
-	VM                  string                           `mapstructure:"vm" json:"vm"`
-	APINodeHost         string                           `mapstructure:"api-node-host" json:"api-node-host"`
-	APINodePort         uint32                           `mapstructure:"api-node-port" json:"api-node-port"`
-	EncryptConnection   bool                             `mapstructure:"encrypt-connection" json:"encrypt-connection"`
-	RPCEndpoint         string                           `mapstructure:"rpc-endpoint" json:"rpc-endpoint"`
-	WSEndpoint          string                           `mapstructure:"ws-endpoint" json:"ws-endpoint"`
-	MessageContracts    map[string]MessageProtocolConfig `mapstructure:"message-contracts" json:"message-contracts"`
-	AllowedDestinations []string                         `mapstructure:"allowed-destinations" json:"allowed-destinations"`
+	SubnetID              string                           `mapstructure:"subnet-id" json:"subnet-id"`
+	ChainID               string                           `mapstructure:"chain-id" json:"chain-id"`
+	VM                    string                           `mapstructure:"vm" json:"vm"`
+	APINodeHost           string                           `mapstructure:"api-node-host" json:"api-node-host"`
+	APINodePort           uint32                           `mapstructure:"api-node-port" json:"api-node-port"`
+	EncryptConnection     bool                             `mapstructure:"encrypt-connection" json:"encrypt-connection"`
+	RPCEndpoint           string                           `mapstructure:"rpc-endpoint" json:"rpc-endpoint"`
+	WSEndpoint            string                           `mapstructure:"ws-endpoint" json:"ws-endpoint"`
+	MessageContracts      map[string]MessageProtocolConfig `mapstructure:"message-contracts" json:"message-contracts"`
+	SupportedDestinations []string                         `mapstructure:"supported-destinations" json:"allowed-destinations"`
 }
 
 type DestinationSubnet struct {
@@ -195,7 +195,7 @@ func (c *Config) Validate() error {
 		}
 		sourceChains.Add(s.ChainID)
 
-		for _, chainID := range s.AllowedDestinations {
+		for _, chainID := range s.SupportedDestinations {
 			if !destinationChains.Contains(chainID) {
 				return fmt.Errorf("configured source subnet %s has an allowed destination chain ID %s that is not configured as a destination subnet",
 					s.ChainID,
@@ -207,16 +207,16 @@ func (c *Config) Validate() error {
 	return nil
 }
 
-func (s *SourceSubnet) GetAllowedDestinations() (map[ids.ID]bool, error) {
-	allowedDestinationChainIDs := make(map[ids.ID]bool)
-	for _, chainIDStr := range s.AllowedDestinations {
+func (s *SourceSubnet) GetSupportedDestinations() (map[ids.ID]bool, error) {
+	supportedDestinationsChainIDs := make(map[ids.ID]bool)
+	for _, chainIDStr := range s.SupportedDestinations {
 		chainID, err := ids.FromString(chainIDStr)
 		if err != nil {
 			return nil, fmt.Errorf("invalid chainID in configuration. error: %v", err)
 		}
-		allowedDestinationChainIDs[chainID] = true
+		supportedDestinationsChainIDs[chainID] = true
 	}
-	return allowedDestinationChainIDs, nil
+	return supportedDestinationsChainIDs, nil
 }
 
 func (s *SourceSubnet) Validate() error {
@@ -254,7 +254,7 @@ func (s *SourceSubnet) Validate() error {
 	}
 
 	// Validate the allowed destinations
-	for _, chainIDs := range s.AllowedDestinations {
+	for _, chainIDs := range s.SupportedDestinations {
 		if _, err := ids.FromString(chainIDs); err != nil {
 			return fmt.Errorf("invalid chainID in source subnet configuration. Provided ID: %s", chainIDs)
 		}
