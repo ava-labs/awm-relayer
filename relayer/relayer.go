@@ -68,14 +68,7 @@ func NewRelayer(
 		return nil, nil, err
 	}
 
-	supportedDestinationsChainIDs, err := sourceSubnetInfo.GetSupportedDestinations()
-	if err != nil {
-		logger.Error(
-			"Failed to get allowed destination",
-			zap.Error(err),
-		)
-		return nil, nil, err
-	}
+	supportedDestinationsChainIDs := sourceSubnetInfo.GetSupportedDestinations()
 
 	// Create message managers for each supported message protocol
 	messageManagers := make(map[common.Hash]messages.MessageManager)

@@ -50,6 +50,9 @@ type SourceSubnet struct {
 	WSEndpoint            string                           `mapstructure:"ws-endpoint" json:"ws-endpoint"`
 	MessageContracts      map[string]MessageProtocolConfig `mapstructure:"message-contracts" json:"message-contracts"`
 	SupportedDestinations []string                         `mapstructure:"supported-destinations" json:"allowed-destinations"`
+
+	// convenience field
+	supportedDestinationsMap map[ids.ID]bool
 }
 
 type DestinationSubnet struct {
@@ -207,16 +210,8 @@ func (c *Config) Validate() error {
 	return nil
 }
 
-func (s *SourceSubnet) GetSupportedDestinations() (map[ids.ID]bool, error) {
-	supportedDestinationsChainIDs := make(map[ids.ID]bool)
-	for _, chainIDStr := range s.SupportedDestinations {
-		chainID, err := ids.FromString(chainIDStr)
-		if err != nil {
-			return nil, fmt.Errorf("invalid chainID in configuration. error: %v", err)
-		}
-		supportedDestinationsChainIDs[chainID] = true
-	}
-	return supportedDestinationsChainIDs, nil
+func (s *SourceSubnet) GetSupportedDestinations() map[ids.ID]bool {
+	return s.supportedDestinationsMap
 }
 
 func (s *SourceSubnet) Validate() error {
@@ -258,6 +253,16 @@ func (s *SourceSubnet) Validate() error {
 		if _, err := ids.FromString(chainIDs); err != nil {
 			return fmt.Errorf("invalid chainID in source subnet configuration. Provided ID: %s", chainIDs)
 		}
+	}
+
+	// Store the allowed destinations for future use
+	s.supportedDestinationsMap = make(map[ids.ID]bool)
+	for _, chainIDStr := range s.SupportedDestinations {
+		chainID, err := ids.FromString(chainIDStr)
+		if err != nil {
+			return fmt.Errorf("invalid chainID in configuration. error: %v", err)
+		}
+		s.supportedDestinationsMap[chainID] = true
 	}
 
 	return nil
