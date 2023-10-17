@@ -18,6 +18,7 @@ import (
 	"github.com/ava-labs/awm-relayer/vms/vmtypes"
 	"github.com/ava-labs/subnet-evm/ethclient"
 	"github.com/ava-labs/subnet-evm/interfaces"
+	teleportermessenger "github.com/ava-labs/teleporter/go-utils/abi-bindings/Teleporter/TeleporterMessenger"
 	"github.com/ethereum/go-ethereum/common"
 	"go.uber.org/zap"
 )
@@ -32,7 +33,7 @@ type messageManager struct {
 
 	// We parse teleporter messages in ShouldSendMessage, cache them to be reused in SendMessage
 	// The cache is keyed by the Warp message ID, NOT the Teleporter message ID
-	teleporterMessageCache *cache.LRU[ids.ID, *TeleporterMessage]
+	teleporterMessageCache *cache.LRU[ids.ID, *teleportermessenger.TeleporterMessage]
 	destinationClients     map[ids.ID]vms.DestinationClient
 
 	logger logging.Logger
@@ -63,7 +64,7 @@ func NewMessageManager(
 		)
 		return nil, err
 	}
-	teleporterMessageCache := &cache.LRU[ids.ID, *TeleporterMessage]{Size: teleporterMessageCacheSize}
+	teleporterMessageCache := &cache.LRU[ids.ID, *teleportermessenger.TeleporterMessage]{Size: teleporterMessageCacheSize}
 
 	return &messageManager{
 		messageConfig:          messageConfig,
@@ -91,7 +92,7 @@ func isAllowedRelayer(allowedRelayers []common.Address, eoa common.Address) bool
 // ShouldSendMessage returns true if the message should be sent to the destination chain
 func (m *messageManager) ShouldSendMessage(warpMessageInfo *vmtypes.WarpMessageInfo, destinationChainID ids.ID) (bool, error) {
 	// Unpack the teleporter message and add it to the cache
-	teleporterMessage, err := UnpackTeleporterMessage(warpMessageInfo.WarpPayload)
+	teleporterMessage, err := teleportermessenger.UnpackTeleporterMessage(warpMessageInfo.WarpPayload)
 	if err != nil {
 		m.logger.Error(
 			"Failed unpacking teleporter message.",
@@ -152,7 +153,7 @@ func (m *messageManager) ShouldSendMessage(warpMessageInfo *vmtypes.WarpMessageI
 func (m *messageManager) messageDelivered(
 	destinationClient vms.DestinationClient,
 	warpMessageInfo *vmtypes.WarpMessageInfo,
-	teleporterMessage *TeleporterMessage,
+	teleporterMessage *teleportermessenger.TeleporterMessage,
 	destinationChainID ids.ID) (bool, error) {
 	// Check if the message has already been delivered to the destination chain
 	client, ok := destinationClient.Client().(ethclient.Client)
@@ -164,10 +165,10 @@ func (m *messageManager) messageDelivered(
 		return false, errors.New("destination client is not an Ethereum client")
 	}
 
-	data, err := PackMessageReceived(MessageReceivedInput{
-		OriginChainID: warpMessageInfo.WarpUnsignedMessage.SourceChainID,
-		MessageID:     teleporterMessage.MessageID,
-	})
+	data, err := teleportermessenger.PackMessageReceived(
+		warpMessageInfo.WarpUnsignedMessage.SourceChainID,
+		teleporterMessage.MessageID,
+	)
 	if err != nil {
 		m.logger.Error(
 			"Failed packing messageReceived call data.",
@@ -191,7 +192,7 @@ func (m *messageManager) messageDelivered(
 		return false, err
 	}
 	// check the contract call result
-	delivered, err := UnpackMessageReceivedResult(result)
+	delivered, err := teleportermessenger.UnpackMessageReceivedResult(result)
 	if err != nil {
 		m.logger.Error(
 			"Failed unpacking messageReceived result.",
@@ -215,7 +216,7 @@ func (m *messageManager) SendMessage(signedMessage *warp.Message, parsedVmPayloa
 			zap.String("warpMessageID", signedMessage.ID().String()),
 		)
 		var err error
-		teleporterMessage, err = UnpackTeleporterMessage(parsedVmPayload)
+		teleporterMessage, err = teleportermessenger.UnpackTeleporterMessage(parsedVmPayload)
 		if err != nil {
 			m.logger.Error(
 				"Failed unpacking teleporter message.",
@@ -253,10 +254,7 @@ func (m *messageManager) SendMessage(signedMessage *warp.Message, parsedVmPayloa
 		return err
 	}
 	// Construct the transaction call data to call the receive cross chain message method of the receiver precompile.
-	callData, err := PackReceiveCrossChainMessage(ReceiveCrossChainMessageInput{
-		MessageIndex:         uint32(0),
-		RelayerRewardAddress: common.HexToAddress(m.messageConfig.RewardAddress),
-	})
+	callData, err := teleportermessenger.PackReceiveCrossChainMessage(0, common.HexToAddress(m.messageConfig.RewardAddress))
 	if err != nil {
 		m.logger.Error(
 			"Failed packing receiveCrossChainMessage call data",
