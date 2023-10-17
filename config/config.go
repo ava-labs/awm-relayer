@@ -198,11 +198,11 @@ func (c *Config) Validate() error {
 		}
 		sourceChains.Add(s.ChainID)
 
-		for _, chainID := range s.SupportedDestinations {
-			if !destinationChains.Contains(chainID) {
-				return fmt.Errorf("configured source subnet %s has an allowed destination chain ID %s that is not configured as a destination subnet",
-					s.ChainID,
-					chainID)
+		for _, blockchainID := range s.SupportedDestinations {
+			if !destinationChains.Contains(blockchainID) {
+				return fmt.Errorf("configured source subnet %s has a supported destination blockchain ID %s that is not configured as a destination blockchain",
+					s.SubnetID,
+					blockchainID)
 			}
 		}
 	}
