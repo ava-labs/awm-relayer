@@ -171,17 +171,8 @@ func (c *Config) Validate() error {
 	if _, err := url.ParseRequestURI(c.PChainAPIURL); err != nil {
 		return err
 	}
-	sourceChains := set.NewSet[string](len(c.SourceSubnets))
-	for _, s := range c.SourceSubnets {
-		if err := s.Validate(); err != nil {
-			return err
-		}
-		if sourceChains.Contains(s.ChainID) {
-			return fmt.Errorf("configured source subnets must have unique chain IDs")
-		}
-		sourceChains.Add(s.ChainID)
-	}
 
+	// Validate the destination chains
 	destinationChains := set.NewSet[string](len(c.DestinationSubnets))
 	for _, s := range c.DestinationSubnets {
 		if err := s.Validate(); err != nil {
@@ -193,8 +184,17 @@ func (c *Config) Validate() error {
 		destinationChains.Add(s.ChainID)
 	}
 
-	// Validate all the allowed destinations are configured as a destination subnet
+	// Validate the source chains, and validate that the allowed destinations are configured as destinations
+	sourceChains := set.NewSet[string](len(c.SourceSubnets))
 	for _, s := range c.SourceSubnets {
+		if err := s.Validate(); err != nil {
+			return err
+		}
+		if sourceChains.Contains(s.ChainID) {
+			return fmt.Errorf("configured source subnets must have unique chain IDs")
+		}
+		sourceChains.Add(s.ChainID)
+
 		for _, chainID := range s.AllowedDestinations {
 			if !destinationChains.Contains(chainID) {
 				return fmt.Errorf("configured source subnet %s has an allowed destination chain ID %s that is not configured as a destination subnet",
