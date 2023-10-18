@@ -18,8 +18,8 @@ import (
 	"github.com/ava-labs/awm-relayer/vms/vmtypes"
 	"github.com/ava-labs/subnet-evm/ethclient"
 	"github.com/ava-labs/subnet-evm/interfaces"
-	teleportermessenger "github.com/ava-labs/teleporter/go-utils/abi-bindings/Teleporter/TeleporterMessenger"
-	teleporterUtils "github.com/ava-labs/teleporter/go-utils/utils"
+	teleportermessenger "github.com/ava-labs/teleporter/abi-bindings/go/Teleporter/TeleporterMessenger"
+	gasUtils "github.com/ava-labs/teleporter/utils/gas-utils"
 	"github.com/ethereum/go-ethereum/common"
 	"go.uber.org/zap"
 )
@@ -244,7 +244,7 @@ func (m *messageManager) SendMessage(signedMessage *warp.Message, parsedVmPayloa
 		)
 		return err
 	}
-	gasLimit, err := teleporterUtils.CalculateReceiveMessageGasLimit(numSigners, teleporterMessage.RequiredGasLimit)
+	gasLimit, err := gasUtils.CalculateReceiveMessageGasLimit(numSigners, teleporterMessage.RequiredGasLimit)
 	if err != nil {
 		m.logger.Error(
 			"Gas limit required overflowed uint64 max. not relaying message",

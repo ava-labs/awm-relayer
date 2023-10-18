@@ -21,7 +21,7 @@ import (
 	predicateutils "github.com/ava-labs/subnet-evm/utils/predicate"
 	warpPayload "github.com/ava-labs/subnet-evm/warp/payload"
 	"github.com/ava-labs/subnet-evm/x/warp"
-	teleportermessenger "github.com/ava-labs/teleporter/go-utils/abi-bindings/Teleporter/TeleporterMessenger"
+	teleportermessenger "github.com/ava-labs/teleporter/abi-bindings/go/Teleporter/TeleporterMessenger"
 	teleporterTestUtils "github.com/ava-labs/teleporter/tests/utils"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"

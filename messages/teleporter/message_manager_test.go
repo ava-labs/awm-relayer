@@ -15,7 +15,7 @@ import (
 	mock_evm "github.com/ava-labs/awm-relayer/vms/evm/mocks"
 	mock_vms "github.com/ava-labs/awm-relayer/vms/mocks"
 	"github.com/ava-labs/awm-relayer/vms/vmtypes"
-	teleportermessenger "github.com/ava-labs/teleporter/go-utils/abi-bindings/Teleporter/TeleporterMessenger"
+	teleportermessenger "github.com/ava-labs/teleporter/abi-bindings/go/Teleporter/TeleporterMessenger"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
