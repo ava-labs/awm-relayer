@@ -55,8 +55,8 @@ github.com/VictoriaMetrics/fastcache v1.10.0 h1:5hDJnLsKLpnUEToub7ETuRu8RCkb40wo
 github.com/VictoriaMetrics/fastcache v1.10.0/go.mod h1:tjiYeEfYXCqacuvYw/7UoDIeJaNxq6132xHICNP77w8=
 github.com/aead/siphash v1.0.1/go.mod h1:Nywa3cDsYNNK3gaciGTWPwHt0wlpNV15vwmswBAUSII=
 github.com/ajg/form v1.5.1/go.mod h1:uL1WgH+h2mgNtvBq0339dVnzXdBETtL2LeUXaIv25UY=
-github.com/alexliesenfeld/health v0.7.0 h1:U3mSZ3ussRbGx+/rXBjNVxjLX5cKaNh8Ly9Hx3q+yfY=
-github.com/alexliesenfeld/health v0.7.0/go.mod h1:6Nnjbu7vBYHoZqIuZeOnTpnW7OH14ulR+wIBE2QuJ8I=
+github.com/alexliesenfeld/health v0.8.0 h1:lCV0i+ZJPTbqP7LfKG7p3qZBl5VhelwUFCIVWl77fgk=
+github.com/alexliesenfeld/health v0.8.0/go.mod h1:TfNP0f+9WQVWMQRzvMUjlws4ceXKEL3WR+6Hp95HUFc=
 github.com/allegro/bigcache v1.2.1-0.20190218064605-e24eb225f156 h1:eMwmnE/GDgah4HI848JfFxHt+iPb26b4zyfspmqY0/8=
 github.com/allegro/bigcache v1.2.1-0.20190218064605-e24eb225f156/go.mod h1:Cb/ax3seSYIx7SuZdm2G2xzfwmv3TPSk2ucNfQESPXM=
 github.com/antihax/optional v1.0.0/go.mod h1:uupD/76wgC+ih3iEmQUL+0Ugr19nfwCT1kdvxnR2qWY=
@@ -69,10 +69,6 @@ github.com/ava-labs/coreth v0.12.5-rc.6 h1:OajGUyKkO5Q82XSuMa8T5UD6QywtCHUiZ4Tv3
 github.com/ava-labs/coreth v0.12.5-rc.6/go.mod h1:s5wVyy+5UCCk2m0Tq3jVmy0UqOpKBDYqRE13gInCJVs=
 github.com/ava-labs/subnet-evm v0.5.6 h1:u+xBvEExOa362Up02hgSgeF+aqDona57whhRIeEIim8=
 github.com/ava-labs/subnet-evm v0.5.6/go.mod h1:desGY3ghT+Ner+oqxeovwF37eM4dmMQbYZECONPQU9w=
-github.com/ava-labs/teleporter v0.0.0-20231017222657-d1fe1dd343ca h1:NSYggX9vrbKTKMDXki0hBSnFUX6HC6kDaRPkPjM+Mek=
-github.com/ava-labs/teleporter v0.0.0-20231017222657-d1fe1dd343ca/go.mod h1:U1XJ7LUucmtAKiDPC0iFwYn3rP5IjH86XuFra+UQips=
-github.com/ava-labs/teleporter v0.0.0-20231018033348-96b58b4613ff h1:rdjbTETcExTkZTFBuXBSOPf24Azwx4CTdD3sPsf6tnU=
-github.com/ava-labs/teleporter v0.0.0-20231018033348-96b58b4613ff/go.mod h1:U1XJ7LUucmtAKiDPC0iFwYn3rP5IjH86XuFra+UQips=
 github.com/ava-labs/teleporter v0.0.0-20231018174018-3283c7aeae9e h1:4SQbxrPLaCVvji5t99/loukP5yIQstmXbqBwOGIWwtg=
 github.com/ava-labs/teleporter v0.0.0-20231018174018-3283c7aeae9e/go.mod h1:U1XJ7LUucmtAKiDPC0iFwYn3rP5IjH86XuFra+UQips=
 github.com/aymerick/raymond v2.0.3-0.20180322193309-b565731e1464+incompatible/go.mod h1:osfaiScAUVup+UC9Nfq76eWqDhXlp+4UYaA8uhTBO6g=
@@ -544,7 +540,6 @@ github.com/stretchr/testify v1.7.0/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/
 github.com/stretchr/testify v1.7.1/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/h/Wwjteg=
 github.com/stretchr/testify v1.7.2/go.mod h1:R6va5+xMeoiuVRoj+gSkQ7d3FALtqAAGI1FQKckRals=
 github.com/stretchr/testify v1.8.0/go.mod h1:yNjHg4UonilssWZ8iaSj1OCr/vHnekPRkoO+kdMU+MU=
-github.com/stretchr/testify v1.8.2/go.mod h1:w2LPCIKwWwSfY2zedu0+kehJoqGctiVI29o6fzry7u4=
 github.com/stretchr/testify v1.8.3/go.mod h1:sz/lmYIOXD/1dqDmKjjqLyZ2RngseejIcXlSw2iwfAo=
 github.com/stretchr/testify v1.8.4 h1:CcVxjf3Q8PM0mHUKJCdn+eZZtm5yQwehR5yeSVQQcUk=
 github.com/stretchr/testify v1.8.4/go.mod h1:sz/lmYIOXD/1dqDmKjjqLyZ2RngseejIcXlSw2iwfAo=
