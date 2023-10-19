@@ -195,7 +195,7 @@ func TestShouldSendMessage(t *testing.T) {
 				test.clientResult.EXPECT().CallContract(gomock.Any(), gomock.Any(), gomock.Any()).Return(test.callContractResult, nil).Times(test.callContractTimes)
 			}
 			if test.supportedDestinationsChaiIDs != nil {
-				messageManager.supportedDestinationss = test.supportedDestinationsChaiIDs
+				messageManager.supportedDestinations = test.supportedDestinationsChaiIDs
 			}
 
 			result, err := messageManager.ShouldSendMessage(test.warpMessageInfo, test.destinationChainID)
