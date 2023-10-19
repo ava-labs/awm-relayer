@@ -6,7 +6,7 @@ require (
 	github.com/ava-labs/avalanche-network-runner v1.7.2
 	github.com/ava-labs/avalanchego v1.10.10
 	github.com/ava-labs/subnet-evm v0.5.6
-	github.com/ava-labs/teleporter v0.0.0-20231004221622-b655bfe85981
+	github.com/ava-labs/teleporter v0.0.0-20231018174018-3283c7aeae9e
 	github.com/ethereum/go-ethereum v1.12.0
 	github.com/onsi/ginkgo/v2 v2.12.0
 	github.com/onsi/gomega v1.27.10
@@ -15,7 +15,7 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.16.0
 	github.com/stretchr/testify v1.8.4
-	go.uber.org/mock v0.2.0
+	go.uber.org/mock v0.3.0
 	go.uber.org/zap v1.26.0
 )
 

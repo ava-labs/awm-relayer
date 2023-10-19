@@ -15,6 +15,7 @@ import (
 	mock_evm "github.com/ava-labs/awm-relayer/vms/evm/mocks"
 	mock_vms "github.com/ava-labs/awm-relayer/vms/mocks"
 	"github.com/ava-labs/awm-relayer/vms/vmtypes"
+	teleportermessenger "github.com/ava-labs/teleporter/abi-bindings/go/Teleporter/TeleporterMessenger"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -31,7 +32,7 @@ var (
 	destinationChainIDString = "S4mMqUXe7vHsGiRAma6bv3CKnyaLssyAxmQ2KvFpX1KEvfFCD"
 	chainIDString            = "2nFUad4Nw4pCgEF6MwYgGuKrzKbHJzM8wF29jeVUL41RWHgNRa"
 	validRelayerAddress      = common.HexToAddress("0x0123456789abcdef0123456789abcdef01234567")
-	validTeleporterMessage   = TeleporterMessage{
+	validTeleporterMessage   = teleportermessenger.TeleporterMessage{
 		MessageID:          big.NewInt(1),
 		SenderAddress:      common.HexToAddress("0x0123456789abcdef0123456789abcdef01234567"),
 		DestinationAddress: common.HexToAddress("0x0123456789abcdef0123456789abcdef01234567"),
@@ -39,7 +40,7 @@ var (
 		AllowedRelayerAddresses: []common.Address{
 			validRelayerAddress,
 		},
-		Receipts: []TeleporterMessageReceipt{
+		Receipts: []teleportermessenger.TeleporterMessageReceipt{
 			{
 				ReceivedMessageID:    big.NewInt(1),
 				RelayerRewardAddress: common.HexToAddress("0x0123456789abcdef0123456789abcdef01234567"),
@@ -74,13 +75,13 @@ func TestShouldSendMessage(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	validMessageBytes, err := PackSendCrossChainMessageEvent(common.HexToHash(destinationChainID.Hex()), validTeleporterMessage)
+	validMessageBytes, err := teleportermessenger.PackSendCrossChainMessageEvent(common.HexToHash(destinationChainID.Hex()), validTeleporterMessage)
 	require.NoError(t, err)
 
-	messageNotDelivered, err := PackMessageReceivedOutput(false)
+	messageNotDelivered, err := teleportermessenger.PackMessageReceivedOutput(false)
 	require.NoError(t, err)
 
-	messageDelivered, err := PackMessageReceivedOutput(true)
+	messageDelivered, err := teleportermessenger.PackMessageReceivedOutput(true)
 	require.NoError(t, err)
 
 	warpUnsignedMessage, err := warp.NewUnsignedMessage(0, ids.Empty, validMessageBytes)
