@@ -132,10 +132,7 @@ func (m *messageManager) SendMessage(signedMessage *warp.Message, warpMessageInf
 			zap.String("warpMessageID", signedMessage.ID().String()),
 		)
 		// Construct the transaction call data to call the receive cross chain message method of the receiver precompile.
-		callData, err := teleporter_block_hash.PackReceiveBlockHash(teleporter_block_hash.ReceiveBlockHashInput{
-			MessageIndex:  uint32(0),
-			SourceChainID: signedMessage.SourceChainID,
-		})
+		callData, err := teleporter_block_hash.PackReceiveBlockHash(0)
 		if err != nil {
 			m.logger.Error(
 				"Failed packing receiveCrossChainMessage call data",

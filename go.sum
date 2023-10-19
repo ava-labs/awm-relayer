@@ -77,6 +77,10 @@ github.com/ava-labs/teleporter v0.0.0-20231005202233-cab06cef8e05 h1:qqTnNm4RHxH
 github.com/ava-labs/teleporter v0.0.0-20231005202233-cab06cef8e05/go.mod h1:nyjuYCBefAGCkKDhmJIxh8iTAczapQxwxj/7FC4g9sU=
 github.com/ava-labs/teleporter v0.0.0-20231013203557-0810228e758d h1:BoxSc7CGlddZuX/DrE6aB3RjaqtP0baRAk0noI3HGbA=
 github.com/ava-labs/teleporter v0.0.0-20231013203557-0810228e758d/go.mod h1:nyjuYCBefAGCkKDhmJIxh8iTAczapQxwxj/7FC4g9sU=
+github.com/ava-labs/teleporter v0.0.0-20231019213504-d5b8203b4952 h1:ovJAh7Mzs/VGKSkzOFeb+lVF7sp5QmEty44HiWUcDv0=
+github.com/ava-labs/teleporter v0.0.0-20231019213504-d5b8203b4952/go.mod h1:nyjuYCBefAGCkKDhmJIxh8iTAczapQxwxj/7FC4g9sU=
+github.com/ava-labs/teleporter v0.0.0-20231019213726-050fbd0d6992 h1:T5DdAjXJ5tubynurSkjLVasdFCfSbGUishqhtkK9Xsg=
+github.com/ava-labs/teleporter v0.0.0-20231019213726-050fbd0d6992/go.mod h1:nyjuYCBefAGCkKDhmJIxh8iTAczapQxwxj/7FC4g9sU=
 github.com/aymerick/raymond v2.0.3-0.20180322193309-b565731e1464+incompatible/go.mod h1:osfaiScAUVup+UC9Nfq76eWqDhXlp+4UYaA8uhTBO6g=
 github.com/beorn7/perks v1.0.1 h1:VlbKKnNfV8bJzeqoa4cOKqO6bYr3WgKZxO8Z16+hsOM=
 github.com/beorn7/perks v1.0.1/go.mod h1:G2ZrVWU2WbWT9wwq4/hrbKbnv/1ERSJQ0ibhJ6rlkpw=
