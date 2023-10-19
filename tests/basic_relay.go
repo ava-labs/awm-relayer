@@ -15,14 +15,13 @@ import (
 	avalancheWarp "github.com/ava-labs/avalanchego/vms/platformvm/warp"
 	"github.com/ava-labs/awm-relayer/config"
 	"github.com/ava-labs/awm-relayer/database"
-	"github.com/ava-labs/awm-relayer/messages/teleporter"
 	"github.com/ava-labs/awm-relayer/peers"
 	testUtils "github.com/ava-labs/awm-relayer/tests/utils"
 	"github.com/ava-labs/subnet-evm/core/types"
 	predicateutils "github.com/ava-labs/subnet-evm/utils/predicate"
 	warpPayload "github.com/ava-labs/subnet-evm/warp/payload"
 	"github.com/ava-labs/subnet-evm/x/warp"
-	teleportermessenger "github.com/ava-labs/teleporter/abis/TeleporterMessenger"
+	teleportermessenger "github.com/ava-labs/teleporter/abi-bindings/go/Teleporter/TeleporterMessenger"
 	teleporterTestUtils "github.com/ava-labs/teleporter/tests/utils"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
@@ -52,13 +51,13 @@ func BasicRelay() {
 	teleporterContractAddress := teleporterTestUtils.GetTeleporterContractAddress()
 	fundedAddress, fundedKey := teleporterTestUtils.GetFundedAccountInfo()
 
-	teleporterMessage := teleporter.TeleporterMessage{
+	teleporterMessage := teleportermessenger.TeleporterMessage{
 		MessageID:               big.NewInt(1),
 		SenderAddress:           fundedAddress,
 		DestinationAddress:      fundedAddress,
 		RequiredGasLimit:        big.NewInt(1),
 		AllowedRelayerAddresses: []common.Address{},
-		Receipts:                []teleporter.TeleporterMessageReceipt{},
+		Receipts:                []teleportermessenger.TeleporterMessageReceipt{},
 		Message:                 []byte{1, 2, 3, 4},
 	}
 
@@ -150,13 +149,13 @@ func BasicRelay() {
 	relayerCmd, relayerCancel = testUtils.RunRelayerExecutable(ctx, relayerConfigPath)
 
 	log.Info("Packing teleporter message")
-	payload, err = teleporter.PackSendCrossChainMessageEvent(common.Hash(subnetBInfo.BlockchainID), teleporterMessage)
+	payload, err = teleportermessenger.PackSendCrossChainMessageEvent(common.Hash(subnetBInfo.BlockchainID), teleporterMessage)
 	Expect(err).Should(BeNil())
 
-	input := teleporterTestUtils.SendCrossChainMessageInput{
+	input := teleportermessenger.TeleporterMessageInput{
 		DestinationChainID: subnetBInfo.BlockchainID,
 		DestinationAddress: teleporterMessage.DestinationAddress,
-		FeeInfo: teleporterTestUtils.FeeInfo{
+		FeeInfo: teleportermessenger.TeleporterFeeInfo{
 			ContractAddress: fundedAddress,
 			Amount:          big.NewInt(0),
 		},
@@ -180,7 +179,7 @@ func BasicRelay() {
 	log.Info("Sending teleporter transaction", "destinationChainID", subnetBInfo.BlockchainID, "txHash", signedTx.Hash())
 	receipt := teleporterTestUtils.SendTransactionAndWaitForAcceptance(ctx, subnetAInfo.ChainWSClient, signedTx)
 
-	bind, err := teleportermessenger.NewTeleportermessenger(teleporterContractAddress, subnetAInfo.ChainWSClient)
+	bind, err := teleportermessenger.NewTeleporterMessenger(teleporterContractAddress, subnetAInfo.ChainWSClient)
 	Expect(err).Should(BeNil())
 	sendEvent, err := teleporterTestUtils.GetSendEventFromLogs(receipt.Logs, bind)
 	Expect(err).Should(BeNil())
@@ -222,7 +221,7 @@ func BasicRelay() {
 	Expect(receipt.Status).Should(Equal(types.ReceiptStatusSuccessful))
 
 	// Check that the transaction emits ReceiveCrossChainMessage
-	bind, err = teleportermessenger.NewTeleportermessenger(teleporterContractAddress, subnetBInfo.ChainWSClient)
+	bind, err = teleportermessenger.NewTeleporterMessenger(teleporterContractAddress, subnetBInfo.ChainWSClient)
 	Expect(err).Should(BeNil())
 
 	receiveEvent, err := teleporterTestUtils.GetReceiveEventFromLogs(receipt.Logs, bind)
@@ -251,7 +250,7 @@ func BasicRelay() {
 	Expect(addressedPayload.Payload).Should(Equal(payload))
 
 	// Check that the teleporter message is correct
-	receivedTeleporterMessage, err := teleporter.UnpackTeleporterMessage(addressedPayload.Payload)
+	receivedTeleporterMessage, err := teleportermessenger.UnpackTeleporterMessage(addressedPayload.Payload)
 	Expect(err).Should(BeNil())
 	Expect(*receivedTeleporterMessage).Should(Equal(teleporterMessage))
 
