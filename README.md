@@ -66,10 +66,10 @@ The relayer is configured via a JSON file, the path to which is passed in via th
   - Whether or not to encrypt the connection to the source subnet's API node.
 
   `"rpc-endpoint": string` 
-  - The RPC endpoint of the source subnet's API node. If provided, `api-node-host`, `api-node-port`, and `encrypt-connection` are ignored
+  - The RPC endpoint of the source subnet's API node. Used in favor of `api-node-host`, `api-node-port`, and `encrypt-connection` when constructing the endpoint
 
   `"ws-endpoint": string` 
-  - The WebSocket endpoint of the source subnet's API node. If provided, `api-node-host`, `api-node-port`, and `encrypt-connection` are ignored
+  - The WebSocket endpoint of the source subnet's API node. Used in favor of `api-node-host`, `api-node-port`, and `encrypt-connection` when constructing the endpoint
 
   `"message-contracts": map[string]MessageProtocolConfig` 
   - Map of contract addresses to the config options of the protocol at that address. Each `MessageProtocolConfig` consists of a unique `message-format` name, and the raw JSON `settings`
@@ -99,15 +99,10 @@ The relayer is configured via a JSON file, the path to which is passed in via th
   - Whether or not to encrypt the connection to the source subnet's API node.
 
   `"rpc-endpoint": string` 
-  - The RPC endpoint of the source subnet's API node. If provided, `api-node-host`, `api-node-port`, and `encrypt-connection` are ignored
-
-  `"ws-endpoint": string` 
-  - The WebSocket endpoint of the source subnet's API node. If provided, `api-node-host`, `api-node-port`, and `encrypt-connection` are ignored
+  - The RPC endpoint of the destination subnet's API node. Used in favor of `api-node-host`, `api-node-port`, and `encrypt-connection` when constructing the endpoint
 
   `"account-private-key": string` 
   - The hex-encoded private key to use for signing transactions on the destination subnet. May be provided by the environment variable `ACCOUNT_PRIVATE_KEY`. Each `destination-subnet` may use a separate private key by appending the blockchain ID to the private key environment variable name, e.g. `ACCOUNT_PRIVATE_KEY_11111111111111111111111111111111LpoYY` 
-    
-    
 
 ## Architecture
 
