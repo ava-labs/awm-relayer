@@ -49,7 +49,7 @@ type SourceSubnet struct {
 	RPCEndpoint           string                           `mapstructure:"rpc-endpoint" json:"rpc-endpoint"`
 	WSEndpoint            string                           `mapstructure:"ws-endpoint" json:"ws-endpoint"`
 	MessageContracts      map[string]MessageProtocolConfig `mapstructure:"message-contracts" json:"message-contracts"`
-	SupportedDestinations []string                         `mapstructure:"supported-destinations" json:"allowed-destinations"`
+	SupportedDestinations []string                         `mapstructure:"supported-destinations" json:"supported-destinations"`
 
 	// convenience field to access the supported destinations after initialization
 	supportedDestinationsMap map[ids.ID]bool
