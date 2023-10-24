@@ -86,6 +86,7 @@ func BasicRelay() {
 		LogLevel:          logging.Info.LowerString(),
 		NetworkID:         peers.LocalNetworkID,
 		PChainAPIURL:      subnetAInfo.ChainNodeURIs[0],
+		InfoAPIURL:        subnetAInfo.ChainNodeURIs[0],
 		EncryptConnection: false,
 		StorageLocation:   storageLocation,
 		SourceSubnets: []config.SourceSubnet{

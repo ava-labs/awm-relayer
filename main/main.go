@@ -103,7 +103,7 @@ func main() {
 		panic(err)
 	}
 
-	network, responseChans, err := peers.NewNetwork(logger, registerer, cfg.NetworkID, sourceSubnetIDs, sourceChainIDs, cfg.PChainAPIURL)
+	network, responseChans, err := peers.NewNetwork(logger, registerer, cfg.NetworkID, sourceSubnetIDs, sourceChainIDs, cfg.InfoAPIURL)
 	if err != nil {
 		logger.Error(
 			"Failed to create app request network",

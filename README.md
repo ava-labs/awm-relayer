@@ -38,6 +38,9 @@ The relayer is configured via a JSON file, the path to which is passed in via th
 `"p-chain-api-url": string`
 - The URL of the Avalanche P-Chain API node to which the relayer will connect. Defaults to `https://api.avax.network`.
 
+`info-api-url": string`
+- The URL of the Avalanche API node to which the relayer will connect to get information about the network. The Info API must be enabled on the node.
+
 `"encrypt-connection": boolean`
 - Whether or not to encrypt the connection to the P-Chain API node. Defaults to `true`.
 

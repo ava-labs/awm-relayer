@@ -27,6 +27,7 @@ var (
 		LogLevel:          "info",
 		NetworkID:         1337,
 		PChainAPIURL:      "http://test.avax.network",
+		InfoAPIURL:        "http://info.avax.network",
 		EncryptConnection: false,
 		SourceSubnets: []SourceSubnet{
 			{
