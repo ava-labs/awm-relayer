@@ -103,24 +103,6 @@ func NewNetwork(
 		)
 		return nil, nil, err
 	}
-	ip, err := infoClient.GetNodeIP(context.Background())
-	if err != nil {
-		logger.Error(
-			"Failed to get ip",
-			zap.Error(err),
-		)
-		return nil, nil, err
-	}
-	id, _, err := infoClient.GetNodeID(context.Background())
-	if err != nil {
-		logger.Error(
-			"Failed to get node id",
-			zap.Error(err),
-		)
-		return nil, nil, err
-	}
-	beaconIPs = append(beaconIPs, ip)
-	beaconIDs = append(beaconIDs, id.String())
 
 	var indices []uint64
 	// If we have more peers than numInitialTestPeers, take a random sample of numInitialTestPeers peers
