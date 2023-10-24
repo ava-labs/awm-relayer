@@ -51,7 +51,7 @@ type SourceSubnet struct {
 	MessageContracts      map[string]MessageProtocolConfig `mapstructure:"message-contracts" json:"message-contracts"`
 	SupportedDestinations []string                         `mapstructure:"supported-destinations" json:"allowed-destinations"`
 
-	// convenience field
+	// convenience field to access the supported destinations after initialization
 	supportedDestinationsMap map[ids.ID]bool
 }
 
