@@ -36,7 +36,11 @@ The relayer is configured via a JSON file, the path to which is passed in via th
 - The ID of the Avalanche network to which the relayer will connect. Defaults to `1` (Mainnet).
 
 `"p-chain-api-url": string`
-- The URL of the Avalanche P-Chain API node to which the relayer will connect.
+- The URL of the Avalanche P-Chain API node to which the relayer will connect. This API node needs to have the following methods enabled:
+  - info.peers
+  - platform.getHeight
+  - platform.validatedBy
+  - platform.getValidatorsAt
 
 `"encrypt-connection": boolean`
 - Whether or not to encrypt the connection to the P-Chain API node. Defaults to `true`.
