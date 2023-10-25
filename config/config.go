@@ -22,9 +22,6 @@ import (
 	"github.com/spf13/viper"
 )
 
-// global config singleton
-var globalConfig Config
-
 const (
 	relayerPrivateKeyBytes      = 32
 	accountPrivateKeyEnvVarName = "ACCOUNT_PRIVATE_KEY"
@@ -157,8 +154,6 @@ func BuildConfig(v *viper.Viper) (Config, bool, error) {
 		return Config{}, false, err
 	}
 	cfg.PChainAPIURL = pChainapiUrl
-
-	globalConfig = cfg
 
 	return cfg, optionOverwritten, nil
 }
@@ -392,14 +387,14 @@ func (s *DestinationSubnet) GetRelayerAccountInfo() (*ecdsa.PrivateKey, common.A
 }
 
 //
-// Global config getters
+// Top-level config getters
 //
 
 // GetSourceIDs returns the Subnet and Chain IDs of all subnets configured as a source
-func GetSourceIDs() ([]ids.ID, []ids.ID, error) {
+func (c *Config) GetSourceIDs() ([]ids.ID, []ids.ID, error) {
 	var sourceSubnetIDs []ids.ID
 	var sourceChainIDs []ids.ID
-	for _, s := range globalConfig.SourceSubnets {
+	for _, s := range c.SourceSubnets {
 		subnetID, err := ids.FromString(s.SubnetID)
 		if err != nil {
 			return nil, nil, fmt.Errorf("invalid subnetID in configuration. error: %v", err)
