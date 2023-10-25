@@ -39,5 +39,38 @@ func (v *CanonicalValidatorClient) GetValidatorSet(
 	height uint64,
 	subnetID ids.ID,
 ) (map[ids.NodeID]*validators.GetValidatorOutput, error) {
-	return v.client.GetValidatorsAt(ctx, subnetID, height)
+	// Get the current subnet validators. These validators are not expected to include
+	// BLS signing information given that addPermissionlessValidatorTx is only used to
+	// add primary network validators.
+	subnetVdrs, err := v.client.GetCurrentValidators(ctx, subnetID, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	// Look up the primary network validators of the NodeIDs validating the subnet
+	// in order to get their BLS keys.
+	res := make(map[ids.NodeID]*validators.GetValidatorOutput, len(subnetVdrs))
+	subnetNodeIDs := make([]ids.NodeID, 0, len(subnetVdrs))
+	for _, subnetVdr := range subnetVdrs {
+		subnetNodeIDs = append(subnetNodeIDs, subnetVdr.NodeID)
+		res[subnetVdr.NodeID] = &validators.GetValidatorOutput{
+			NodeID: subnetVdr.NodeID,
+			Weight: subnetVdr.Weight,
+		}
+	}
+	primaryVdrs, err := v.client.GetCurrentValidators(ctx, ids.Empty, subnetNodeIDs)
+	if err != nil {
+		return nil, err
+	}
+
+	// Set the BLS keys of the result.
+	for _, primaryVdr := range primaryVdrs {
+		vdr, ok := res[primaryVdr.NodeID]
+		if !ok {
+			continue
+		}
+		vdr.PublicKey = primaryVdr.Signer.Key()
+	}
+
+	return res, nil
 }
