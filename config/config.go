@@ -49,7 +49,7 @@ type SourceSubnet struct {
 	SupportedDestinations []string                         `mapstructure:"supported-destinations" json:"supported-destinations"`
 
 	// convenience field to access the supported destinations after initialization
-	supportedDestinationsMap map[ids.ID]bool
+	supportedDestinations set.Set[ids.ID]
 }
 
 type DestinationSubnet struct {
@@ -196,8 +196,8 @@ func (c *Config) Validate() error {
 	return nil
 }
 
-func (s *SourceSubnet) GetSupportedDestinations() map[ids.ID]bool {
-	return s.supportedDestinationsMap
+func (s *SourceSubnet) GetSupportedDestinations() set.Set[ids.ID] {
+	return s.supportedDestinations
 }
 
 func (s *SourceSubnet) Validate(destinationChainIDs *set.Set[string]) error {
@@ -242,7 +242,7 @@ func (s *SourceSubnet) Validate(destinationChainIDs *set.Set[string]) error {
 	}
 
 	// Store the allowed destinations for future use
-	s.supportedDestinationsMap = make(map[ids.ID]bool)
+	s.supportedDestinations = set.Set[ids.ID]{}
 	for _, blockchainID := range s.SupportedDestinations {
 		chainID, err := ids.FromString(blockchainID)
 		if err != nil {
@@ -253,7 +253,7 @@ func (s *SourceSubnet) Validate(destinationChainIDs *set.Set[string]) error {
 				s.SubnetID,
 				blockchainID)
 		}
-		s.supportedDestinationsMap[chainID] = true
+		s.supportedDestinations.Add(chainID)
 	}
 
 	return nil

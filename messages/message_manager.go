@@ -36,7 +36,6 @@ func NewMessageManager(
 	messageProtocolAddress common.Hash,
 	messageProtocolConfig config.MessageProtocolConfig,
 	destinationClients map[ids.ID]vms.DestinationClient,
-	supportedDestinationsChainIDs map[ids.ID]bool,
 ) (MessageManager, error) {
 	format := messageProtocolConfig.MessageFormat
 	switch config.ParseMessageProtocol(format) {
@@ -45,7 +44,6 @@ func NewMessageManager(
 			messageProtocolAddress,
 			messageProtocolConfig,
 			destinationClients,
-			supportedDestinationsChainIDs,
 		)
 	default:
 		return nil, fmt.Errorf("invalid message format %s", format)

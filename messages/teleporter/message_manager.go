@@ -36,7 +36,6 @@ type messageManager struct {
 	// The cache is keyed by the Warp message ID, NOT the Teleporter message ID
 	teleporterMessageCache *cache.LRU[ids.ID, *teleportermessenger.TeleporterMessage]
 	destinationClients     map[ids.ID]vms.DestinationClient
-	supportedDestinations  map[ids.ID]bool
 
 	logger logging.Logger
 }
@@ -46,7 +45,6 @@ func NewMessageManager(
 	messageProtocolAddress common.Hash,
 	messageProtocolConfig config.MessageProtocolConfig,
 	destinationClients map[ids.ID]vms.DestinationClient,
-	supportedDestinations map[ids.ID]bool,
 ) (*messageManager, error) {
 	// Marshal the map and unmarshal into the Teleporter config
 	data, err := json.Marshal(messageProtocolConfig.Settings)
@@ -75,7 +73,6 @@ func NewMessageManager(
 		teleporterMessageCache: teleporterMessageCache,
 		destinationClients:     destinationClients,
 		logger:                 logger,
-		supportedDestinations:  supportedDestinations,
 	}, nil
 }
 
@@ -109,21 +106,6 @@ func (m *messageManager) ShouldSendMessage(warpMessageInfo *vmtypes.WarpMessageI
 	destinationClient, ok := m.destinationClients[destinationChainID]
 	if !ok {
 		return false, fmt.Errorf("relayer not configured to deliver to destination. destinationChainID=%s", destinationChainID.String())
-	}
-
-	// If supportedDestinations is empty, then all destinations are allowed
-	// If supportedDestinations is not empty, then only the allowed destinations are allowed
-	if len(m.supportedDestinations) > 0 {
-		if allowed, exist := m.supportedDestinations[destinationChainID]; !exist || !allowed {
-			m.logger.Info(
-				"Relayer not configured to relay between source and destination",
-				zap.String("sourceChainID", warpMessageInfo.WarpUnsignedMessage.SourceChainID.String()),
-				zap.String("destinationChainID", destinationChainID.String()),
-				zap.String("warpMessageID", warpMessageInfo.WarpUnsignedMessage.ID().String()),
-				zap.String("teleporterMessageID", teleporterMessage.MessageID.String()),
-			)
-			return false, nil
-		}
 	}
 
 	senderAddress := destinationClient.SenderAddress()
