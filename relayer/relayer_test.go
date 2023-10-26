@@ -4,10 +4,12 @@
 package relayer
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/utils/set"
+	"github.com/stretchr/testify/require"
 )
 
 var id1 ids.ID = ids.GenerateTestID()
@@ -50,8 +52,6 @@ func TestCheckSupportedDestination(t *testing.T) {
 
 	for _, testCase := range testCases {
 		result := testCase.relayer.CheckSupportedDestination(testCase.destinationChainID)
-		if result != testCase.expectedResult {
-			t.Fatalf("Test '%s' failed: expected result %v, got %v", testCase.name, testCase.expectedResult, result)
-		}
+		require.Equal(t, testCase.expectedResult, result, fmt.Sprintf("test failed: %s", testCase.name))
 	}
 }
