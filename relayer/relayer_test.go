@@ -6,19 +6,52 @@ package relayer
 import (
 	"testing"
 
-	"github.com/ava-labs/awm-relayer/config"
-	"github.com/stretchr/testify/require"
+	"github.com/ava-labs/avalanchego/ids"
+	"github.com/ava-labs/avalanchego/utils/set"
 )
 
-func TestGetRelayerAccountInfoSkipChainConfigCheckCompatible(t *testing.T) {
-	accountPrivateKey := "56289e99c94b6912bfc12adc093c9b51124f0dc54ac7a766b2bc5ccf558d8027"
-	expectedAddress := "0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC"
+var id1 ids.ID = ids.GenerateTestID()
+var id2 ids.ID = ids.GenerateTestID()
 
-	info := config.DestinationSubnet{
-		AccountPrivateKey: accountPrivateKey,
+func TestCheckSupportedDestination(t *testing.T) {
+	testCases := []struct {
+		name               string
+		relayer            Relayer
+		destinationChainID ids.ID
+		expectedResult     bool
+	}{
+		{
+			name: "explicitly supported destination",
+			relayer: Relayer{
+				supportedDestinations: set.Set[ids.ID]{
+					id1: {},
+				},
+			},
+			destinationChainID: id1,
+			expectedResult:     true,
+		},
+		{
+			name:               "implicitly supported destination",
+			relayer:            Relayer{},
+			destinationChainID: id1,
+			expectedResult:     true,
+		},
+		{
+			name: "unsupported destination",
+			relayer: Relayer{
+				supportedDestinations: set.Set[ids.ID]{
+					id1: {},
+				},
+			},
+			destinationChainID: id2,
+			expectedResult:     false,
+		},
 	}
-	_, address, err := info.GetRelayerAccountInfo()
 
-	require.NoError(t, err)
-	require.Equal(t, expectedAddress, address.String())
+	for _, testCase := range testCases {
+		result := testCase.relayer.CheckSupportedDestination(testCase.destinationChainID)
+		if result != testCase.expectedResult {
+			t.Fatalf("Test '%s' failed: expected result %v, got %v", testCase.name, testCase.expectedResult, result)
+		}
+	}
 }

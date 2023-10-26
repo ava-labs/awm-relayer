@@ -188,7 +188,7 @@ func NewRelayer(
 // RelayMessage relays a single warp message to the destination chain. Warp message relay requests from the same origin chain are processed serially
 func (r *Relayer) RelayMessage(warpLogInfo *vmtypes.WarpLogInfo, metrics *MessageRelayerMetrics, messageCreator message.Creator) error {
 	// Check that the destination chain ID is supported
-	if len(r.supportedDestinations) > 0 && !r.supportedDestinations.Contains(warpLogInfo.DestinationChainID) {
+	if !r.CheckSupportedDestination(warpLogInfo.DestinationChainID) {
 		r.logger.Debug(
 			"Message destination chain ID not supported. Not relaying.",
 			zap.String("chainID", r.sourceChainID.String()),
@@ -265,4 +265,10 @@ func (r *Relayer) RelayMessage(warpLogInfo *vmtypes.WarpLogInfo, metrics *Messag
 	}
 
 	return nil
+}
+
+// Returns whether destinationChainID is a supported destination.
+// If supportedDestinations is empty, then all destination chain IDs are supported.
+func (r *Relayer) CheckSupportedDestination(destinationChainID ids.ID) bool {
+	return len(r.supportedDestinations) == 0 || r.supportedDestinations.Contains(destinationChainID)
 }
