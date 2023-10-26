@@ -71,6 +71,10 @@ type Config struct {
 	StorageLocation    string              `mapstructure:"storage-location" json:"storage-location"`
 	SourceSubnets      []SourceSubnet      `mapstructure:"source-subnets" json:"source-subnets"`
 	DestinationSubnets []DestinationSubnet `mapstructure:"destination-subnets" json:"destination-subnets"`
+
+	// convenience fields to access the source subnet and chain IDs after initialization
+	sourceSubnetIDs []ids.ID
+	sourceChainIDs  []ids.ID
 }
 
 func SetDefaultConfigValues(v *viper.Viper) {
@@ -392,6 +396,11 @@ func (s *DestinationSubnet) GetRelayerAccountInfo() (*ecdsa.PrivateKey, common.A
 
 // GetSourceIDs returns the Subnet and Chain IDs of all subnets configured as a source
 func (c *Config) GetSourceIDs() ([]ids.ID, []ids.ID, error) {
+	// If we've already called this method, return the already constructed result
+	if len(c.sourceSubnetIDs) > 0 && len(c.sourceChainIDs) > 0 {
+		return c.sourceSubnetIDs, c.sourceChainIDs, nil
+	}
+
 	var sourceSubnetIDs []ids.ID
 	var sourceChainIDs []ids.ID
 	for _, s := range c.SourceSubnets {
@@ -407,5 +416,9 @@ func (c *Config) GetSourceIDs() ([]ids.ID, []ids.ID, error) {
 		}
 		sourceChainIDs = append(sourceChainIDs, chainID)
 	}
+
+	// Save this result for future use
+	c.sourceSubnetIDs = sourceSubnetIDs
+	c.sourceChainIDs = sourceChainIDs
 	return sourceSubnetIDs, sourceChainIDs, nil
 }
