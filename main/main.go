@@ -86,14 +86,7 @@ func main() {
 
 	// Initialize the global app request network
 	logger.Info("Initializing app request network")
-	sourceSubnetIDs, sourceChainIDs, err := cfg.GetSourceIDs()
-	if err != nil {
-		logger.Error(
-			"Failed to get source IDs",
-			zap.Error(err),
-		)
-		return
-	}
+	sourceSubnetIDs, sourceChainIDs := cfg.GetSourceIDs()
 
 	// Initialize metrics gathered through prometheus
 	gatherer, registerer, err := initMetrics()

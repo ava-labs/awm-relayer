@@ -197,6 +197,27 @@ func (c *Config) Validate() error {
 		sourceChains.Add(s.ChainID)
 	}
 
+	// Store the source subnet and chain IDs for future use
+	var sourceSubnetIDs []ids.ID
+	var sourceChainIDs []ids.ID
+	for _, s := range c.SourceSubnets {
+		subnetID, err := ids.FromString(s.SubnetID)
+		if err != nil {
+			return fmt.Errorf("invalid subnetID in configuration. error: %v", err)
+		}
+		sourceSubnetIDs = append(sourceSubnetIDs, subnetID)
+
+		chainID, err := ids.FromString(s.ChainID)
+		if err != nil {
+			return fmt.Errorf("invalid subnetID in configuration. error: %v", err)
+		}
+		sourceChainIDs = append(sourceChainIDs, chainID)
+	}
+
+	// Save this result for future use
+	c.sourceSubnetIDs = sourceSubnetIDs
+	c.sourceChainIDs = sourceChainIDs
+
 	return nil
 }
 
@@ -388,30 +409,6 @@ func (s *DestinationSubnet) GetRelayerAccountInfo() (*ecdsa.PrivateKey, common.A
 //
 
 // GetSourceIDs returns the Subnet and Chain IDs of all subnets configured as a source
-func (c *Config) GetSourceIDs() ([]ids.ID, []ids.ID, error) {
-	// If we've already called this method, return the already constructed result
-	if len(c.sourceSubnetIDs) > 0 && len(c.sourceChainIDs) > 0 {
-		return c.sourceSubnetIDs, c.sourceChainIDs, nil
-	}
-
-	var sourceSubnetIDs []ids.ID
-	var sourceChainIDs []ids.ID
-	for _, s := range c.SourceSubnets {
-		subnetID, err := ids.FromString(s.SubnetID)
-		if err != nil {
-			return nil, nil, fmt.Errorf("invalid subnetID in configuration. error: %v", err)
-		}
-		sourceSubnetIDs = append(sourceSubnetIDs, subnetID)
-
-		chainID, err := ids.FromString(s.ChainID)
-		if err != nil {
-			return nil, nil, fmt.Errorf("invalid subnetID in configuration. error: %v", err)
-		}
-		sourceChainIDs = append(sourceChainIDs, chainID)
-	}
-
-	// Save this result for future use
-	c.sourceSubnetIDs = sourceSubnetIDs
-	c.sourceChainIDs = sourceChainIDs
-	return sourceSubnetIDs, sourceChainIDs, nil
+func (c *Config) GetSourceIDs() ([]ids.ID, []ids.ID) {
+	return c.sourceSubnetIDs, c.sourceChainIDs
 }
