@@ -10,8 +10,8 @@ import (
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/avalanchego/vms/platformvm/warp"
+	warpPayload "github.com/ava-labs/avalanchego/vms/platformvm/warp/payload"
 	"github.com/ava-labs/awm-relayer/config"
-	warpPayload "github.com/ava-labs/subnet-evm/warp/payload"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -24,15 +24,9 @@ func createUnsignedMessage() *warp.UnsignedMessage {
 	if err != nil {
 		return nil
 	}
-	destinationChainID, err := ids.FromString("11111111111111111111111111111111LpoYY")
-	if err != nil {
-		return nil
-	}
 
-	payload, err := warpPayload.NewAddressedPayload(
-		common.HexToAddress("27aE10273D17Cd7e80de8580A51f476960626e5f"),
-		common.Hash(destinationChainID),
-		common.HexToAddress("1234123412341234123412341234123412341234"),
+	payload, err := warpPayload.NewAddressedCall(
+		common.Hex2Bytes("27aE10273D17Cd7e80de8580A51f476960626e5f"),
 		[]byte{},
 	)
 	if err != nil {

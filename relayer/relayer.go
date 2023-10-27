@@ -207,7 +207,7 @@ func (r *Relayer) RelayMessage(warpLogInfo *vmtypes.WarpLogInfo, metrics *Messag
 	}
 
 	// Create and run the message relayer to attempt to deliver the message to the destination chain
-	messageRelayer := newMessageRelayer(r.logger, metrics, r, warpMessageInfo.WarpUnsignedMessage, warpLogInfo.DestinationChainID, r.responseChan, messageCreator)
+	messageRelayer := newMessageRelayer(r.logger, metrics, r, warpMessageInfo.WarpUnsignedMessage, r.responseChan, messageCreator)
 	if err != nil {
 		r.logger.Error(
 			"Failed to create message relayer",

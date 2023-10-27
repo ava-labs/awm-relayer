@@ -23,7 +23,7 @@ import (
 type MessageManager interface {
 	// ShouldSendMessage returns true if the message should be sent to the destination chain
 	// If an error is returned, the boolean should be ignored by the caller.
-	ShouldSendMessage(warpMessageInfo *vmtypes.WarpMessageInfo, destinationChainID ids.ID) (bool, error)
+	ShouldSendMessage(warpMessageInfo *vmtypes.WarpMessageInfo) (bool, ids.ID, error)
 	// SendMessage sends the signed message to the destination chain. The payload parsed according to
 	// the VM rules is also passed in, since MessageManager does not assume any particular VM
 	SendMessage(signedMessage *warp.Message, parsedVmPayload []byte, destinationChainID ids.ID) error

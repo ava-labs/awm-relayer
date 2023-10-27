@@ -5,10 +5,10 @@ package evm
 
 import (
 	"github.com/ava-labs/avalanchego/utils/logging"
-	avalancheWarp "github.com/ava-labs/avalanchego/vms/platformvm/warp"
+	warpPayload "github.com/ava-labs/avalanchego/vms/platformvm/warp/payload"
 	"github.com/ava-labs/awm-relayer/config"
 	"github.com/ava-labs/awm-relayer/vms/vmtypes"
-	warpPayload "github.com/ava-labs/subnet-evm/warp/payload"
+	"github.com/ava-labs/subnet-evm/x/warp"
 	"go.uber.org/zap"
 )
 
@@ -23,7 +23,7 @@ func NewContractMessage(logger logging.Logger, subnetInfo config.SourceSubnet) *
 }
 
 func (m *contractMessage) UnpackWarpMessage(unsignedMsgBytes []byte) (*vmtypes.WarpMessageInfo, error) {
-	unsignedMsg, err := avalancheWarp.ParseUnsignedMessage(unsignedMsgBytes)
+	unsignedMsg, err := warp.UnpackSendWarpEventDataToMessage(unsignedMsgBytes)
 	if err != nil {
 		m.logger.Error(
 			"Failed parsing unsigned message",
@@ -40,7 +40,7 @@ func (m *contractMessage) UnpackWarpMessage(unsignedMsgBytes []byte) (*vmtypes.W
 		return nil, err
 	}
 
-	warpPayload, err := warpPayload.ParseAddressedPayload(unsignedMsg.Payload)
+	warpPayload, err := warpPayload.ParseAddressedCall(unsignedMsg.Payload)
 	if err != nil {
 		m.logger.Error(
 			"Failed parsing addressed payload",

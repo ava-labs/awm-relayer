@@ -87,7 +87,7 @@ func NewSubscriber(logger logging.Logger, subnetInfo config.SourceSubnet, db dat
 }
 
 func (s *subscriber) NewWarpLogInfo(log types.Log) (*vmtypes.WarpLogInfo, error) {
-	if len(log.Topics) != 4 {
+	if len(log.Topics) != 3 {
 		s.logger.Error(
 			"Log did not have the correct number of topics",
 			zap.Int("numTopics", len(log.Topics)),
@@ -102,22 +102,12 @@ func (s *subscriber) NewWarpLogInfo(log types.Log) (*vmtypes.WarpLogInfo, error)
 		)
 		return nil, ErrInvalidLog
 	}
-	destinationChainID, err := ids.ToID(log.Topics[1].Bytes())
-	if err != nil {
-		s.logger.Error(
-			"Failed to decode destination chain ID",
-			zap.Error(err),
-		)
-		return nil, ErrInvalidLog
-	}
 
 	return &vmtypes.WarpLogInfo{
-		DestinationChainID: destinationChainID,
-		DestinationAddress: log.Topics[2],
-		SourceAddress:      log.Topics[3],
-		SourceTxID:         log.TxHash[:],
-		UnsignedMsgBytes:   log.Data,
-		BlockNumber:        log.BlockNumber,
+		SourceAddress:    log.Topics[1],
+		SourceTxID:       log.TxHash[:],
+		UnsignedMsgBytes: log.Data,
+		BlockNumber:      log.BlockNumber,
 	}, nil
 }
 

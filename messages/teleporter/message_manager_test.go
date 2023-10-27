@@ -68,7 +68,12 @@ func TestShouldSendMessage(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	validMessageBytes, err := teleportermessenger.PackSendCrossChainMessageEvent(common.HexToHash(destinationChainID.Hex()), validTeleporterMessage)
+	feeInfo := teleportermessenger.TeleporterFeeInfo{
+		ContractAddress: common.Address{},
+		Amount:          big.NewInt(0),
+	}
+
+	validMessageBytes, err := teleportermessenger.PackSendCrossChainMessageEvent(common.HexToHash(destinationChainID.Hex()), validTeleporterMessage, feeInfo)
 	require.NoError(t, err)
 
 	messageNotDelivered, err := teleportermessenger.PackMessageReceivedOutput(false)
@@ -159,12 +164,13 @@ func TestShouldSendMessage(t *testing.T) {
 			if test.clientResult != nil {
 				test.clientResult.EXPECT().CallContract(gomock.Any(), gomock.Any(), gomock.Any()).Return(test.callContractResult, nil).Times(test.callContractTimes)
 			}
-			result, err := messageManager.ShouldSendMessage(test.warpMessageInfo, test.destinationChainID)
+			result, destinationChainID, err := messageManager.ShouldSendMessage(test.warpMessageInfo)
 			if test.expectedError {
 				require.Error(t, err)
 			} else {
 				require.NoError(t, err)
 				require.Equal(t, test.expectedResult, result)
+				require.Equal(t, test.destinationChainID, destinationChainID)
 			}
 		})
 	}
