@@ -185,22 +185,22 @@ func (c *Config) Validate() error {
 		destinationChains.Add(s.ChainID)
 	}
 
-	// Validate the source chains, and validate that the allowed destinations are configured as destinations
+	// Validate the source chains and store the source subnet and chain IDs for future use
 	sourceChains := set.NewSet[string](len(c.SourceSubnets))
+	var sourceSubnetIDs []ids.ID
+	var sourceChainIDs []ids.ID
 	for _, s := range c.SourceSubnets {
+		// Validate configuration
 		if err := s.Validate(&destinationChains); err != nil {
 			return err
 		}
+		// Verify uniqueness
 		if sourceChains.Contains(s.ChainID) {
 			return fmt.Errorf("configured source subnets must have unique chain IDs")
 		}
 		sourceChains.Add(s.ChainID)
-	}
 
-	// Store the source subnet and chain IDs for future use
-	var sourceSubnetIDs []ids.ID
-	var sourceChainIDs []ids.ID
-	for _, s := range c.SourceSubnets {
+		// Save IDs for future use
 		subnetID, err := ids.FromString(s.SubnetID)
 		if err != nil {
 			return fmt.Errorf("invalid subnetID in configuration. error: %v", err)
@@ -214,7 +214,6 @@ func (c *Config) Validate() error {
 		sourceChainIDs = append(sourceChainIDs, chainID)
 	}
 
-	// Save this result for future use
 	c.sourceSubnetIDs = sourceSubnetIDs
 	c.sourceChainIDs = sourceChainIDs
 
@@ -225,6 +224,7 @@ func (s *SourceSubnet) GetSupportedDestinations() set.Set[ids.ID] {
 	return s.supportedDestinations
 }
 
+// Validates the source subnet configuration, including verifying that the supported destinations are present in destinationChainIDs
 func (s *SourceSubnet) Validate(destinationChainIDs *set.Set[string]) error {
 	if _, err := ids.FromString(s.SubnetID); err != nil {
 		return fmt.Errorf("invalid subnetID in source subnet configuration. Provided ID: %s", s.SubnetID)
