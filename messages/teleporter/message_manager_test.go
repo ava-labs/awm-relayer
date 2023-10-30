@@ -159,6 +159,7 @@ func TestShouldSendMessage(t *testing.T) {
 			if test.clientResult != nil {
 				test.clientResult.EXPECT().CallContract(gomock.Any(), gomock.Any(), gomock.Any()).Return(test.callContractResult, nil).Times(test.callContractTimes)
 			}
+
 			result, err := messageManager.ShouldSendMessage(test.warpMessageInfo, test.destinationChainID)
 			if test.expectedError {
 				require.Error(t, err)

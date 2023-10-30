@@ -13,6 +13,7 @@ import (
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/message"
 	"github.com/ava-labs/avalanchego/utils/logging"
+	"github.com/ava-labs/avalanchego/utils/set"
 	"github.com/ava-labs/avalanchego/vms/platformvm"
 	"github.com/ava-labs/awm-relayer/config"
 	"github.com/ava-labs/awm-relayer/database"
@@ -37,6 +38,7 @@ type Relayer struct {
 	messageManagers          map[common.Hash]messages.MessageManager
 	logger                   logging.Logger
 	db                       database.RelayerDatabase
+	supportedDestinations    set.Set[ids.ID]
 }
 
 func NewRelayer(
@@ -68,11 +70,22 @@ func NewRelayer(
 		return nil, nil, err
 	}
 
+	var filteredDestinationClients map[ids.ID]vms.DestinationClient
+	supportedDestinationsChainIDs := sourceSubnetInfo.GetSupportedDestinations()
+	if len(supportedDestinationsChainIDs) > 0 {
+		filteredDestinationClients := make(map[ids.ID]vms.DestinationClient)
+		for id := range supportedDestinationsChainIDs {
+			filteredDestinationClients[id] = destinationClients[id]
+		}
+	} else {
+		filteredDestinationClients = destinationClients
+	}
+
 	// Create message managers for each supported message protocol
 	messageManagers := make(map[common.Hash]messages.MessageManager)
 	for address, config := range sourceSubnetInfo.MessageContracts {
 		addressHash := common.HexToHash(address)
-		messageManager, err := messages.NewMessageManager(logger, addressHash, config, destinationClients)
+		messageManager, err := messages.NewMessageManager(logger, addressHash, config, filteredDestinationClients)
 		if err != nil {
 			logger.Error(
 				"Failed to create message manager",
@@ -102,6 +115,7 @@ func NewRelayer(
 		messageManagers:          messageManagers,
 		logger:                   logger,
 		db:                       db,
+		supportedDestinations:    supportedDestinationsChainIDs,
 	}
 
 	// Open the subscription. We must do this before processing any missed messages, otherwise we may miss an incoming message
@@ -173,11 +187,20 @@ func NewRelayer(
 
 // RelayMessage relays a single warp message to the destination chain. Warp message relay requests from the same origin chain are processed serially
 func (r *Relayer) RelayMessage(warpLogInfo *vmtypes.WarpLogInfo, metrics *MessageRelayerMetrics, messageCreator message.Creator) error {
+	// Check that the destination chain ID is supported
+	if !r.CheckSupportedDestination(warpLogInfo.DestinationChainID) {
+		r.logger.Debug(
+			"Message destination chain ID not supported. Not relaying.",
+			zap.String("chainID", r.sourceChainID.String()),
+			zap.String("destinationChainID", warpLogInfo.DestinationChainID.String()),
+		)
+		return nil
+	}
+
 	r.logger.Info(
 		"Relaying message",
 		zap.String("chainID", r.sourceChainID.String()),
 	)
-
 	// Unpack the VM message bytes into a Warp message
 	warpMessageInfo, err := r.contractMessage.UnpackWarpMessage(warpLogInfo.UnsignedMsgBytes)
 	if err != nil {
@@ -242,4 +265,10 @@ func (r *Relayer) RelayMessage(warpLogInfo *vmtypes.WarpLogInfo, metrics *Messag
 	}
 
 	return nil
+}
+
+// Returns whether destinationChainID is a supported destination.
+// If supportedDestinations is empty, then all destination chain IDs are supported.
+func (r *Relayer) CheckSupportedDestination(destinationChainID ids.ID) bool {
+	return len(r.supportedDestinations) == 0 || r.supportedDestinations.Contains(destinationChainID)
 }
