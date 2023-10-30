@@ -77,7 +77,7 @@ func NewNetwork(
 		return nil, nil, err
 	}
 
-	network, err := network.NewTestNetwork(logger, networkID, validators.NewSet(), trackedSubnets, handler)
+	network, err := network.NewTestNetwork(logger, networkID, validators.NewManager(), trackedSubnets, handler)
 	if err != nil {
 		logger.Error(
 			"Failed to create test network",
