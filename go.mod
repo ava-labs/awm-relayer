@@ -5,7 +5,7 @@ go 1.18
 require (
 	github.com/ava-labs/avalanchego v1.10.14
 	github.com/ava-labs/subnet-evm v0.5.8
-	github.com/ava-labs/teleporter v0.0.0-20221006022127-8f469abc00aa
+	github.com/ava-labs/teleporter v0.0.0-20231031160542-c70dd03b7f3f
 	github.com/ethereum/go-ethereum v1.12.0
 	github.com/onsi/ginkgo/v2 v2.13.0
 	github.com/onsi/gomega v1.29.0
@@ -145,5 +145,3 @@ require (
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
-
-replace github.com/ava-labs/teleporter v0.0.0-20221006022127-8f469abc00aa => ../teleporter
