@@ -156,7 +156,7 @@ func BasicRelay() {
 	relayerCmd, relayerCancel = testUtils.RunRelayerExecutable(ctx, relayerConfigPath)
 
 	log.Info("Packing teleporter message")
-	payload, err = teleportermessenger.PackSendCrossChainMessageEvent(common.Hash(subnetBInfo.BlockchainID), teleporterMessage, feeInfo)
+	payload, err = teleportermessenger.PackTeleporterMessage(teleporterMessage)
 	Expect(err).Should(BeNil())
 
 	input := teleportermessenger.TeleporterMessageInput{
