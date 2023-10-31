@@ -6,6 +6,7 @@ package peers
 import (
 	"context"
 	"fmt"
+	"math/rand"
 	"sync"
 	"time"
 
@@ -17,7 +18,6 @@ import (
 	"github.com/ava-labs/avalanchego/utils/constants"
 	"github.com/ava-labs/avalanchego/utils/ips"
 	"github.com/ava-labs/avalanchego/utils/logging"
-	"github.com/ava-labs/avalanchego/utils/sampler"
 	"github.com/ava-labs/avalanchego/utils/set"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
@@ -103,37 +103,9 @@ func NewNetwork(
 		)
 		return nil, nil, err
 	}
-	ip, err := infoClient.GetNodeIP(context.Background())
-	if err != nil {
-		logger.Error(
-			"Failed to get ip",
-			zap.Error(err),
-		)
-		return nil, nil, err
-	}
-	id, _, err := infoClient.GetNodeID(context.Background())
-	if err != nil {
-		logger.Error(
-			"Failed to get node id",
-			zap.Error(err),
-		)
-		return nil, nil, err
-	}
-	beaconIPs = append(beaconIPs, ip)
-	beaconIDs = append(beaconIDs, id.String())
 
-	var indices []uint64
-	// If we have more peers than numInitialTestPeers, take a random sample of numInitialTestPeers peers
-	if len(peers) > numInitialTestPeers {
-		s := sampler.NewUniform()
-		s.Initialize(uint64(len(peers)))
-		indices, _ = s.Sample(numInitialTestPeers)
-	} else {
-		for i := range peers {
-			indices = append(indices, uint64(i))
-		}
-	}
-
+	// Randomly select peers to connect to until we have numInitialTestPeers
+	indices := rand.Perm(len(peers))
 	for _, index := range indices {
 		// Do not attempt to connect to private peers
 		if len(peers[index].PublicIP) == 0 {
@@ -141,6 +113,23 @@ func NewNetwork(
 		}
 		beaconIPs = append(beaconIPs, peers[index].PublicIP)
 		beaconIDs = append(beaconIDs, peers[index].ID.String())
+		if len(beaconIDs) == numInitialTestPeers {
+			break
+		}
+	}
+	if len(beaconIPs) == 0 {
+		logger.Error(
+			"Failed to find any peers to connect to",
+			zap.Error(err),
+		)
+		return nil, nil, err
+	}
+	if len(beaconIPs) < numInitialTestPeers {
+		logger.Warn(
+			"Failed to find a full set of peers to connect to on startup",
+			zap.Int("connectedPeers", len(beaconIPs)),
+			zap.Int("expectedConnectedPeers", numInitialTestPeers),
+		)
 	}
 
 	for i, beaconIDStr := range beaconIDs {
