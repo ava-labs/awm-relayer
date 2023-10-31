@@ -34,6 +34,13 @@ func (v *CanonicalValidatorClient) GetSubnetID(ctx context.Context, chainID ids.
 	return v.client.ValidatedBy(ctx, chainID)
 }
 
+// Gets the current validator set of the given subnet ID, include the validators' BLS public keys.
+// This implementation of GetValidatorSet currently makes two RPC requests, one to get the
+// subnet validators, and another to get their BLS public keys. This is necessary because BLS keys
+// are currently only associated with primary network validation periods. If ACP-13 is implementated
+// in the future (https://github.com/avalanche-foundation/ACPs/blob/main/ACPs/13-subnet-only-validators.md),
+// it may become possible to reduce this to a single RPC request that returns both the subnet validators
+// as well as their BLS public keys.
 func (v *CanonicalValidatorClient) GetValidatorSet(
 	ctx context.Context,
 	height uint64,
