@@ -63,11 +63,6 @@ func BasicRelay() {
 		Message:                 []byte{1, 2, 3, 4},
 	}
 
-	feeInfo := teleportermessenger.TeleporterFeeInfo{
-		ContractAddress: fundedAddress,
-		Amount:          big.NewInt(0),
-	}
-
 	//
 	// Set up relayer config
 	//
@@ -160,9 +155,12 @@ func BasicRelay() {
 	Expect(err).Should(BeNil())
 
 	input := teleportermessenger.TeleporterMessageInput{
-		DestinationChainID:      teleporterMessage.DestinationChainID,
-		DestinationAddress:      teleporterMessage.DestinationAddress,
-		FeeInfo:                 feeInfo,
+		DestinationChainID: teleporterMessage.DestinationChainID,
+		DestinationAddress: teleporterMessage.DestinationAddress,
+		FeeInfo: teleportermessenger.TeleporterFeeInfo{
+			ContractAddress: fundedAddress,
+			Amount:          big.NewInt(0),
+		},
 		RequiredGasLimit:        teleporterMessage.RequiredGasLimit,
 		AllowedRelayerAddresses: teleporterMessage.AllowedRelayerAddresses,
 		Message:                 teleporterMessage.Message,
