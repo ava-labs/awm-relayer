@@ -55,7 +55,6 @@ func BasicRelay() {
 		MessageID:               big.NewInt(1),
 		SenderAddress:           fundedAddress,
 		DestinationChainID:      subnetBInfo.BlockchainID,
-		SourceTeleporterAddress: teleporterContractAddress,
 		DestinationAddress:      fundedAddress,
 		RequiredGasLimit:        big.NewInt(1),
 		AllowedRelayerAddresses: []common.Address{},
@@ -251,7 +250,6 @@ func BasicRelay() {
 	receivedTeleporterMessage, err := teleportermessenger.UnpackTeleporterMessage(addressedPayload.Payload)
 	Expect(err).Should(BeNil())
 	Expect(*receivedTeleporterMessage).Should(Equal(teleporterMessage))
-	Expect(receivedTeleporterMessage.SourceTeleporterAddress).Should(Equal(teleporterContractAddress))
 	receivedDestinationID, err := ids.ToID(receivedTeleporterMessage.DestinationChainID[:])
 	Expect(err).Should(BeNil())
 	Expect(receivedDestinationID).Should(Equal(subnetBInfo.BlockchainID))
