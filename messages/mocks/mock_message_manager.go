@@ -37,17 +37,17 @@ func (m *MockMessageManager) EXPECT() *MockMessageManagerMockRecorder {
 }
 
 // SendMessage mocks base method.
-func (m *MockMessageManager) SendMessage(signedMessage *warp.Message, parsedVmPayload []byte, destinationChainID ids.ID) error {
+func (m *MockMessageManager) SendMessage(signedMessage *warp.Message, parsedVMPayload []byte, destinationChainID ids.ID) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SendMessage", signedMessage, parsedVmPayload, destinationChainID)
+	ret := m.ctrl.Call(m, "SendMessage", signedMessage, parsedVMPayload, destinationChainID)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SendMessage indicates an expected call of SendMessage.
-func (mr *MockMessageManagerMockRecorder) SendMessage(signedMessage, parsedVmPayload, destinationChainID interface{}) *gomock.Call {
+func (mr *MockMessageManagerMockRecorder) SendMessage(signedMessage, parsedVMPayload, destinationChainID interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendMessage", reflect.TypeOf((*MockMessageManager)(nil).SendMessage), signedMessage, parsedVmPayload, destinationChainID)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendMessage", reflect.TypeOf((*MockMessageManager)(nil).SendMessage), signedMessage, parsedVMPayload, destinationChainID)
 }
 
 // ShouldSendMessage mocks base method.
