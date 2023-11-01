@@ -37,15 +37,19 @@ type MessageProtocolConfig struct {
 	Settings      map[string]interface{} `mapstructure:"settings" json:"settings"`
 }
 type SourceSubnet struct {
-	SubnetID          string                           `mapstructure:"subnet-id" json:"subnet-id"`
-	ChainID           string                           `mapstructure:"chain-id" json:"chain-id"`
-	VM                string                           `mapstructure:"vm" json:"vm"`
-	APINodeHost       string                           `mapstructure:"api-node-host" json:"api-node-host"`
-	APINodePort       uint32                           `mapstructure:"api-node-port" json:"api-node-port"`
-	EncryptConnection bool                             `mapstructure:"encrypt-connection" json:"encrypt-connection"`
-	RPCEndpoint       string                           `mapstructure:"rpc-endpoint" json:"rpc-endpoint"`
-	WSEndpoint        string                           `mapstructure:"ws-endpoint" json:"ws-endpoint"`
-	MessageContracts  map[string]MessageProtocolConfig `mapstructure:"message-contracts" json:"message-contracts"`
+	SubnetID              string                           `mapstructure:"subnet-id" json:"subnet-id"`
+	ChainID               string                           `mapstructure:"chain-id" json:"chain-id"`
+	VM                    string                           `mapstructure:"vm" json:"vm"`
+	APINodeHost           string                           `mapstructure:"api-node-host" json:"api-node-host"`
+	APINodePort           uint32                           `mapstructure:"api-node-port" json:"api-node-port"`
+	EncryptConnection     bool                             `mapstructure:"encrypt-connection" json:"encrypt-connection"`
+	RPCEndpoint           string                           `mapstructure:"rpc-endpoint" json:"rpc-endpoint"`
+	WSEndpoint            string                           `mapstructure:"ws-endpoint" json:"ws-endpoint"`
+	MessageContracts      map[string]MessageProtocolConfig `mapstructure:"message-contracts" json:"message-contracts"`
+	SupportedDestinations []string                         `mapstructure:"supported-destinations" json:"supported-destinations"`
+
+	// convenience field to access the supported destinations after initialization
+	supportedDestinations set.Set[ids.ID]
 }
 
 type DestinationSubnet struct {
@@ -67,12 +71,15 @@ type Config struct {
 	StorageLocation    string              `mapstructure:"storage-location" json:"storage-location"`
 	SourceSubnets      []SourceSubnet      `mapstructure:"source-subnets" json:"source-subnets"`
 	DestinationSubnets []DestinationSubnet `mapstructure:"destination-subnets" json:"destination-subnets"`
+
+	// convenience fields to access the source subnet and chain IDs after initialization
+	sourceSubnetIDs []ids.ID
+	sourceChainIDs  []ids.ID
 }
 
 func SetDefaultConfigValues(v *viper.Viper) {
 	v.SetDefault(LogLevelKey, logging.Info.String())
 	v.SetDefault(NetworkIDKey, constants.MainnetID)
-	v.SetDefault(PChainAPIURLKey, "https://api.avax.network")
 	v.SetDefault(EncryptConnectionKey, true)
 	v.SetDefault(StorageLocationKey, "./.awm-relayer-storage")
 }
@@ -165,17 +172,8 @@ func (c *Config) Validate() error {
 	if _, err := url.ParseRequestURI(c.PChainAPIURL); err != nil {
 		return err
 	}
-	sourceChains := set.NewSet[string](len(c.SourceSubnets))
-	for _, s := range c.SourceSubnets {
-		if err := s.Validate(); err != nil {
-			return err
-		}
-		if sourceChains.Contains(s.ChainID) {
-			return fmt.Errorf("configured source subnets must have unique chain IDs")
-		}
-		sourceChains.Add(s.ChainID)
-	}
 
+	// Validate the destination chains
 	destinationChains := set.NewSet[string](len(c.DestinationSubnets))
 	for _, s := range c.DestinationSubnets {
 		if err := s.Validate(); err != nil {
@@ -187,30 +185,47 @@ func (c *Config) Validate() error {
 		destinationChains.Add(s.ChainID)
 	}
 
-	return nil
-}
-
-// GetSourceIDs returns the Subnet and Chain IDs of all subnets configured as a source
-func (cfg *Config) GetSourceIDs() ([]ids.ID, []ids.ID, error) {
+	// Validate the source chains and store the source subnet and chain IDs for future use
+	sourceChains := set.NewSet[string](len(c.SourceSubnets))
 	var sourceSubnetIDs []ids.ID
 	var sourceChainIDs []ids.ID
-	for _, s := range cfg.SourceSubnets {
+	for _, s := range c.SourceSubnets {
+		// Validate configuration
+		if err := s.Validate(&destinationChains); err != nil {
+			return err
+		}
+		// Verify uniqueness
+		if sourceChains.Contains(s.ChainID) {
+			return fmt.Errorf("configured source subnets must have unique chain IDs")
+		}
+		sourceChains.Add(s.ChainID)
+
+		// Save IDs for future use
 		subnetID, err := ids.FromString(s.SubnetID)
 		if err != nil {
-			return nil, nil, fmt.Errorf("invalid subnetID in configuration. error: %v", err)
+			return fmt.Errorf("invalid subnetID in configuration. error: %v", err)
 		}
 		sourceSubnetIDs = append(sourceSubnetIDs, subnetID)
 
 		chainID, err := ids.FromString(s.ChainID)
 		if err != nil {
-			return nil, nil, fmt.Errorf("invalid subnetID in configuration. error: %v", err)
+			return fmt.Errorf("invalid subnetID in configuration. error: %v", err)
 		}
 		sourceChainIDs = append(sourceChainIDs, chainID)
 	}
-	return sourceSubnetIDs, sourceChainIDs, nil
+
+	c.sourceSubnetIDs = sourceSubnetIDs
+	c.sourceChainIDs = sourceChainIDs
+
+	return nil
 }
 
-func (s *SourceSubnet) Validate() error {
+func (s *SourceSubnet) GetSupportedDestinations() set.Set[ids.ID] {
+	return s.supportedDestinations
+}
+
+// Validates the source subnet configuration, including verifying that the supported destinations are present in destinationChainIDs
+func (s *SourceSubnet) Validate(destinationChainIDs *set.Set[string]) error {
 	if _, err := ids.FromString(s.SubnetID); err != nil {
 		return fmt.Errorf("invalid subnetID in source subnet configuration. Provided ID: %s", s.SubnetID)
 	}
@@ -242,6 +257,21 @@ func (s *SourceSubnet) Validate() error {
 		if protocol == UNKNOWN_MESSAGE_PROTOCOL {
 			return fmt.Errorf("unsupported message protocol for source subnet: %s", messageConfig.MessageFormat)
 		}
+	}
+
+	// Validate and store the allowed destinations for future use
+	s.supportedDestinations = set.Set[ids.ID]{}
+	for _, blockchainIDStr := range s.SupportedDestinations {
+		blockchainID, err := ids.FromString(blockchainIDStr)
+		if err != nil {
+			return fmt.Errorf("invalid chainID in configuration. error: %v", err)
+		}
+		if !destinationChainIDs.Contains(blockchainIDStr) {
+			return fmt.Errorf("configured source subnet %s has a supported destination blockchain ID %s that is not configured as a destination blockchain",
+				s.SubnetID,
+				blockchainID)
+		}
+		s.supportedDestinations.Add(blockchainID)
 	}
 
 	return nil
@@ -372,4 +402,13 @@ func (s *DestinationSubnet) GetRelayerAccountInfo() (*ecdsa.PrivateKey, common.A
 	pkBytes := pk.PublicKey.X.Bytes()
 	pkBytes = append(pkBytes, pk.PublicKey.Y.Bytes()...)
 	return pk, common.BytesToAddress(crypto.Keccak256(pkBytes)), nil
+}
+
+//
+// Top-level config getters
+//
+
+// GetSourceIDs returns the Subnet and Chain IDs of all subnets configured as a source
+func (c *Config) GetSourceIDs() ([]ids.ID, []ids.ID) {
+	return c.sourceSubnetIDs, c.sourceChainIDs
 }
