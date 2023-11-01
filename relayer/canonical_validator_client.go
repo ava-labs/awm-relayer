@@ -8,15 +8,18 @@ import (
 
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/snow/validators"
+	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/avalanchego/vms/platformvm"
+	"go.uber.org/zap"
 )
 
 // CanonicalValidatorClient wraps platformvm.Client and implements validators.State
 type CanonicalValidatorClient struct {
 	client platformvm.Client
+	logger logging.Logger
 }
 
-func NewCanonicalValidatorClient(client platformvm.Client) *CanonicalValidatorClient {
+func NewCanonicalValidatorClient(logger logging.Logger, client platformvm.Client) *CanonicalValidatorClient {
 	return &CanonicalValidatorClient{
 		client: client,
 	}
@@ -75,6 +78,10 @@ func (v *CanonicalValidatorClient) GetValidatorSet(
 	for _, primaryVdr := range primaryVdrs {
 		vdr, ok := res[primaryVdr.NodeID]
 		if !ok {
+			v.logger.Warn(
+				"Missing primary network validator for subnet validator",
+				zap.String("subnetID", subnetID.String()),
+				zap.String("nodeID", primaryVdr.NodeID.String()))
 			continue
 		}
 		vdr.PublicKey = primaryVdr.Signer.Key()
