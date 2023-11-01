@@ -79,11 +79,6 @@ func TestShouldSendMessage(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	feeInfo := teleportermessenger.TeleporterFeeInfo{
-		ContractAddress: common.Address{},
-		Amount:          big.NewInt(0),
-	}
-
 	messageNotDelivered, err := teleportermessenger.PackMessageReceivedOutput(false)
 	require.NoError(t, err)
 
@@ -154,10 +149,7 @@ func TestShouldSendMessage(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			validTeleporterMessage.DestinationChainID, err = getChainIDBytes(test.destinationChainID.String())
 			require.NoError(t, err)
-			validMessageBytes, err := teleportermessenger.PackSendCrossChainMessageEvent(
-				common.HexToHash(destinationChainID.Hex()),
-				validTeleporterMessage,
-				feeInfo)
+			validMessageBytes, err := teleportermessenger.PackTeleporterMessage(validTeleporterMessage)
 			require.NoError(t, err)
 			test.warpMessageInfo.WarpUnsignedMessage, err = warp.NewUnsignedMessage(0, ids.Empty, validMessageBytes)
 			require.NoError(t, err)
@@ -168,7 +160,10 @@ func TestShouldSendMessage(t *testing.T) {
 			mockClient.EXPECT().SenderAddress().Return(test.senderAddressResult).Times(test.senderAddressTimes)
 			mockClient.EXPECT().Client().Return(test.clientResult).Times(test.clientTimes)
 			if test.clientResult != nil {
-				test.clientResult.EXPECT().CallContract(gomock.Any(), gomock.Any(), gomock.Any()).Return(test.callContractResult, nil).Times(test.callContractTimes)
+				test.clientResult.EXPECT().
+					CallContract(gomock.Any(), gomock.Any(), gomock.Any()).
+					Return(test.callContractResult, nil).
+					Times(test.callContractTimes)
 			}
 			result, destinationChainID, err := messageManager.ShouldSendMessage(test.warpMessageInfo)
 			if test.expectedError {

@@ -69,8 +69,8 @@ github.com/ava-labs/coreth v0.12.7-rc.1 h1:fvjow2Jqkq1RNtW4v2Kx0DdTVp+3+fCY421Tx
 github.com/ava-labs/coreth v0.12.7-rc.1/go.mod h1:sNbwitXv4AhLvWpSqy6V8yzkhGFeWBQFD31/xiRDJ5M=
 github.com/ava-labs/subnet-evm v0.5.8 h1:CHDCgZFpvKcgAGTiYDOrDXC5My09L8DNct6NsNiEK/U=
 github.com/ava-labs/subnet-evm v0.5.8/go.mod h1:gT3NSswQqopAaJ1UVtB/TiViE6H5Ib684M9FCsy7+D8=
-github.com/ava-labs/teleporter v0.0.0-20231031160542-c70dd03b7f3f h1:LFJx9bIxGtNj5eIGYxHIrP9SmtUF37fsQ1jmOw4Qm+o=
-github.com/ava-labs/teleporter v0.0.0-20231031160542-c70dd03b7f3f/go.mod h1:2f5nUzPKKA670kPMUvNtqu9f2l8RmZLPTOhrarvXJjE=
+github.com/ava-labs/teleporter v0.0.0-20231101155634-746d643eaeb1 h1:dSfUTDLqbZ5WZxPblWtOCmnlT8r2RqIRnwZmvke0+Rc=
+github.com/ava-labs/teleporter v0.0.0-20231101155634-746d643eaeb1/go.mod h1:2f5nUzPKKA670kPMUvNtqu9f2l8RmZLPTOhrarvXJjE=
 github.com/aymerick/raymond v2.0.3-0.20180322193309-b565731e1464+incompatible/go.mod h1:osfaiScAUVup+UC9Nfq76eWqDhXlp+4UYaA8uhTBO6g=
 github.com/beorn7/perks v1.0.1 h1:VlbKKnNfV8bJzeqoa4cOKqO6bYr3WgKZxO8Z16+hsOM=
 github.com/beorn7/perks v1.0.1/go.mod h1:G2ZrVWU2WbWT9wwq4/hrbKbnv/1ERSJQ0ibhJ6rlkpw=
