@@ -149,11 +149,11 @@ Next, provide the path to the `subnet-evm` repository and the path to a writeabl
 ./scripts/e2e_test.sh --local --subnet-evm ~/subnet-evm --data-dir ~/tmp/e2e-test
 ```
 
-If a new version of Teleporter contract is deployed, we need to update the following files:
+The E2E tests use the `TeleporterMessenger` contract deployment transaction specified in the following files:
 - `tests/utils/UniversalTeleporterDeployerAddress.txt`
 - `tests/utils/UniversalTeleporterDeployerTransaction.txt`
 - `tests/utils/UniversalTeleporterMessagerContractAddress.txt`
-We use the values in these files to depoly the Teleporter contract used in the tests.
+To update the version of Teleporter used by the E2E tests, update these values with the latest contract deployment information.
 
 ### Generate Mocks
 

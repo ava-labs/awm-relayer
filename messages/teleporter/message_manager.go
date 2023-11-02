@@ -91,7 +91,7 @@ func isAllowedRelayer(allowedRelayers []common.Address, eoa common.Address) bool
 }
 
 func (m *messageManager) GetDestinationChainID(warpMessageInfo *vmtypes.WarpMessageInfo) (ids.ID, error) {
-	// Unpack the teleporter message and add it to the cache
+	// Unpack the teleporter message to get the destination chain ID
 	teleporterMessage, err := teleportermessenger.UnpackTeleporterMessage(warpMessageInfo.WarpPayload)
 	if err != nil {
 		m.logger.Error(
