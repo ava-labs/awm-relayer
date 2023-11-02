@@ -209,7 +209,7 @@ func BasicRelay() {
 
 	// Check the transaction storage key has warp message we're expecting
 	storageKeyHashes := accessLists[0].StorageKeys
-	packedPredicate := HashSliceToBytes(storageKeyHashes)
+	packedPredicate := testUtils.HashSliceToBytes(storageKeyHashes)
 	predicateBytes, err := predicateutils.UnpackPredicate(packedPredicate)
 	Expect(err).Should(BeNil())
 	receivedWarpMessage, err = avalancheWarp.ParseMessage(predicateBytes)
@@ -283,13 +283,4 @@ func BasicRelay() {
 	// Cancel the command and stop the relayer
 	relayerCancel()
 	_ = relayerCmd.Wait()
-}
-
-// HashSliceToBytes serializes a []common.Hash into a tightly packed byte array.
-func HashSliceToBytes(hashes []common.Hash) []byte {
-	bytes := make([]byte, common.HashLength*len(hashes))
-	for i, hash := range hashes {
-		copy(bytes[i*common.HashLength:], hash[:])
-	}
-	return bytes
 }

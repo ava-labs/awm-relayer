@@ -90,8 +90,7 @@ func isAllowedRelayer(allowedRelayers []common.Address, eoa common.Address) bool
 	return false
 }
 
-// ShouldSendMessage returns true if the message should be sent to the destination chain
-func (m *messageManager) ShouldSendMessage(warpMessageInfo *vmtypes.WarpMessageInfo) (bool, ids.ID, error) {
+func (m *messageManager) GetDestinationChainID(warpMessageInfo *vmtypes.WarpMessageInfo) (ids.ID, error) {
 	// Unpack the teleporter message and add it to the cache
 	teleporterMessage, err := teleportermessenger.UnpackTeleporterMessage(warpMessageInfo.WarpPayload)
 	if err != nil {
@@ -99,19 +98,28 @@ func (m *messageManager) ShouldSendMessage(warpMessageInfo *vmtypes.WarpMessageI
 			"Failed unpacking teleporter message.",
 			zap.String("warpMessageID", warpMessageInfo.WarpUnsignedMessage.ID().String()),
 		)
-		return false, ids.ID{}, err
+		return ids.ID{}, err
 	}
 
-	// Get the destination chain ID from the teleporter messages
-	destinationChainID, err := ids.ToID(teleporterMessage.DestinationChainID[:])
+	return teleporterMessage.DestinationChainID, nil
+}
+
+// ShouldSendMessage returns true if the message should be sent to the destination chain
+func (m *messageManager) ShouldSendMessage(warpMessageInfo *vmtypes.WarpMessageInfo, destinationChainID ids.ID) (bool, error) {
+	// Unpack the teleporter message and add it to the cache
+	teleporterMessage, err := teleportermessenger.UnpackTeleporterMessage(warpMessageInfo.WarpPayload)
 	if err != nil {
-		return false, ids.ID{}, fmt.Errorf("invalid destination chain ID: %w", err)
+		m.logger.Error(
+			"Failed unpacking teleporter message.",
+			zap.String("warpMessageID", warpMessageInfo.WarpUnsignedMessage.ID().String()),
+		)
+		return false, err
 	}
 
 	// Get the correct destination client from the global map
 	destinationClient, ok := m.destinationClients[destinationChainID]
 	if !ok {
-		return false, ids.ID{}, fmt.Errorf("relayer not configured to deliver to destination. destinationChainID=%s", destinationChainID.String())
+		return false, fmt.Errorf("relayer not configured to deliver to destination. destinationChainID=%s", destinationChainID.String())
 	}
 
 	senderAddress := destinationClient.SenderAddress()
@@ -122,7 +130,7 @@ func (m *messageManager) ShouldSendMessage(warpMessageInfo *vmtypes.WarpMessageI
 			zap.String("warpMessageID", warpMessageInfo.WarpUnsignedMessage.ID().String()),
 			zap.String("teleporterMessageID", teleporterMessage.MessageID.String()),
 		)
-		return false, ids.ID{}, nil
+		return false, nil
 	}
 
 	delivered, err := m.messageDelivered(
@@ -139,7 +147,7 @@ func (m *messageManager) ShouldSendMessage(warpMessageInfo *vmtypes.WarpMessageI
 			zap.String("teleporterMessageID", teleporterMessage.MessageID.String()),
 			zap.Error(err),
 		)
-		return false, ids.ID{}, err
+		return false, err
 	}
 	if delivered {
 		m.logger.Info(
@@ -147,12 +155,12 @@ func (m *messageManager) ShouldSendMessage(warpMessageInfo *vmtypes.WarpMessageI
 			zap.String("destinationChainID", destinationChainID.String()),
 			zap.String("teleporterMessageID", teleporterMessage.MessageID.String()),
 		)
-		return false, ids.ID{}, nil
+		return false, nil
 	}
 
 	// Cache the message so it can be reused in SendMessage
 	m.teleporterMessageCache.Put(warpMessageInfo.WarpUnsignedMessage.ID(), teleporterMessage)
-	return true, destinationChainID, nil
+	return true, nil
 }
 
 // Helper to check if a message has been delivered to the destination chain

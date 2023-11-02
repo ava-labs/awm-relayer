@@ -219,8 +219,27 @@ func (r *Relayer) RelayMessage(warpLogInfo *vmtypes.WarpLogInfo, metrics *Messag
 		return nil
 	}
 
+	destinationChainID, err := messageManager.GetDestinationChainID(warpMessageInfo)
+	if err != nil {
+		r.logger.Error(
+			"Failed to get destination chain ID",
+			zap.Error(err),
+		)
+		return err
+	}
+
+	// Check that the destination chain ID is supported
+	if !r.CheckSupportedDestination(destinationChainID) {
+		r.logger.Debug(
+			"Message destination chain ID not supported. Not relaying.",
+			zap.String("chainID", r.sourceChainID.String()),
+			zap.String("destinationChainID", destinationChainID.String()),
+		)
+		return nil
+	}
+
 	// Create and run the message relayer to attempt to deliver the message to the destination chain
-	messageRelayer := newMessageRelayer(r.logger, metrics, r, warpMessageInfo.WarpUnsignedMessage, r.responseChan, messageCreator)
+	messageRelayer := newMessageRelayer(r.logger, metrics, r, warpMessageInfo.WarpUnsignedMessage, destinationChainID, r.responseChan, messageCreator)
 	if err != nil {
 		r.logger.Error(
 			"Failed to create message relayer",
