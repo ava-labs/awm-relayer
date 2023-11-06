@@ -71,6 +71,10 @@ func TestShouldSendMessage(t *testing.T) {
 	validMessageBytes, err := teleportermessenger.PackTeleporterMessage(validTeleporterMessage)
 	require.NoError(t, err)
 
+	validTeleporterMessage.MessageID = big.NewInt(2)
+	validMessageBytes2, err := teleportermessenger.PackTeleporterMessage(validTeleporterMessage)
+	require.NoError(t, err)
+
 	messageNotDelivered, err := teleportermessenger.PackMessageReceivedOutput(false)
 	require.NoError(t, err)
 
@@ -78,6 +82,9 @@ func TestShouldSendMessage(t *testing.T) {
 	require.NoError(t, err)
 
 	warpUnsignedMessage, err := warp.NewUnsignedMessage(0, ids.Empty, validMessageBytes)
+	require.NoError(t, err)
+
+	warpUnsignedMessage2, err := warp.NewUnsignedMessage(0, ids.Empty, validMessageBytes2)
 	require.NoError(t, err)
 	testCases := []struct {
 		name                string
@@ -111,7 +118,7 @@ func TestShouldSendMessage(t *testing.T) {
 			name:               "invalid message",
 			destinationChainID: destinationChainID,
 			warpMessageInfo: &vmtypes.WarpMessageInfo{
-				WarpUnsignedMessage: warpUnsignedMessage,
+				WarpUnsignedMessage: warpUnsignedMessage2,
 				WarpPayload:         []byte{1, 2, 3, 4},
 			},
 			expectedError: true,
