@@ -39,13 +39,13 @@ func (v *CanonicalValidatorClient) GetSubnetID(ctx context.Context, chainID ids.
 	return v.client.ValidatedBy(ctx, chainID)
 }
 
-// Gets the current validator set of the given subnet ID, including the validators' BLS public keys.
-// This implementation of GetValidatorSet currently makes two RPC requests, one to get the
-// subnet validators, and another to get their BLS public keys. This is necessary in order to enable
-// the use of the public APIs (which don't support "GetValidatorsAt") because BLS keys are currently
-// only associated with primary network validation periods. If ACP-13 is implementated in the future
-// (https://github.com/avalanche-foundation/ACPs/blob/main/ACPs/13-subnet-only-validators.md), it may
-// become possible to reduce this to a single RPC request that returns both the subnet validators
+// Gets the current validator set of the given subnet ID, including the validators' BLS public
+// keys. The implementation currently makes two RPC requests, one to get the subnet validators,
+// and another to get their BLS public keys. This is necessary in order to enable the use of
+// the public APIs (which don't support "GetValidatorsAt") because BLS keys are currently only
+// associated with primary network validation periods. If ACP-13 is implementated in the future
+// (https://github.com/avalanche-foundation/ACPs/blob/main/ACPs/13-subnet-only-validators.md), it
+// may become possible to reduce this to a single RPC request that returns both the subnet validators
 // as well as their BLS public keys.
 func (v *CanonicalValidatorClient) getCurrentValidatorSet(
 	ctx context.Context,
@@ -101,6 +101,9 @@ func (v *CanonicalValidatorClient) getCurrentValidatorSet(
 	return res, nil
 }
 
+// Gets the validator set of the given subnet at the given P-chain block height.
+// Attempts to use the "getValidatorsAt" API first. If not available, falls back
+// to use "getCurrentValidators", ignoring the specified P-chain block height.
 func (v *CanonicalValidatorClient) GetValidatorSet(
 	ctx context.Context,
 	height uint64,
@@ -113,7 +116,8 @@ func (v *CanonicalValidatorClient) GetValidatorSet(
 		v.logger.Debug(
 			"P-chain RPC to getValidatorAt returned error. Falling back to getCurrentValidators",
 			zap.String("subnetID", subnetID.String()),
-			zap.Uint64("pChainHeight", height))
+			zap.Uint64("pChainHeight", height),
+			zap.Error(err))
 		return v.getCurrentValidatorSet(ctx, subnetID)
 	}
 	return res, nil
