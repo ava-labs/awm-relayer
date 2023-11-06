@@ -91,7 +91,7 @@ func isAllowedRelayer(allowedRelayers []common.Address, eoa common.Address) bool
 }
 
 func (m *messageManager) GetDestinationChainID(warpMessageInfo *vmtypes.WarpMessageInfo) (ids.ID, error) {
-	// Unpack the teleporter message to get the destination chain ID
+	// Unpack the Teleporter message to get the destination chain ID
 	teleporterMessage, err := teleportermessenger.UnpackTeleporterMessage(warpMessageInfo.WarpPayload)
 	if err != nil {
 		m.logger.Error(
@@ -101,19 +101,32 @@ func (m *messageManager) GetDestinationChainID(warpMessageInfo *vmtypes.WarpMess
 		return ids.ID{}, err
 	}
 
+	// Cache the message so it can be reused in SendMessage
+	m.teleporterMessageCache.Put(warpMessageInfo.WarpUnsignedMessage.ID(), teleporterMessage)
+
 	return teleporterMessage.DestinationChainID, nil
 }
 
 // ShouldSendMessage returns true if the message should be sent to the destination chain
 func (m *messageManager) ShouldSendMessage(warpMessageInfo *vmtypes.WarpMessageInfo, destinationChainID ids.ID) (bool, error) {
-	// Unpack the teleporter message and add it to the cache
-	teleporterMessage, err := teleportermessenger.UnpackTeleporterMessage(warpMessageInfo.WarpPayload)
-	if err != nil {
-		m.logger.Error(
-			"Failed unpacking teleporter message.",
-			zap.String("warpMessageID", warpMessageInfo.WarpUnsignedMessage.ID().String()),
+	warpMssageID := warpMessageInfo.WarpUnsignedMessage.ID()
+	teleporterMessage, ok := m.teleporterMessageCache.Get(warpMssageID)
+	if !ok {
+		m.logger.Debug(
+			"Teleporter message to send not in cache. Extracting from signed warp message.",
+			zap.String("destinationChainID", destinationChainID.String()),
+			zap.String("warpMessageID", warpMssageID.String()),
 		)
-		return false, err
+		var err error
+		teleporterMessage, err = teleportermessenger.UnpackTeleporterMessage(warpMessageInfo.WarpPayload)
+		if err != nil {
+			m.logger.Error(
+				"Failed unpacking teleporter message.",
+				zap.String("destinationChainID", destinationChainID.String()),
+				zap.String("warpMessageID", warpMssageID.String()),
+			)
+			return false, err
+		}
 	}
 
 	// Get the correct destination client from the global map
