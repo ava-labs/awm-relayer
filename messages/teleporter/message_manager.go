@@ -90,12 +90,34 @@ func isAllowedRelayer(allowedRelayers []common.Address, eoa common.Address) bool
 	return false
 }
 
+// Helper to get the teleporter message from the cache or from the warp message payload
+func (m *messageManager) getTeleporterMessage(warpMessageID ids.ID, warpPayload []byte) (*teleportermessenger.TeleporterMessage, error) {
+	// Check if the message has already been parsed
+	teleporterMessage, ok := m.teleporterMessageCache.Get(warpMessageID)
+	if !ok {
+		// If not, parse the message
+		m.logger.Debug(
+			"Teleporter message to send not in cache. Extracting from signed warp message.",
+			zap.String("warpMessageID", warpMessageID.String()),
+		)
+		var err error
+		teleporterMessage, err = teleportermessenger.UnpackTeleporterMessage(warpPayload)
+		if err != nil {
+			m.logger.Error(
+				"Failed unpacking teleporter message.",
+				zap.String("warpMessageID", warpMessageID.String()),
+			)
+			return nil, err
+		}
+	}
+	return teleporterMessage, nil
+}
+
 func (m *messageManager) GetDestinationChainID(warpMessageInfo *vmtypes.WarpMessageInfo) (ids.ID, error) {
-	// Unpack the Teleporter message to get the destination chain ID
-	teleporterMessage, err := teleportermessenger.UnpackTeleporterMessage(warpMessageInfo.WarpPayload)
+	teleporterMessage, err := m.getTeleporterMessage(warpMessageInfo.WarpUnsignedMessage.ID(), warpMessageInfo.WarpPayload)
 	if err != nil {
 		m.logger.Error(
-			"Failed unpacking teleporter message.",
+			"Failed get teleporter message.",
 			zap.String("warpMessageID", warpMessageInfo.WarpUnsignedMessage.ID().String()),
 		)
 		return ids.ID{}, err
@@ -109,24 +131,15 @@ func (m *messageManager) GetDestinationChainID(warpMessageInfo *vmtypes.WarpMess
 
 // ShouldSendMessage returns true if the message should be sent to the destination chain
 func (m *messageManager) ShouldSendMessage(warpMessageInfo *vmtypes.WarpMessageInfo, destinationChainID ids.ID) (bool, error) {
-	warpMssageID := warpMessageInfo.WarpUnsignedMessage.ID()
-	teleporterMessage, ok := m.teleporterMessageCache.Get(warpMssageID)
-	if !ok {
-		m.logger.Debug(
-			"Teleporter message to send not in cache. Extracting from signed warp message.",
+	teleporterMessage, err := m.getTeleporterMessage(warpMessageInfo.WarpUnsignedMessage.ID(), warpMessageInfo.WarpPayload)
+	if err != nil {
+		m.logger.Error(
+			"Failed get teleporter message.",
 			zap.String("destinationChainID", destinationChainID.String()),
-			zap.String("warpMessageID", warpMssageID.String()),
+			zap.String("warpMessageID", warpMessageInfo.WarpUnsignedMessage.ID().String()),
+			zap.Error(err),
 		)
-		var err error
-		teleporterMessage, err = teleportermessenger.UnpackTeleporterMessage(warpMessageInfo.WarpPayload)
-		if err != nil {
-			m.logger.Error(
-				"Failed unpacking teleporter message.",
-				zap.String("destinationChainID", destinationChainID.String()),
-				zap.String("warpMessageID", warpMssageID.String()),
-			)
-			return false, err
-		}
+		return false, err
 	}
 
 	// Get the correct destination client from the global map
@@ -237,23 +250,14 @@ func (m *messageManager) messageDelivered(
 // SendMessage extracts the gasLimit and packs the call data to call the receiveCrossChainMessage method of the Teleporter contract,
 // and dispatches transaction construction and broadcast to the destination client
 func (m *messageManager) SendMessage(signedMessage *warp.Message, parsedVmPayload []byte, destinationChainID ids.ID) error {
-	teleporterMessage, ok := m.teleporterMessageCache.Get(signedMessage.ID())
-	if !ok {
-		m.logger.Debug(
-			"Teleporter message to send not in cache. Extracting from signed warp message.",
+	teleporterMessage, err := m.getTeleporterMessage(signedMessage.ID(), parsedVmPayload)
+	if err != nil {
+		m.logger.Error(
+			"Failed get teleporter message.",
 			zap.String("destinationChainID", destinationChainID.String()),
 			zap.String("warpMessageID", signedMessage.ID().String()),
 		)
-		var err error
-		teleporterMessage, err = teleportermessenger.UnpackTeleporterMessage(parsedVmPayload)
-		if err != nil {
-			m.logger.Error(
-				"Failed unpacking teleporter message.",
-				zap.String("destinationChainID", destinationChainID.String()),
-				zap.String("warpMessageID", signedMessage.ID().String()),
-			)
-			return err
-		}
+		return err
 	}
 
 	m.logger.Info(

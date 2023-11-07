@@ -153,7 +153,7 @@ The E2E tests use the `TeleporterMessenger` contract deployment transaction spec
 - `tests/utils/UniversalTeleporterDeployerAddress.txt`
 - `tests/utils/UniversalTeleporterDeployerTransaction.txt`
 - `tests/utils/UniversalTeleporterMessagerContractAddress.txt`
-To update the version of Teleporter used by the E2E tests, update these values with the latest contract deployment information.
+To update the version of Teleporter used by the E2E tests, update these values with the latest contract deployment information. For more information on how to deploy the Teleporter contract, see the [Teleporter documentation](https://github.com/ava-labs/teleporter/tree/main/utils/contract-deployment).
 
 ### Generate Mocks
 
