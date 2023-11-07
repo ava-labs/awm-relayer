@@ -90,7 +90,8 @@ func isAllowedRelayer(allowedRelayers []common.Address, eoa common.Address) bool
 	return false
 }
 
-// Helper to get the teleporter message from the cache or from the warp message payload
+// getTeleporterMessage returns the Warp message's corresponding Teleporter message from the cache if it exists.
+// Otherwise parses the Warp message payload.
 func (m *messageManager) getTeleporterMessage(warpMessageID ids.ID, warpPayload []byte) (*teleportermessenger.TeleporterMessage, error) {
 	// Check if the message has already been parsed
 	teleporterMessage, ok := m.teleporterMessageCache.Get(warpMessageID)
