@@ -105,7 +105,7 @@ func NewRelayer(
 	)
 	r := Relayer{
 		pChainClient:             pChainClient,
-		canonicalValidatorClient: NewCanonicalValidatorClient(pChainClient),
+		canonicalValidatorClient: NewCanonicalValidatorClient(logger, pChainClient),
 		currentRequestID:         rand.Uint32(), // Initialize to a random value to mitigate requestID collision
 		network:                  network,
 		sourceSubnetID:           subnetID,

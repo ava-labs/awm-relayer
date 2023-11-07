@@ -18,7 +18,7 @@ import (
 	"go.uber.org/zap"
 )
 
-var _ router.ExternalHandler = (*RelayerExternalHandler)(nil)
+var _ router.ExternalHandler = &RelayerExternalHandler{}
 
 // Note: all of the external handler's methods are called on peer goroutines. It
 // is possible for multiple concurrent calls to happen with different NodeIDs.
