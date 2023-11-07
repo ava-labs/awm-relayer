@@ -13,7 +13,7 @@ import (
 	"go.uber.org/zap"
 )
 
-var _ validators.State = (*CanonicalValidatorClient)(nil)
+var _ validators.State = &CanonicalValidatorClient{}
 
 // CanonicalValidatorClient wraps platformvm.Client and implements validators.State
 type CanonicalValidatorClient struct {
@@ -24,6 +24,7 @@ type CanonicalValidatorClient struct {
 func NewCanonicalValidatorClient(logger logging.Logger, client platformvm.Client) *CanonicalValidatorClient {
 	return &CanonicalValidatorClient{
 		client: client,
+		logger: logger,
 	}
 }
 
