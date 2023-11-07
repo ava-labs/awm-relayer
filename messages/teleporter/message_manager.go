@@ -209,7 +209,7 @@ func (m *messageManager) messageDelivered(
 
 // SendMessage extracts the gasLimit and packs the call data to call the receiveCrossChainMessage method of the Teleporter contract,
 // and dispatches transaction construction and broadcast to the destination client
-func (m *messageManager) SendMessage(signedMessage *warp.Message, parsedVmPayload []byte, destinationChainID ids.ID) error {
+func (m *messageManager) SendMessage(signedMessage *warp.Message, parsedVMPayload []byte, destinationChainID ids.ID) error {
 	teleporterMessage, ok := m.teleporterMessageCache.Get(signedMessage.ID())
 	if !ok {
 		m.logger.Debug(
@@ -218,7 +218,7 @@ func (m *messageManager) SendMessage(signedMessage *warp.Message, parsedVmPayloa
 			zap.String("warpMessageID", signedMessage.ID().String()),
 		)
 		var err error
-		teleporterMessage, err = teleportermessenger.UnpackTeleporterMessage(parsedVmPayload)
+		teleporterMessage, err = teleportermessenger.UnpackTeleporterMessage(parsedVMPayload)
 		if err != nil {
 			m.logger.Error(
 				"Failed unpacking teleporter message.",

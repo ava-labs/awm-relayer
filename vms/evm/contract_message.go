@@ -31,14 +31,6 @@ func (m *contractMessage) UnpackWarpMessage(unsignedMsgBytes []byte) (*vmtypes.W
 		)
 		return nil, err
 	}
-	err = unsignedMsg.Initialize()
-	if err != nil {
-		m.logger.Error(
-			"Failed initializing unsigned message",
-			zap.Error(err),
-		)
-		return nil, err
-	}
 
 	warpPayload, err := warpPayload.ParseAddressedPayload(unsignedMsg.Payload)
 	if err != nil {
