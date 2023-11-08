@@ -91,7 +91,7 @@ func isAllowedRelayer(allowedRelayers []common.Address, eoa common.Address) bool
 }
 
 func (m *messageManager) GetDestinationChainID(warpMessageInfo *vmtypes.WarpMessageInfo) (ids.ID, error) {
-	teleporterMessage, err := m.getTeleporterMessage(warpMessageInfo.WarpUnsignedMessage.ID(), warpMessageInfo.WarpPayload)
+	teleporterMessage, err := m.parseTeleporterMessage(warpMessageInfo.WarpUnsignedMessage.ID(), warpMessageInfo.WarpPayload)
 	if err != nil {
 		m.logger.Error(
 			"Failed get teleporter message.",
@@ -108,7 +108,7 @@ func (m *messageManager) GetDestinationChainID(warpMessageInfo *vmtypes.WarpMess
 
 // ShouldSendMessage returns true if the message should be sent to the destination chain
 func (m *messageManager) ShouldSendMessage(warpMessageInfo *vmtypes.WarpMessageInfo, destinationChainID ids.ID) (bool, error) {
-	teleporterMessage, err := m.getTeleporterMessage(warpMessageInfo.WarpUnsignedMessage.ID(), warpMessageInfo.WarpPayload)
+	teleporterMessage, err := m.parseTeleporterMessage(warpMessageInfo.WarpUnsignedMessage.ID(), warpMessageInfo.WarpPayload)
 	if err != nil {
 		m.logger.Error(
 			"Failed get teleporter message.",
@@ -227,7 +227,7 @@ func (m *messageManager) messageDelivered(
 // SendMessage extracts the gasLimit and packs the call data to call the receiveCrossChainMessage method of the Teleporter contract,
 // and dispatches transaction construction and broadcast to the destination client
 func (m *messageManager) SendMessage(signedMessage *warp.Message, parsedVmPayload []byte, destinationChainID ids.ID) error {
-	teleporterMessage, err := m.getTeleporterMessage(signedMessage.ID(), parsedVmPayload)
+	teleporterMessage, err := m.parseTeleporterMessage(signedMessage.ID(), parsedVmPayload)
 	if err != nil {
 		m.logger.Error(
 			"Failed get teleporter message.",
@@ -300,9 +300,9 @@ func (m *messageManager) SendMessage(signedMessage *warp.Message, parsedVmPayloa
 	return nil
 }
 
-// getTeleporterMessage returns the Warp message's corresponding Teleporter message from the cache if it exists.
+// parseTeleporterMessage returns the Warp message's corresponding Teleporter message from the cache if it exists.
 // Otherwise parses the Warp message payload.
-func (m *messageManager) getTeleporterMessage(warpMessageID ids.ID, warpPayload []byte) (*teleportermessenger.TeleporterMessage, error) {
+func (m *messageManager) parseTeleporterMessage(warpMessageID ids.ID, warpPayload []byte) (*teleportermessenger.TeleporterMessage, error) {
 	// Check if the message has already been parsed
 	teleporterMessage, ok := m.teleporterMessageCache.Get(warpMessageID)
 	if !ok {
