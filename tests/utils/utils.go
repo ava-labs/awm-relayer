@@ -9,7 +9,6 @@ import (
 	"os"
 	"os/exec"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 	. "github.com/onsi/gomega"
 )
@@ -55,13 +54,4 @@ func ReadHexTextFile(filename string) string {
 	fileData, err := os.ReadFile(filename)
 	Expect(err).Should(BeNil())
 	return string(fileData)
-}
-
-// HashSliceToBytes serializes a []common.Hash into a tightly packed byte array.
-func HashSliceToBytes(hashes []common.Hash) []byte {
-	bytes := make([]byte, common.HashLength*len(hashes))
-	for i, hash := range hashes {
-		copy(bytes[i*common.HashLength:], hash[:])
-	}
-	return bytes
 }

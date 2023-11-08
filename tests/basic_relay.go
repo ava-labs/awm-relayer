@@ -20,6 +20,7 @@ import (
 	testUtils "github.com/ava-labs/awm-relayer/tests/utils"
 	"github.com/ava-labs/subnet-evm/core/types"
 	predicateutils "github.com/ava-labs/subnet-evm/predicate"
+	subnetevmutils "github.com/ava-labs/subnet-evm/utils"
 	"github.com/ava-labs/subnet-evm/x/warp"
 	teleportermessenger "github.com/ava-labs/teleporter/abi-bindings/go/Teleporter/TeleporterMessenger"
 	teleporterTestUtils "github.com/ava-labs/teleporter/tests/utils"
@@ -209,7 +210,7 @@ func BasicRelay() {
 
 	// Check the transaction storage key has warp message we're expecting
 	storageKeyHashes := accessLists[0].StorageKeys
-	packedPredicate := testUtils.HashSliceToBytes(storageKeyHashes)
+	packedPredicate := subnetevmutils.HashSliceToBytes(storageKeyHashes)
 	predicateBytes, err := predicateutils.UnpackPredicate(packedPredicate)
 	Expect(err).Should(BeNil())
 	receivedWarpMessage, err = avalancheWarp.ParseMessage(predicateBytes)
