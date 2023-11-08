@@ -26,7 +26,9 @@ type MessageManager interface {
 	ShouldSendMessage(warpMessageInfo *vmtypes.WarpMessageInfo, destinationChainID ids.ID) (bool, error)
 	// SendMessage sends the signed message to the destination chain. The payload parsed according to
 	// the VM rules is also passed in, since MessageManager does not assume any particular VM
-	SendMessage(signedMessage *warp.Message, parsedVMPayload []byte, destinationChainID ids.ID) error
+	SendMessage(signedMessage *warp.Message, parsedVmPayload []byte, destinationChainID ids.ID) error
+	// GetDestinationChainID returns the destination chain ID of the destination chain for the given message
+	GetDestinationChainID(warpMessageInfo *vmtypes.WarpMessageInfo) (ids.ID, error)
 }
 
 // NewMessageManager constructs a MessageManager for a particular message protocol, defined by the message protocol address and config

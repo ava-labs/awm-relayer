@@ -173,7 +173,7 @@ func (r *messageRelayer) createSignedMessage(requestID uint32) (*warp.Message, e
 	}
 
 	// Construct the request
-	req := msg.SignatureRequest{
+	req := msg.MessageSignatureRequest{
 		MessageID: r.warpMessage.ID(),
 	}
 	reqBytes, err := msg.RequestToBytes(codec, req)

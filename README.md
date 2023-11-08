@@ -148,6 +148,13 @@ Next, provide the path to the `subnet-evm` repository and the path to a writeabl
 ```bash
 ./scripts/e2e_test.sh --local --subnet-evm ~/subnet-evm --data-dir ~/tmp/e2e-test
 ```
+
+The E2E tests use the `TeleporterMessenger` contract deployment transaction specified in the following files:
+- `tests/utils/UniversalTeleporterDeployerAddress.txt`
+- `tests/utils/UniversalTeleporterDeployerTransaction.txt`
+- `tests/utils/UniversalTeleporterMessagerContractAddress.txt`
+To update the version of Teleporter used by the E2E tests, update these values with the latest contract deployment information. For more information on how to deploy the Teleporter contract, see the [Teleporter documentation](https://github.com/ava-labs/teleporter/tree/main/utils/contract-deployment).
+
 ### Generate Mocks
 
 [Gomock](https://pkg.go.dev/go.uber.org/mock/gomock) is used to generate mocks for testing. To generate mocks, run the following command at the root of the project:

@@ -225,8 +225,6 @@ func runRelayer(logger logging.Logger,
 				"Handling Teleporter submit message log.",
 				zap.String("txId", hex.EncodeToString(txLog.SourceTxID)),
 				zap.String("originChainId", sourceSubnetInfo.ChainID),
-				zap.String("destinationChainId", txLog.DestinationChainID.String()),
-				zap.String("destinationChainAddress", txLog.DestinationAddress.String()),
 				zap.String("sourceAddress", txLog.SourceAddress.String()),
 			)
 
