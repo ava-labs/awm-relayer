@@ -3,9 +3,10 @@ module github.com/ava-labs/awm-relayer
 go 1.18
 
 require (
-	github.com/ava-labs/avalanchego v1.10.14
-	github.com/ava-labs/subnet-evm v0.5.8
-	github.com/ava-labs/teleporter v0.0.0-20231107202133-eea4d6312c35
+	github.com/ava-labs/avalanche-network-runner v1.7.3-0.20231026153158-2931f8a448d9
+	github.com/ava-labs/avalanchego v1.10.15
+	github.com/ava-labs/subnet-evm v0.5.9
+	github.com/ava-labs/teleporter v0.0.0-20231109205404-3a226fa468c8
 	github.com/ethereum/go-ethereum v1.12.0
 	github.com/onsi/ginkgo/v2 v2.13.0
 	github.com/onsi/gomega v1.29.0
@@ -20,8 +21,7 @@ require (
 
 require (
 	github.com/Microsoft/go-winio v0.5.2 // indirect
-	github.com/ava-labs/avalanche-network-runner v1.7.3-0.20231026153158-2931f8a448d9 // indirect
-	github.com/ava-labs/coreth v0.12.7-rc.1 // indirect
+	github.com/ava-labs/coreth v0.12.8-rc.1 // indirect
 	github.com/cockroachdb/errors v1.9.1 // indirect
 	github.com/cockroachdb/logtags v0.0.0-20230118201751-21c54148d20b // indirect
 	github.com/cockroachdb/pebble v0.0.0-20230209160836-829675f94811 // indirect
