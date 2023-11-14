@@ -61,6 +61,7 @@ type subscriber struct {
 
 	logger logging.Logger
 	db     database.RelayerDatabase
+	dial   func(url string) (ethclient.Client, error)
 }
 
 // NewSubscriber returns a subscriber
@@ -83,6 +84,7 @@ func NewSubscriber(logger logging.Logger, subnetInfo config.SourceSubnet, db dat
 		logger:     logger,
 		db:         db,
 		logsChan:   logs,
+		dial:       ethclient.Dial,
 	}
 }
 
@@ -138,7 +140,7 @@ func (s *subscriber) ProcessFromHeight(height *big.Int) error {
 	if height == nil {
 		return fmt.Errorf("cannot process logs from nil height")
 	}
-	ethClient, err := ethclient.Dial(s.nodeRPCURL)
+	ethClient, err := s.dial(s.nodeWSURL)
 	if err != nil {
 		return err
 	}
@@ -221,7 +223,7 @@ func (s *subscriber) SetProcessedBlockHeightToLatest() error {
 		"Updating latest processed block in database",
 		zap.String("chainID", s.chainID.String()),
 	)
-	ethClient, err := ethclient.Dial(s.nodeRPCURL)
+	ethClient, err := s.dial(s.nodeWSURL)
 	if err != nil {
 		s.logger.Error(
 			"Failed to dial node",
@@ -288,7 +290,7 @@ func (s *subscriber) Subscribe() error {
 func (s *subscriber) dialAndSubscribe() error {
 	// Dial the configured source chain endpoint
 	// This needs to be a websocket
-	ethClient, err := ethclient.Dial(s.nodeWSURL)
+	ethClient, err := s.dial(s.nodeWSURL)
 	if err != nil {
 		return err
 	}
