@@ -171,50 +171,50 @@ func (s *subscriber) ProcessFromHeight(height *big.Int) error {
 	// Filter logs from the latest processed block to the latest block
 	// Since initializationFilterQuery does not modify existing fields of warpFilterQuery,
 	// we can safely reuse warpFilterQuery with only a shallow copy
-	processBlockRange := func (fromBlock *big.Int, toBlock *big.Int) error {
-	initializationFilterQuery := interfaces.FilterQuery{
-		Topics:    warpFilterQuery.Topics,
-		Addresses: warpFilterQuery.Addresses,
-		FromBlock: fromBlock,
-		ToBlock:   toBlock,
-	}
-	logs, err := ethClient.FilterLogs(context.Background(), initializationFilterQuery)
-	if err != nil {
-		s.logger.Error(
-			"Failed to get logs on initialization",
-			zap.String("chainID", s.chainID.String()),
-			zap.Error(err),
-		)
-		return err
-	}
-
-	// Sort the logs in ascending block order. Order logs by index within blocks
-	sort.SliceStable(logs, func(i, j int) bool {
-		if logs[i].BlockNumber == logs[j].BlockNumber {
-			return logs[i].Index < logs[j].Index
+	processBlockRange := func(fromBlock *big.Int, toBlock *big.Int) error {
+		initializationFilterQuery := interfaces.FilterQuery{
+			Topics:    warpFilterQuery.Topics,
+			Addresses: warpFilterQuery.Addresses,
+			FromBlock: fromBlock,
+			ToBlock:   toBlock,
 		}
-		return logs[i].BlockNumber < logs[j].BlockNumber
-	})
-
-	// Queue each of the logs to be processed
-	s.logger.Info(
-		"Processing logs on initialization",
-		zap.String("fromBlockHeight", fromBlock.String()),
-		zap.String("toBlockHeight", toBlock.String()),
-		zap.String("chainID", s.chainID.String()),
-	)
-	for _, log := range logs {
-		messageInfo, err := s.NewWarpLogInfo(log)
+		logs, err := ethClient.FilterLogs(context.Background(), initializationFilterQuery)
 		if err != nil {
 			s.logger.Error(
-				"Invalid log when processing from height. Continuing.",
+				"Failed to get logs on initialization",
 				zap.String("chainID", s.chainID.String()),
 				zap.Error(err),
 			)
-			continue
+			return err
 		}
-		s.logsChan <- *messageInfo
-	}
+
+		// Sort the logs in ascending block order. Order logs by index within blocks
+		sort.SliceStable(logs, func(i, j int) bool {
+			if logs[i].BlockNumber == logs[j].BlockNumber {
+				return logs[i].Index < logs[j].Index
+			}
+			return logs[i].BlockNumber < logs[j].BlockNumber
+		})
+
+		// Queue each of the logs to be processed
+		s.logger.Info(
+			"Processing logs on initialization",
+			zap.String("fromBlockHeight", fromBlock.String()),
+			zap.String("toBlockHeight", toBlock.String()),
+			zap.String("chainID", s.chainID.String()),
+		)
+		for _, log := range logs {
+			messageInfo, err := s.NewWarpLogInfo(log)
+			if err != nil {
+				s.logger.Error(
+					"Invalid log when processing from height. Continuing.",
+					zap.String("chainID", s.chainID.String()),
+					zap.Error(err),
+				)
+				continue
+			}
+			s.logsChan <- *messageInfo
+		}
 		return nil
 	}
 
