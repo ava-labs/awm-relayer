@@ -64,52 +64,76 @@ func makeSubscriberWithMockEthClient(t *testing.T) (subscriber, *mock_ethclient.
 	return subscriberUnderTest, mockEthClient
 }
 
-func expectProcessFromHeightFilterLogs(
-	mock *mock_ethclient.MockClient,
-	fromBlock int64,
-	toBlock int64,
-) {
-	mock.EXPECT().FilterLogs(
-		gomock.Any(),
-		interfaces.FilterQuery{
-			Topics: [][]common.Hash{
-				{warp.WarpABI.Events["SendWarpMessage"].ID},
-				{},
-				{},
-			},
-			Addresses: []common.Address{
-				warp.ContractAddress,
-			},
-			FromBlock: big.NewInt(fromBlock),
-			ToBlock:   big.NewInt(toBlock),
+func TestProcessFromHeight(t *testing.T) {
+	testCases := []struct {
+		latest int64
+		input  int64
+	}{
+		{
+			latest: 1000,
+			input:  800,
 		},
-	).Return([]types.Log{}, nil).Times(1)
-}
+		{
+			latest: 1000,
+			input:  700,
+		},
+		{
+			latest: 19642,
+			input:  751,
+		},
+		{
+			latest: 96,
+			input:  41,
+		},
+	}
 
-func TestCatchingUpOn200Blocks(t *testing.T) {
-	subscriberUnderTest, mockEthClient := makeSubscriberWithMockEthClient(t)
+	expectFilterLogs := func(
+		mock *mock_ethclient.MockClient,
+		fromBlock int64,
+		toBlock int64,
+	) {
+		mock.EXPECT().FilterLogs(
+			gomock.Any(),
+			interfaces.FilterQuery{
+				Topics: [][]common.Hash{
+					{warp.WarpABI.Events["SendWarpMessage"].ID},
+					{},
+					{},
+				},
+				Addresses: []common.Address{
+					warp.ContractAddress,
+				},
+				FromBlock: big.NewInt(fromBlock),
+				ToBlock:   big.NewInt(toBlock),
+			},
+		).Return([]types.Log{}, nil).Times(1)
+	}
 
-	latestBlock := int64(1000)
-	heightToProcessFrom := int64(800)
+	min := func(a, b int64) int64 {
+		if a < b {
+			return a
+		} else {
+			return b
+		}
+	}
 
-	mockEthClient.EXPECT().BlockNumber(gomock.Any()).Return(uint64(latestBlock), nil).Times(1)
-	expectProcessFromHeightFilterLogs(mockEthClient, heightToProcessFrom, latestBlock)
+	for _, tc := range testCases {
+		subscriberUnderTest, mockEthClient := makeSubscriberWithMockEthClient(t)
 
-	subscriberUnderTest.ProcessFromHeight(big.NewInt(heightToProcessFrom))
-}
+		mockEthClient.
+			EXPECT().
+			BlockNumber(gomock.Any()).
+			Return(uint64(tc.latest), nil).
+			Times(1)
 
-func TestCatchingUpOn300Blocks(t *testing.T) {
-	subscriberUnderTest, mockEthClient := makeSubscriberWithMockEthClient(t)
+		for i := tc.input; i < tc.latest; i += MaxBlocksPerRequest + 1 {
+			expectFilterLogs(
+				mockEthClient,
+				i,
+				min(i+MaxBlocksPerRequest, tc.latest),
+			)
+		}
 
-	// ask the subscriber to catch up on 300 blocks, and observe that it
-	// executes eth_getLogs calls in chunks of 200 blocks at a time.
-
-	latestBlock := int64(1000)
-	heightToProcessFrom := int64(700)
-
-	mockEthClient.EXPECT().BlockNumber(gomock.Any()).Return(uint64(latestBlock), nil).Times(1)
-	expectProcessFromHeightFilterLogs(mockEthClient, heightToProcessFrom, int64(900))
-	expectProcessFromHeightFilterLogs(mockEthClient, int64(901), latestBlock)
-
-	subscriberUnderTest.ProcessFromHeight(big.NewInt(heightToProcessFrom))
+		subscriberUnderTest.ProcessFromHeight(big.NewInt(tc.input))
+	}
 }
