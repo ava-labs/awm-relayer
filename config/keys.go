@@ -14,4 +14,5 @@ const (
 	EncryptConnectionKey  = "encrypt-connection"
 	AccountPrivateKeyKey  = "account-private-key"
 	StorageLocationKey    = "storage-location"
+	ProcessMissedBlocksKey = "process-missed-blocks"
 )

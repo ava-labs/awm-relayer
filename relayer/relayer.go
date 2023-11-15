@@ -49,6 +49,7 @@ func NewRelayer(
 	network *peers.AppRequestNetwork,
 	responseChan chan message.InboundMessage,
 	destinationClients map[ids.ID]vms.DestinationClient,
+	shouldProcessMissedBlocks bool,
 ) (*Relayer, vms.Subscriber, error) {
 	sub := vms.NewSubscriber(logger, sourceSubnetInfo, db)
 
@@ -129,13 +130,24 @@ func NewRelayer(
 		return nil, nil, err
 	}
 
-	err = processMissedBlocks(logger, &r, sub)
-	if err != nil {
-		logger.Error(
-			"Failed to process historical blocks mined during relayer downtime",
-			zap.Error(err),
-		)
-		return nil, nil, err
+	if shouldProcessMissedBlocks {
+		err = processMissedBlocks(logger, &r, sub)
+		if err != nil {
+			logger.Error(
+				"Failed to process historical blocks mined during relayer downtime",
+				zap.Error(err),
+			)
+			return nil, nil, err
+		}
+	} else {
+		err = sub.SetProcessedBlockHeightToLatest()
+		if err != nil {
+			logger.Warn(
+				"Failed to update latest processed block. Continuing to normal relaying operation",
+				zap.String("chainID", r.sourceChainID.String()),
+				zap.Error(err),
+			)
+		}
 	}
 
 	return &r, sub, nil
