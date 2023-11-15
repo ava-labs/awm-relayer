@@ -129,6 +129,23 @@ func NewRelayer(
 		return nil, nil, err
 	}
 
+	err = processMissedBlocks(logger, &r, sub)
+	if err != nil {
+		logger.Error(
+			"Failed to process historical blocks mined during relayer downtime",
+			zap.Error(err),
+		)
+		return nil, nil, err
+	}
+
+	return &r, sub, nil
+}
+
+func processMissedBlocks(
+	logger logging.Logger,
+	r *Relayer,
+	sub vms.Subscriber,
+) error {
 	// Get the latest processed block height from the database.
 	latestProcessedBlockData, err := r.db.Get(r.sourceChainID, []byte(database.LatestProcessedBlockKey))
 
@@ -145,7 +162,7 @@ func NewRelayer(
 		latestProcessedBlock, success := new(big.Int).SetString(string(latestProcessedBlockData), 10)
 		if !success {
 			r.logger.Error("failed to convert latest block to big.Int", zap.Error(err))
-			return nil, nil, err
+			return err
 		}
 
 		err = sub.ProcessFromHeight(latestProcessedBlock)
@@ -156,7 +173,7 @@ func NewRelayer(
 				zap.Error(err),
 			)
 		}
-		return &r, sub, nil
+		return nil
 	}
 	if errors.Is(err, database.ErrChainNotFound) || errors.Is(err, database.ErrKeyNotFound) {
 		// Otherwise, latestProcessedBlock is nil, so we instead store the latest block height.
@@ -173,7 +190,7 @@ func NewRelayer(
 				zap.Error(err),
 			)
 		}
-		return &r, sub, nil
+		return nil
 	}
 
 	// If neither of the above conditions are met, then we return an error
@@ -182,7 +199,7 @@ func NewRelayer(
 		zap.String("chainID", r.sourceChainID.String()),
 		zap.Error(err),
 	)
-	return nil, nil, err
+	return err
 }
 
 // RelayMessage relays a single warp message to the destination chain. Warp message relay requests from the same origin chain are processed serially
