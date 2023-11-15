@@ -18,7 +18,7 @@ import (
 	"go.uber.org/mock/gomock"
 )
 
-func makeSubscriberWithMockEthClient(t *testing.T) (subscriber, *mock_ethclient.MockClient) {
+func makeSubscriberWithMockEthClient(t *testing.T) (*subscriber, *mock_ethclient.MockClient) {
 	sourceSubnet := config.SourceSubnet{
 		SubnetID:          "2TGBXcnwx5PqiXWiqxAKUaNSqDguXNh1mxnp82jui68hxJSZAx",
 		ChainID:           "S4mMqUXe7vHsGiRAma6bv3CKnyaLssyAxmQ2KvFpX1KEvfFCD",
@@ -49,19 +49,10 @@ func makeSubscriberWithMockEthClient(t *testing.T) (subscriber, *mock_ethclient.
 	}
 
 	mockEthClient := mock_ethclient.NewMockClient(gomock.NewController(t))
-	stockSubscriber := NewSubscriber(logger, sourceSubnet, db)
-	subscriberUnderTest := subscriber{
-		nodeWSURL:  stockSubscriber.nodeWSURL,
-		nodeRPCURL: stockSubscriber.nodeRPCURL,
-		chainID:    stockSubscriber.chainID,
-		logsChan:   stockSubscriber.logsChan,
-		evmLog:     stockSubscriber.evmLog,
-		logger:     stockSubscriber.logger,
-		db:         stockSubscriber.db,
-		dial:       func(_url string) (ethclient.Client, error) { return mockEthClient, nil },
-	}
+	subscriber := NewSubscriber(logger, sourceSubnet, db)
+	subscriber.dial = func(_url string) (ethclient.Client, error) { return mockEthClient, nil }
 
-	return subscriberUnderTest, mockEthClient
+	return subscriber, mockEthClient
 }
 
 func TestProcessFromHeight(t *testing.T) {
