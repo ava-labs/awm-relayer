@@ -101,15 +101,15 @@ func TestCatchingUpOn200Blocks(t *testing.T) {
 func TestCatchingUpOn300Blocks(t *testing.T) {
 	subscriberUnderTest, mockEthClient := makeSubscriberWithMockEthClient(t)
 
-	// ask the subscriber to catch up on 300 blocks but observe that it
-	// only catches up on the most recent 200 blocks, since that's the max
-	// it will do.
+	// ask the subscriber to catch up on 300 blocks, and observe that it
+	// executes eth_getLogs calls in chunks of 200 blocks at a time.
 
 	latestBlock := int64(1000)
 	heightToProcessFrom := int64(700)
 
 	mockEthClient.EXPECT().BlockNumber(gomock.Any()).Return(uint64(latestBlock), nil).Times(1)
-	expectProcessFromHeightFilterLogs(mockEthClient, int64(800), latestBlock)
+	expectProcessFromHeightFilterLogs(mockEthClient, heightToProcessFrom, int64(900))
+	expectProcessFromHeightFilterLogs(mockEthClient, int64(901), latestBlock)
 
 	subscriberUnderTest.ProcessFromHeight(big.NewInt(heightToProcessFrom))
 }

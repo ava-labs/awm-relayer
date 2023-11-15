@@ -30,7 +30,7 @@ const (
 	maxClientSubscriptionBuffer = 20000
 	subscribeRetryTimeout       = 1 * time.Second
 	maxResubscribeAttempts      = 10
-	MaxBlocksToProcess          = 200
+	MaxBlocksPerRequest         = 200
 )
 
 var (
@@ -128,9 +128,10 @@ func (s *subscriber) forwardLogs() {
 	}
 }
 
-// Process logs from the given block height to the latest block
-// Cap the number of blocks requested from the client to MaxBlocksToProcess,
-// counting back from the current block.
+// Process logs from the given block height to the latest block. Limits the
+// number of blocks retrieved in a single eth_getLogs request to
+// `MaxBlocksPerRequest`; if processing more than that, multiple eth_getLogs
+// requests will be made.
 func (s *subscriber) ProcessFromHeight(height *big.Int) error {
 	s.logger.Info(
 		"Processing historical logs",
@@ -154,18 +155,6 @@ func (s *subscriber) ProcessFromHeight(height *big.Int) error {
 			zap.Error(err),
 		)
 		return err
-	}
-
-	// Cap the number of blocks to process to MaxBlocksToProcess
-	toBlock := big.NewInt(0).SetUint64(latestBlock)
-	if height.Cmp(big.NewInt(0).Sub(toBlock, big.NewInt(MaxBlocksToProcess))) < 0 {
-		s.logger.Warn(
-			fmt.Sprintf("Requested to process too many blocks. Processing only the most recent %d blocks", MaxBlocksToProcess),
-			zap.String("requestedBlockHeight", height.String()),
-			zap.String("latestBlockHeight", toBlock.String()),
-			zap.String("chainID", s.chainID.String()),
-		)
-		height = big.NewInt(0).Add(toBlock, big.NewInt(-MaxBlocksToProcess))
 	}
 
 	// Filter logs from the latest processed block to the latest block
@@ -218,7 +207,24 @@ func (s *subscriber) ProcessFromHeight(height *big.Int) error {
 		return nil
 	}
 
-	return processBlockRange(height, toBlock)
+	bigLatestBlock := big.NewInt(0).SetUint64(latestBlock)
+
+	for fromBlock := height; fromBlock.Cmp(bigLatestBlock) <= 0; /*see post statement in body*/ {
+		toBlock := big.NewInt(0).Add(fromBlock, big.NewInt(MaxBlocksPerRequest))
+		if toBlock.Cmp(bigLatestBlock) > 0 {
+			toBlock = bigLatestBlock
+		}
+
+		err = processBlockRange(fromBlock, toBlock)
+		if err != nil {
+			return err
+		}
+
+		// loop post statement:
+		fromBlock.Add(toBlock, big.NewInt(1))
+	}
+
+	return nil
 }
 
 func (s *subscriber) SetProcessedBlockHeightToLatest() error {
