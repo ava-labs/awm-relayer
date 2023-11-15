@@ -171,10 +171,11 @@ func (s *subscriber) ProcessFromHeight(height *big.Int) error {
 	// Filter logs from the latest processed block to the latest block
 	// Since initializationFilterQuery does not modify existing fields of warpFilterQuery,
 	// we can safely reuse warpFilterQuery with only a shallow copy
+	processBlockRange := func (fromBlock *big.Int, toBlock *big.Int) error {
 	initializationFilterQuery := interfaces.FilterQuery{
 		Topics:    warpFilterQuery.Topics,
 		Addresses: warpFilterQuery.Addresses,
-		FromBlock: height,
+		FromBlock: fromBlock,
 		ToBlock:   toBlock,
 	}
 	logs, err := ethClient.FilterLogs(context.Background(), initializationFilterQuery)
@@ -198,7 +199,7 @@ func (s *subscriber) ProcessFromHeight(height *big.Int) error {
 	// Queue each of the logs to be processed
 	s.logger.Info(
 		"Processing logs on initialization",
-		zap.String("fromBlockHeight", height.String()),
+		zap.String("fromBlockHeight", fromBlock.String()),
 		zap.String("toBlockHeight", toBlock.String()),
 		zap.String("chainID", s.chainID.String()),
 	)
@@ -214,8 +215,10 @@ func (s *subscriber) ProcessFromHeight(height *big.Int) error {
 		}
 		s.logsChan <- *messageInfo
 	}
+		return nil
+	}
 
-	return nil
+	return processBlockRange(height, toBlock)
 }
 
 func (s *subscriber) SetProcessedBlockHeightToLatest() error {
