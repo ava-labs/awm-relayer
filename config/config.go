@@ -64,13 +64,13 @@ type DestinationSubnet struct {
 }
 
 type Config struct {
-	LogLevel           string              `mapstructure:"log-level" json:"log-level"`
-	NetworkID          uint32              `mapstructure:"network-id" json:"network-id"`
-	PChainAPIURL       string              `mapstructure:"p-chain-api-url" json:"p-chain-api-url"`
-	EncryptConnection  bool                `mapstructure:"encrypt-connection" json:"encrypt-connection"`
-	StorageLocation    string              `mapstructure:"storage-location" json:"storage-location"`
-	SourceSubnets      []SourceSubnet      `mapstructure:"source-subnets" json:"source-subnets"`
-	DestinationSubnets []DestinationSubnet `mapstructure:"destination-subnets" json:"destination-subnets"`
+	LogLevel            string              `mapstructure:"log-level" json:"log-level"`
+	NetworkID           uint32              `mapstructure:"network-id" json:"network-id"`
+	PChainAPIURL        string              `mapstructure:"p-chain-api-url" json:"p-chain-api-url"`
+	EncryptConnection   bool                `mapstructure:"encrypt-connection" json:"encrypt-connection"`
+	StorageLocation     string              `mapstructure:"storage-location" json:"storage-location"`
+	SourceSubnets       []SourceSubnet      `mapstructure:"source-subnets" json:"source-subnets"`
+	DestinationSubnets  []DestinationSubnet `mapstructure:"destination-subnets" json:"destination-subnets"`
 	ProcessMissedBlocks bool                `mapstructure:"process-missed-blocks" json:"process-missed-blocks"`
 
 	// convenience fields to access the source subnet and chain IDs after initialization

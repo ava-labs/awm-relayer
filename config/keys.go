@@ -5,14 +5,14 @@ package config
 
 // Top-level configuration keys
 const (
-	ConfigFileKey         = "config-file"
-	LogLevelKey           = "log-level"
-	NetworkIDKey          = "network-id"
-	PChainAPIURLKey       = "p-chain-api-url"
-	SourceSubnetsKey      = "source-subnets"
-	DestinationSubnetsKey = "destination-subnets"
-	EncryptConnectionKey  = "encrypt-connection"
-	AccountPrivateKeyKey  = "account-private-key"
-	StorageLocationKey    = "storage-location"
+	ConfigFileKey          = "config-file"
+	LogLevelKey            = "log-level"
+	NetworkIDKey           = "network-id"
+	PChainAPIURLKey        = "p-chain-api-url"
+	SourceSubnetsKey       = "source-subnets"
+	DestinationSubnetsKey  = "destination-subnets"
+	EncryptConnectionKey   = "encrypt-connection"
+	AccountPrivateKeyKey   = "account-private-key"
+	StorageLocationKey     = "storage-location"
 	ProcessMissedBlocksKey = "process-missed-blocks"
 )
