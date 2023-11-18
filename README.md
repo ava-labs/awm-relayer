@@ -142,7 +142,7 @@ Unit tests can be ran locally by running the command in the root of the project:
 ./scripts/test.sh
 ```
 
-If your temporary directory is not writable, as is often the case in our Azure development instances, the unit tests may fail with messages like `fork/exec /tmp/go-build2296620589/b247/config.test: permission denied`. To fix this, set the `TMPDIR` environment variable to something writable, eg `export TMPDIR=~/tmp`.
+If your temporary directory is not writable, the unit tests may fail with messages like `fork/exec /tmp/go-build2296620589/b247/config.test: permission denied`. To fix this, set the `TMPDIR` environment variable to something writable, eg `export TMPDIR=~/tmp`.
 
 ### E2E tests
 
