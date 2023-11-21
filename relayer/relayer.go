@@ -131,7 +131,7 @@ func NewRelayer(
 	}
 
 	if shouldProcessMissedBlocks {
-		err = processMissedBlocks(logger, &r, sub)
+		err = r.processMissedBlocks(sub)
 		if err != nil {
 			logger.Error(
 				"Failed to process historical blocks mined during relayer downtime",
@@ -153,9 +153,7 @@ func NewRelayer(
 	return &r, sub, nil
 }
 
-func processMissedBlocks(
-	logger logging.Logger,
-	r *Relayer,
+func (r *Relayer) processMissedBlocks(
 	sub vms.Subscriber,
 ) error {
 	// Get the latest processed block height from the database.
@@ -179,7 +177,7 @@ func processMissedBlocks(
 
 		err = sub.ProcessFromHeight(latestProcessedBlock)
 		if err != nil {
-			logger.Warn(
+			r.logger.Warn(
 				"Encountered an error when processing historical blocks. Continuing to normal relaying operation.",
 				zap.String("chainID", r.sourceChainID.String()),
 				zap.Error(err),
@@ -189,14 +187,14 @@ func processMissedBlocks(
 	}
 	if errors.Is(err, database.ErrChainNotFound) || errors.Is(err, database.ErrKeyNotFound) {
 		// Otherwise, latestProcessedBlock is nil, so we instead store the latest block height.
-		logger.Info(
+		r.logger.Info(
 			"Latest processed block not found in database. Starting from latest block.",
 			zap.String("chainID", r.sourceChainID.String()),
 		)
 
 		err := sub.SetProcessedBlockHeightToLatest()
 		if err != nil {
-			logger.Warn(
+			r.logger.Warn(
 				"Failed to update latest processed block. Continuing to normal relaying operation",
 				zap.String("chainID", r.sourceChainID.String()),
 				zap.Error(err),
