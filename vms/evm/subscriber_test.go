@@ -100,6 +100,7 @@ func TestProcessFromHeight(t *testing.T) {
 		).Return([]types.Log{}, nil).Times(1)
 	}
 
+	// TODO: switch to the built-in min() when we get to Go 1.21
 	min := func(a, b int64) int64 {
 		if a < b {
 			return a
