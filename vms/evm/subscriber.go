@@ -61,7 +61,9 @@ type subscriber struct {
 
 	logger logging.Logger
 	db     database.RelayerDatabase
-	dial   func(url string) (ethclient.Client, error)
+
+	// seams for mock injection:
+	dial func(url string) (ethclient.Client, error)
 }
 
 // NewSubscriber returns a subscriber
