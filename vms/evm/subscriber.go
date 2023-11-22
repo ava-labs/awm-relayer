@@ -161,18 +161,12 @@ func (s *subscriber) ProcessFromHeight(height *big.Int) error {
 
 	bigLatestBlock := big.NewInt(0).SetUint64(latestBlock)
 
-	// helper function to determine the upper bound of a block range given
-	// the lower bound:
-	toBlock := func(fromBlock *big.Int) (toBlock *big.Int) {
-		toBlock = big.NewInt(0).Add(fromBlock, big.NewInt(MaxBlocksPerRequest))
+	for fromBlock := big.NewInt(0).Set(height); fromBlock.Cmp(bigLatestBlock) <= 0; fromBlock.Add(fromBlock, big.NewInt(MaxBlocksPerRequest+1)) {
+		toBlock := big.NewInt(0).Add(fromBlock, big.NewInt(MaxBlocksPerRequest))
 		if toBlock.Cmp(bigLatestBlock) > 0 {
 			toBlock.Set(bigLatestBlock)
 		}
-		return
-	}
-
-	for fromBlock := big.NewInt(0).Set(height); fromBlock.Cmp(bigLatestBlock) <= 0; fromBlock.Add(toBlock(fromBlock), big.NewInt(1)) {
-		err = s.processBlockRange(ethClient, fromBlock, toBlock(fromBlock))
+		err = s.processBlockRange(ethClient, fromBlock, toBlock)
 		if err != nil {
 			return err
 		}
