@@ -15,6 +15,7 @@ import (
 	"github.com/ava-labs/subnet-evm/interfaces"
 	"github.com/ava-labs/subnet-evm/x/warp"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 )
 
@@ -39,14 +40,10 @@ func makeSubscriberWithMockEthClient(t *testing.T) (*subscriber, *mock_ethclient
 	)
 
 	subnetId, err := ids.FromString(sourceSubnet.ChainID)
-	if err != nil {
-		t.Fatalf("Failed to create subnet ID")
-	}
+	require.NoError(t, err, "Failed to create subnet ID")
 
 	db, err := database.NewJSONFileStorage(logger, t.TempDir(), []ids.ID{subnetId})
-	if err != nil {
-		t.Fatalf("Failed to create JSON file storage")
-	}
+	require.NoError(t, err, "Failed to create JSON file storage")
 
 	mockEthClient := mock_ethclient.NewMockClient(gomock.NewController(t))
 	subscriber := NewSubscriber(logger, sourceSubnet, db)
