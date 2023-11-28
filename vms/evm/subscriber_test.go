@@ -61,6 +61,10 @@ func TestProcessFromHeight(t *testing.T) {
 		input  int64
 	}{
 		{
+			latest: 200,
+			input:  0,
+		},
+		{
 			latest: 1000,
 			input:  800,
 		},
@@ -118,11 +122,11 @@ func TestProcessFromHeight(t *testing.T) {
 			Return(uint64(tc.latest), nil).
 			Times(1)
 
-		for i := tc.input; i < tc.latest; i += MaxBlocksPerRequest + 1 {
+		for i := tc.input; i <= tc.latest; i += MaxBlocksPerRequest {
 			expectFilterLogs(
 				mockEthClient,
 				i,
-				min(i+MaxBlocksPerRequest, tc.latest),
+				min(i+MaxBlocksPerRequest-1, tc.latest),
 			)
 		}
 

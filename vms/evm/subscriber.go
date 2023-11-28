@@ -161,8 +161,8 @@ func (s *subscriber) ProcessFromHeight(height *big.Int) error {
 
 	bigLatestBlock := big.NewInt(0).SetUint64(latestBlock)
 
-	for fromBlock := big.NewInt(0).Set(height); fromBlock.Cmp(bigLatestBlock) <= 0; fromBlock.Add(fromBlock, big.NewInt(MaxBlocksPerRequest+1)) {
-		toBlock := big.NewInt(0).Add(fromBlock, big.NewInt(MaxBlocksPerRequest))
+	for fromBlock := big.NewInt(0).Set(height); fromBlock.Cmp(bigLatestBlock) <= 0; fromBlock.Add(fromBlock, big.NewInt(MaxBlocksPerRequest)) {
+		toBlock := big.NewInt(0).Add(fromBlock, big.NewInt(MaxBlocksPerRequest-1))
 		if toBlock.Cmp(bigLatestBlock) > 0 {
 			toBlock.Set(bigLatestBlock)
 		}
