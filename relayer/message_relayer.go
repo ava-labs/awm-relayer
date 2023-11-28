@@ -47,13 +47,13 @@ var (
 // and send the signed warp message to the destination chain.
 // Each messageRelayer runs in its own goroutine.
 type messageRelayer struct {
-	relayer             *Relayer
-	warpMessage         *warp.UnsignedMessage
-	destinationChainID  ids.ID
-	messageResponseChan chan message.InboundMessage
-	logger              logging.Logger
-	messageCreator      message.Creator
-	metrics             *MessageRelayerMetrics
+	relayer                 *Relayer
+	warpMessage             *warp.UnsignedMessage
+	destinationBlockchainID ids.ID
+	messageResponseChan     chan message.InboundMessage
+	logger                  logging.Logger
+	messageCreator          message.Creator
+	metrics                 *MessageRelayerMetrics
 }
 
 func newMessageRelayer(
@@ -61,23 +61,23 @@ func newMessageRelayer(
 	metrics *MessageRelayerMetrics,
 	relayer *Relayer,
 	warpMessage *warp.UnsignedMessage,
-	destinationChainID ids.ID,
+	destinationBlockchainID ids.ID,
 	messageResponseChan chan message.InboundMessage,
 	messageCreator message.Creator,
 ) *messageRelayer {
 	return &messageRelayer{
-		relayer:             relayer,
-		warpMessage:         warpMessage,
-		destinationChainID:  destinationChainID,
-		messageResponseChan: messageResponseChan,
-		logger:              logger,
-		metrics:             metrics,
-		messageCreator:      messageCreator,
+		relayer:                 relayer,
+		warpMessage:             warpMessage,
+		destinationBlockchainID: destinationBlockchainID,
+		messageResponseChan:     messageResponseChan,
+		logger:                  logger,
+		metrics:                 metrics,
+		messageCreator:          messageCreator,
 	}
 }
 
 func (r *messageRelayer) relayMessage(warpMessageInfo *vmtypes.WarpMessageInfo, requestID uint32, messageManager messages.MessageManager) error {
-	shouldSend, err := messageManager.ShouldSendMessage(warpMessageInfo, r.destinationChainID)
+	shouldSend, err := messageManager.ShouldSendMessage(warpMessageInfo, r.destinationBlockchainID)
 	if err != nil {
 		r.logger.Error(
 			"Failed to check if message should be sent",
@@ -108,7 +108,7 @@ func (r *messageRelayer) relayMessage(warpMessageInfo *vmtypes.WarpMessageInfo, 
 	// create signed message latency (ms)
 	r.setCreateSignedMessageLatencyMS(float64(time.Since(startCreateSignedMessageTime).Milliseconds()))
 
-	err = messageManager.SendMessage(signedMessage, warpMessageInfo.WarpPayload, r.destinationChainID)
+	err = messageManager.SendMessage(signedMessage, warpMessageInfo.WarpPayload, r.destinationBlockchainID)
 	if err != nil {
 		r.logger.Error(
 			"Failed to send warp message",
@@ -119,7 +119,7 @@ func (r *messageRelayer) relayMessage(warpMessageInfo *vmtypes.WarpMessageInfo, 
 	}
 	r.logger.Info(
 		"Finished relaying message to destination chain",
-		zap.String("destinationChainID", r.destinationChainID.String()),
+		zap.String("DestinationBlockchainID", r.destinationBlockchainID.String()),
 	)
 	r.incSuccessfulRelayMessageCount()
 	return nil
@@ -129,7 +129,7 @@ func (r *messageRelayer) relayMessage(warpMessageInfo *vmtypes.WarpMessageInfo, 
 func (r *messageRelayer) createSignedMessage(requestID uint32) (*warp.Message, error) {
 	r.logger.Info(
 		"Starting relayer routine",
-		zap.String("destinationChainID", r.destinationChainID.String()),
+		zap.String("DestinationBlockchainID", r.destinationBlockchainID.String()),
 	)
 
 	// Get the current canonical validator set of the source subnet.
@@ -180,7 +180,7 @@ func (r *messageRelayer) createSignedMessage(requestID uint32) (*warp.Message, e
 	if err != nil {
 		r.logger.Error(
 			"Failed to marshal request bytes",
-			zap.String("destinationChainID", r.destinationChainID.String()),
+			zap.String("DestinationBlockchainID", r.destinationBlockchainID.String()),
 			zap.Error(err),
 		)
 		return nil, err
@@ -205,7 +205,7 @@ func (r *messageRelayer) createSignedMessage(requestID uint32) (*warp.Message, e
 		r.logger.Debug(
 			"Relayer collecting signatures from peers.",
 			zap.Int("attempt", attempt),
-			zap.String("destinationChainID", r.destinationChainID.String()),
+			zap.String("DestinationBlockchainID", r.destinationBlockchainID.String()),
 			zap.Int("validatorSetSize", len(validatorSet)),
 			zap.Int("signatureMapSize", len(signatureMap)),
 			zap.Int("responsesExpected", responsesExpected),
@@ -316,7 +316,7 @@ func (r *messageRelayer) createSignedMessage(requestID uint32) (*warp.Message, e
 						if err != nil {
 							r.logger.Error(
 								"Failed to aggregate signature.",
-								zap.String("destinationChainID", r.destinationChainID.String()),
+								zap.String("DestinationBlockchainID", r.destinationBlockchainID.String()),
 								zap.Error(err),
 							)
 							return nil, err
@@ -345,7 +345,7 @@ func (r *messageRelayer) createSignedMessage(requestID uint32) (*warp.Message, e
 				if signedMsg != nil {
 					r.logger.Info(
 						"Created signed message.",
-						zap.String("destinationChainID", r.destinationChainID.String()),
+						zap.String("DestinationBlockchainID", r.destinationBlockchainID.String()),
 					)
 					return signedMsg, nil
 				}
@@ -365,7 +365,7 @@ func (r *messageRelayer) createSignedMessage(requestID uint32) (*warp.Message, e
 	r.logger.Warn(
 		"Failed to collect a threshold of signatures",
 		zap.Int("attempts", maxRelayerQueryAttempts),
-		zap.String("destinationChainID", r.destinationChainID.String()),
+		zap.String("DestinationBlockchainID", r.destinationBlockchainID.String()),
 	)
 	return nil, errNotEnoughSignatures
 }
@@ -377,11 +377,11 @@ func (r *messageRelayer) getCurrentCanonicalValidatorSet() ([]*warp.Validator, u
 	)
 	if r.relayer.sourceSubnetID == constants.PrimaryNetworkID {
 		// If the message originates from the primary subnet, then we instead "self sign" the message using the validators of the destination subnet.
-		signingSubnet, err = r.relayer.pChainClient.ValidatedBy(context.Background(), r.destinationChainID)
+		signingSubnet, err = r.relayer.pChainClient.ValidatedBy(context.Background(), r.destinationBlockchainID)
 		if err != nil {
 			r.logger.Error(
 				"failed to get validating subnet for destination chain",
-				zap.String("destinationChainID", r.destinationChainID.String()),
+				zap.String("DestinationBlockchainID", r.destinationBlockchainID.String()),
 				zap.Error(err),
 			)
 			return nil, 0, err
@@ -457,7 +457,7 @@ func (r *messageRelayer) isValidSignatureResponse(
 		r.logger.Debug(
 			"Response contained an empty signature",
 			zap.String("nodeID", response.NodeID().String()),
-			zap.String("destinationChainID", r.destinationChainID.String()),
+			zap.String("DestinationBlockchainID", r.destinationBlockchainID.String()),
 		)
 		return blsSignatureBuf{}, false
 	}
@@ -466,7 +466,7 @@ func (r *messageRelayer) isValidSignatureResponse(
 	if err != nil {
 		r.logger.Debug(
 			"Failed to create signature from response",
-			zap.String("destinationChainID", r.destinationChainID.String()),
+			zap.String("DestinationBlockchainID", r.destinationBlockchainID.String()),
 		)
 		return blsSignatureBuf{}, false
 	}
@@ -474,7 +474,7 @@ func (r *messageRelayer) isValidSignatureResponse(
 	if !bls.Verify(pubKey, sig, r.warpMessage.Bytes()) {
 		r.logger.Debug(
 			"Failed verification for signature",
-			zap.String("destinationChainID", r.destinationChainID.String()),
+			zap.String("DestinationBlockchainID", r.destinationBlockchainID.String()),
 		)
 		return blsSignatureBuf{}, false
 	}
@@ -516,16 +516,16 @@ func (r *messageRelayer) aggregateSignatures(signatureMap map[int]blsSignatureBu
 func (r *messageRelayer) incSuccessfulRelayMessageCount() {
 	r.metrics.successfulRelayMessageCount.
 		WithLabelValues(
-			r.destinationChainID.String(),
-			r.relayer.sourceChainID.String(),
+			r.destinationBlockchainID.String(),
+			r.relayer.sourceBlockchainID.String(),
 			r.relayer.sourceSubnetID.String()).Inc()
 }
 
 func (r *messageRelayer) incFailedRelayMessageCount(failureReason string) {
 	r.metrics.failedRelayMessageCount.
 		WithLabelValues(
-			r.destinationChainID.String(),
-			r.relayer.sourceChainID.String(),
+			r.destinationBlockchainID.String(),
+			r.relayer.sourceBlockchainID.String(),
 			r.relayer.sourceSubnetID.String(),
 			failureReason).Inc()
 }
@@ -533,7 +533,7 @@ func (r *messageRelayer) incFailedRelayMessageCount(failureReason string) {
 func (r *messageRelayer) setCreateSignedMessageLatencyMS(latency float64) {
 	r.metrics.createSignedMessageLatencyMS.
 		WithLabelValues(
-			r.destinationChainID.String(),
-			r.relayer.sourceChainID.String(),
+			r.destinationBlockchainID.String(),
+			r.relayer.sourceBlockchainID.String(),
 			r.relayer.sourceSubnetID.String()).Set(latency)
 }

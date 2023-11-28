@@ -108,9 +108,9 @@ func setupJsonStorage(t *testing.T, networks []ids.ID) *JSONFileStorage {
 	return jsonStorage
 }
 
-func testWrite(storage *JSONFileStorage, chainID ids.ID, height uint64) {
-	fmt.Println(chainID, height)
-	err := storage.Put(chainID, []byte(LatestProcessedBlockKey), []byte(strconv.FormatUint(height, 10)))
+func testWrite(storage *JSONFileStorage, blockchainID ids.ID, height uint64) {
+	fmt.Println(blockchainID, height)
+	err := storage.Put(blockchainID, []byte(LatestProcessedBlockKey), []byte(strconv.FormatUint(height, 10)))
 	if err != nil {
 		fmt.Printf("failed to put data: %v", err)
 		return

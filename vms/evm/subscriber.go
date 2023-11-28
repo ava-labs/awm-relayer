@@ -52,12 +52,12 @@ var warpFilterQuery = interfaces.FilterQuery{
 
 // subscriber implements Subscriber
 type subscriber struct {
-	nodeWSURL  string
-	nodeRPCURL string
-	chainID    ids.ID
-	logsChan   chan vmtypes.WarpLogInfo
-	evmLog     <-chan types.Log
-	sub        interfaces.Subscription
+	nodeWSURL    string
+	nodeRPCURL   string
+	blockchainID ids.ID
+	logsChan     chan vmtypes.WarpLogInfo
+	evmLog       <-chan types.Log
+	sub          interfaces.Subscription
 
 	logger logging.Logger
 	db     database.RelayerDatabase
@@ -65,10 +65,10 @@ type subscriber struct {
 
 // NewSubscriber returns a subscriber
 func NewSubscriber(logger logging.Logger, subnetInfo config.SourceSubnet, db database.RelayerDatabase) *subscriber {
-	chainID, err := ids.FromString(subnetInfo.ChainID)
+	blockchainID, err := ids.FromString(subnetInfo.BlockchainID)
 	if err != nil {
 		logger.Error(
-			"Invalid chainID provided to subscriber",
+			"Invalid blockchainID provided to subscriber",
 			zap.Error(err),
 		)
 		return nil
@@ -77,12 +77,12 @@ func NewSubscriber(logger logging.Logger, subnetInfo config.SourceSubnet, db dat
 	logs := make(chan vmtypes.WarpLogInfo, maxClientSubscriptionBuffer)
 
 	return &subscriber{
-		nodeWSURL:  subnetInfo.GetNodeWSEndpoint(),
-		nodeRPCURL: subnetInfo.GetNodeRPCEndpoint(),
-		chainID:    chainID,
-		logger:     logger,
-		db:         db,
-		logsChan:   logs,
+		nodeWSURL:    subnetInfo.GetNodeWSEndpoint(),
+		nodeRPCURL:   subnetInfo.GetNodeRPCEndpoint(),
+		blockchainID: blockchainID,
+		logger:       logger,
+		db:           db,
+		logsChan:     logs,
 	}
 }
 
@@ -133,7 +133,7 @@ func (s *subscriber) ProcessFromHeight(height *big.Int) error {
 	s.logger.Info(
 		"Processing historical logs",
 		zap.String("fromBlockHeight", height.String()),
-		zap.String("chainID", s.chainID.String()),
+		zap.String("blockchainID", s.blockchainID.String()),
 	)
 	if height == nil {
 		return fmt.Errorf("cannot process logs from nil height")
@@ -148,7 +148,7 @@ func (s *subscriber) ProcessFromHeight(height *big.Int) error {
 	if err != nil {
 		s.logger.Error(
 			"Failed to get latest block",
-			zap.String("chainID", s.chainID.String()),
+			zap.String("blockchainID", s.blockchainID.String()),
 			zap.Error(err),
 		)
 		return err
@@ -161,7 +161,7 @@ func (s *subscriber) ProcessFromHeight(height *big.Int) error {
 			fmt.Sprintf("Requested to process too many blocks. Processing only the most recent %d blocks", MaxBlocksToProcess),
 			zap.String("requestedBlockHeight", height.String()),
 			zap.String("latestBlockHeight", toBlock.String()),
-			zap.String("chainID", s.chainID.String()),
+			zap.String("blockchainID", s.blockchainID.String()),
 		)
 		height = big.NewInt(0).Add(toBlock, big.NewInt(-MaxBlocksToProcess))
 	}
@@ -179,7 +179,7 @@ func (s *subscriber) ProcessFromHeight(height *big.Int) error {
 	if err != nil {
 		s.logger.Error(
 			"Failed to get logs on initialization",
-			zap.String("chainID", s.chainID.String()),
+			zap.String("blockchainID", s.blockchainID.String()),
 			zap.Error(err),
 		)
 		return err
@@ -198,14 +198,14 @@ func (s *subscriber) ProcessFromHeight(height *big.Int) error {
 		"Processing logs on initialization",
 		zap.String("fromBlockHeight", height.String()),
 		zap.String("toBlockHeight", toBlock.String()),
-		zap.String("chainID", s.chainID.String()),
+		zap.String("blockchainID", s.blockchainID.String()),
 	)
 	for _, log := range logs {
 		messageInfo, err := s.NewWarpLogInfo(log)
 		if err != nil {
 			s.logger.Error(
 				"Invalid log when processing from height. Continuing.",
-				zap.String("chainID", s.chainID.String()),
+				zap.String("blockchainID", s.blockchainID.String()),
 				zap.Error(err),
 			)
 			continue
@@ -219,13 +219,13 @@ func (s *subscriber) ProcessFromHeight(height *big.Int) error {
 func (s *subscriber) SetProcessedBlockHeightToLatest() error {
 	s.logger.Info(
 		"Updating latest processed block in database",
-		zap.String("chainID", s.chainID.String()),
+		zap.String("blockchainID", s.blockchainID.String()),
 	)
 	ethClient, err := ethclient.Dial(s.nodeRPCURL)
 	if err != nil {
 		s.logger.Error(
 			"Failed to dial node",
-			zap.String("chainID", s.chainID.String()),
+			zap.String("blockchainID", s.blockchainID.String()),
 			zap.Error(err),
 		)
 		return err
@@ -235,17 +235,17 @@ func (s *subscriber) SetProcessedBlockHeightToLatest() error {
 	if err != nil {
 		s.logger.Error(
 			"Failed to get latest block",
-			zap.String("chainID", s.chainID.String()),
+			zap.String("blockchainID", s.blockchainID.String()),
 			zap.Error(err),
 		)
 		return err
 	}
 
-	err = s.db.Put(s.chainID, []byte(database.LatestProcessedBlockKey), []byte(strconv.FormatUint(latestBlock, 10)))
+	err = s.db.Put(s.blockchainID, []byte(database.LatestProcessedBlockKey), []byte(strconv.FormatUint(latestBlock, 10)))
 	if err != nil {
 		s.logger.Error(
 			fmt.Sprintf("failed to put %s into database", database.LatestProcessedBlockKey),
-			zap.String("chainID", s.chainID.String()),
+			zap.String("blockchainID", s.blockchainID.String()),
 			zap.Error(err),
 		)
 		return err
@@ -265,7 +265,7 @@ func (s *subscriber) Subscribe() error {
 		if err == nil {
 			s.logger.Info(
 				"Successfully subscribed",
-				zap.String("chainID", s.chainID.String()),
+				zap.String("blockchainID", s.blockchainID.String()),
 			)
 			return nil
 		}
@@ -273,7 +273,7 @@ func (s *subscriber) Subscribe() error {
 		s.logger.Warn(
 			"Failed to subscribe to node",
 			zap.Int("attempt", attempt),
-			zap.String("chainID", s.chainID.String()),
+			zap.String("blockchainID", s.blockchainID.String()),
 			zap.Error(err),
 		)
 
@@ -298,7 +298,7 @@ func (s *subscriber) dialAndSubscribe() error {
 	if err != nil {
 		s.logger.Error(
 			"Failed to subscribe to logs",
-			zap.String("chainID", s.chainID.String()),
+			zap.String("blockchainID", s.blockchainID.String()),
 			zap.Error(err),
 		)
 		return err

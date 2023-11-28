@@ -32,7 +32,7 @@ type Relayer struct {
 	currentRequestID         uint32
 	network                  *peers.AppRequestNetwork
 	sourceSubnetID           ids.ID
-	sourceChainID            ids.ID
+	sourceBlockchainID       ids.ID
 	responseChan             chan message.InboundMessage
 	contractMessage          vms.ContractMessage
 	messageManagers          map[common.Hash]messages.MessageManager
@@ -61,7 +61,7 @@ func NewRelayer(
 		return nil, nil, err
 	}
 
-	chainID, err := ids.FromString(sourceSubnetInfo.ChainID)
+	blockchainID, err := ids.FromString(sourceSubnetInfo.BlockchainID)
 	if err != nil {
 		logger.Error(
 			"Failed to decode base-58 encoded source chain ID",
@@ -71,10 +71,10 @@ func NewRelayer(
 	}
 
 	var filteredDestinationClients map[ids.ID]vms.DestinationClient
-	supportedDestinationsChainIDs := sourceSubnetInfo.GetSupportedDestinations()
-	if len(supportedDestinationsChainIDs) > 0 {
+	supportedDestinationsBlockchainIDs := sourceSubnetInfo.GetSupportedDestinations()
+	if len(supportedDestinationsBlockchainIDs) > 0 {
 		filteredDestinationClients := make(map[ids.ID]vms.DestinationClient)
-		for id := range supportedDestinationsChainIDs {
+		for id := range supportedDestinationsBlockchainIDs {
 			filteredDestinationClients[id] = destinationClients[id]
 		}
 	} else {
@@ -100,8 +100,8 @@ func NewRelayer(
 		"Creating relayer",
 		zap.String("subnetID", subnetID.String()),
 		zap.String("subnetIDHex", subnetID.Hex()),
-		zap.String("chainID", chainID.String()),
-		zap.String("chainIDHex", chainID.Hex()),
+		zap.String("blockchainID", blockchainID.String()),
+		zap.String("blockchainIDHex", blockchainID.Hex()),
 	)
 	r := Relayer{
 		pChainClient:             pChainClient,
@@ -109,13 +109,13 @@ func NewRelayer(
 		currentRequestID:         rand.Uint32(), // Initialize to a random value to mitigate requestID collision
 		network:                  network,
 		sourceSubnetID:           subnetID,
-		sourceChainID:            chainID,
+		sourceBlockchainID:       blockchainID,
 		responseChan:             responseChan,
 		contractMessage:          vms.NewContractMessage(logger, sourceSubnetInfo),
 		messageManagers:          messageManagers,
 		logger:                   logger,
 		db:                       db,
-		supportedDestinations:    supportedDestinationsChainIDs,
+		supportedDestinations:    supportedDestinationsBlockchainIDs,
 	}
 
 	// Open the subscription. We must do this before processing any missed messages, otherwise we may miss an incoming message
@@ -130,7 +130,7 @@ func NewRelayer(
 	}
 
 	// Get the latest processed block height from the database.
-	latestProcessedBlockData, err := r.db.Get(r.sourceChainID, []byte(database.LatestProcessedBlockKey))
+	latestProcessedBlockData, err := r.db.Get(r.sourceBlockchainID, []byte(database.LatestProcessedBlockKey))
 
 	// The following cases are treated as successful:
 	// 1) The database contains the latest processed block data for the chain
@@ -152,7 +152,7 @@ func NewRelayer(
 		if err != nil {
 			logger.Warn(
 				"Encountered an error when processing historical blocks. Continuing to normal relaying operation.",
-				zap.String("chainID", r.sourceChainID.String()),
+				zap.String("blockchainID", r.sourceBlockchainID.String()),
 				zap.Error(err),
 			)
 		}
@@ -162,14 +162,14 @@ func NewRelayer(
 		// Otherwise, latestProcessedBlock is nil, so we instead store the latest block height.
 		logger.Info(
 			"Latest processed block not found in database. Starting from latest block.",
-			zap.String("chainID", r.sourceChainID.String()),
+			zap.String("blockchainID", r.sourceBlockchainID.String()),
 		)
 
 		err := sub.SetProcessedBlockHeightToLatest()
 		if err != nil {
 			logger.Warn(
 				"Failed to update latest processed block. Continuing to normal relaying operation",
-				zap.String("chainID", r.sourceChainID.String()),
+				zap.String("blockchainID", r.sourceBlockchainID.String()),
 				zap.Error(err),
 			)
 		}
@@ -179,7 +179,7 @@ func NewRelayer(
 	// If neither of the above conditions are met, then we return an error
 	r.logger.Warn(
 		"failed to get latest block from database",
-		zap.String("chainID", r.sourceChainID.String()),
+		zap.String("blockchainID", r.sourceBlockchainID.String()),
 		zap.Error(err),
 	)
 	return nil, nil, err
@@ -189,7 +189,7 @@ func NewRelayer(
 func (r *Relayer) RelayMessage(warpLogInfo *vmtypes.WarpLogInfo, metrics *MessageRelayerMetrics, messageCreator message.Creator) error {
 	r.logger.Info(
 		"Relaying message",
-		zap.String("chainID", r.sourceChainID.String()),
+		zap.String("blockchainID", r.sourceBlockchainID.String()),
 	)
 	// Unpack the VM message bytes into a Warp message
 	warpMessageInfo, err := r.contractMessage.UnpackWarpMessage(warpLogInfo.UnsignedMsgBytes)
@@ -203,7 +203,7 @@ func (r *Relayer) RelayMessage(warpLogInfo *vmtypes.WarpLogInfo, metrics *Messag
 
 	r.logger.Info(
 		"Unpacked warp message",
-		zap.String("chainID", r.sourceChainID.String()),
+		zap.String("blockchainID", r.sourceBlockchainID.String()),
 		zap.String("warpMessageID", warpMessageInfo.WarpUnsignedMessage.ID().String()),
 	)
 
@@ -219,7 +219,7 @@ func (r *Relayer) RelayMessage(warpLogInfo *vmtypes.WarpLogInfo, metrics *Messag
 		return nil
 	}
 
-	destinationChainID, err := messageManager.GetDestinationChainID(warpMessageInfo)
+	destinationBlockchainID, err := messageManager.GetDestinationBlockchainID(warpMessageInfo)
 	if err != nil {
 		r.logger.Error(
 			"Failed to get destination chain ID",
@@ -229,17 +229,17 @@ func (r *Relayer) RelayMessage(warpLogInfo *vmtypes.WarpLogInfo, metrics *Messag
 	}
 
 	// Check that the destination chain ID is supported
-	if !r.CheckSupportedDestination(destinationChainID) {
+	if !r.CheckSupportedDestination(destinationBlockchainID) {
 		r.logger.Debug(
 			"Message destination chain ID not supported. Not relaying.",
-			zap.String("chainID", r.sourceChainID.String()),
-			zap.String("destinationChainID", destinationChainID.String()),
+			zap.String("blockchainID", r.sourceBlockchainID.String()),
+			zap.String("DestinationBlockchainID", destinationBlockchainID.String()),
 		)
 		return nil
 	}
 
 	// Create and run the message relayer to attempt to deliver the message to the destination chain
-	messageRelayer := newMessageRelayer(r.logger, metrics, r, warpMessageInfo.WarpUnsignedMessage, destinationChainID, r.responseChan, messageCreator)
+	messageRelayer := newMessageRelayer(r.logger, metrics, r, warpMessageInfo.WarpUnsignedMessage, destinationBlockchainID, r.responseChan, messageCreator)
 	if err != nil {
 		r.logger.Error(
 			"Failed to create message relayer",
@@ -254,7 +254,7 @@ func (r *Relayer) RelayMessage(warpLogInfo *vmtypes.WarpLogInfo, metrics *Messag
 	if err != nil {
 		r.logger.Error(
 			"Failed to run message relayer",
-			zap.String("chainID", r.sourceChainID.String()),
+			zap.String("blockchainID", r.sourceBlockchainID.String()),
 			zap.String("warpMessageID", warpMessageInfo.WarpUnsignedMessage.ID().String()),
 			zap.Error(err),
 		)
@@ -265,7 +265,7 @@ func (r *Relayer) RelayMessage(warpLogInfo *vmtypes.WarpLogInfo, metrics *Messag
 	r.currentRequestID++
 
 	// Update the database with the latest processed block height
-	err = r.db.Put(r.sourceChainID, []byte(database.LatestProcessedBlockKey), []byte(strconv.FormatUint(warpLogInfo.BlockNumber, 10)))
+	err = r.db.Put(r.sourceBlockchainID, []byte(database.LatestProcessedBlockKey), []byte(strconv.FormatUint(warpLogInfo.BlockNumber, 10)))
 	if err != nil {
 		r.logger.Error(
 			fmt.Sprintf("failed to put %s into database", database.LatestProcessedBlockKey),
@@ -276,8 +276,8 @@ func (r *Relayer) RelayMessage(warpLogInfo *vmtypes.WarpLogInfo, metrics *Messag
 	return nil
 }
 
-// Returns whether destinationChainID is a supported destination.
+// Returns whether destinationBlockchainID is a supported destination.
 // If supportedDestinations is empty, then all destination chain IDs are supported.
-func (r *Relayer) CheckSupportedDestination(destinationChainID ids.ID) bool {
-	return len(r.supportedDestinations) == 0 || r.supportedDestinations.Contains(destinationChainID)
+func (r *Relayer) CheckSupportedDestination(destinationBlockchainID ids.ID) bool {
+	return len(r.supportedDestinations) == 0 || r.supportedDestinations.Contains(destinationBlockchainID)
 }

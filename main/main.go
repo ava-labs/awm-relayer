@@ -86,7 +86,7 @@ func main() {
 
 	// Initialize the global app request network
 	logger.Info("Initializing app request network")
-	sourceSubnetIDs, sourceChainIDs := cfg.GetSourceIDs()
+	sourceSubnetIDs, sourceBlockchainIDs := cfg.GetSourceIDs()
 
 	// Initialize metrics gathered through prometheus
 	gatherer, registerer, err := initMetrics()
@@ -96,7 +96,7 @@ func main() {
 		panic(err)
 	}
 
-	network, responseChans, err := peers.NewNetwork(logger, registerer, cfg.NetworkID, sourceSubnetIDs, sourceChainIDs, cfg.PChainAPIURL)
+	network, responseChans, err := peers.NewNetwork(logger, registerer, cfg.NetworkID, sourceSubnetIDs, sourceBlockchainIDs, cfg.PChainAPIURL)
 	if err != nil {
 		logger.Error(
 			"Failed to create app request network",
@@ -143,7 +143,7 @@ func main() {
 	}
 
 	// Initialize the database
-	db, err := database.NewJSONFileStorage(logger, cfg.StorageLocation, sourceChainIDs)
+	db, err := database.NewJSONFileStorage(logger, cfg.StorageLocation, sourceBlockchainIDs)
 	if err != nil {
 		logger.Error(
 			"Failed to create database",
@@ -155,7 +155,7 @@ func main() {
 	// Create relayers for each of the subnets configured as a source
 	var wg sync.WaitGroup
 	for _, s := range cfg.SourceSubnets {
-		chainID, err := ids.FromString(s.ChainID)
+		blockchainID, err := ids.FromString(s.BlockchainID)
 		if err != nil {
 			logger.Error(
 				"Invalid subnetID in configuration",
@@ -170,10 +170,10 @@ func main() {
 				wg.Done()
 				healthy.Store(false)
 			}()
-			runRelayer(logger, metrics, db, subnetInfo, pChainClient, network, responseChans[chainID], destinationClients, messageCreator)
+			runRelayer(logger, metrics, db, subnetInfo, pChainClient, network, responseChans[blockchainID], destinationClients, messageCreator)
 			logger.Info(
 				"Relayer exiting.",
-				zap.String("chainID", chainID.String()),
+				zap.String("blockchainID", blockchainID.String()),
 			)
 		}()
 	}
@@ -193,7 +193,7 @@ func runRelayer(logger logging.Logger,
 ) {
 	logger.Info(
 		"Creating relayer",
-		zap.String("chainID", sourceSubnetInfo.ChainID),
+		zap.String("blockchainID", sourceSubnetInfo.BlockchainID),
 	)
 
 	relayer, subscriber, err := relayer.NewRelayer(
@@ -214,7 +214,7 @@ func runRelayer(logger logging.Logger,
 	}
 	logger.Info(
 		"Created relayer. Listening for messages to relay.",
-		zap.String("chainID", sourceSubnetInfo.ChainID),
+		zap.String("blockchainID", sourceSubnetInfo.BlockchainID),
 	)
 
 	// Wait for logs from the subscribed node
@@ -224,7 +224,7 @@ func runRelayer(logger logging.Logger,
 			logger.Info(
 				"Handling Teleporter submit message log.",
 				zap.String("txId", hex.EncodeToString(txLog.SourceTxID)),
-				zap.String("originChainId", sourceSubnetInfo.ChainID),
+				zap.String("originChainId", sourceSubnetInfo.BlockchainID),
 				zap.String("sourceAddress", txLog.SourceAddress.String()),
 			)
 
@@ -233,7 +233,7 @@ func runRelayer(logger logging.Logger,
 			if err != nil {
 				logger.Error(
 					"Error relaying message",
-					zap.String("originChainID", sourceSubnetInfo.ChainID),
+					zap.String("originChainID", sourceSubnetInfo.BlockchainID),
 					zap.Error(err),
 				)
 				continue
@@ -241,14 +241,14 @@ func runRelayer(logger logging.Logger,
 		case err := <-subscriber.Err():
 			logger.Error(
 				"Received error from subscribed node",
-				zap.String("originChainID", sourceSubnetInfo.ChainID),
+				zap.String("originChainID", sourceSubnetInfo.BlockchainID),
 				zap.Error(err),
 			)
 			err = subscriber.Subscribe()
 			if err != nil {
 				logger.Error(
 					"Failed to resubscribe to node. Relayer goroutine exiting.",
-					zap.String("originChainID", sourceSubnetInfo.ChainID),
+					zap.String("originChainID", sourceSubnetInfo.BlockchainID),
 					zap.Error(err),
 				)
 				return

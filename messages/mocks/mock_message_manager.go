@@ -37,30 +37,30 @@ func (m *MockMessageManager) EXPECT() *MockMessageManagerMockRecorder {
 }
 
 // SendMessage mocks base method.
-func (m *MockMessageManager) SendMessage(signedMessage *warp.Message, parsedVMPayload []byte, destinationChainID ids.ID) error {
+func (m *MockMessageManager) SendMessage(signedMessage *warp.Message, parsedVMPayload []byte, destinationBlockchainID ids.ID) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SendMessage", signedMessage, parsedVMPayload, destinationChainID)
+	ret := m.ctrl.Call(m, "SendMessage", signedMessage, parsedVMPayload, destinationBlockchainID)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SendMessage indicates an expected call of SendMessage.
-func (mr *MockMessageManagerMockRecorder) SendMessage(signedMessage, parsedVMPayload, destinationChainID interface{}) *gomock.Call {
+func (mr *MockMessageManagerMockRecorder) SendMessage(signedMessage, parsedVMPayload, destinationBlockchainID interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendMessage", reflect.TypeOf((*MockMessageManager)(nil).SendMessage), signedMessage, parsedVMPayload, destinationChainID)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendMessage", reflect.TypeOf((*MockMessageManager)(nil).SendMessage), signedMessage, parsedVMPayload, destinationBlockchainID)
 }
 
 // ShouldSendMessage mocks base method.
-func (m *MockMessageManager) ShouldSendMessage(warpMessageInfo *vmtypes.WarpMessageInfo, destinationChainID ids.ID) (bool, error) {
+func (m *MockMessageManager) ShouldSendMessage(warpMessageInfo *vmtypes.WarpMessageInfo, destinationBlockchainID ids.ID) (bool, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ShouldSendMessage", warpMessageInfo, destinationChainID)
+	ret := m.ctrl.Call(m, "ShouldSendMessage", warpMessageInfo, destinationBlockchainID)
 	ret0, _ := ret[0].(bool)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ShouldSendMessage indicates an expected call of ShouldSendMessage.
-func (mr *MockMessageManagerMockRecorder) ShouldSendMessage(warpMessageInfo, destinationChainID interface{}) *gomock.Call {
+func (mr *MockMessageManagerMockRecorder) ShouldSendMessage(warpMessageInfo, destinationBlockchainID interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ShouldSendMessage", reflect.TypeOf((*MockMessageManager)(nil).ShouldSendMessage), warpMessageInfo, destinationChainID)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ShouldSendMessage", reflect.TypeOf((*MockMessageManager)(nil).ShouldSendMessage), warpMessageInfo, destinationBlockchainID)
 }

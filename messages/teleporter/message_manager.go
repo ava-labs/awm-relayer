@@ -90,7 +90,7 @@ func isAllowedRelayer(allowedRelayers []common.Address, eoa common.Address) bool
 	return false
 }
 
-func (m *messageManager) GetDestinationChainID(warpMessageInfo *vmtypes.WarpMessageInfo) (ids.ID, error) {
+func (m *messageManager) GetDestinationBlockchainID(warpMessageInfo *vmtypes.WarpMessageInfo) (ids.ID, error) {
 	teleporterMessage, err := m.parseTeleporterMessage(warpMessageInfo.WarpUnsignedMessage.ID(), warpMessageInfo.WarpPayload)
 	if err != nil {
 		m.logger.Error(
@@ -103,16 +103,16 @@ func (m *messageManager) GetDestinationChainID(warpMessageInfo *vmtypes.WarpMess
 	// Cache the message so it can be reused in SendMessage
 	m.teleporterMessageCache.Put(warpMessageInfo.WarpUnsignedMessage.ID(), teleporterMessage)
 
-	return teleporterMessage.DestinationChainID, nil
+	return teleporterMessage.DestinationBlockchainID, nil
 }
 
 // ShouldSendMessage returns true if the message should be sent to the destination chain
-func (m *messageManager) ShouldSendMessage(warpMessageInfo *vmtypes.WarpMessageInfo, destinationChainID ids.ID) (bool, error) {
+func (m *messageManager) ShouldSendMessage(warpMessageInfo *vmtypes.WarpMessageInfo, destinationBlockchainID ids.ID) (bool, error) {
 	teleporterMessage, err := m.parseTeleporterMessage(warpMessageInfo.WarpUnsignedMessage.ID(), warpMessageInfo.WarpPayload)
 	if err != nil {
 		m.logger.Error(
 			"Failed get teleporter message.",
-			zap.String("destinationChainID", destinationChainID.String()),
+			zap.String("DestinationBlockchainID", destinationBlockchainID.String()),
 			zap.String("warpMessageID", warpMessageInfo.WarpUnsignedMessage.ID().String()),
 			zap.Error(err),
 		)
@@ -120,16 +120,16 @@ func (m *messageManager) ShouldSendMessage(warpMessageInfo *vmtypes.WarpMessageI
 	}
 
 	// Get the correct destination client from the global map
-	destinationClient, ok := m.destinationClients[destinationChainID]
+	destinationClient, ok := m.destinationClients[destinationBlockchainID]
 	if !ok {
-		return false, fmt.Errorf("relayer not configured to deliver to destination. destinationChainID=%s", destinationChainID.String())
+		return false, fmt.Errorf("relayer not configured to deliver to destination. DestinationBlockchainID=%s", destinationBlockchainID.String())
 	}
 
 	senderAddress := destinationClient.SenderAddress()
 	if !isAllowedRelayer(teleporterMessage.AllowedRelayerAddresses, senderAddress) {
 		m.logger.Info(
 			"Relayer EOA not allowed to deliver this message.",
-			zap.String("destinationChainID", destinationChainID.String()),
+			zap.String("DestinationBlockchainID", destinationBlockchainID.String()),
 			zap.String("warpMessageID", warpMessageInfo.WarpUnsignedMessage.ID().String()),
 			zap.String("teleporterMessageID", teleporterMessage.MessageID.String()),
 		)
@@ -140,12 +140,12 @@ func (m *messageManager) ShouldSendMessage(warpMessageInfo *vmtypes.WarpMessageI
 		destinationClient,
 		warpMessageInfo,
 		teleporterMessage,
-		destinationChainID,
+		destinationBlockchainID,
 	)
 	if err != nil {
 		m.logger.Error(
 			"Failed to check if message has been delivered to destination chain.",
-			zap.String("destinationChainID", destinationChainID.String()),
+			zap.String("DestinationBlockchainID", destinationBlockchainID.String()),
 			zap.String("warpMessageID", warpMessageInfo.WarpUnsignedMessage.ID().String()),
 			zap.String("teleporterMessageID", teleporterMessage.MessageID.String()),
 			zap.Error(err),
@@ -155,7 +155,7 @@ func (m *messageManager) ShouldSendMessage(warpMessageInfo *vmtypes.WarpMessageI
 	if delivered {
 		m.logger.Info(
 			"Message already delivered to destination.",
-			zap.String("destinationChainID", destinationChainID.String()),
+			zap.String("DestinationBlockchainID", destinationBlockchainID.String()),
 			zap.String("teleporterMessageID", teleporterMessage.MessageID.String()),
 		)
 		return false, nil
@@ -173,13 +173,13 @@ func (m *messageManager) messageDelivered(
 	destinationClient vms.DestinationClient,
 	warpMessageInfo *vmtypes.WarpMessageInfo,
 	teleporterMessage *teleportermessenger.TeleporterMessage,
-	destinationChainID ids.ID) (bool, error) {
+	destinationBlockchainID ids.ID) (bool, error) {
 	// Check if the message has already been delivered to the destination chain
 	client, ok := destinationClient.Client().(ethclient.Client)
 	if !ok {
 		m.logger.Error(
 			"Destination client is not an Ethereum client.",
-			zap.String("destinationChainID", destinationChainID.String()),
+			zap.String("DestinationBlockchainID", destinationBlockchainID.String()),
 		)
 		return false, errors.New("destination client is not an Ethereum client")
 	}
@@ -191,7 +191,7 @@ func (m *messageManager) messageDelivered(
 	if err != nil {
 		m.logger.Error(
 			"Failed packing messageReceived call data.",
-			zap.String("destinationChainID", destinationChainID.String()),
+			zap.String("DestinationBlockchainID", destinationBlockchainID.String()),
 			zap.Error(err),
 		)
 		return false, err
@@ -205,7 +205,7 @@ func (m *messageManager) messageDelivered(
 	if err != nil {
 		m.logger.Error(
 			"Failed calling messageReceived method on destination chain.",
-			zap.String("destinationChainID", destinationChainID.String()),
+			zap.String("DestinationBlockchainID", destinationBlockchainID.String()),
 			zap.Error(err),
 		)
 		return false, err
@@ -215,7 +215,7 @@ func (m *messageManager) messageDelivered(
 	if err != nil {
 		m.logger.Error(
 			"Failed unpacking messageReceived result.",
-			zap.String("destinationChainID", destinationChainID.String()),
+			zap.String("DestinationBlockchainID", destinationBlockchainID.String()),
 			zap.Error(err),
 		)
 		return false, err
@@ -226,12 +226,12 @@ func (m *messageManager) messageDelivered(
 
 // SendMessage extracts the gasLimit and packs the call data to call the receiveCrossChainMessage method of the Teleporter contract,
 // and dispatches transaction construction and broadcast to the destination client
-func (m *messageManager) SendMessage(signedMessage *warp.Message, parsedVmPayload []byte, destinationChainID ids.ID) error {
+func (m *messageManager) SendMessage(signedMessage *warp.Message, parsedVmPayload []byte, destinationBlockchainID ids.ID) error {
 	teleporterMessage, err := m.parseTeleporterMessage(signedMessage.ID(), parsedVmPayload)
 	if err != nil {
 		m.logger.Error(
 			"Failed get teleporter message.",
-			zap.String("destinationChainID", destinationChainID.String()),
+			zap.String("DestinationBlockchainID", destinationBlockchainID.String()),
 			zap.String("warpMessageID", signedMessage.ID().String()),
 		)
 		return err
@@ -239,7 +239,7 @@ func (m *messageManager) SendMessage(signedMessage *warp.Message, parsedVmPayloa
 
 	m.logger.Info(
 		"Sending message to destination chain",
-		zap.String("destinationChainID", destinationChainID.String()),
+		zap.String("DestinationBlockchainID", destinationBlockchainID.String()),
 		zap.String("warpMessageID", signedMessage.ID().String()),
 		zap.String("teleporterMessageID", teleporterMessage.MessageID.String()),
 	)
@@ -247,7 +247,7 @@ func (m *messageManager) SendMessage(signedMessage *warp.Message, parsedVmPayloa
 	if err != nil {
 		m.logger.Error(
 			"Failed to get number of signers",
-			zap.String("destinationChainID", destinationChainID.String()),
+			zap.String("DestinationBlockchainID", destinationBlockchainID.String()),
 			zap.String("warpMessageID", signedMessage.ID().String()),
 			zap.String("teleporterMessageID", teleporterMessage.MessageID.String()),
 		)
@@ -257,7 +257,7 @@ func (m *messageManager) SendMessage(signedMessage *warp.Message, parsedVmPayloa
 	if err != nil {
 		m.logger.Error(
 			"Gas limit required overflowed uint64 max. not relaying message",
-			zap.String("destinationChainID", destinationChainID.String()),
+			zap.String("DestinationBlockchainID", destinationBlockchainID.String()),
 			zap.String("warpMessageID", signedMessage.ID().String()),
 			zap.String("teleporterMessageID", teleporterMessage.MessageID.String()),
 		)
@@ -268,7 +268,7 @@ func (m *messageManager) SendMessage(signedMessage *warp.Message, parsedVmPayloa
 	if err != nil {
 		m.logger.Error(
 			"Failed packing receiveCrossChainMessage call data",
-			zap.String("destinationChainID", destinationChainID.String()),
+			zap.String("DestinationBlockchainID", destinationBlockchainID.String()),
 			zap.String("warpMessageID", signedMessage.ID().String()),
 			zap.String("teleporterMessageID", teleporterMessage.MessageID.String()),
 		)
@@ -276,15 +276,15 @@ func (m *messageManager) SendMessage(signedMessage *warp.Message, parsedVmPayloa
 	}
 
 	// Get the correct destination client from the global map
-	destinationClient, ok := m.destinationClients[destinationChainID]
+	destinationClient, ok := m.destinationClients[destinationBlockchainID]
 	if !ok {
-		return fmt.Errorf("relayer not configured to deliver to destination. destinationChainID=%s", destinationChainID)
+		return fmt.Errorf("relayer not configured to deliver to destination. DestinationBlockchainID=%s", destinationBlockchainID)
 	}
 	err = destinationClient.SendTx(signedMessage, m.protocolAddress.Hex(), gasLimit, callData)
 	if err != nil {
 		m.logger.Error(
 			"Failed to send tx.",
-			zap.String("destinationChainID", destinationChainID.String()),
+			zap.String("DestinationBlockchainID", destinationBlockchainID.String()),
 			zap.String("warpMessageID", signedMessage.ID().String()),
 			zap.String("teleporterMessageID", teleporterMessage.MessageID.String()),
 			zap.Error(err),
@@ -293,7 +293,7 @@ func (m *messageManager) SendMessage(signedMessage *warp.Message, parsedVmPayloa
 	}
 	m.logger.Info(
 		"Sent message to destination chain",
-		zap.String("destinationChainID", destinationChainID.String()),
+		zap.String("DestinationBlockchainID", destinationBlockchainID.String()),
 		zap.String("warpMessageID", signedMessage.ID().String()),
 		zap.String("teleporterMessageID", teleporterMessage.MessageID.String()),
 	)

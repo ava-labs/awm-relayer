@@ -19,7 +19,7 @@ import (
 
 var destinationSubnet = config.DestinationSubnet{
 	SubnetID:          "2TGBXcnwx5PqiXWiqxAKUaNSqDguXNh1mxnp82jui68hxJSZAx",
-	ChainID:           "S4mMqUXe7vHsGiRAma6bv3CKnyaLssyAxmQ2KvFpX1KEvfFCD",
+	BlockchainID:      "S4mMqUXe7vHsGiRAma6bv3CKnyaLssyAxmQ2KvFpX1KEvfFCD",
 	VM:                config.EVM.String(),
 	APINodeHost:       "127.0.0.1",
 	APINodePort:       9650,
@@ -45,8 +45,8 @@ func TestSendTx(t *testing.T) {
 	testError := fmt.Errorf("call errored")
 	testCases := []struct {
 		name                  string
-		chainIDErr            error
-		chainIDTimes          int
+		blockchainIDErr       error
+		blockchainIDTimes     int
 		estimateBaseFeeErr    error
 		estimateBaseFeeTimes  int
 		suggestGasTipCapErr   error
@@ -57,27 +57,27 @@ func TestSendTx(t *testing.T) {
 	}{
 		{
 			name:                  "valid",
-			chainIDTimes:          1,
+			blockchainIDTimes:     1,
 			estimateBaseFeeTimes:  1,
 			suggestGasTipCapTimes: 1,
 			sendTransactionTimes:  1,
 		},
 		{
-			name:         "invalid chainID",
-			chainIDErr:   testError,
-			chainIDTimes: 1,
-			expectError:  true,
+			name:              "invalid blockchainID",
+			blockchainIDErr:   testError,
+			blockchainIDTimes: 1,
+			expectError:       true,
 		},
 		{
 			name:                 "invalid estimateBaseFee",
-			chainIDTimes:         1,
+			blockchainIDTimes:    1,
 			estimateBaseFeeErr:   testError,
 			estimateBaseFeeTimes: 1,
 			expectError:          true,
 		},
 		{
 			name:                  "invalid suggestGasTipCap",
-			chainIDTimes:          1,
+			blockchainIDTimes:     1,
 			estimateBaseFeeTimes:  1,
 			suggestGasTipCapErr:   testError,
 			suggestGasTipCapTimes: 1,
@@ -85,7 +85,7 @@ func TestSendTx(t *testing.T) {
 		},
 		{
 			name:                  "invalid sendTransaction",
-			chainIDTimes:          1,
+			blockchainIDTimes:     1,
 			estimateBaseFeeTimes:  1,
 			suggestGasTipCapTimes: 1,
 			sendTransactionErr:    testError,
@@ -100,7 +100,7 @@ func TestSendTx(t *testing.T) {
 			toAddress := "0x27aE10273D17Cd7e80de8580A51f476960626e5f"
 
 			gomock.InOrder(
-				mockClient.EXPECT().ChainID(gomock.Any()).Return(new(big.Int), test.chainIDErr).Times(test.chainIDTimes),
+				mockClient.EXPECT().ChainID(gomock.Any()).Return(new(big.Int), test.blockchainIDErr).Times(test.blockchainIDTimes),
 				mockClient.EXPECT().EstimateBaseFee(gomock.Any()).Return(new(big.Int), test.estimateBaseFeeErr).Times(test.estimateBaseFeeTimes),
 				mockClient.EXPECT().SuggestGasTipCap(gomock.Any()).Return(new(big.Int), test.suggestGasTipCapErr).Times(test.suggestGasTipCapTimes),
 				mockClient.EXPECT().SendTransaction(gomock.Any(), gomock.Any()).Return(test.sendTransactionErr).Times(test.sendTransactionTimes),

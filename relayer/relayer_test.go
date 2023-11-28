@@ -17,10 +17,10 @@ var id2 ids.ID = ids.GenerateTestID()
 
 func TestCheckSupportedDestination(t *testing.T) {
 	testCases := []struct {
-		name               string
-		relayer            Relayer
-		destinationChainID ids.ID
-		expectedResult     bool
+		name                    string
+		relayer                 Relayer
+		destinationBlockchainID ids.ID
+		expectedResult          bool
 	}{
 		{
 			name: "explicitly supported destination",
@@ -29,14 +29,14 @@ func TestCheckSupportedDestination(t *testing.T) {
 					id1: {},
 				},
 			},
-			destinationChainID: id1,
-			expectedResult:     true,
+			destinationBlockchainID: id1,
+			expectedResult:          true,
 		},
 		{
-			name:               "implicitly supported destination",
-			relayer:            Relayer{},
-			destinationChainID: id1,
-			expectedResult:     true,
+			name:                    "implicitly supported destination",
+			relayer:                 Relayer{},
+			destinationBlockchainID: id1,
+			expectedResult:          true,
 		},
 		{
 			name: "unsupported destination",
@@ -45,13 +45,13 @@ func TestCheckSupportedDestination(t *testing.T) {
 					id1: {},
 				},
 			},
-			destinationChainID: id2,
-			expectedResult:     false,
+			destinationBlockchainID: id2,
+			expectedResult:          false,
 		},
 	}
 
 	for _, testCase := range testCases {
-		result := testCase.relayer.CheckSupportedDestination(testCase.destinationChainID)
+		result := testCase.relayer.CheckSupportedDestination(testCase.destinationBlockchainID)
 		require.Equal(t, testCase.expectedResult, result, fmt.Sprintf("test failed: %s", testCase.name))
 	}
 }

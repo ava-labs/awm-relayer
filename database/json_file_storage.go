@@ -26,7 +26,7 @@ type JSONFileStorage struct {
 	dir string
 
 	// Each network has its own mutex
-	// The chainIDs used to index the JSONFileStorage are created at initialization
+	// The blockchainIDs used to index the JSONFileStorage are created at initialization
 	// and are not modified afterwards, so we don't need to lock the map itself.
 	mutexes      map[ids.ID]*sync.RWMutex
 	logger       logging.Logger
@@ -77,18 +77,18 @@ func NewJSONFileStorage(logger logging.Logger, dir string, networks []ids.ID) (*
 }
 
 // Get the latest chain state from the JSON database, and retrieve the value from the key
-func (s *JSONFileStorage) Get(chainID ids.ID, key []byte) ([]byte, error) {
-	mutex, ok := s.mutexes[chainID]
+func (s *JSONFileStorage) Get(blockchainID ids.ID, key []byte) ([]byte, error) {
+	mutex, ok := s.mutexes[blockchainID]
 	if !ok {
 		return nil, errors.Wrap(
 			ErrDatabaseMisconfiguration,
-			fmt.Sprintf("database not configured for chain %s", chainID.String()),
+			fmt.Sprintf("database not configured for chain %s", blockchainID.String()),
 		)
 	}
 
 	mutex.RLock()
 	defer mutex.RUnlock()
-	currentState, fileExists, err := s.getCurrentState(chainID)
+	currentState, fileExists, err := s.getCurrentState(blockchainID)
 	if err != nil {
 		return nil, err
 	}
@@ -104,14 +104,14 @@ func (s *JSONFileStorage) Get(chainID ids.ID, key []byte) ([]byte, error) {
 	return []byte(val), nil
 }
 
-// Helper to get the current state of a chainID. Not thread-safe.
-func (s *JSONFileStorage) getCurrentState(chainID ids.ID) (chainState, bool, error) {
+// Helper to get the current state of a blockchainID. Not thread-safe.
+func (s *JSONFileStorage) getCurrentState(blockchainID ids.ID) (chainState, bool, error) {
 	currentState := make(chainState)
-	fileExists, err := s.read(chainID, &currentState)
+	fileExists, err := s.read(blockchainID, &currentState)
 	if err != nil {
 		s.logger.Error(
 			"failed to read file",
-			zap.String("chainID", chainID.String()),
+			zap.String("blockchainID", blockchainID.String()),
 			zap.Error(err),
 		)
 		return nil, false, err
@@ -120,13 +120,13 @@ func (s *JSONFileStorage) getCurrentState(chainID ids.ID) (chainState, bool, err
 }
 
 // Put the value into the JSON database. Read the current chain state and overwrite the key, if it exists
-// If the file corresponding to {chainID} does not exist, then it will be created
-func (s *JSONFileStorage) Put(chainID ids.ID, key []byte, value []byte) error {
-	mutex, ok := s.mutexes[chainID]
+// If the file corresponding to {blockchainID} does not exist, then it will be created
+func (s *JSONFileStorage) Put(blockchainID ids.ID, key []byte, value []byte) error {
+	mutex, ok := s.mutexes[blockchainID]
 	if !ok {
 		return errors.Wrap(
 			ErrDatabaseMisconfiguration,
-			fmt.Sprintf("database not configured for chain %s", chainID.String()),
+			fmt.Sprintf("database not configured for chain %s", blockchainID.String()),
 		)
 	}
 
@@ -134,13 +134,13 @@ func (s *JSONFileStorage) Put(chainID ids.ID, key []byte, value []byte) error {
 	defer mutex.Unlock()
 
 	// Update the in-memory state and write to disk
-	s.currentState[chainID][string(key)] = string(value)
-	return s.write(chainID, s.currentState[chainID])
+	s.currentState[blockchainID][string(key)] = string(value)
+	return s.write(blockchainID, s.currentState[blockchainID])
 }
 
 // Write the value to the file. The caller is responsible for ensuring proper synchronization
-func (s *JSONFileStorage) write(chainID ids.ID, v interface{}) error {
-	fnlPath := filepath.Join(s.dir, chainID.String()+".json")
+func (s *JSONFileStorage) write(blockchainID ids.ID, v interface{}) error {
+	fnlPath := filepath.Join(s.dir, blockchainID.String()+".json")
 	tmpPath := fnlPath + ".tmp"
 
 	b, err := json.MarshalIndent(v, "", "\t")
@@ -168,8 +168,8 @@ func (s *JSONFileStorage) write(chainID ids.ID, v interface{}) error {
 // Returns a bool indicating whether the file exists, and an error.
 // If an error is returned, the bool should be ignored.
 // The caller is responsible for ensuring proper synchronization
-func (s *JSONFileStorage) read(chainID ids.ID, v interface{}) (bool, error) {
-	path := filepath.Join(s.dir, chainID.String()+".json")
+func (s *JSONFileStorage) read(blockchainID ids.ID, v interface{}) (bool, error) {
+	path := filepath.Join(s.dir, blockchainID.String()+".json")
 
 	// If the file does not exist, return false, but do not return an error as this
 	// is an expected case

@@ -41,11 +41,11 @@ type destinationClient struct {
 	client ethclient.Client
 	lock   *sync.Mutex
 
-	destinationChainID ids.ID
-	pk                 *ecdsa.PrivateKey
-	eoa                common.Address
-	currentNonce       uint64
-	logger             logging.Logger
+	destinationBlockchainID ids.ID
+	pk                      *ecdsa.PrivateKey
+	eoa                     common.Address
+	currentNonce            uint64
+	logger                  logging.Logger
 }
 
 func NewDestinationClient(logger logging.Logger, subnetInfo config.DestinationSubnet) (*destinationClient, error) {
@@ -59,7 +59,7 @@ func NewDestinationClient(logger logging.Logger, subnetInfo config.DestinationSu
 		return nil, err
 	}
 
-	destinationID, err := ids.FromString(subnetInfo.ChainID)
+	destinationID, err := ids.FromString(subnetInfo.BlockchainID)
 	if err != nil {
 		logger.Error(
 			"Could not decode destination chain ID from string",
@@ -92,13 +92,13 @@ func NewDestinationClient(logger logging.Logger, subnetInfo config.DestinationSu
 	}
 
 	return &destinationClient{
-		client:             client,
-		lock:               new(sync.Mutex),
-		destinationChainID: destinationID,
-		pk:                 pk,
-		eoa:                eoa,
-		currentNonce:       nonce,
-		logger:             logger,
+		client:                  client,
+		lock:                    new(sync.Mutex),
+		destinationBlockchainID: destinationID,
+		pk:                      pk,
+		eoa:                     eoa,
+		currentNonce:            nonce,
+		logger:                  logger,
 	}, nil
 }
 
@@ -109,8 +109,8 @@ func (c *destinationClient) SendTx(signedMessage *avalancheWarp.Message,
 	// Synchronize teleporter message requests to the same destination chain so that message ordering is preserved
 	c.lock.Lock()
 	defer c.lock.Unlock()
-	// We need the global 32-byte representation of the destination chain ID, as well as the destination's configured chainID
-	// Without the destination's configured chainID, transaction signature verification will fail
+	// We need the global 32-byte representation of the destination chain ID, as well as the destination's configured blockchainID
+	// Without the destination's configured blockchainID, transaction signature verification will fail
 	destinationChainIDBigInt, err := c.client.ChainID(context.Background())
 	if err != nil {
 		c.logger.Error(
@@ -198,6 +198,6 @@ func (c *destinationClient) SenderAddress() common.Address {
 	return c.eoa
 }
 
-func (c *destinationClient) DestinationChainID() ids.ID {
-	return c.destinationChainID
+func (c *destinationClient) DestinationBlockchainID() ids.ID {
+	return c.destinationBlockchainID
 }

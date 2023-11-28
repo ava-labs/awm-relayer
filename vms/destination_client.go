@@ -30,8 +30,8 @@ type DestinationClient interface {
 	// SenderAddress returns the address of the relayer on the destination chain
 	SenderAddress() common.Address
 
-	// DestinationChainID returns the ID of the destination chain
-	DestinationChainID() ids.ID
+	// DestinationBlockchainID returns the ID of the destination chain
+	DestinationBlockchainID() ids.ID
 }
 
 func NewDestinationClient(logger logging.Logger, subnetInfo config.DestinationSubnet) (DestinationClient, error) {
@@ -47,19 +47,19 @@ func NewDestinationClient(logger logging.Logger, subnetInfo config.DestinationSu
 func CreateDestinationClients(logger logging.Logger, relayerConfig config.Config) (map[ids.ID]DestinationClient, error) {
 	destinationClients := make(map[ids.ID]DestinationClient)
 	for _, subnetInfo := range relayerConfig.DestinationSubnets {
-		chainID, err := ids.FromString(subnetInfo.ChainID)
+		blockchainID, err := ids.FromString(subnetInfo.BlockchainID)
 		if err != nil {
 			logger.Error(
 				"Failed to decode base-58 encoded source chain ID",
-				zap.String("chainID", chainID.String()),
+				zap.String("blockchainID", blockchainID.String()),
 				zap.Error(err),
 			)
 			return nil, err
 		}
-		if _, ok := destinationClients[chainID]; ok {
+		if _, ok := destinationClients[blockchainID]; ok {
 			logger.Info(
-				"Destination client already found for chainID. Continuing",
-				zap.String("chainID", chainID.String()),
+				"Destination client already found for blockchainID. Continuing",
+				zap.String("blockchainID", blockchainID.String()),
 			)
 			continue
 		}
@@ -68,13 +68,13 @@ func CreateDestinationClients(logger logging.Logger, relayerConfig config.Config
 		if err != nil {
 			logger.Error(
 				"Could not create destination client",
-				zap.String("chainID", chainID.String()),
+				zap.String("blockchainID", blockchainID.String()),
 				zap.Error(err),
 			)
 			return nil, err
 		}
 
-		destinationClients[chainID] = destinationClient
+		destinationClients[blockchainID] = destinationClient
 	}
 	return destinationClients, nil
 }

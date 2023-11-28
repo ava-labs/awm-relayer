@@ -21,7 +21,7 @@ import (
 // nolint: unused
 // Used to create a valid unsigned message for testing. Should not be used directly in tests.
 func createUnsignedMessage() *warp.UnsignedMessage {
-	sourceChainID, err := ids.FromString("yH8D7ThNJkxmtkuv2jgBa4P1Rn3Qpr4pPr7QYNfcdoS6k6HWp")
+	sourceBlockchainID, err := ids.FromString("yH8D7ThNJkxmtkuv2jgBa4P1Rn3Qpr4pPr7QYNfcdoS6k6HWp")
 	if err != nil {
 		return nil
 	}
@@ -34,7 +34,7 @@ func createUnsignedMessage() *warp.UnsignedMessage {
 		return nil
 	}
 
-	unsignedMsg, err := warp.NewUnsignedMessage(0, sourceChainID, payload.Bytes())
+	unsignedMsg, err := warp.NewUnsignedMessage(0, sourceBlockchainID, payload.Bytes())
 	if err != nil {
 		return nil
 	}

@@ -55,7 +55,7 @@ func BasicRelay() {
 	teleporterMessage := teleportermessenger.TeleporterMessage{
 		MessageID:               big.NewInt(1),
 		SenderAddress:           fundedAddress,
-		DestinationChainID:      subnetBInfo.BlockchainID,
+		DestinationBlockchainID: subnetBInfo.BlockchainID,
 		DestinationAddress:      fundedAddress,
 		RequiredGasLimit:        big.NewInt(1),
 		AllowedRelayerAddresses: []common.Address{},
@@ -93,7 +93,7 @@ func BasicRelay() {
 		SourceSubnets: []config.SourceSubnet{
 			{
 				SubnetID:          subnetAInfo.SubnetID.String(),
-				ChainID:           subnetAInfo.BlockchainID.String(),
+				BlockchainID:      subnetAInfo.BlockchainID.String(),
 				VM:                config.EVM.String(),
 				EncryptConnection: false,
 				APINodeHost:       hostA,
@@ -111,7 +111,7 @@ func BasicRelay() {
 		DestinationSubnets: []config.DestinationSubnet{
 			{
 				SubnetID:          subnetBInfo.SubnetID.String(),
-				ChainID:           subnetBInfo.BlockchainID.String(),
+				BlockchainID:      subnetBInfo.BlockchainID.String(),
 				VM:                config.EVM.String(),
 				EncryptConnection: false,
 				APINodeHost:       hostB,
@@ -155,10 +155,10 @@ func BasicRelay() {
 	Expect(err).Should(BeNil())
 
 	input := teleportermessenger.TeleporterMessageInput{
-		DestinationChainID: teleporterMessage.DestinationChainID,
+		DestinationBlockchainID: teleporterMessage.DestinationBlockchainID,
 		DestinationAddress: teleporterMessage.DestinationAddress,
 		FeeInfo: teleportermessenger.TeleporterFeeInfo{
-			ContractAddress: fundedAddress,
+			FeeTokenAddress: fundedAddress,
 			Amount:          big.NewInt(0),
 		},
 		RequiredGasLimit:        teleporterMessage.RequiredGasLimit,
@@ -178,16 +178,16 @@ func BasicRelay() {
 	Expect(err).Should(BeNil())
 	defer sub.Unsubscribe()
 
-	log.Info("Sending teleporter transaction", "destinationChainID", subnetBInfo.BlockchainID, "txHash", signedTx.Hash())
+	log.Info("Sending teleporter transaction", "destinationBlockchainID", subnetBInfo.BlockchainID, "txHash", signedTx.Hash())
 	receipt := teleporterTestUtils.SendTransactionAndWaitForAcceptance(ctx, subnetAInfo.ChainWSClient, signedTx)
 
 	bind, err := teleportermessenger.NewTeleporterMessenger(teleporterContractAddress, subnetAInfo.ChainWSClient)
 	Expect(err).Should(BeNil())
-	sendEvent, err := teleporterTestUtils.GetSendEventFromLogs(receipt.Logs, bind)
+	receiveEvent, err := teleporterTestUtils.GetEventFromLogs(receipt.Logs, bind.ParseReceiveCrossChainMessage)
 	Expect(err).Should(BeNil())
-	Expect(sendEvent.DestinationChainID[:]).Should(Equal(subnetBInfo.BlockchainID[:]))
+	Expect(receiveEvent.OriginBlockchainID[:]).Should(Equal(subnetBInfo.BlockchainID[:]))
 
-	teleporterMessageID := sendEvent.Message.MessageID
+	teleporterMessageID := receiveEvent.Message.MessageID
 
 	// Get the latest block from Subnet B
 	log.Info("Waiting for new block confirmation")
@@ -226,9 +226,9 @@ func BasicRelay() {
 	bind, err = teleportermessenger.NewTeleporterMessenger(teleporterContractAddress, subnetBInfo.ChainWSClient)
 	Expect(err).Should(BeNil())
 
-	receiveEvent, err := teleporterTestUtils.GetReceiveEventFromLogs(receipt.Logs, bind)
+	receiveEvent, err = teleporterTestUtils.GetEventFromLogs(receipt.Logs, bind.ParseReceiveCrossChainMessage)
 	Expect(err).Should(BeNil())
-	Expect(receiveEvent.OriginChainID[:]).Should(Equal(subnetAInfo.BlockchainID[:]))
+	Expect(receiveEvent.OriginBlockchainID[:]).Should(Equal(subnetAInfo.BlockchainID[:]))
 	Expect(receiveEvent.Message.MessageID.Uint64()).Should(Equal(teleporterMessageID.Uint64()))
 
 	log.Info("Finished sending warp message, closing down output channel")
@@ -251,7 +251,7 @@ func BasicRelay() {
 	receivedTeleporterMessage, err := teleportermessenger.UnpackTeleporterMessage(addressedPayload.Payload)
 	Expect(err).Should(BeNil())
 	Expect(*receivedTeleporterMessage).Should(Equal(teleporterMessage))
-	receivedDestinationID, err := ids.ToID(receivedTeleporterMessage.DestinationChainID[:])
+	receivedDestinationID, err := ids.ToID(receivedTeleporterMessage.DestinationBlockchainID[:])
 	Expect(err).Should(BeNil())
 	Expect(receivedDestinationID).Should(Equal(subnetBInfo.BlockchainID))
 

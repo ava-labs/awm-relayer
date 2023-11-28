@@ -38,7 +38,7 @@ type MessageProtocolConfig struct {
 }
 type SourceSubnet struct {
 	SubnetID              string                           `mapstructure:"subnet-id" json:"subnet-id"`
-	ChainID               string                           `mapstructure:"chain-id" json:"chain-id"`
+	BlockchainID          string                           `mapstructure:"blockchain-id" json:"blockchain-id"`
 	VM                    string                           `mapstructure:"vm" json:"vm"`
 	APINodeHost           string                           `mapstructure:"api-node-host" json:"api-node-host"`
 	APINodePort           uint32                           `mapstructure:"api-node-port" json:"api-node-port"`
@@ -54,7 +54,7 @@ type SourceSubnet struct {
 
 type DestinationSubnet struct {
 	SubnetID          string `mapstructure:"subnet-id" json:"subnet-id"`
-	ChainID           string `mapstructure:"chain-id" json:"chain-id"`
+	BlockchainID      string `mapstructure:"blockchain-id" json:"blockchain-id"`
 	VM                string `mapstructure:"vm" json:"vm"`
 	APINodeHost       string `mapstructure:"api-node-host" json:"api-node-host"`
 	APINodePort       uint32 `mapstructure:"api-node-port" json:"api-node-port"`
@@ -73,8 +73,8 @@ type Config struct {
 	DestinationSubnets []DestinationSubnet `mapstructure:"destination-subnets" json:"destination-subnets"`
 
 	// convenience fields to access the source subnet and chain IDs after initialization
-	sourceSubnetIDs []ids.ID
-	sourceChainIDs  []ids.ID
+	sourceSubnetIDs     []ids.ID
+	sourceBlockchainIDs []ids.ID
 }
 
 func SetDefaultConfigValues(v *viper.Viper) {
@@ -132,7 +132,7 @@ func BuildConfig(v *viper.Viper) (Config, bool, error) {
 		// Otherwise, check for private keys suffixed with the chain ID and set it for that subnet
 		// Since the key is dynamic, this is only possible through environment variables
 		for i, subnet := range cfg.DestinationSubnets {
-			subnetAccountPrivateKey := os.Getenv(fmt.Sprintf("%s_%s", accountPrivateKeyEnvVarName, subnet.ChainID))
+			subnetAccountPrivateKey := os.Getenv(fmt.Sprintf("%s_%s", accountPrivateKeyEnvVarName, subnet.BlockchainID))
 			if subnetAccountPrivateKey != "" {
 				optionOverwritten = true
 				cfg.DestinationSubnets[i].AccountPrivateKey = utils.SanitizeHexString(subnetAccountPrivateKey)
@@ -179,26 +179,26 @@ func (c *Config) Validate() error {
 		if err := s.Validate(); err != nil {
 			return err
 		}
-		if destinationChains.Contains(s.ChainID) {
+		if destinationChains.Contains(s.BlockchainID) {
 			return fmt.Errorf("configured destination subnets must have unique chain IDs")
 		}
-		destinationChains.Add(s.ChainID)
+		destinationChains.Add(s.BlockchainID)
 	}
 
 	// Validate the source chains and store the source subnet and chain IDs for future use
 	sourceChains := set.NewSet[string](len(c.SourceSubnets))
 	var sourceSubnetIDs []ids.ID
-	var sourceChainIDs []ids.ID
+	var sourceBlockchainIDs []ids.ID
 	for _, s := range c.SourceSubnets {
 		// Validate configuration
 		if err := s.Validate(&destinationChains); err != nil {
 			return err
 		}
 		// Verify uniqueness
-		if sourceChains.Contains(s.ChainID) {
+		if sourceChains.Contains(s.BlockchainID) {
 			return fmt.Errorf("configured source subnets must have unique chain IDs")
 		}
-		sourceChains.Add(s.ChainID)
+		sourceChains.Add(s.BlockchainID)
 
 		// Save IDs for future use
 		subnetID, err := ids.FromString(s.SubnetID)
@@ -207,15 +207,15 @@ func (c *Config) Validate() error {
 		}
 		sourceSubnetIDs = append(sourceSubnetIDs, subnetID)
 
-		chainID, err := ids.FromString(s.ChainID)
+		blockchainID, err := ids.FromString(s.BlockchainID)
 		if err != nil {
 			return fmt.Errorf("invalid subnetID in configuration. error: %v", err)
 		}
-		sourceChainIDs = append(sourceChainIDs, chainID)
+		sourceBlockchainIDs = append(sourceBlockchainIDs, blockchainID)
 	}
 
 	c.sourceSubnetIDs = sourceSubnetIDs
-	c.sourceChainIDs = sourceChainIDs
+	c.sourceBlockchainIDs = sourceBlockchainIDs
 
 	return nil
 }
@@ -224,13 +224,13 @@ func (s *SourceSubnet) GetSupportedDestinations() set.Set[ids.ID] {
 	return s.supportedDestinations
 }
 
-// Validates the source subnet configuration, including verifying that the supported destinations are present in destinationChainIDs
-func (s *SourceSubnet) Validate(destinationChainIDs *set.Set[string]) error {
+// Validates the source subnet configuration, including verifying that the supported destinations are present in destinationBlockchainIDs
+func (s *SourceSubnet) Validate(destinationBlockchainIDs *set.Set[string]) error {
 	if _, err := ids.FromString(s.SubnetID); err != nil {
 		return fmt.Errorf("invalid subnetID in source subnet configuration. Provided ID: %s", s.SubnetID)
 	}
-	if _, err := ids.FromString(s.ChainID); err != nil {
-		return fmt.Errorf("invalid chainID in source subnet configuration. Provided ID: %s", s.ChainID)
+	if _, err := ids.FromString(s.BlockchainID); err != nil {
+		return fmt.Errorf("invalid blockchainID in source subnet configuration. Provided ID: %s", s.BlockchainID)
 	}
 	if _, err := url.ParseRequestURI(s.GetNodeWSEndpoint()); err != nil {
 		return fmt.Errorf("invalid relayer subscribe URL in source subnet configuration: %v", err)
@@ -261,17 +261,17 @@ func (s *SourceSubnet) Validate(destinationChainIDs *set.Set[string]) error {
 
 	// Validate and store the allowed destinations for future use
 	s.supportedDestinations = set.Set[ids.ID]{}
-	for _, blockchainIDStr := range s.SupportedDestinations {
-		blockchainID, err := ids.FromString(blockchainIDStr)
+	for _, BlockchainIDStr := range s.SupportedDestinations {
+		BlockchainID, err := ids.FromString(BlockchainIDStr)
 		if err != nil {
-			return fmt.Errorf("invalid chainID in configuration. error: %v", err)
+			return fmt.Errorf("invalid blockchainID in configuration. error: %v", err)
 		}
-		if !destinationChainIDs.Contains(blockchainIDStr) {
+		if !destinationBlockchainIDs.Contains(BlockchainIDStr) {
 			return fmt.Errorf("configured source subnet %s has a supported destination blockchain ID %s that is not configured as a destination blockchain",
 				s.SubnetID,
-				blockchainID)
+				BlockchainID)
 		}
-		s.supportedDestinations.Add(blockchainID)
+		s.supportedDestinations.Add(BlockchainID)
 	}
 
 	return nil
@@ -281,8 +281,8 @@ func (s *DestinationSubnet) Validate() error {
 	if _, err := ids.FromString(s.SubnetID); err != nil {
 		return fmt.Errorf("invalid subnetID in source subnet configuration. Provided ID: %s", s.SubnetID)
 	}
-	if _, err := ids.FromString(s.ChainID); err != nil {
-		return fmt.Errorf("invalid chainID in source subnet configuration. Provided ID: %s", s.ChainID)
+	if _, err := ids.FromString(s.BlockchainID); err != nil {
+		return fmt.Errorf("invalid blockchainID in source subnet configuration. Provided ID: %s", s.BlockchainID)
 	}
 	if _, err := url.ParseRequestURI(s.GetNodeRPCEndpoint()); err != nil {
 		return fmt.Errorf("invalid relayer broadcast URL: %v", err)
@@ -305,7 +305,7 @@ func (s *DestinationSubnet) Validate() error {
 	return nil
 }
 
-func constructURL(protocol string, host string, port uint32, encrypt bool, chainIDStr string, subnetIDStr string) string {
+func constructURL(protocol string, host string, port uint32, encrypt bool, blockchainIDStr string, subnetIDStr string) string {
 	var protocolPathMap = map[string]string{
 		"http": "rpc",
 		"ws":   "ws",
@@ -321,15 +321,15 @@ func constructURL(protocol string, host string, port uint32, encrypt bool, chain
 	}
 	subnetID, _ := ids.FromString(subnetIDStr) // already validated in Validate()
 	if subnetID == constants.PrimaryNetworkID {
-		chainIDStr = cChainIdentifierString
+		blockchainIDStr = cChainIdentifierString
 	}
-	return fmt.Sprintf("%s://%s%s/ext/bc/%s/%s", protocol, host, portStr, chainIDStr, path)
+	return fmt.Sprintf("%s://%s%s/ext/bc/%s/%s", protocol, host, portStr, blockchainIDStr, path)
 }
 
 // Constructs an RPC endpoint for the subnet.
 // If the RPCEndpoint field is set in the configuration, returns that directly.
 // Otherwise, constructs the endpoint from the APINodeHost, APINodePort, and EncryptConnection fields,
-// following the /ext/bc/{chainID}/rpc format.
+// following the /ext/bc/{blockchainID}/rpc format.
 func (s *DestinationSubnet) GetNodeRPCEndpoint() string {
 	if s.RPCEndpoint != "" {
 		return s.RPCEndpoint
@@ -341,7 +341,7 @@ func (s *DestinationSubnet) GetNodeRPCEndpoint() string {
 		s.APINodeHost,
 		s.APINodePort,
 		s.EncryptConnection,
-		s.ChainID,
+		s.BlockchainID,
 		s.SubnetID,
 	)
 	return s.RPCEndpoint
@@ -350,7 +350,7 @@ func (s *DestinationSubnet) GetNodeRPCEndpoint() string {
 // Constructs an RPC endpoint for the subnet.
 // If the RPCEndpoint field is set in the configuration, returns that directly.
 // Otherwise, constructs the endpoint from the APINodeHost, APINodePort, and EncryptConnection fields,
-// following the /ext/bc/{chainID}/rpc format.
+// following the /ext/bc/{blockchainID}/rpc format.
 func (s *SourceSubnet) GetNodeRPCEndpoint() string {
 	if s.RPCEndpoint != "" {
 		return s.RPCEndpoint
@@ -362,7 +362,7 @@ func (s *SourceSubnet) GetNodeRPCEndpoint() string {
 		s.APINodeHost,
 		s.APINodePort,
 		s.EncryptConnection,
-		s.ChainID,
+		s.BlockchainID,
 		s.SubnetID,
 	)
 	return s.RPCEndpoint
@@ -371,7 +371,7 @@ func (s *SourceSubnet) GetNodeRPCEndpoint() string {
 // Constructs a WS endpoint for the subnet.
 // If the WSEndpoint field is set in the configuration, returns that directly.
 // Otherwise, constructs the endpoint from the APINodeHost, APINodePort, and EncryptConnection fields,
-// following the /ext/bc/{chainID}/ws format.
+// following the /ext/bc/{blockchainID}/ws format.
 func (s *SourceSubnet) GetNodeWSEndpoint() string {
 	if s.WSEndpoint != "" {
 		return s.WSEndpoint
@@ -383,7 +383,7 @@ func (s *SourceSubnet) GetNodeWSEndpoint() string {
 		s.APINodeHost,
 		s.APINodePort,
 		s.EncryptConnection,
-		s.ChainID,
+		s.BlockchainID,
 		s.SubnetID,
 	)
 	return s.WSEndpoint
@@ -410,5 +410,5 @@ func (s *DestinationSubnet) GetRelayerAccountInfo() (*ecdsa.PrivateKey, common.A
 
 // GetSourceIDs returns the Subnet and Chain IDs of all subnets configured as a source
 func (c *Config) GetSourceIDs() ([]ids.ID, []ids.ID) {
-	return c.sourceSubnetIDs, c.sourceChainIDs
+	return c.sourceSubnetIDs, c.sourceBlockchainIDs
 }
