@@ -261,17 +261,17 @@ func (s *SourceSubnet) Validate(destinationBlockchainIDs *set.Set[string]) error
 
 	// Validate and store the allowed destinations for future use
 	s.supportedDestinations = set.Set[ids.ID]{}
-	for _, BlockchainIDStr := range s.SupportedDestinations {
-		BlockchainID, err := ids.FromString(BlockchainIDStr)
+	for _, blockchainIDStr := range s.SupportedDestinations {
+		blockchainID, err := ids.FromString(blockchainIDStr)
 		if err != nil {
 			return fmt.Errorf("invalid blockchainID in configuration. error: %v", err)
 		}
-		if !destinationBlockchainIDs.Contains(BlockchainIDStr) {
+		if !destinationBlockchainIDs.Contains(blockchainIDStr) {
 			return fmt.Errorf("configured source subnet %s has a supported destination blockchain ID %s that is not configured as a destination blockchain",
 				s.SubnetID,
-				BlockchainID)
+				blockchainID)
 		}
-		s.supportedDestinations.Add(BlockchainID)
+		s.supportedDestinations.Add(blockchainID)
 	}
 
 	return nil
