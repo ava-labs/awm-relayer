@@ -183,11 +183,11 @@ func BasicRelay() {
 
 	bind, err := teleportermessenger.NewTeleporterMessenger(teleporterContractAddress, subnetAInfo.ChainWSClient)
 	Expect(err).Should(BeNil())
-	receiveEvent, err := teleporterTestUtils.GetEventFromLogs(receipt.Logs, bind.ParseReceiveCrossChainMessage)
+	sendEvent, err := teleporterTestUtils.GetEventFromLogs(receipt.Logs, bind.ParseSendCrossChainMessage)
 	Expect(err).Should(BeNil())
-	Expect(receiveEvent.OriginBlockchainID[:]).Should(Equal(subnetBInfo.BlockchainID[:]))
+	Expect(sendEvent.DestinationBlockchainID[:]).Should(Equal(subnetBInfo.BlockchainID[:]))
 
-	teleporterMessageID := receiveEvent.Message.MessageID
+	teleporterMessageID := sendEvent.Message.MessageID
 
 	// Get the latest block from Subnet B
 	log.Info("Waiting for new block confirmation")
@@ -226,7 +226,7 @@ func BasicRelay() {
 	bind, err = teleportermessenger.NewTeleporterMessenger(teleporterContractAddress, subnetBInfo.ChainWSClient)
 	Expect(err).Should(BeNil())
 
-	receiveEvent, err = teleporterTestUtils.GetEventFromLogs(receipt.Logs, bind.ParseReceiveCrossChainMessage)
+	receiveEvent, err := teleporterTestUtils.GetEventFromLogs(receipt.Logs, bind.ParseReceiveCrossChainMessage)
 	Expect(err).Should(BeNil())
 	Expect(receiveEvent.OriginBlockchainID[:]).Should(Equal(subnetAInfo.BlockchainID[:]))
 	Expect(receiveEvent.Message.MessageID.Uint64()).Should(Equal(teleporterMessageID.Uint64()))
