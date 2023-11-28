@@ -149,7 +149,7 @@ func (s *subscriber) ProcessFromHeight(height *big.Int) error {
 	}
 
 	// Grab the latest block before filtering logs so we don't miss any before updating the db
-	latestBlock, err := ethClient.BlockNumber(context.Background())
+	latestBlockHeight, err := ethClient.BlockNumber(context.Background())
 	if err != nil {
 		s.logger.Error(
 			"Failed to get latest block",
@@ -159,17 +159,17 @@ func (s *subscriber) ProcessFromHeight(height *big.Int) error {
 		return err
 	}
 
-	bigLatestBlock := big.NewInt(0).SetUint64(latestBlock)
+	bigLatestBlockHeight := big.NewInt(0).SetUint64(latestBlockHeight)
 
-	for fromBlock := big.NewInt(0).Set(height); fromBlock.Cmp(bigLatestBlock) <= 0; fromBlock.Add(fromBlock, big.NewInt(MaxBlocksPerRequest)) {
+	for fromBlock := big.NewInt(0).Set(height); fromBlock.Cmp(bigLatestBlockHeight) <= 0; fromBlock.Add(fromBlock, big.NewInt(MaxBlocksPerRequest)) {
 		toBlock := big.NewInt(0).Add(fromBlock, big.NewInt(MaxBlocksPerRequest-1))
 
 		// clamp to latest known block because we've already subscribed
 		// to new blocks and we don't want to double-process any blocks
 		// created after that subscription but before the determination
 		// of this "latest"
-		if toBlock.Cmp(bigLatestBlock) > 0 {
-			toBlock.Set(bigLatestBlock)
+		if toBlock.Cmp(bigLatestBlockHeight) > 0 {
+			toBlock.Set(bigLatestBlockHeight)
 		}
 
 		err = s.processBlockRange(ethClient, fromBlock, toBlock)
