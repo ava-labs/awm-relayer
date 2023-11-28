@@ -119,7 +119,7 @@ func (r *messageRelayer) relayMessage(warpMessageInfo *vmtypes.WarpMessageInfo, 
 	}
 	r.logger.Info(
 		"Finished relaying message to destination chain",
-		zap.String("DestinationBlockchainID", r.destinationBlockchainID.String()),
+		zap.String("destinationBlockchainID", r.destinationBlockchainID.String()),
 	)
 	r.incSuccessfulRelayMessageCount()
 	return nil
@@ -129,7 +129,7 @@ func (r *messageRelayer) relayMessage(warpMessageInfo *vmtypes.WarpMessageInfo, 
 func (r *messageRelayer) createSignedMessage(requestID uint32) (*warp.Message, error) {
 	r.logger.Info(
 		"Starting relayer routine",
-		zap.String("DestinationBlockchainID", r.destinationBlockchainID.String()),
+		zap.String("destinationBlockchainID", r.destinationBlockchainID.String()),
 	)
 
 	// Get the current canonical validator set of the source subnet.
@@ -180,7 +180,7 @@ func (r *messageRelayer) createSignedMessage(requestID uint32) (*warp.Message, e
 	if err != nil {
 		r.logger.Error(
 			"Failed to marshal request bytes",
-			zap.String("DestinationBlockchainID", r.destinationBlockchainID.String()),
+			zap.String("destinationBlockchainID", r.destinationBlockchainID.String()),
 			zap.Error(err),
 		)
 		return nil, err
@@ -205,7 +205,7 @@ func (r *messageRelayer) createSignedMessage(requestID uint32) (*warp.Message, e
 		r.logger.Debug(
 			"Relayer collecting signatures from peers.",
 			zap.Int("attempt", attempt),
-			zap.String("DestinationBlockchainID", r.destinationBlockchainID.String()),
+			zap.String("destinationBlockchainID", r.destinationBlockchainID.String()),
 			zap.Int("validatorSetSize", len(validatorSet)),
 			zap.Int("signatureMapSize", len(signatureMap)),
 			zap.Int("responsesExpected", responsesExpected),
@@ -316,7 +316,7 @@ func (r *messageRelayer) createSignedMessage(requestID uint32) (*warp.Message, e
 						if err != nil {
 							r.logger.Error(
 								"Failed to aggregate signature.",
-								zap.String("DestinationBlockchainID", r.destinationBlockchainID.String()),
+								zap.String("destinationBlockchainID", r.destinationBlockchainID.String()),
 								zap.Error(err),
 							)
 							return nil, err
@@ -345,7 +345,7 @@ func (r *messageRelayer) createSignedMessage(requestID uint32) (*warp.Message, e
 				if signedMsg != nil {
 					r.logger.Info(
 						"Created signed message.",
-						zap.String("DestinationBlockchainID", r.destinationBlockchainID.String()),
+						zap.String("destinationBlockchainID", r.destinationBlockchainID.String()),
 					)
 					return signedMsg, nil
 				}
@@ -365,7 +365,7 @@ func (r *messageRelayer) createSignedMessage(requestID uint32) (*warp.Message, e
 	r.logger.Warn(
 		"Failed to collect a threshold of signatures",
 		zap.Int("attempts", maxRelayerQueryAttempts),
-		zap.String("DestinationBlockchainID", r.destinationBlockchainID.String()),
+		zap.String("destinationBlockchainID", r.destinationBlockchainID.String()),
 	)
 	return nil, errNotEnoughSignatures
 }
@@ -381,7 +381,7 @@ func (r *messageRelayer) getCurrentCanonicalValidatorSet() ([]*warp.Validator, u
 		if err != nil {
 			r.logger.Error(
 				"failed to get validating subnet for destination chain",
-				zap.String("DestinationBlockchainID", r.destinationBlockchainID.String()),
+				zap.String("destinationBlockchainID", r.destinationBlockchainID.String()),
 				zap.Error(err),
 			)
 			return nil, 0, err
@@ -457,7 +457,7 @@ func (r *messageRelayer) isValidSignatureResponse(
 		r.logger.Debug(
 			"Response contained an empty signature",
 			zap.String("nodeID", response.NodeID().String()),
-			zap.String("DestinationBlockchainID", r.destinationBlockchainID.String()),
+			zap.String("destinationBlockchainID", r.destinationBlockchainID.String()),
 		)
 		return blsSignatureBuf{}, false
 	}
@@ -466,7 +466,7 @@ func (r *messageRelayer) isValidSignatureResponse(
 	if err != nil {
 		r.logger.Debug(
 			"Failed to create signature from response",
-			zap.String("DestinationBlockchainID", r.destinationBlockchainID.String()),
+			zap.String("destinationBlockchainID", r.destinationBlockchainID.String()),
 		)
 		return blsSignatureBuf{}, false
 	}
@@ -474,7 +474,7 @@ func (r *messageRelayer) isValidSignatureResponse(
 	if !bls.Verify(pubKey, sig, r.warpMessage.Bytes()) {
 		r.logger.Debug(
 			"Failed verification for signature",
-			zap.String("DestinationBlockchainID", r.destinationBlockchainID.String()),
+			zap.String("destinationBlockchainID", r.destinationBlockchainID.String()),
 		)
 		return blsSignatureBuf{}, false
 	}

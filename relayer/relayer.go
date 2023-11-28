@@ -233,7 +233,7 @@ func (r *Relayer) RelayMessage(warpLogInfo *vmtypes.WarpLogInfo, metrics *Messag
 		r.logger.Debug(
 			"Message destination chain ID not supported. Not relaying.",
 			zap.String("blockchainID", r.sourceBlockchainID.String()),
-			zap.String("DestinationBlockchainID", destinationBlockchainID.String()),
+			zap.String("destinationBlockchainID", destinationBlockchainID.String()),
 		)
 		return nil
 	}
