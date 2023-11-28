@@ -163,9 +163,15 @@ func (s *subscriber) ProcessFromHeight(height *big.Int) error {
 
 	for fromBlock := big.NewInt(0).Set(height); fromBlock.Cmp(bigLatestBlock) <= 0; fromBlock.Add(fromBlock, big.NewInt(MaxBlocksPerRequest)) {
 		toBlock := big.NewInt(0).Add(fromBlock, big.NewInt(MaxBlocksPerRequest-1))
+
+		// clamp to latest known block because we've already subscribed
+		// to new blocks and we don't want to double-process any blocks
+		// created after that subscription but before the determination
+		// of this "latest"
 		if toBlock.Cmp(bigLatestBlock) > 0 {
 			toBlock.Set(bigLatestBlock)
 		}
+
 		err = s.processBlockRange(ethClient, fromBlock, toBlock)
 		if err != nil {
 			return err
