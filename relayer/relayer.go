@@ -144,7 +144,7 @@ func NewRelayer(
 		if err != nil {
 			logger.Warn(
 				"Failed to update latest processed block. Continuing to normal relaying operation",
-				zap.String("chainID", r.sourceChainID.String()),
+				zap.String("blockchainID", r.sourceBlockchainID.String()),
 				zap.Error(err),
 			)
 		}
