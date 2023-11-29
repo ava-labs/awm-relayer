@@ -30,7 +30,7 @@ const (
 	maxClientSubscriptionBuffer = 20000
 	subscribeRetryTimeout       = 1 * time.Second
 	maxResubscribeAttempts      = 10
-	MaxBlocksToProcess          = 200
+	MaxBlocksPerRequest         = 200
 )
 
 var (
@@ -61,6 +61,9 @@ type subscriber struct {
 
 	logger logging.Logger
 	db     database.RelayerDatabase
+
+	// seams for mock injection:
+	dial func(url string) (ethclient.Client, error)
 }
 
 // NewSubscriber returns a subscriber
@@ -77,12 +80,13 @@ func NewSubscriber(logger logging.Logger, subnetInfo config.SourceSubnet, db dat
 	logs := make(chan vmtypes.WarpLogInfo, maxClientSubscriptionBuffer)
 
 	return &subscriber{
-		nodeWSURL:    subnetInfo.GetNodeWSEndpoint(),
-		nodeRPCURL:   subnetInfo.GetNodeRPCEndpoint(),
-		blockchainID: blockchainID,
-		logger:       logger,
-		db:           db,
-		logsChan:     logs,
+		nodeWSURL:  subnetInfo.GetNodeWSEndpoint(),
+		nodeRPCURL: subnetInfo.GetNodeRPCEndpoint(),
+		blockchainID:    blockchainID,
+		logger:     logger,
+		db:         db,
+		logsChan:   logs,
+		dial:       ethclient.Dial,
 	}
 }
 
@@ -126,9 +130,10 @@ func (s *subscriber) forwardLogs() {
 	}
 }
 
-// Process logs from the given block height to the latest block
-// Cap the number of blocks requested from the client to MaxBlocksToProcess,
-// counting back from the current block.
+// Process logs from the given block height to the latest block. Limits the
+// number of blocks retrieved in a single eth_getLogs request to
+// `MaxBlocksPerRequest`; if processing more than that, multiple eth_getLogs
+// requests will be made.
 func (s *subscriber) ProcessFromHeight(height *big.Int) error {
 	s.logger.Info(
 		"Processing historical logs",
@@ -138,13 +143,13 @@ func (s *subscriber) ProcessFromHeight(height *big.Int) error {
 	if height == nil {
 		return fmt.Errorf("cannot process logs from nil height")
 	}
-	ethClient, err := ethclient.Dial(s.nodeRPCURL)
+	ethClient, err := s.dial(s.nodeWSURL)
 	if err != nil {
 		return err
 	}
 
 	// Grab the latest block before filtering logs so we don't miss any before updating the db
-	latestBlock, err := ethClient.BlockNumber(context.Background())
+	latestBlockHeight, err := ethClient.BlockNumber(context.Background())
 	if err != nil {
 		s.logger.Error(
 			"Failed to get latest block",
@@ -154,25 +159,39 @@ func (s *subscriber) ProcessFromHeight(height *big.Int) error {
 		return err
 	}
 
-	// Cap the number of blocks to process to MaxBlocksToProcess
-	toBlock := big.NewInt(0).SetUint64(latestBlock)
-	if height.Cmp(big.NewInt(0).Sub(toBlock, big.NewInt(MaxBlocksToProcess))) < 0 {
-		s.logger.Warn(
-			fmt.Sprintf("Requested to process too many blocks. Processing only the most recent %d blocks", MaxBlocksToProcess),
-			zap.String("requestedBlockHeight", height.String()),
-			zap.String("latestBlockHeight", toBlock.String()),
-			zap.String("blockchainID", s.blockchainID.String()),
-		)
-		height = big.NewInt(0).Add(toBlock, big.NewInt(-MaxBlocksToProcess))
+	bigLatestBlockHeight := big.NewInt(0).SetUint64(latestBlockHeight)
+
+	for fromBlock := big.NewInt(0).Set(height); fromBlock.Cmp(bigLatestBlockHeight) <= 0; fromBlock.Add(fromBlock, big.NewInt(MaxBlocksPerRequest)) {
+		toBlock := big.NewInt(0).Add(fromBlock, big.NewInt(MaxBlocksPerRequest-1))
+
+		// clamp to latest known block because we've already subscribed
+		// to new blocks and we don't want to double-process any blocks
+		// created after that subscription but before the determination
+		// of this "latest"
+		if toBlock.Cmp(bigLatestBlockHeight) > 0 {
+			toBlock.Set(bigLatestBlockHeight)
+		}
+
+		err = s.processBlockRange(ethClient, fromBlock, toBlock)
+		if err != nil {
+			return err
+		}
 	}
 
-	// Filter logs from the latest processed block to the latest block
-	// Since initializationFilterQuery does not modify existing fields of warpFilterQuery,
-	// we can safely reuse warpFilterQuery with only a shallow copy
+	return nil
+}
+
+// Filter logs from the latest processed block to the latest block
+// Since initializationFilterQuery does not modify existing fields of warpFilterQuery,
+// we can safely reuse warpFilterQuery with only a shallow copy
+func (s *subscriber) processBlockRange(
+	ethClient ethclient.Client,
+	fromBlock, toBlock *big.Int,
+) error {
 	initializationFilterQuery := interfaces.FilterQuery{
 		Topics:    warpFilterQuery.Topics,
 		Addresses: warpFilterQuery.Addresses,
-		FromBlock: height,
+		FromBlock: fromBlock,
 		ToBlock:   toBlock,
 	}
 	logs, err := ethClient.FilterLogs(context.Background(), initializationFilterQuery)
@@ -196,7 +215,7 @@ func (s *subscriber) ProcessFromHeight(height *big.Int) error {
 	// Queue each of the logs to be processed
 	s.logger.Info(
 		"Processing logs on initialization",
-		zap.String("fromBlockHeight", height.String()),
+		zap.String("fromBlockHeight", fromBlock.String()),
 		zap.String("toBlockHeight", toBlock.String()),
 		zap.String("blockchainID", s.blockchainID.String()),
 	)
@@ -212,7 +231,6 @@ func (s *subscriber) ProcessFromHeight(height *big.Int) error {
 		}
 		s.logsChan <- *messageInfo
 	}
-
 	return nil
 }
 
@@ -221,7 +239,7 @@ func (s *subscriber) SetProcessedBlockHeightToLatest() error {
 		"Updating latest processed block in database",
 		zap.String("blockchainID", s.blockchainID.String()),
 	)
-	ethClient, err := ethclient.Dial(s.nodeRPCURL)
+	ethClient, err := s.dial(s.nodeWSURL)
 	if err != nil {
 		s.logger.Error(
 			"Failed to dial node",
@@ -288,7 +306,7 @@ func (s *subscriber) Subscribe() error {
 func (s *subscriber) dialAndSubscribe() error {
 	// Dial the configured source chain endpoint
 	// This needs to be a websocket
-	ethClient, err := ethclient.Dial(s.nodeWSURL)
+	ethClient, err := s.dial(s.nodeWSURL)
 	if err != nil {
 		return err
 	}

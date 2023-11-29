@@ -170,7 +170,18 @@ func main() {
 				wg.Done()
 				healthy.Store(false)
 			}()
-			runRelayer(logger, metrics, db, subnetInfo, pChainClient, network, responseChans[blockchainID], destinationClients, messageCreator)
+			runRelayer(
+				logger,
+				metrics,
+				db,
+				subnetInfo,
+				pChainClient,
+				network,
+				responseChans[blockchainID],
+				destinationClients,
+				messageCreator,
+				cfg.ProcessMissedBlocks,
+			)
 			logger.Info(
 				"Relayer exiting.",
 				zap.String("blockchainID", blockchainID.String()),
@@ -190,6 +201,7 @@ func runRelayer(logger logging.Logger,
 	responseChan chan message.InboundMessage,
 	destinationClients map[ids.ID]vms.DestinationClient,
 	messageCreator message.Creator,
+	processMissedBlocks bool,
 ) {
 	logger.Info(
 		"Creating relayer",
@@ -204,6 +216,7 @@ func runRelayer(logger logging.Logger,
 		network,
 		responseChan,
 		destinationClients,
+		processMissedBlocks,
 	)
 	if err != nil {
 		logger.Error(

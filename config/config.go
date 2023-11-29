@@ -64,13 +64,14 @@ type DestinationSubnet struct {
 }
 
 type Config struct {
-	LogLevel           string              `mapstructure:"log-level" json:"log-level"`
-	NetworkID          uint32              `mapstructure:"network-id" json:"network-id"`
-	PChainAPIURL       string              `mapstructure:"p-chain-api-url" json:"p-chain-api-url"`
-	EncryptConnection  bool                `mapstructure:"encrypt-connection" json:"encrypt-connection"`
-	StorageLocation    string              `mapstructure:"storage-location" json:"storage-location"`
-	SourceSubnets      []SourceSubnet      `mapstructure:"source-subnets" json:"source-subnets"`
-	DestinationSubnets []DestinationSubnet `mapstructure:"destination-subnets" json:"destination-subnets"`
+	LogLevel            string              `mapstructure:"log-level" json:"log-level"`
+	NetworkID           uint32              `mapstructure:"network-id" json:"network-id"`
+	PChainAPIURL        string              `mapstructure:"p-chain-api-url" json:"p-chain-api-url"`
+	EncryptConnection   bool                `mapstructure:"encrypt-connection" json:"encrypt-connection"`
+	StorageLocation     string              `mapstructure:"storage-location" json:"storage-location"`
+	SourceSubnets       []SourceSubnet      `mapstructure:"source-subnets" json:"source-subnets"`
+	DestinationSubnets  []DestinationSubnet `mapstructure:"destination-subnets" json:"destination-subnets"`
+	ProcessMissedBlocks bool                `mapstructure:"process-missed-blocks" json:"process-missed-blocks"`
 
 	// convenience fields to access the source subnet and chain IDs after initialization
 	sourceSubnetIDs     []ids.ID
@@ -82,6 +83,7 @@ func SetDefaultConfigValues(v *viper.Viper) {
 	v.SetDefault(NetworkIDKey, constants.MainnetID)
 	v.SetDefault(EncryptConnectionKey, true)
 	v.SetDefault(StorageLocationKey, "./.awm-relayer-storage")
+	v.SetDefault(ProcessMissedBlocksKey, true)
 }
 
 // BuildConfig constructs the relayer config using Viper.
@@ -111,6 +113,7 @@ func BuildConfig(v *viper.Viper) (Config, bool, error) {
 	cfg.PChainAPIURL = v.GetString(PChainAPIURLKey)
 	cfg.EncryptConnection = v.GetBool(EncryptConnectionKey)
 	cfg.StorageLocation = v.GetString(StorageLocationKey)
+	cfg.ProcessMissedBlocks = v.GetBool(ProcessMissedBlocksKey)
 	if err := v.UnmarshalKey(DestinationSubnetsKey, &cfg.DestinationSubnets); err != nil {
 		return Config{}, false, fmt.Errorf("failed to unmarshal destination subnets: %v", err)
 	}
