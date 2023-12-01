@@ -22,7 +22,7 @@ import (
 func makeSubscriberWithMockEthClient(t *testing.T) (*subscriber, *mock_ethclient.MockClient) {
 	sourceSubnet := config.SourceSubnet{
 		SubnetID:          "2TGBXcnwx5PqiXWiqxAKUaNSqDguXNh1mxnp82jui68hxJSZAx",
-		ChainID:           "S4mMqUXe7vHsGiRAma6bv3CKnyaLssyAxmQ2KvFpX1KEvfFCD",
+		BlockchainID:      "S4mMqUXe7vHsGiRAma6bv3CKnyaLssyAxmQ2KvFpX1KEvfFCD",
 		VM:                config.EVM.String(),
 		APINodeHost:       "127.0.0.1",
 		APINodePort:       9650,
@@ -39,7 +39,7 @@ func makeSubscriberWithMockEthClient(t *testing.T) (*subscriber, *mock_ethclient
 		),
 	)
 
-	subnetId, err := ids.FromString(sourceSubnet.ChainID)
+	subnetId, err := ids.FromString(sourceSubnet.BlockchainID)
 	require.NoError(t, err, "Failed to create subnet ID")
 
 	db, err := database.NewJSONFileStorage(logger, t.TempDir(), []ids.ID{subnetId})
