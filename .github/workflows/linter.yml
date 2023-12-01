@@ -6,9 +6,8 @@ name: Run Golang Linter
 on:
   push:
     branches:
-      - '*'
+      - "*"
 
-      
 jobs:
   golangci:
     runs-on: ubuntu-20.04
