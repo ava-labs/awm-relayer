@@ -80,13 +80,13 @@ func NewSubscriber(logger logging.Logger, subnetInfo config.SourceSubnet, db dat
 	logs := make(chan vmtypes.WarpLogInfo, maxClientSubscriptionBuffer)
 
 	return &subscriber{
-		nodeWSURL:  subnetInfo.GetNodeWSEndpoint(),
-		nodeRPCURL: subnetInfo.GetNodeRPCEndpoint(),
-		blockchainID:    blockchainID,
-		logger:     logger,
-		db:         db,
-		logsChan:   logs,
-		dial:       ethclient.Dial,
+		nodeWSURL:    subnetInfo.GetNodeWSEndpoint(),
+		nodeRPCURL:   subnetInfo.GetNodeRPCEndpoint(),
+		blockchainID: blockchainID,
+		logger:       logger,
+		db:           db,
+		logsChan:     logs,
+		dial:         ethclient.Dial,
 	}
 }
 

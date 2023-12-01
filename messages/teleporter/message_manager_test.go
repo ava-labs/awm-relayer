@@ -100,7 +100,7 @@ func TestShouldSendMessage(t *testing.T) {
 		expectedResult          bool
 	}{
 		{
-			name:               "valid message",
+			name:                    "valid message",
 			destinationBlockchainID: destinationBlockchainID,
 			warpMessageInfo: &vmtypes.WarpMessageInfo{
 				WarpUnsignedMessage: warpUnsignedMessage,
@@ -115,7 +115,7 @@ func TestShouldSendMessage(t *testing.T) {
 			expectedResult:      true,
 		},
 		{
-			name:               "invalid message",
+			name:                    "invalid message",
 			destinationBlockchainID: destinationBlockchainID,
 			warpMessageInfo: &vmtypes.WarpMessageInfo{
 				WarpUnsignedMessage: warpUnsignedMessage2,
@@ -133,7 +133,7 @@ func TestShouldSendMessage(t *testing.T) {
 			expectedError: true,
 		},
 		{
-			name:               "not allowed",
+			name:                    "not allowed",
 			destinationBlockchainID: destinationBlockchainID,
 			warpMessageInfo: &vmtypes.WarpMessageInfo{
 				WarpUnsignedMessage: warpUnsignedMessage,
@@ -144,7 +144,7 @@ func TestShouldSendMessage(t *testing.T) {
 			expectedResult:      false,
 		},
 		{
-			name:               "message already delivered",
+			name:                    "message already delivered",
 			destinationBlockchainID: destinationBlockchainID,
 			warpMessageInfo: &vmtypes.WarpMessageInfo{
 				WarpUnsignedMessage: warpUnsignedMessage,

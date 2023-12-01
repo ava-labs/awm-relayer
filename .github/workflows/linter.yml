@@ -6,7 +6,7 @@ name: Run Golang Linter
 on:
   push:
     branches:
-      - "*"
+      - "**"
 
 jobs:
   golangci:
