@@ -108,11 +108,11 @@ func (h *RelayerExternalHandler) HandleInbound(_ context.Context, inboundMessage
 		}
 
 		reqID := ids.RequestID{
-			NodeID:                  inboundMessage.NodeID(),
-			SourceChainID:           sourceBlockchainID,
-			DestinationChainID:      blockchainID,
-			RequestID:               requestID,
-			Op:                      byte(inboundMessage.Op()),
+			NodeID:             inboundMessage.NodeID(),
+			SourceChainID:      sourceBlockchainID,
+			DestinationChainID: blockchainID,
+			RequestID:          requestID,
+			Op:                 byte(inboundMessage.Op()),
 		}
 		h.RegisterResponse(reqID)
 

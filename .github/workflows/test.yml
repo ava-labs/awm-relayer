@@ -6,7 +6,7 @@ name: Tests
 on:
   push:
     branches:
-      - "*"
+      - "**"
 
 env:
   GO_VERSION: "1.20.10"

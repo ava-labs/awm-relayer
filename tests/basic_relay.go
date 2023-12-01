@@ -156,7 +156,7 @@ func BasicRelay() {
 
 	input := teleportermessenger.TeleporterMessageInput{
 		DestinationBlockchainID: teleporterMessage.DestinationBlockchainID,
-		DestinationAddress: teleporterMessage.DestinationAddress,
+		DestinationAddress:      teleporterMessage.DestinationAddress,
 		FeeInfo: teleportermessenger.TeleporterFeeInfo{
 			FeeTokenAddress: fundedAddress,
 			Amount:          big.NewInt(0),
