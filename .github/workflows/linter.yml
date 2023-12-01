@@ -8,6 +8,7 @@ on:
     branches:
       - '*'
 
+      
 jobs:
   golangci:
     runs-on: ubuntu-20.04
