@@ -36,8 +36,8 @@ func (v *CanonicalValidatorClient) GetCurrentHeight(ctx context.Context) (uint64
 	return v.client.GetHeight(ctx)
 }
 
-func (v *CanonicalValidatorClient) GetSubnetID(ctx context.Context, chainID ids.ID) (ids.ID, error) {
-	return v.client.ValidatedBy(ctx, chainID)
+func (v *CanonicalValidatorClient) GetSubnetID(ctx context.Context, blockchainID ids.ID) (ids.ID, error) {
+	return v.client.ValidatedBy(ctx, blockchainID)
 }
 
 // Gets the current validator set of the given subnet ID, including the validators' BLS public

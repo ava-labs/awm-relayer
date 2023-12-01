@@ -54,18 +54,18 @@ func (mr *MockDestinationClientMockRecorder) Client() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Client", reflect.TypeOf((*MockDestinationClient)(nil).Client))
 }
 
-// DestinationChainID mocks base method.
-func (m *MockDestinationClient) DestinationChainID() ids.ID {
+// DestinationBlockchainID mocks base method.
+func (m *MockDestinationClient) DestinationBlockchainID() ids.ID {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DestinationChainID")
+	ret := m.ctrl.Call(m, "destinationBlockchainID")
 	ret0, _ := ret[0].(ids.ID)
 	return ret0
 }
 
-// DestinationChainID indicates an expected call of DestinationChainID.
-func (mr *MockDestinationClientMockRecorder) DestinationChainID() *gomock.Call {
+// DestinationBlockchainID indicates an expected call of DestinationBlockchainID.
+func (mr *MockDestinationClientMockRecorder) DestinationBlockchainID() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DestinationChainID", reflect.TypeOf((*MockDestinationClient)(nil).DestinationChainID))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "destinationBlockchainID", reflect.TypeOf((*MockDestinationClient)(nil).DestinationBlockchainID))
 }
 
 // SendTx mocks base method.

@@ -45,7 +45,7 @@ func NewNetwork(
 	registerer prometheus.Registerer,
 	networkID uint32,
 	subnetIDs []ids.ID,
-	chainIDs []ids.ID,
+	blockchainIDs []ids.ID,
 	APINodeURL string,
 ) (*AppRequestNetwork, map[ids.ID]chan message.InboundMessage, error) {
 	if networkID != constants.MainnetID &&
@@ -62,9 +62,9 @@ func NewNetwork(
 
 	// Construct a response chan for each chain. Inbound messages will be routed to the proper channel in the handler
 	responseChans := make(map[ids.ID]chan message.InboundMessage)
-	for _, chainID := range chainIDs {
+	for _, blockchainID := range blockchainIDs {
 		responseChan := make(chan message.InboundMessage, InboundMessageChannelSize)
-		responseChans[chainID] = responseChan
+		responseChans[blockchainID] = responseChan
 	}
 	responseChansLock := new(sync.RWMutex)
 

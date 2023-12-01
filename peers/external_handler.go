@@ -84,19 +84,19 @@ func (h *RelayerExternalHandler) HandleInbound(_ context.Context, inboundMessage
 		// Extract the message fields
 		m := inboundMessage.Message()
 
-		// Get the ChainID from the message.
-		// Note: we should NOT call GetSourceChainID; this is for cross-chain messages using the vm2 interface
+		// Get the blockchainID from the message.
+		// Note: we should NOT call GetSourceBlockchainID; this is for cross-chain messages using the vm2 interface
 		// For normal app requests messages, the calls result in the same value, but if the relayer handles an
 		// inbound cross-chain app message, then we would get the incorrect chain ID.
-		chainID, err := message.GetChainID(m)
+		blockchainID, err := message.GetChainID(m)
 		if err != nil {
-			h.log.Error("could not get chainID from message")
+			h.log.Error("could not get blockchainID from message")
 			inboundMessage.OnFinishedHandling()
 			return
 		}
-		sourceChainID, err := message.GetSourceChainID(m)
+		sourceBlockchainID, err := message.GetSourceChainID(m)
 		if err != nil {
-			h.log.Error("could not get sourceChainID from message")
+			h.log.Error("could not get sourceBlockchainID from message")
 			inboundMessage.OnFinishedHandling()
 			return
 		}
@@ -108,11 +108,11 @@ func (h *RelayerExternalHandler) HandleInbound(_ context.Context, inboundMessage
 		}
 
 		reqID := ids.RequestID{
-			NodeID:             inboundMessage.NodeID(),
-			SourceChainID:      sourceChainID,
-			DestinationChainID: chainID,
-			RequestID:          requestID,
-			Op:                 byte(inboundMessage.Op()),
+			NodeID:                  inboundMessage.NodeID(),
+			SourceChainID:           sourceBlockchainID,
+			DestinationChainID:      blockchainID,
+			RequestID:               requestID,
+			Op:                      byte(inboundMessage.Op()),
 		}
 		h.RegisterResponse(reqID)
 
@@ -122,8 +122,8 @@ func (h *RelayerExternalHandler) HandleInbound(_ context.Context, inboundMessage
 			h.responseChansLock.RLock()
 			defer h.responseChansLock.RUnlock()
 
-			h.responseChans[chainID] <- inboundMessage
-		}(inboundMessage, chainID)
+			h.responseChans[blockchainID] <- inboundMessage
+		}(inboundMessage, blockchainID)
 	} else {
 		inboundMessage.OnFinishedHandling()
 	}
