@@ -15,8 +15,6 @@ jobs:
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
-      with:
-        path: awm-relayer
 
     - name: Set Go version
       run: |
@@ -32,5 +30,4 @@ jobs:
       uses: golangci/golangci-lint-action@v3
       with:
         version: v1.51
-        working-directory: ./awm-relayer
         args: --timeout 10m
