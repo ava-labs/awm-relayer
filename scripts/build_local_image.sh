@@ -13,6 +13,7 @@ RELAYER_PATH=$(
 )
 # Load the constants
 source "$RELAYER_PATH"/scripts/constants.sh
+source "$RELAYER_PATH"/scripts/versions.sh
 
 # WARNING: this will use the most recent commit even if there are un-committed changes present
 full_commit_hash="$(git --git-dir="$RELAYER_PATH/.git" rev-parse HEAD)"
