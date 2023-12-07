@@ -1,6 +1,5 @@
-ARG GO_VERSION
-
 ### Build Stage ###
+ARG GO_VERSION
 FROM golang:${GO_VERSION}-bullseye as build
 
 WORKDIR /go/src
@@ -11,6 +10,7 @@ RUN go mod tidy
 RUN bash ./scripts/build.sh
 
 ### RUN Stage ###
+ARG GO_VERSION
 FROM golang:${GO_VERSION}
 COPY --from=build /go/src/build/awm-relayer /usr/bin/awm-relayer
 EXPOSE 8080
