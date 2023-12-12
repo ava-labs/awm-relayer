@@ -17,12 +17,6 @@ jobs:
     runs-on: ubuntu-20.04
 
     steps:
-      - name: Checkout subnet-evm repository
-        uses: actions/checkout@v4
-        with:
-          repository: ava-labs/subnet-evm
-          ref: v0.5.9
-
       - name: Set Go version
         run: |
           source ./scripts/versions.sh
@@ -32,6 +26,12 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
+
+      - name: Checkout subnet-evm repository
+        uses: actions/checkout@v4
+        with:
+          repository: ava-labs/subnet-evm
+          ref: v0.5.8
 
       - name: Install AvalancheGo Release
         run: BASEDIR=/tmp/e2e-test AVALANCHEGO_BUILD_PATH=/tmp/e2e-test/avalanchego ./scripts/install_avalanchego_release.sh
