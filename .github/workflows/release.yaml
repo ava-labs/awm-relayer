@@ -31,7 +31,7 @@ jobs:
       - name: Set Go version
         run: |
           source ./scripts/versions.sh
-          GO_VERSION=$GO_VERSION >> $GITHUB_ENV
+          echo GO_VERSION=$GO_VERSION >> $GITHUB_ENV
 
       - name: Build and Push to Docker Hub
         uses: docker/build-push-action@v5

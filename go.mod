@@ -1,6 +1,6 @@
 module github.com/ava-labs/awm-relayer
 
-go 1.18
+go 1.20
 
 require (
 	github.com/ava-labs/avalanchego v1.10.15
