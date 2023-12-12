@@ -17,16 +17,21 @@ jobs:
     runs-on: ubuntu-20.04
 
     steps:
+      - name: Checkout awm-relayer repository
+        uses: actions/checkout@v4
+
+      - name: Set versions
+        run: |
+          source ./scripts/versions.sh
+          echo SUBNET_EVM_VERSION=$SUBNET_EVM_VERSION >> $GITHUB_ENV
+          echo GO_VERSION=$GO_VERSION >> $GITHUB_ENV
+
       - name: Checkout subnet-evm repository
         uses: actions/checkout@v4
         with:
           repository: ava-labs/subnet-evm
-          ref: v0.5.8
-
-      - name: Set Go version
-        run: |
-          source ./scripts/versions.sh
-          echo GO_VERSION=$GO_VERSION >> $GITHUB_ENV
+          ref: ${{ env.SUBNET_EVM_VERSION }}
+          path: subnet-evm
 
       - name: Setup Go
         uses: actions/setup-go@v5
@@ -34,13 +39,10 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
 
       - name: Install AvalancheGo Release
-        run: BASEDIR=/tmp/e2e-test AVALANCHEGO_BUILD_PATH=/tmp/e2e-test/avalanchego ./scripts/install_avalanchego_release.sh
+        run: BASEDIR=/tmp/e2e-test AVALANCHEGO_BUILD_PATH=/tmp/e2e-test/avalanchego ./subnet-evm/scripts/install_avalanchego_release.sh
 
       - name: Build Subnet-EVM Plugin Binary
-        run: ./scripts/build.sh /tmp/e2e-test/avalanchego/plugins/srEXiWaHuhNyGwPUi444Tu47ZEDwxTWrbQiuD7FmgSAQ6X7Dy
-
-      - name: Checkout awm-relayer repository
-        uses: actions/checkout@v4
+        run: ./subnet-evm/scripts/build.sh /tmp/e2e-test/avalanchego/plugins/srEXiWaHuhNyGwPUi444Tu47ZEDwxTWrbQiuD7FmgSAQ6X7Dy
 
       - name: Run E2E Tests
         run: AVALANCHEGO_BUILD_PATH=/tmp/e2e-test/avalanchego DATA_DIR=/tmp/e2e-test/data ./scripts/e2e_test.sh
