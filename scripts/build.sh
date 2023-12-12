@@ -6,8 +6,6 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-go_version_minimum="1.18.1"
-
 go_version() {
     go version | sed -nE -e 's/[^0-9.]+([0-9.]+).+/\1/p'
 }
@@ -24,11 +22,6 @@ version_lt() {
     fi
 }
 
-if version_lt "$(go_version)" "$go_version_minimum"; then
-    echo "awm-relayer requires Go >= $go_version_minimum, Go $(go_version) found." >&2
-    exit 1
-fi
-
 # Root directory
 RELAYER_PATH=$(
     cd "$(dirname "${BASH_SOURCE[0]}")"
@@ -38,6 +31,13 @@ RELAYER_PATH=$(
 # Load the versions and constants
 source "$RELAYER_PATH"/scripts/versions.sh
 source "$RELAYER_PATH"/scripts/constants.sh
+
+go_version_minimum=$GO_VERSION
+
+if version_lt "$(go_version)" "$go_version_minimum"; then
+    echo "awm-relayer requires Go >= $go_version_minimum, Go $(go_version) found." >&2
+    exit 1
+fi
 
 if [[ $# -eq 1 ]]; then
     binary_path=$1
