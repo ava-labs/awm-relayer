@@ -17,6 +17,9 @@ jobs:
     runs-on: ubuntu-20.04
 
     steps:
+      - name: Checkout awm-relayer repository
+        uses: actions/checkout@v4
+        
       - name: Set Go version
         run: |
           source ./scripts/versions.sh
