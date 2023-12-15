@@ -83,6 +83,9 @@ The relayer is configured via a JSON file, the path to which is passed in via th
   `"supported-destinations": []string` 
   - List of destination subnet IDs that the source subnet supports. If empty, then all destinations are supported.
 
+  `"catch-up-block-height": integer`
+  - The block height at which to back-process transactions from the source subnet. If the database already contains a later block height for the source subnet, then that will be used instead.
+
 `"destination-subnets": []DestinationSubnets`
 - The list of destination subnets to support. Each `DestinationSubnet` has the following configuration:
 
