@@ -97,3 +97,10 @@ func SanitizeHexString(hex string) string {
 	}
 	return hex
 }
+
+func MaxBigInt(a, b *big.Int) *big.Int {
+	if a.Cmp(b) > 0 {
+		return new(big.Int).Set(a)
+	}
+	return new(big.Int).Set(b)
+}

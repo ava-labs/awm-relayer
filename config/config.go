@@ -47,6 +47,7 @@ type SourceSubnet struct {
 	WSEndpoint            string                           `mapstructure:"ws-endpoint" json:"ws-endpoint"`
 	MessageContracts      map[string]MessageProtocolConfig `mapstructure:"message-contracts" json:"message-contracts"`
 	SupportedDestinations []string                         `mapstructure:"supported-destinations" json:"supported-destinations"`
+	CatchUpBlockHeight    *big.Int                         `mapstructure:"catch-up-block-height" json:"catch-up-block-height"`
 
 	// convenience field to access the supported destinations after initialization
 	supportedDestinations set.Set[ids.ID]
