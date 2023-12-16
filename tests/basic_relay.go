@@ -23,6 +23,8 @@ import (
 	subnetevmutils "github.com/ava-labs/subnet-evm/utils"
 	"github.com/ava-labs/subnet-evm/x/warp"
 	teleportermessenger "github.com/ava-labs/teleporter/abi-bindings/go/Teleporter/TeleporterMessenger"
+	"github.com/ava-labs/teleporter/tests/interfaces"
+	"github.com/ava-labs/teleporter/tests/utils"
 	teleporterTestUtils "github.com/ava-labs/teleporter/tests/utils"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
@@ -39,7 +41,7 @@ var (
 // will then send a transaction to the source subnet to issue a Warp message simulting a transaction
 // sent from the Teleporter contract. The relayer will then wait for the transaction to be confirmed
 // on the destination subnet and verify that the Warp message was received and unpacked correctly.
-func BasicRelay() {
+func BasicRelay(network interfaces.LocalNetwork) {
 	var (
 		receivedWarpMessage *avalancheWarp.Message
 		payload             []byte
@@ -47,10 +49,9 @@ func BasicRelay() {
 		relayerCancel       context.CancelFunc
 	)
 
-	subnetAInfo := teleporterTestUtils.GetSubnetATestInfo()
-	subnetBInfo := teleporterTestUtils.GetSubnetBTestInfo()
-	teleporterContractAddress := teleporterTestUtils.GetTeleporterContractAddress()
-	fundedAddress, fundedKey := teleporterTestUtils.GetFundedAccountInfo()
+	subnetAInfo, subnetBInfo := utils.GetTwoSubnets(network)
+	fundedAddress, fundedKey := network.GetFundedAccountInfo()
+	teleporterContractAddress := network.GetTeleporterContractAddress()
 
 	teleporterMessage := teleportermessenger.TeleporterMessage{
 		MessageID:               big.NewInt(1),
@@ -66,10 +67,10 @@ func BasicRelay() {
 	//
 	// Set up relayer config
 	//
-	hostA, portA, err := teleporterTestUtils.GetURIHostAndPort(subnetAInfo.ChainNodeURIs[0])
+	hostA, portA, err := teleporterTestUtils.GetURIHostAndPort(subnetAInfo.NodeURIs[0])
 	Expect(err).Should(BeNil())
 
-	hostB, portB, err := teleporterTestUtils.GetURIHostAndPort(subnetBInfo.ChainNodeURIs[0])
+	hostB, portB, err := teleporterTestUtils.GetURIHostAndPort(subnetBInfo.NodeURIs[0])
 	Expect(err).Should(BeNil())
 
 	log.Info(
@@ -87,7 +88,7 @@ func BasicRelay() {
 	relayerConfig := config.Config{
 		LogLevel:          logging.Info.LowerString(),
 		NetworkID:         peers.LocalNetworkID,
-		PChainAPIURL:      subnetAInfo.ChainNodeURIs[0],
+		PChainAPIURL:      subnetAInfo.NodeURIs[0],
 		EncryptConnection: false,
 		StorageLocation:   storageLocation,
 		SourceSubnets: []config.SourceSubnet{
@@ -167,34 +168,30 @@ func BasicRelay() {
 	}
 
 	// Send a transaction to the Teleporter contract
-	signedTx := teleporterTestUtils.CreateSendCrossChainMessageTransaction(ctx, subnetAInfo, input, fundedAddress, fundedKey, teleporterContractAddress)
+	log.Info("Sending teleporter transaction", "destinationBlockchainID", subnetBInfo.BlockchainID)
+	receipt, teleporterMessageID := teleporterTestUtils.SendCrossChainMessageAndWaitForAcceptance(
+		ctx,
+		subnetAInfo,
+		subnetBInfo,
+		input,
+		fundedKey,
+	)
 
 	// Sleep for some time to make sure relayer has started up and subscribed.
 	time.Sleep(15 * time.Second)
 	log.Info("Subscribing to new heads on destination chain")
 
 	newHeadsB := make(chan *types.Header, 10)
-	sub, err := subnetBInfo.ChainWSClient.SubscribeNewHead(ctx, newHeadsB)
+	sub, err := subnetBInfo.WSClient.SubscribeNewHead(ctx, newHeadsB)
 	Expect(err).Should(BeNil())
 	defer sub.Unsubscribe()
-
-	log.Info("Sending teleporter transaction", "destinationBlockchainID", subnetBInfo.BlockchainID, "txHash", signedTx.Hash())
-	receipt := teleporterTestUtils.SendTransactionAndWaitForAcceptance(ctx, subnetAInfo.ChainWSClient, signedTx)
-
-	bind, err := teleportermessenger.NewTeleporterMessenger(teleporterContractAddress, subnetAInfo.ChainWSClient)
-	Expect(err).Should(BeNil())
-	sendEvent, err := teleporterTestUtils.GetEventFromLogs(receipt.Logs, bind.ParseSendCrossChainMessage)
-	Expect(err).Should(BeNil())
-	Expect(sendEvent.DestinationBlockchainID[:]).Should(Equal(subnetBInfo.BlockchainID[:]))
-
-	teleporterMessageID := sendEvent.Message.MessageID
 
 	// Get the latest block from Subnet B
 	log.Info("Waiting for new block confirmation")
 	newHead := <-newHeadsB
 	log.Info("Received new head", "height", newHead.Number.Uint64())
 	blockHash := newHead.Hash()
-	block, err := subnetBInfo.ChainWSClient.BlockByHash(ctx, blockHash)
+	block, err := subnetBInfo.RPCClient.BlockByHash(ctx, blockHash)
 	Expect(err).Should(BeNil())
 	log.Info(
 		"Got block",
@@ -218,15 +215,12 @@ func BasicRelay() {
 
 	// Check that the transaction has successful receipt status
 	txHash := block.Transactions()[0].Hash()
-	receipt, err = subnetBInfo.ChainWSClient.TransactionReceipt(ctx, txHash)
+	receipt, err = subnetBInfo.RPCClient.TransactionReceipt(ctx, txHash)
 	Expect(err).Should(BeNil())
 	Expect(receipt.Status).Should(Equal(types.ReceiptStatusSuccessful))
 
 	// Check that the transaction emits ReceiveCrossChainMessage
-	bind, err = teleportermessenger.NewTeleporterMessenger(teleporterContractAddress, subnetBInfo.ChainWSClient)
-	Expect(err).Should(BeNil())
-
-	receiveEvent, err := teleporterTestUtils.GetEventFromLogs(receipt.Logs, bind.ParseReceiveCrossChainMessage)
+	receiveEvent, err := teleporterTestUtils.GetEventFromLogs(receipt.Logs, subnetBInfo.TeleporterMessenger.ParseReceiveCrossChainMessage)
 	Expect(err).Should(BeNil())
 	Expect(receiveEvent.OriginBlockchainID[:]).Should(Equal(subnetAInfo.BlockchainID[:]))
 	Expect(receiveEvent.Message.MessageID.Uint64()).Should(Equal(teleporterMessageID.Uint64()))

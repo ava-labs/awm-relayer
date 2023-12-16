@@ -10,14 +10,19 @@ import (
 
 	testUtils "github.com/ava-labs/awm-relayer/tests/utils"
 	"github.com/ava-labs/awm-relayer/utils"
-	teleporterTestUtils "github.com/ava-labs/teleporter/tests/utils"
+	"github.com/ava-labs/teleporter/tests/local"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
 const (
 	warpGenesisFile = "./tests/utils/warp-genesis.json"
+)
+
+var (
+	localNetworkInstance *local.LocalNetwork
 )
 
 func TestE2E(t *testing.T) {
@@ -30,21 +35,32 @@ func TestE2E(t *testing.T) {
 }
 
 // Define the Relayer before and after suite functions.
-var _ = ginkgo.BeforeSuite(setupSuite)
-
-var _ = ginkgo.AfterSuite(teleporterTestUtils.TearDownNetwork)
-
-var _ = ginkgo.Describe("[AWM Relayer Integration Tests", func() {
-	ginkgo.It("Basic Relay", BasicRelay)
-})
-
-// Sets up the warp-enabled network and deploys the teleporter contract to each of the subnets
-func setupSuite() {
-	teleporterTestUtils.SetupNetwork(warpGenesisFile)
+var _ = ginkgo.BeforeSuite(func() {
+	localNetworkInstance = local.NewLocalNetwork(warpGenesisFile)
+	// Generate the Teleporter deployment values
 	teleporterContractAddress := common.HexToAddress(testUtils.ReadHexTextFile("./tests/utils/UniversalTeleporterMessengerContractAddress.txt"))
 	teleporterDeployerAddress := common.HexToAddress(testUtils.ReadHexTextFile("./tests/utils/UniversalTeleporterDeployerAddress.txt"))
 	teleporterDeployerTransactionStr := testUtils.ReadHexTextFile("./tests/utils/UniversalTeleporterDeployerTransaction.txt")
 	teleporterDeployerTransaction, err := hex.DecodeString(utils.SanitizeHexString(teleporterDeployerTransactionStr))
 	Expect(err).Should(BeNil())
-	teleporterTestUtils.DeployTeleporterContracts(teleporterDeployerTransaction, teleporterDeployerAddress, teleporterContractAddress)
-}
+
+	_, fundedKey := localNetworkInstance.GetFundedAccountInfo()
+	localNetworkInstance.DeployTeleporterContracts(
+		teleporterDeployerTransaction,
+		teleporterDeployerAddress,
+		teleporterContractAddress,
+		fundedKey,
+	)
+	localNetworkInstance.DeployTeleporterRegistryContracts(teleporterContractAddress, fundedKey)
+	log.Info("Set up ginkgo before suite")
+})
+
+var _ = ginkgo.AfterSuite(func() {
+	localNetworkInstance.TearDownNetwork()
+})
+
+var _ = ginkgo.Describe("[AWM Relayer Integration Tests", func() {
+	ginkgo.It("Basic Relay", func() {
+		BasicRelay(localNetworkInstance)
+	})
+})
