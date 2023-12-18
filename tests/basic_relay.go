@@ -28,6 +28,7 @@ import (
 	"github.com/ava-labs/teleporter/tests/utils"
 	teleporterTestUtils "github.com/ava-labs/teleporter/tests/utils"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	. "github.com/onsi/gomega"
 )
@@ -51,6 +52,26 @@ func BasicRelay(network interfaces.LocalNetwork) {
 	subnetAInfo, subnetBInfo := utils.GetTwoSubnets(network)
 	fundedAddress, fundedKey := network.GetFundedAccountInfo()
 	teleporterContractAddress := network.GetTeleporterContractAddress()
+
+	//
+	// Fund the relayer address on all subnets
+	//
+	ctx := context.Background()
+
+	log.Info("Funding relayer address on all subnets")
+	relayerKey, err := crypto.GenerateKey()
+	Expect(err).Should(BeNil())
+	relayerAddress := crypto.PubkeyToAddress(relayerKey.PublicKey)
+
+	fundAmount := big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(10)) // 10eth
+	fundRelayerTxA := utils.CreateNativeTransferTransaction(
+		ctx, subnetAInfo, fundedKey, relayerAddress, fundAmount,
+	)
+	utils.SendTransactionAndWaitForSuccess(ctx, subnetAInfo, fundRelayerTxA)
+	fundRelayerTxB := utils.CreateNativeTransferTransaction(
+		ctx, subnetBInfo, fundedKey, relayerAddress, fundAmount,
+	)
+	utils.SendTransactionAndWaitForSuccess(ctx, subnetBInfo, fundRelayerTxB)
 
 	//
 	// Set up relayer config
@@ -96,8 +117,6 @@ func BasicRelay(network interfaces.LocalNetwork) {
 					},
 				},
 			},
-		},
-		DestinationSubnets: []config.DestinationSubnet{
 			{
 				SubnetID:          subnetBInfo.SubnetID.String(),
 				BlockchainID:      subnetBInfo.BlockchainID.String(),
@@ -105,7 +124,34 @@ func BasicRelay(network interfaces.LocalNetwork) {
 				EncryptConnection: false,
 				APINodeHost:       hostB,
 				APINodePort:       portB,
-				AccountPrivateKey: hex.EncodeToString(fundedKey.D.Bytes()),
+				MessageContracts: map[string]config.MessageProtocolConfig{
+					teleporterContractAddress.Hex(): {
+						MessageFormat: config.TELEPORTER.String(),
+						Settings: map[string]interface{}{
+							"reward-address": fundedAddress.Hex(),
+						},
+					},
+				},
+			},
+		},
+		DestinationSubnets: []config.DestinationSubnet{
+			{
+				SubnetID:          subnetAInfo.SubnetID.String(),
+				BlockchainID:      subnetAInfo.BlockchainID.String(),
+				VM:                config.EVM.String(),
+				EncryptConnection: false,
+				APINodeHost:       hostA,
+				APINodePort:       portA,
+				AccountPrivateKey: hex.EncodeToString(relayerKey.D.Bytes()),
+			},
+			{
+				SubnetID:          subnetBInfo.SubnetID.String(),
+				BlockchainID:      subnetBInfo.BlockchainID.String(),
+				VM:                config.EVM.String(),
+				EncryptConnection: false,
+				APINodeHost:       hostB,
+				APINodePort:       portB,
+				AccountPrivateKey: hex.EncodeToString(relayerKey.D.Bytes()),
 			},
 		},
 	}
@@ -132,20 +178,32 @@ func BasicRelay(network interfaces.LocalNetwork) {
 	Expect(err).Should(BeNil())
 
 	//
-	// Send a transaction to Subnet A to issue a Warp Message from the Teleporter contract to Subnet B
+	// Test Relaying from Subnet A to Subnet B
 	//
-	log.Info("Sending transaction from Subnet A to Subnet B")
-	ctx := context.Background()
-
+	log.Info("Starting the relayer")
 	relayerCmd, relayerCancel = testUtils.RunRelayerExecutable(ctx, relayerConfigPath)
 
 	// Sleep for some time to make sure relayer has started up and subscribed.
+	log.Info("Waiting for the relayer to start up")
 	time.Sleep(15 * time.Second)
 
+	log.Info("Sending transaction from Subnet A to Subnet B")
 	relayBasicMessage(
 		ctx,
 		subnetAInfo,
 		subnetBInfo,
+		fundedKey,
+		fundedAddress,
+	)
+
+	//
+	// Test Relaying from Subnet B to Subnet A
+	//
+	log.Info("Sending transaction from Subnet B to Subnet A")
+	relayBasicMessage(
+		ctx,
+		subnetBInfo,
+		subnetAInfo,
 		fundedKey,
 		fundedAddress,
 	)
@@ -211,9 +269,6 @@ func relayBasicMessage(
 		Message:                 []byte{1, 2, 3, 4},
 	}
 
-	payload, err := teleportermessenger.PackTeleporterMessage(teleporterMessage)
-	Expect(err).Should(BeNil())
-
 	input := teleportermessenger.TeleporterMessageInput{
 		DestinationBlockchainID: teleporterMessage.DestinationBlockchainID,
 		DestinationAddress:      teleporterMessage.DestinationAddress,
@@ -232,7 +287,11 @@ func relayBasicMessage(
 	defer sub.Unsubscribe()
 
 	// Send a transaction to the Teleporter contract
-	log.Info("Sending teleporter transaction", "destinationBlockchainID", destination.BlockchainID)
+	log.Info(
+		"Sending teleporter transaction",
+		"sourceBlockchainID", source.BlockchainID,
+		"destinationBlockchainID", destination.BlockchainID,
+	)
 	_, teleporterMessageID := teleporterTestUtils.SendCrossChainMessageAndWaitForAcceptance(
 		ctx,
 		source,
@@ -287,13 +346,18 @@ func relayBasicMessage(
 	addressedPayload, err := warpPayload.ParseAddressedCall(receivedWarpMessage.Payload)
 	Expect(err).Should(BeNil())
 
-	Expect(addressedPayload.Payload).Should(Equal(payload))
-
 	// Check that the teleporter message is correct
+	// We don't validate the entire message, since the message receipts
+	// are populated by the Teleporter contract
 	receivedTeleporterMessage, err := teleportermessenger.UnpackTeleporterMessage(addressedPayload.Payload)
 	Expect(err).Should(BeNil())
-	Expect(*receivedTeleporterMessage).Should(Equal(teleporterMessage))
+
+	Expect(receivedTeleporterMessage.MessageID.Uint64()).Should(Equal(teleporterMessageID.Uint64()))
+	Expect(receivedTeleporterMessage.SenderAddress).Should(Equal(teleporterMessage.SenderAddress))
 	receivedDestinationID, err := ids.ToID(receivedTeleporterMessage.DestinationBlockchainID[:])
 	Expect(err).Should(BeNil())
 	Expect(receivedDestinationID).Should(Equal(destination.BlockchainID))
+	Expect(receivedTeleporterMessage.DestinationAddress).Should(Equal(teleporterMessage.DestinationAddress))
+	Expect(receivedTeleporterMessage.RequiredGasLimit.Uint64()).Should(Equal(teleporterMessage.RequiredGasLimit.Uint64()))
+	Expect(receivedTeleporterMessage.Message).Should(Equal(teleporterMessage.Message))
 }
