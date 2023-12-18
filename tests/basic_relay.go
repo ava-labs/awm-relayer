@@ -48,8 +48,8 @@ func BasicRelay(network interfaces.LocalNetwork) {
 		relayerCmd    *exec.Cmd
 		relayerCancel context.CancelFunc
 	)
-
-	subnetAInfo, subnetBInfo := utils.GetTwoSubnets(network)
+	subnetAInfo := network.GetPrimaryNetworkInfo()
+	subnetBInfo, _ := utils.GetTwoSubnets(network)
 	fundedAddress, fundedKey := network.GetFundedAccountInfo()
 	teleporterContractAddress := network.GetTeleporterContractAddress()
 
