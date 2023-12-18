@@ -80,7 +80,7 @@ func newMessageRelayer(
 	}
 }
 
-func (r *messageRelayer) relayMessage(warpMessageInfo *vmtypes.WarpMessageInfo, requestID uint32, messageManager messages.MessageManager) error {
+func (r *messageRelayer) relayMessage(warpMessageInfo *vmtypes.WarpMessageInfo, requestID uint32, messageManager messages.MessageManager, useAppRequestNetwork bool) error {
 	shouldSend, err := messageManager.ShouldSendMessage(warpMessageInfo, r.destinationBlockchainID)
 	if err != nil {
 		r.logger.Error(
@@ -99,14 +99,27 @@ func (r *messageRelayer) relayMessage(warpMessageInfo *vmtypes.WarpMessageInfo, 
 
 	startCreateSignedMessageTime := time.Now()
 	// Query nodes on the origin chain for signatures, and construct the signed warp message.
-	signedMessage, err := r.createSignedMessage()
-	if err != nil {
-		r.logger.Error(
-			"Failed to create signed warp message",
-			zap.Error(err),
-		)
-		r.incFailedRelayMessageCount("failed to create signed warp message")
-		return err
+	var signedMessage *avalancheWarp.Message
+	if useAppRequestNetwork {
+		signedMessage, err = r.createSignedMessageAppRequest(requestID)
+		if err != nil {
+			r.logger.Error(
+				"Failed to create signed warp message via AppRequest network",
+				zap.Error(err),
+			)
+			r.incFailedRelayMessageCount("failed to create signed warp message via AppRequest network")
+			return err
+		}
+	} else {
+		signedMessage, err = r.createSignedMessage()
+		if err != nil {
+			r.logger.Error(
+				"Failed to create signed warp message via RPC",
+				zap.Error(err),
+			)
+			r.incFailedRelayMessageCount("failed to create signed warp message via RPC")
+			return err
+		}
 	}
 
 	// create signed message latency (ms)
