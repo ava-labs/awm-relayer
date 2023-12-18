@@ -167,6 +167,15 @@ func BasicRelay(network interfaces.LocalNetwork) {
 		Message:                 teleporterMessage.Message,
 	}
 
+	// Sleep for some time to make sure relayer has started up and subscribed.
+	time.Sleep(15 * time.Second)
+	log.Info("Subscribing to new heads on destination chain")
+
+	newHeadsB := make(chan *types.Header, 10)
+	sub, err := subnetBInfo.WSClient.SubscribeNewHead(ctx, newHeadsB)
+	Expect(err).Should(BeNil())
+	defer sub.Unsubscribe()
+
 	// Send a transaction to the Teleporter contract
 	log.Info("Sending teleporter transaction", "destinationBlockchainID", subnetBInfo.BlockchainID)
 	receipt, teleporterMessageID := teleporterTestUtils.SendCrossChainMessageAndWaitForAcceptance(
@@ -176,15 +185,6 @@ func BasicRelay(network interfaces.LocalNetwork) {
 		input,
 		fundedKey,
 	)
-
-	// Sleep for some time to make sure relayer has started up and subscribed.
-	time.Sleep(15 * time.Second)
-	log.Info("Subscribing to new heads on destination chain")
-
-	newHeadsB := make(chan *types.Header, 10)
-	sub, err := subnetBInfo.WSClient.SubscribeNewHead(ctx, newHeadsB)
-	Expect(err).Should(BeNil())
-	defer sub.Unsubscribe()
 
 	// Get the latest block from Subnet B
 	log.Info("Waiting for new block confirmation")
