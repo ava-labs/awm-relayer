@@ -302,13 +302,17 @@ func relayBasicMessage(
 
 	log.Info("Waiting for new block confirmation")
 	newHead := <-newHeadsDest
-	log.Info("Received new head", "height", newHead.Number.Uint64())
-	blockHash := newHead.Hash()
-	block, err := destination.RPCClient.BlockByHash(ctx, blockHash)
+	blockNumber := newHead.Number
+	log.Info(
+		"Received new head",
+		"height", blockNumber.Uint64(),
+		"hash", newHead.Hash(),
+	)
+	block, err := destination.RPCClient.BlockByNumber(ctx, blockNumber)
 	Expect(err).Should(BeNil())
 	log.Info(
 		"Got block",
-		"blockHash", blockHash,
+		"blockHash", block.Hash(),
 		"blockNumber", block.NumberU64(),
 		"transactions", block.Transactions(),
 		"numTransactions", len(block.Transactions()),
