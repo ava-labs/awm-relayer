@@ -19,11 +19,15 @@ import (
 	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/avalanchego/utils/set"
 	"github.com/ava-labs/avalanchego/vms/platformvm/warp"
+	avalancheWarp "github.com/ava-labs/avalanchego/vms/platformvm/warp"
 	"github.com/ava-labs/awm-relayer/messages"
 	"github.com/ava-labs/awm-relayer/peers"
 	"github.com/ava-labs/awm-relayer/utils"
 	"github.com/ava-labs/awm-relayer/vms/vmtypes"
+	"github.com/ava-labs/coreth/params"
 	msg "github.com/ava-labs/subnet-evm/plugin/evm/message"
+	warpBackend "github.com/ava-labs/subnet-evm/warp"
+
 	"go.uber.org/zap"
 )
 
@@ -95,7 +99,7 @@ func (r *messageRelayer) relayMessage(warpMessageInfo *vmtypes.WarpMessageInfo, 
 
 	startCreateSignedMessageTime := time.Now()
 	// Query nodes on the origin chain for signatures, and construct the signed warp message.
-	signedMessage, err := r.createSignedMessage(requestID)
+	signedMessage, err := r.createSignedMessage()
 	if err != nil {
 		r.logger.Error(
 			"Failed to create signed warp message",
@@ -125,8 +129,79 @@ func (r *messageRelayer) relayMessage(warpMessageInfo *vmtypes.WarpMessageInfo, 
 	return nil
 }
 
+func (r *messageRelayer) createSignedMessage() (*warp.Message, error) {
+	r.logger.Info("Fetching aggregate signature from the source chain validators")
+	warpClient, err := warpBackend.NewClient(r.relayer.apiNodeURI, r.relayer.sourceBlockchainID.String())
+	if err != nil {
+		r.logger.Error(
+			"Failed to create warp client",
+			zap.Error(err),
+		)
+		return nil, err
+	}
+	signingSubnetID := r.relayer.sourceSubnetID
+	if r.relayer.sourceSubnetID == constants.PrimaryNetworkID {
+		signingSubnetID, err = r.relayer.pChainClient.ValidatedBy(context.Background(), r.destinationBlockchainID)
+		if err != nil {
+			r.logger.Error(
+				"failed to get validating subnet for destination chain",
+				zap.String("destinationBlockchainID", r.destinationBlockchainID.String()),
+				zap.Error(err),
+			)
+			return nil, err
+		}
+	}
+
+	var signedWarpMessageBytes []byte
+	for attempt := 1; attempt <= maxRelayerQueryAttempts; attempt++ {
+		r.logger.Debug(
+			"Relayer collecting signatures from peers.",
+			zap.Int("attempt", attempt),
+			zap.String("sourceBlockchainID", r.relayer.sourceBlockchainID.String()),
+			zap.String("destinationBlockchainID", r.destinationBlockchainID.String()),
+			zap.String("signingSubnetID", signingSubnetID.String()),
+		)
+		signedWarpMessageBytes, err = warpClient.GetMessageAggregateSignature(
+			context.Background(),
+			r.warpMessage.ID(),
+			params.WarpDefaultQuorumNumerator,
+			signingSubnetID.String(),
+		)
+		if err == nil {
+			warpMsg, err := avalancheWarp.ParseMessage(signedWarpMessageBytes)
+			if err != nil {
+				r.logger.Error(
+					"Failed to parse signed warp message",
+					zap.Error(err),
+				)
+				return nil, err
+			}
+			return warpMsg, err
+		} else {
+			r.logger.Info(
+				"Failed to get aggregate signature from source chain validators",
+				zap.Int("attempt", attempt),
+				zap.Error(err),
+			)
+		}
+		if attempt != maxRelayerQueryAttempts {
+			// Sleep such that all retries are uniformly spread across totalRelayerQueryPeriodMs
+			// TODO: We may want to consider an exponential back off rather than a uniform sleep period.
+			time.Sleep(time.Duration(signatureRequestRetryWaitPeriodMs/maxRelayerQueryAttempts) * time.Millisecond)
+		}
+	}
+	r.logger.Warn(
+		"Failed to collect a threshold of signatures",
+		zap.Int("attempts", maxRelayerQueryAttempts),
+		zap.String("sourceBlockchainID", r.relayer.sourceBlockchainID.String()),
+		zap.String("destinationBlockchainID", r.destinationBlockchainID.String()),
+		zap.String("signingSubnetID", signingSubnetID.String()),
+	)
+	return nil, errNotEnoughSignatures
+}
+
 // Run collects signatures from nodes by directly querying them via AppRequest, then aggregates the signatures, and constructs the signed warp message.
-func (r *messageRelayer) createSignedMessage(requestID uint32) (*warp.Message, error) {
+func (r *messageRelayer) createSignedMessageAppRequest(requestID uint32) (*warp.Message, error) {
 	r.logger.Info(
 		"Starting relayer routine",
 		zap.String("destinationBlockchainID", r.destinationBlockchainID.String()),
@@ -311,7 +386,7 @@ func (r *messageRelayer) createSignedMessage(requestID uint32) (*warp.Message, e
 					}
 
 					// As soon as the signatures exceed the stake weight threshold we try to aggregate and send the transaction.
-					if utils.CheckStakeWeightExceedsThreshold(accumulatedSignatureWeight, totalValidatorWeight, utils.DefaultQuorumNumerator, utils.DefaultQuorumDenominator) {
+					if utils.CheckStakeWeightExceedsThreshold(accumulatedSignatureWeight, totalValidatorWeight, params.WarpDefaultQuorumNumerator, params.WarpQuorumDenominator) {
 						aggSig, vdrBitSet, err := r.aggregateSignatures(signatureMap)
 						if err != nil {
 							r.logger.Error(
