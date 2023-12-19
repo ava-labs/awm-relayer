@@ -25,6 +25,7 @@ import (
 	"github.com/ava-labs/awm-relayer/utils"
 	"github.com/ava-labs/awm-relayer/vms/vmtypes"
 	"github.com/ava-labs/coreth/params"
+	coreEthMsg "github.com/ava-labs/coreth/plugin/evm/message"
 	msg "github.com/ava-labs/subnet-evm/plugin/evm/message"
 	warpBackend "github.com/ava-labs/subnet-evm/warp"
 
@@ -41,7 +42,8 @@ const (
 )
 
 var (
-	codec = msg.Codec
+	codec        = msg.Codec
+	coreEthCodec = coreEthMsg.Codec
 	// Errors
 	errNotEnoughSignatures = fmt.Errorf("failed to collect a threshold of signatures")
 )
@@ -213,7 +215,7 @@ func (r *messageRelayer) createSignedMessage() (*warp.Message, error) {
 	return nil, errNotEnoughSignatures
 }
 
-// Run collects signatures from nodes by directly querying them via AppRequest, then aggregates the signatures, and constructs the signed warp message.
+// createSignedMessageAppRequest collects signatures from nodes by directly querying them via AppRequest, then aggregates the signatures, and constructs the signed warp message.
 func (r *messageRelayer) createSignedMessageAppRequest(requestID uint32) (*warp.Message, error) {
 	r.logger.Info(
 		"Starting relayer routine",
@@ -261,10 +263,20 @@ func (r *messageRelayer) createSignedMessageAppRequest(requestID uint32) (*warp.
 	}
 
 	// Construct the request
-	req := msg.MessageSignatureRequest{
-		MessageID: r.warpMessage.ID(),
+
+	// Make sure to use the correct codec
+	var reqBytes []byte
+	if r.relayer.sourceSubnetID == constants.PrimaryNetworkID {
+		req := coreEthMsg.MessageSignatureRequest{
+			MessageID: r.warpMessage.ID(),
+		}
+		reqBytes, err = coreEthMsg.RequestToBytes(coreEthCodec, req)
+	} else {
+		req := msg.MessageSignatureRequest{
+			MessageID: r.warpMessage.ID(),
+		}
+		reqBytes, err = msg.RequestToBytes(codec, req)
 	}
-	reqBytes, err := msg.RequestToBytes(codec, req)
 	if err != nil {
 		r.logger.Error(
 			"Failed to marshal request bytes",
@@ -328,7 +340,7 @@ func (r *messageRelayer) createSignedMessageAppRequest(requestID uint32) (*warp.
 		sentTo := r.relayer.network.Network.Send(outMsg, vdrSet, r.relayer.sourceSubnetID, subnets.NoOpAllower)
 		r.logger.Debug(
 			"Sent signature request to network",
-			zap.String("messageID", req.MessageID.String()),
+			zap.String("messageID", r.warpMessage.ID().String()),
 			zap.Any("sentTo", sentTo),
 		)
 		for nodeID := range vdrSet {
