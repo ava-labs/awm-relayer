@@ -94,6 +94,7 @@ func SanitizeHexString(hex string) string {
 	return hex
 }
 
+// StripFromString strips the input string starting from the first occurrence of the substring.
 func StripFromString(input, substring string) string {
 	index := strings.Index(input, substring)
 	if index == -1 {
