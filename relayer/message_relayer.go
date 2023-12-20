@@ -46,6 +46,7 @@ var (
 	coreEthCodec = coreEthMsg.Codec
 	// Errors
 	errNotEnoughSignatures = fmt.Errorf("failed to collect a threshold of signatures")
+	errFailedToGetAggSig   = fmt.Errorf("failed to get aggregate signature from node endpoint")
 )
 
 // messageRelayers are created for each warp message to be relayed.
@@ -144,8 +145,11 @@ func (r *messageRelayer) relayMessage(warpMessageInfo *vmtypes.WarpMessageInfo, 
 	return nil
 }
 
+// createSignedMessage fetches the signed Warp message from the source chain via RPC.
+// Each VM may implement their own RPC method to construct the aggregate signature, which
+// will need to be accounted for here.
 func (r *messageRelayer) createSignedMessage() (*warp.Message, error) {
-	r.logger.Info("Fetching aggregate signature from the source chain validators")
+	r.logger.Info("Fetching aggregate signature from the source chain validators via API")
 	warpClient, err := warpBackend.NewClient(r.relayer.apiNodeURI, r.relayer.sourceBlockchainID.String())
 	if err != nil {
 		r.logger.Error(
@@ -194,7 +198,7 @@ func (r *messageRelayer) createSignedMessage() (*warp.Message, error) {
 			return warpMsg, err
 		} else {
 			r.logger.Info(
-				"Failed to get aggregate signature from source chain validators",
+				errFailedToGetAggSig.Error(),
 				zap.Int("attempt", attempt),
 				zap.Error(err),
 			)
@@ -206,21 +210,18 @@ func (r *messageRelayer) createSignedMessage() (*warp.Message, error) {
 		}
 	}
 	r.logger.Warn(
-		"Failed to collect a threshold of signatures",
+		errFailedToGetAggSig.Error(),
 		zap.Int("attempts", maxRelayerQueryAttempts),
 		zap.String("sourceBlockchainID", r.relayer.sourceBlockchainID.String()),
 		zap.String("destinationBlockchainID", r.destinationBlockchainID.String()),
 		zap.String("signingSubnetID", signingSubnetID.String()),
 	)
-	return nil, errNotEnoughSignatures
+	return nil, errFailedToGetAggSig
 }
 
 // createSignedMessageAppRequest collects signatures from nodes by directly querying them via AppRequest, then aggregates the signatures, and constructs the signed warp message.
 func (r *messageRelayer) createSignedMessageAppRequest(requestID uint32) (*warp.Message, error) {
-	r.logger.Info(
-		"Starting relayer routine",
-		zap.String("destinationBlockchainID", r.destinationBlockchainID.String()),
-	)
+	r.logger.Info("Fetching aggregate signature from the source chain validators via AppRequest")
 
 	// Get the current canonical validator set of the source subnet.
 	validatorSet, totalValidatorWeight, err := r.getCurrentCanonicalValidatorSet()
@@ -463,7 +464,7 @@ func (r *messageRelayer) createSignedMessageAppRequest(requestID uint32) (*warp.
 	}
 
 	r.logger.Warn(
-		"Failed to collect a threshold of signatures",
+		errNotEnoughSignatures.Error(),
 		zap.Int("attempts", maxRelayerQueryAttempts),
 		zap.String("destinationBlockchainID", r.destinationBlockchainID.String()),
 	)
