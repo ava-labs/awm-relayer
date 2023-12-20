@@ -196,13 +196,12 @@ func (r *messageRelayer) createSignedMessage() (*warp.Message, error) {
 				return nil, err
 			}
 			return warpMsg, err
-		} else {
-			r.logger.Info(
-				"Failed to get aggregate signature from node endpoint",
-				zap.Int("attempt", attempt),
-				zap.Error(err),
-			)
 		}
+		r.logger.Info(
+			"Failed to get aggregate signature from node endpoint. Retrying.",
+			zap.Int("attempt", attempt),
+			zap.Error(err),
+		)
 		if attempt != maxRelayerQueryAttempts {
 			// Sleep such that all retries are uniformly spread across totalRelayerQueryPeriodMs
 			// TODO: We may want to consider an exponential back off rather than a uniform sleep period.
