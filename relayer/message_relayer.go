@@ -153,7 +153,7 @@ func (r *messageRelayer) createSignedMessage() (*warp.Message, error) {
 	warpClient, err := warpBackend.NewClient(r.relayer.apiNodeURI, r.relayer.sourceBlockchainID.String())
 	if err != nil {
 		r.logger.Error(
-			"Failed to create warp client",
+			"Failed to create Warp API client",
 			zap.Error(err),
 		)
 		return nil, err
@@ -198,7 +198,7 @@ func (r *messageRelayer) createSignedMessage() (*warp.Message, error) {
 			return warpMsg, err
 		} else {
 			r.logger.Info(
-				errFailedToGetAggSig.Error(),
+				"Failed to get aggregate signature from node endpoint",
 				zap.Int("attempt", attempt),
 				zap.Error(err),
 			)
@@ -210,7 +210,7 @@ func (r *messageRelayer) createSignedMessage() (*warp.Message, error) {
 		}
 	}
 	r.logger.Warn(
-		errFailedToGetAggSig.Error(),
+		"Failed to get aggregate signature from node endpoint",
 		zap.Int("attempts", maxRelayerQueryAttempts),
 		zap.String("sourceBlockchainID", r.relayer.sourceBlockchainID.String()),
 		zap.String("destinationBlockchainID", r.destinationBlockchainID.String()),
@@ -281,7 +281,7 @@ func (r *messageRelayer) createSignedMessageAppRequest(requestID uint32) (*warp.
 	if err != nil {
 		r.logger.Error(
 			"Failed to marshal request bytes",
-			zap.String("destinationBlockchainID", r.destinationBlockchainID.String()),
+			zap.String("warpMessageID", r.warpMessage.ID().String()),
 			zap.Error(err),
 		)
 		return nil, err
@@ -464,7 +464,7 @@ func (r *messageRelayer) createSignedMessageAppRequest(requestID uint32) (*warp.
 	}
 
 	r.logger.Warn(
-		errNotEnoughSignatures.Error(),
+		"Failed to collect a threshold of signatures",
 		zap.Int("attempts", maxRelayerQueryAttempts),
 		zap.String("destinationBlockchainID", r.destinationBlockchainID.String()),
 	)
@@ -481,7 +481,7 @@ func (r *messageRelayer) getCurrentCanonicalValidatorSet() ([]*warp.Validator, u
 		signingSubnet, err = r.relayer.pChainClient.ValidatedBy(context.Background(), r.destinationBlockchainID)
 		if err != nil {
 			r.logger.Error(
-				"failed to get validating subnet for destination chain",
+				"Failed to get validating subnet for destination chain",
 				zap.String("destinationBlockchainID", r.destinationBlockchainID.String()),
 				zap.Error(err),
 			)
