@@ -8,16 +8,12 @@ import (
 	"fmt"
 	"math/big"
 	"net/url"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
 )
 
 const (
-	// Default stake threshold for aggregate signature verification. (67%)
-	// TODO: This should be made configuration on the VM level.
-	DefaultQuorumNumerator   = 67
-	DefaultQuorumDenominator = 100
-
 	// TODO: Revisit these constant values once we are using the subnet-evm branch with finalized
 	// Warp implementation. Should evaluate the maximum gas used by the Teleporter contract "receiveCrossChainMessage"
 	// method, excluding the call to execute the message payload.
@@ -96,4 +92,18 @@ func SanitizeHexString(hex string) string {
 		return hex[2:]
 	}
 	return hex
+}
+
+// StripFromString strips the input string starting from the first occurrence of the substring.
+func StripFromString(input, substring string) string {
+	index := strings.Index(input, substring)
+	if index == -1 {
+		// Substring not found, return the original string
+		return input
+	}
+
+	// Strip the string starting from the found substring
+	strippedString := input[:index]
+
+	return strippedString
 }
