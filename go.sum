@@ -71,6 +71,8 @@ github.com/ava-labs/subnet-evm v0.5.10 h1:ed9BxoiuXRnB/qKakKzYKtZzV/gVjOB2LxuDeg
 github.com/ava-labs/subnet-evm v0.5.10/go.mod h1:wln8B4siQ1Osch+elW9vW1XJGjj5PYxQETkzFyDEMjk=
 github.com/ava-labs/teleporter v0.0.0-20231216161900-52e5f0c35bb1 h1:90y8wOAZYjFXCQcWpNzbWAkX45l9yHJCGEn8pFMaGKk=
 github.com/ava-labs/teleporter v0.0.0-20231216161900-52e5f0c35bb1/go.mod h1:xE+pCNxh0OR988CQysMyhi8jBqK/0oX7ctETHGFVduo=
+github.com/ava-labs/teleporter v0.0.0-20231221165433-826fa59bed3c h1:vnMlfP4SHFoatRufgUma/eGwvVzWdwMo17ADdrh6YYQ=
+github.com/ava-labs/teleporter v0.0.0-20231221165433-826fa59bed3c/go.mod h1:qeclhkPTO4R2McXNrXXca4JmiRSgQ0gJ0KtJWzQGGPE=
 github.com/aymerick/raymond v2.0.3-0.20180322193309-b565731e1464+incompatible/go.mod h1:osfaiScAUVup+UC9Nfq76eWqDhXlp+4UYaA8uhTBO6g=
 github.com/beorn7/perks v1.0.1 h1:VlbKKnNfV8bJzeqoa4cOKqO6bYr3WgKZxO8Z16+hsOM=
 github.com/beorn7/perks v1.0.1/go.mod h1:G2ZrVWU2WbWT9wwq4/hrbKbnv/1ERSJQ0ibhJ6rlkpw=

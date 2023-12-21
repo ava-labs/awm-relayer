@@ -5,7 +5,7 @@ go 1.20
 require (
 	github.com/ava-labs/avalanchego v1.10.17
 	github.com/ava-labs/subnet-evm v0.5.10
-	github.com/ava-labs/teleporter v0.0.0-20231216161900-52e5f0c35bb1
+	github.com/ava-labs/teleporter v0.0.0-20231221165433-826fa59bed3c
 	github.com/ethereum/go-ethereum v1.12.0
 	github.com/onsi/ginkgo/v2 v2.13.2
 	github.com/onsi/gomega v1.30.0
