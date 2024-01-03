@@ -87,7 +87,7 @@ func main() {
 	// Initialize metrics gathered through prometheus
 	gatherer, registerer, err := initializeMetrics()
 	if err != nil {
-		logger.Fatal("failed to set up prometheus metrics",
+		logger.Fatal("Failed to set up prometheus metrics",
 			zap.Error(err))
 		return
 	}
@@ -179,7 +179,7 @@ func main() {
 				responseChans[blockchainID],
 				destinationClients,
 				messageCreator,
-				cfg.ProcessMissedBlocks,
+				cfg,
 			)
 			logger.Info(
 				"Relayer exiting.",
@@ -200,12 +200,19 @@ func runRelayer(logger logging.Logger,
 	responseChan chan message.InboundMessage,
 	destinationClients map[ids.ID]vms.DestinationClient,
 	messageCreator message.Creator,
-	processMissedBlocks bool,
+	cfg config.Config,
 ) {
 	logger.Info(
 		"Creating relayer",
 		zap.String("blockchainID", sourceSubnetInfo.BlockchainID),
 	)
+
+	subnetID, err := ids.FromString(sourceSubnetInfo.SubnetID)
+	if err != nil {
+		// The subnetID should have already been validated
+		panic(err)
+	}
+	quorum := cfg.GetWarpQuorum()[subnetID]
 
 	relayer, subscriber, err := relayer.NewRelayer(
 		logger,
@@ -215,7 +222,8 @@ func runRelayer(logger logging.Logger,
 		network,
 		responseChan,
 		destinationClients,
-		processMissedBlocks,
+		cfg.ProcessMissedBlocks,
+		quorum,
 	)
 	if err != nil {
 		logger.Error(

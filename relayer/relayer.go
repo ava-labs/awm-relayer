@@ -41,6 +41,7 @@ type Relayer struct {
 	db                       database.RelayerDatabase
 	supportedDestinations    set.Set[ids.ID]
 	apiNodeURI               string
+	warpQuorum               config.WarpQuorum
 }
 
 func NewRelayer(
@@ -52,6 +53,7 @@ func NewRelayer(
 	responseChan chan message.InboundMessage,
 	destinationClients map[ids.ID]vms.DestinationClient,
 	shouldProcessMissedBlocks bool,
+	warpQuorum config.WarpQuorum,
 ) (*Relayer, vms.Subscriber, error) {
 	sub := vms.NewSubscriber(logger, sourceSubnetInfo, db)
 
@@ -122,6 +124,7 @@ func NewRelayer(
 		db:                       db,
 		supportedDestinations:    supportedDestinationsBlockchainIDs,
 		apiNodeURI:               uri,
+		warpQuorum:               warpQuorum,
 	}
 
 	// Open the subscription. We must do this before processing any missed messages, otherwise we may miss an incoming message

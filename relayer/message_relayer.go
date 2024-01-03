@@ -24,7 +24,6 @@ import (
 	"github.com/ava-labs/awm-relayer/peers"
 	"github.com/ava-labs/awm-relayer/utils"
 	"github.com/ava-labs/awm-relayer/vms/vmtypes"
-	"github.com/ava-labs/coreth/params"
 	coreEthMsg "github.com/ava-labs/coreth/plugin/evm/message"
 	msg "github.com/ava-labs/subnet-evm/plugin/evm/message"
 	warpBackend "github.com/ava-labs/subnet-evm/warp"
@@ -183,7 +182,7 @@ func (r *messageRelayer) createSignedMessage() (*warp.Message, error) {
 		signedWarpMessageBytes, err = warpClient.GetMessageAggregateSignature(
 			context.Background(),
 			r.warpMessage.ID(),
-			params.WarpDefaultQuorumNumerator,
+			r.relayer.warpQuorum.QuorumNumerator,
 			signingSubnetID.String(),
 		)
 		if err == nil {
@@ -411,7 +410,12 @@ func (r *messageRelayer) createSignedMessageAppRequest(requestID uint32) (*warp.
 					}
 
 					// As soon as the signatures exceed the stake weight threshold we try to aggregate and send the transaction.
-					if utils.CheckStakeWeightExceedsThreshold(accumulatedSignatureWeight, totalValidatorWeight, params.WarpDefaultQuorumNumerator, params.WarpQuorumDenominator) {
+					if utils.CheckStakeWeightExceedsThreshold(
+						accumulatedSignatureWeight,
+						totalValidatorWeight,
+						r.relayer.warpQuorum.QuorumNumerator,
+						r.relayer.warpQuorum.QuorumDenominator,
+					) {
 						aggSig, vdrBitSet, err := r.aggregateSignatures(signatureMap)
 						if err != nil {
 							r.logger.Error(
