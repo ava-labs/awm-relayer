@@ -16,9 +16,7 @@ import (
 	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/avalanchego/utils/set"
 	"github.com/ava-labs/awm-relayer/utils"
-	corethClient "github.com/ava-labs/coreth/ethclient"
 	"github.com/ava-labs/coreth/params"
-	corethWarp "github.com/ava-labs/coreth/precompile/contracts/warp"
 	"github.com/ava-labs/subnet-evm/ethclient"
 	"github.com/ava-labs/subnet-evm/x/warp"
 	"github.com/ethereum/go-ethereum/common"
@@ -319,30 +317,10 @@ func getWarpQuorum(
 	rpc string,
 ) (WarpQuorum, error) {
 	if subnetID == constants.PrimaryNetworkID {
-		client, err := corethClient.Dial(rpc)
-		if err != nil {
-			return WarpQuorum{}, fmt.Errorf("failed to dial primary network: %v", err)
-		}
-		chainConfig, err := client.ChainConfig(context.Background())
-		if err != nil {
-			return WarpQuorum{}, fmt.Errorf("failed to fetch chain config for primary network: %v", err)
-		}
-		precompiles := chainConfig.PrecompileUpgrades
-		for _, precompile := range precompiles {
-			warpConfig, ok := precompile.Config.(*corethWarp.Config)
-			if ok {
-				numerator := warpConfig.QuorumNumerator
-				if numerator == 0 {
-					numerator = params.WarpDefaultQuorumNumerator
-				}
-				return WarpQuorum{
-					QuorumNumerator:   numerator,
-					QuorumDenominator: params.WarpQuorumDenominator,
-				}, nil
-			}
-		}
-		return WarpQuorum{}, fmt.Errorf("failed to find warpConfig for primary network")
-
+		return WarpQuorum{
+			QuorumNumerator:   params.WarpDefaultQuorumNumerator,
+			QuorumDenominator: params.WarpQuorumDenominator,
+		}, nil
 	} else {
 		client, err := ethclient.Dial(rpc)
 		if err != nil {
@@ -377,10 +355,6 @@ func (c *Config) initializeWarpQuorum() error {
 		if err != nil {
 			return fmt.Errorf("invalid subnetID in configuration. error: %v", err)
 		}
-		// TODO: Figure out how to retrieve the warp config from the C-Chain
-		if subnetID == constants.PrimaryNetworkID {
-			continue
-		}
 
 		quorum, err := getWarpQuorum(subnetID, sourceSubnet.GetNodeRPCEndpoint())
 		if err != nil {
@@ -395,10 +369,6 @@ func (c *Config) initializeWarpQuorum() error {
 		subnetID, err := ids.FromString(destinationSubnet.SubnetID)
 		if err != nil {
 			return fmt.Errorf("invalid subnetID in configuration. error: %v", err)
-		}
-		// TODO: Figure out how to retrieve the warp config from the C-Chain
-		if subnetID == constants.PrimaryNetworkID {
-			continue
 		}
 
 		quorum, err := getWarpQuorum(subnetID, destinationSubnet.GetNodeRPCEndpoint())
