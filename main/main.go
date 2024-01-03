@@ -86,7 +86,7 @@ func main() {
 	}
 
 	// Initialize metrics gathered through prometheus
-	gatherer, registerer, err := initMetrics()
+	gatherer, registerer, err := initializeMetrics()
 	if err != nil {
 		logger.Fatal("failed to set up prometheus metrics",
 			zap.Error(err))
@@ -300,7 +300,7 @@ func startMetricsServer(logger logging.Logger, gatherer prometheus.Gatherer, por
 	}()
 }
 
-func initMetrics() (prometheus.Gatherer, prometheus.Registerer, error) {
+func initializeMetrics() (prometheus.Gatherer, prometheus.Registerer, error) {
 	gatherer := metrics.NewMultiGatherer()
 	registry := prometheus.NewRegistry()
 	if err := gatherer.Register("app", registry); err != nil {
