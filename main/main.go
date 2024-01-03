@@ -84,18 +84,17 @@ func main() {
 		return
 	}
 
-	// Initialize the global app request network
-	logger.Info("Initializing app request network")
-	sourceSubnetIDs, sourceBlockchainIDs := cfg.GetSourceIDs()
-
 	// Initialize metrics gathered through prometheus
 	gatherer, registerer, err := initMetrics()
 	if err != nil {
 		logger.Fatal("failed to set up prometheus metrics",
 			zap.Error(err))
-		panic(err)
+		return
 	}
 
+	// Initialize the global app request network
+	logger.Info("Initializing app request network")
+	sourceSubnetIDs, sourceBlockchainIDs := cfg.GetSourceIDs()
 	network, responseChans, err := peers.NewNetwork(logger, registerer, cfg.NetworkID, sourceSubnetIDs, sourceBlockchainIDs, cfg.PChainAPIURL)
 	if err != nil {
 		logger.Error(
@@ -276,13 +275,7 @@ func startMetricsServer(logger logging.Logger, gatherer prometheus.Gatherer, por
 	go func() {
 		logger.Info("starting metrics server...",
 			zap.Uint32("port", port))
-		err := http.ListenAndServe(fmt.Sprintf(":%d", port), nil)
-		if err != nil {
-			logger.Fatal("metrics server exited",
-				zap.Error(err),
-				zap.Uint32("port", port))
-			panic(err)
-		}
+		log.Fatalln(http.ListenAndServe(fmt.Sprintf(":%d", port), nil))
 	}()
 }
 
