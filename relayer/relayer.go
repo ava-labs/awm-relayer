@@ -136,7 +136,8 @@ func NewRelayer(
 	}
 
 	if shouldProcessMissedBlocks {
-		err = r.processMissedBlocks(sub, sourceSubnetInfo.CatchUpBlockHeight)
+		catchUpHeight := big.NewInt(0).SetUint64(sourceSubnetInfo.CatchUpBlockHeight)
+		err = r.processMissedBlocks(sub, catchUpHeight)
 		if err != nil {
 			logger.Error(
 				"Failed to process historical blocks mined during relayer downtime",
