@@ -235,10 +235,7 @@ func (s *subscriber) processBlockRange(
 }
 
 func (s *subscriber) SetProcessedBlockHeightToLatest() error {
-	s.logger.Info(
-		"Updating latest processed block in database",
-		zap.String("blockchainID", s.blockchainID.String()),
-	)
+
 	ethClient, err := s.dial(s.nodeWSURL)
 	if err != nil {
 		s.logger.Error(
@@ -258,6 +255,12 @@ func (s *subscriber) SetProcessedBlockHeightToLatest() error {
 		)
 		return err
 	}
+
+	s.logger.Info(
+		"Updating latest processed block in database",
+		zap.String("blockchainID", s.blockchainID.String()),
+		zap.Uint64("latestBlock", latestBlock),
+	)
 
 	err = s.db.Put(s.blockchainID, []byte(database.LatestProcessedBlockKey), []byte(strconv.FormatUint(latestBlock, 10)))
 	if err != nil {
