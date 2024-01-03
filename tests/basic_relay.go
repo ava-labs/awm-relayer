@@ -286,6 +286,10 @@ func BasicRelay(network interfaces.LocalNetwork) {
 	Expect(delivered1).Should(BeFalse())
 	Expect(delivered2).Should(BeFalse())
 	Expect(delivered3).Should(BeTrue())
+
+	// Cancel the command and stop the relayer
+	relayerCancel()
+	_ = relayerCmd.Wait()
 }
 
 func sendBasicTeleporterMessage(ctx context.Context,
@@ -341,7 +345,6 @@ func relayBasicMessage(
 	fundedKey *ecdsa.PrivateKey,
 	fundedAddress common.Address,
 ) {
-
 	newHeadsDest := make(chan *types.Header, 10)
 	sub, err := destination.WSClient.SubscribeNewHead(ctx, newHeadsDest)
 	Expect(err).Should(BeNil())

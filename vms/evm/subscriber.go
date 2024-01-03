@@ -235,7 +235,6 @@ func (s *subscriber) processBlockRange(
 }
 
 func (s *subscriber) SetProcessedBlockHeightToLatest() error {
-
 	ethClient, err := s.dial(s.nodeWSURL)
 	if err != nil {
 		s.logger.Error(
