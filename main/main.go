@@ -88,7 +88,7 @@ func main() {
 	// Initialize metrics gathered through prometheus
 	gatherer, registerer, err := initializeMetrics()
 	if err != nil {
-		logger.Fatal("failed to set up prometheus metrics",
+		logger.Fatal("Failed to set up prometheus metrics",
 			zap.Error(err))
 		return
 	}
@@ -207,9 +207,9 @@ func main() {
 				responseChans[blockchainID],
 				destinationClients,
 				messageCreator,
-				cfg.ProcessMissedBlocks,
 				health,
 				manualWarpMessages[blockchainID],
+				cfg,
 			)
 		})
 	}
@@ -232,14 +232,21 @@ func runRelayer(
 	responseChan chan message.InboundMessage,
 	destinationClients map[ids.ID]vms.DestinationClient,
 	messageCreator message.Creator,
-	shouldProcessMissedBlocks bool,
 	relayerHealth *atomic.Bool,
 	manualWarpMessages []*vmtypes.WarpLogInfo,
+	cfg config.Config,
 ) error {
 	logger.Info(
 		"Creating relayer",
 		zap.String("originBlockchainID", sourceSubnetInfo.BlockchainID),
 	)
+
+	subnetID, err := ids.FromString(sourceSubnetInfo.SubnetID)
+	if err != nil {
+		// The subnetID should have already been validated
+		panic(err)
+	}
+	quorum := cfg.GetWarpQuorum()[subnetID]
 
 	relayer, err := relayer.NewRelayer(
 		logger,
@@ -251,8 +258,9 @@ func runRelayer(
 		responseChan,
 		destinationClients,
 		messageCreator,
-		shouldProcessMissedBlocks,
 		relayerHealth,
+		cfg.ProcessMissedBlocks,
+		quorum,
 	)
 	if err != nil {
 		return fmt.Errorf("Failed to create relayer instance: %w", err)

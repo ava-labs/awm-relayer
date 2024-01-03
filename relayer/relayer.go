@@ -63,6 +63,7 @@ type Relayer struct {
 	messageCreator           message.Creator
 	catchUpResultChan        chan bool
 	healthStatus             *atomic.Bool
+	warpQuorum               config.WarpQuorum
 }
 
 func NewRelayer(
@@ -75,8 +76,9 @@ func NewRelayer(
 	responseChan chan message.InboundMessage,
 	destinationClients map[ids.ID]vms.DestinationClient,
 	messageCreator message.Creator,
-	shouldProcessMissedBlocks bool,
 	relayerHealth *atomic.Bool,
+	shouldProcessMissedBlocks bool,
+	warpQuorum config.WarpQuorum,
 ) (*Relayer, error) {
 	sub := vms.NewSubscriber(logger, sourceSubnetInfo)
 
@@ -162,6 +164,7 @@ func NewRelayer(
 		messageCreator:           messageCreator,
 		catchUpResultChan:        catchUpResultChan,
 		healthStatus:             relayerHealth,
+		warpQuorum:               warpQuorum,
 	}
 
 	// Open the subscription. We must do this before processing any missed messages, otherwise we may miss an incoming message
