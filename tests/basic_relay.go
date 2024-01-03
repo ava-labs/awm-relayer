@@ -19,6 +19,7 @@ import (
 	"github.com/ava-labs/awm-relayer/database"
 	"github.com/ava-labs/awm-relayer/peers"
 	testUtils "github.com/ava-labs/awm-relayer/tests/utils"
+	"github.com/ava-labs/subnet-evm/accounts/abi/bind"
 	"github.com/ava-labs/subnet-evm/core/types"
 	predicateutils "github.com/ava-labs/subnet-evm/predicate"
 	subnetevmutils "github.com/ava-labs/subnet-evm/utils"
@@ -156,17 +157,7 @@ func BasicRelay(network interfaces.LocalNetwork) {
 		},
 	}
 
-	data, err := json.MarshalIndent(relayerConfig, "", "\t")
-	Expect(err).Should(BeNil())
-
-	f, err := os.CreateTemp(os.TempDir(), "relayer-config.json")
-	Expect(err).Should(BeNil())
-
-	_, err = f.Write(data)
-	Expect(err).Should(BeNil())
-	relayerConfigPath := f.Name()
-
-	log.Info("Created awm-relayer config", "configPath", relayerConfigPath, "config", string(data))
+	relayerConfigPath := writeRelayerConfig(relayerConfig)
 
 	//
 	// Build Relayer
@@ -180,6 +171,8 @@ func BasicRelay(network interfaces.LocalNetwork) {
 	//
 	// Test Relaying from Subnet A to Subnet B
 	//
+	log.Info("Test Relaying from Subnet A to Subnet B")
+
 	log.Info("Starting the relayer")
 	relayerCmd, relayerCancel = testUtils.RunRelayerExecutable(ctx, relayerConfigPath)
 
@@ -199,7 +192,7 @@ func BasicRelay(network interfaces.LocalNetwork) {
 	//
 	// Test Relaying from Subnet B to Subnet A
 	//
-	log.Info("Sending transaction from Subnet B to Subnet A")
+	log.Info("Test Relaying from Subnet B to Subnet A")
 	relayBasicMessage(
 		ctx,
 		subnetBInfo,
@@ -216,7 +209,7 @@ func BasicRelay(network interfaces.LocalNetwork) {
 	//
 	// Try Relaying Already Delivered Message
 	//
-	log.Info("Creating new relayer instance to test already delivered message")
+	log.Info("Test Relaying Already Delivered Message")
 	logger := logging.NewLogger(
 		"awm-relayer",
 		logging.NewWrappedCore(
@@ -239,6 +232,7 @@ func BasicRelay(network interfaces.LocalNetwork) {
 	defer sub.Unsubscribe()
 
 	// Run the relayer
+	log.Info("Creating new relayer instance to test already delivered message")
 	relayerCmd, relayerCancel = testUtils.RunRelayerExecutable(ctx, relayerConfigPath)
 
 	// We should not receive a new block on subnet B, since the relayer should have seen the Teleporter message was already delivered
@@ -248,15 +242,57 @@ func BasicRelay(network interfaces.LocalNetwork) {
 	// Cancel the command and stop the relayer
 	relayerCancel()
 	_ = relayerCmd.Wait()
+
+	//
+	// Set CatchUpBlockHeight in config
+	//
+	log.Info("Test Setting CatchUpBlockHeight in config")
+
+	// Send three Teleporter messages from subnet A to subnet B
+	log.Info("Sending three Teleporter messages from subnet A to subnet B")
+	_, id1 := sendBasicTeleporterMessage(ctx, subnetAInfo, subnetBInfo, fundedKey, fundedAddress)
+	_, id2 := sendBasicTeleporterMessage(ctx, subnetAInfo, subnetBInfo, fundedKey, fundedAddress)
+	_, id3 := sendBasicTeleporterMessage(ctx, subnetAInfo, subnetBInfo, fundedKey, fundedAddress)
+
+	currHeight, err := subnetAInfo.RPCClient.BlockNumber(ctx)
+	Expect(err).Should(BeNil())
+	log.Info("Current block height", "height", currHeight)
+
+	// Configure the relayer such that it will only process the last of the three messages sent above.
+	// The relayer DB stores the height of the block *before* the first message, so by setting the
+	// CatchUpBlockHeight to the block height of the *third* message, we expect the relayer to skip
+	// the first two messages on startup, but process the third.
+	modifiedRelayerConfig := relayerConfig
+	modifiedRelayerConfig.SourceSubnets[0].CatchUpBlockHeight = currHeight
+	modifiedRelayerConfig.ProcessMissedBlocks = true
+	relayerConfigPath = writeRelayerConfig(modifiedRelayerConfig)
+
+	log.Info("Starting the relayer")
+	relayerCmd, relayerCancel = testUtils.RunRelayerExecutable(ctx, relayerConfigPath)
+	log.Info("Waiting for a new block confirmation on subnet B")
+	<-newHeadsB
+	delivered1, err := subnetBInfo.TeleporterMessenger.MessageReceived(
+		&bind.CallOpts{}, subnetAInfo.BlockchainID, id1,
+	)
+	Expect(err).Should(BeNil())
+	delivered2, err := subnetBInfo.TeleporterMessenger.MessageReceived(
+		&bind.CallOpts{}, subnetAInfo.BlockchainID, id2,
+	)
+	Expect(err).Should(BeNil())
+	delivered3, err := subnetBInfo.TeleporterMessenger.MessageReceived(
+		&bind.CallOpts{}, subnetAInfo.BlockchainID, id3,
+	)
+	Expect(err).Should(BeNil())
+	Expect(delivered1).Should(BeFalse())
+	Expect(delivered2).Should(BeFalse())
+	Expect(delivered3).Should(BeTrue())
 }
 
-func relayBasicMessage(
-	ctx context.Context,
+func sendBasicTeleporterMessage(ctx context.Context,
 	source interfaces.SubnetTestInfo,
 	destination interfaces.SubnetTestInfo,
 	fundedKey *ecdsa.PrivateKey,
-	fundedAddress common.Address,
-) {
+	fundedAddress common.Address) (teleportermessenger.TeleporterMessage, *big.Int) {
 	log.Info("Packing Teleporter message")
 	teleporterMessage := teleportermessenger.TeleporterMessage{
 		MessageID:               big.NewInt(1),
@@ -281,11 +317,6 @@ func relayBasicMessage(
 		Message:                 teleporterMessage.Message,
 	}
 
-	newHeadsDest := make(chan *types.Header, 10)
-	sub, err := destination.WSClient.SubscribeNewHead(ctx, newHeadsDest)
-	Expect(err).Should(BeNil())
-	defer sub.Unsubscribe()
-
 	// Send a transaction to the Teleporter contract
 	log.Info(
 		"Sending teleporter transaction",
@@ -298,6 +329,30 @@ func relayBasicMessage(
 		destination,
 		input,
 		fundedKey,
+	)
+
+	return teleporterMessage, teleporterMessageID
+}
+
+func relayBasicMessage(
+	ctx context.Context,
+	source interfaces.SubnetTestInfo,
+	destination interfaces.SubnetTestInfo,
+	fundedKey *ecdsa.PrivateKey,
+	fundedAddress common.Address,
+) {
+
+	newHeadsDest := make(chan *types.Header, 10)
+	sub, err := destination.WSClient.SubscribeNewHead(ctx, newHeadsDest)
+	Expect(err).Should(BeNil())
+	defer sub.Unsubscribe()
+
+	teleporterMessage, teleporterMessageID := sendBasicTeleporterMessage(
+		ctx,
+		source,
+		destination,
+		fundedKey,
+		fundedAddress,
 	)
 
 	log.Info("Waiting for new block confirmation")
@@ -364,4 +419,19 @@ func relayBasicMessage(
 	Expect(receivedTeleporterMessage.DestinationAddress).Should(Equal(teleporterMessage.DestinationAddress))
 	Expect(receivedTeleporterMessage.RequiredGasLimit.Uint64()).Should(Equal(teleporterMessage.RequiredGasLimit.Uint64()))
 	Expect(receivedTeleporterMessage.Message).Should(Equal(teleporterMessage.Message))
+}
+
+func writeRelayerConfig(relayerConfig config.Config) string {
+	data, err := json.MarshalIndent(relayerConfig, "", "\t")
+	Expect(err).Should(BeNil())
+
+	f, err := os.CreateTemp(os.TempDir(), "relayer-config.json")
+	Expect(err).Should(BeNil())
+
+	_, err = f.Write(data)
+	Expect(err).Should(BeNil())
+	relayerConfigPath := f.Name()
+
+	log.Info("Created awm-relayer config", "configPath", relayerConfigPath, "config", string(data))
+	return relayerConfigPath
 }
