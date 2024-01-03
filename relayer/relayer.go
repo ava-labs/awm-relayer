@@ -40,6 +40,7 @@ type Relayer struct {
 	logger                   logging.Logger
 	db                       database.RelayerDatabase
 	supportedDestinations    set.Set[ids.ID]
+	apiNodeURI               string
 }
 
 func NewRelayer(
@@ -98,6 +99,8 @@ func NewRelayer(
 		messageManagers[addressHash] = messageManager
 	}
 
+	uri := utils.StripFromString(sourceSubnetInfo.GetNodeRPCEndpoint(), "/ext")
+
 	logger.Info(
 		"Creating relayer",
 		zap.String("subnetID", subnetID.String()),
@@ -118,6 +121,7 @@ func NewRelayer(
 		logger:                   logger,
 		db:                       db,
 		supportedDestinations:    supportedDestinationsBlockchainIDs,
+		apiNodeURI:               uri,
 	}
 
 	// Open the subscription. We must do this before processing any missed messages, otherwise we may miss an incoming message
@@ -289,7 +293,8 @@ func (r *Relayer) RelayMessage(warpLogInfo *vmtypes.WarpLogInfo, metrics *Messag
 
 	// Relay the message to the destination. Messages from a given source chain must be processed in serial in order to
 	// guarantee that the previous block (n-1) is fully processed by the relayer when processing a given log from block n.
-	err = messageRelayer.relayMessage(warpMessageInfo, r.currentRequestID, messageManager)
+	// TODO: Add a config option to use the Warp API, instead of hardcoding to the app request network here
+	err = messageRelayer.relayMessage(warpMessageInfo, r.currentRequestID, messageManager, true)
 	if err != nil {
 		r.logger.Error(
 			"Failed to run message relayer",
