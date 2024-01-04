@@ -310,6 +310,14 @@ func (m *ManualWarpMessage) Validate() error {
 	return nil
 }
 
+// If the numerator in the Warp config is 0, use the default value
+func setQuorumNumerator(cfgNumerator uint64) uint64 {
+	if cfgNumerator == 0 {
+		return params.WarpDefaultQuorumNumerator
+	}
+	return cfgNumerator
+}
+
 // Helper to retrieve the Warp Quorum from the chain config.
 // Differentiates between subnet-evm and coreth RPC internally
 func getWarpQuorum(
@@ -335,12 +343,8 @@ func getWarpQuorum(
 		// First, check if the Warp precompile was enabled at genesis
 		warpConfig, ok := chainConfig.GenesisPrecompiles["warpConfig"].(*warp.Config)
 		if ok {
-			numerator := warpConfig.QuorumNumerator
-			if numerator == 0 {
-				numerator = params.WarpDefaultQuorumNumerator
-			}
 			return WarpQuorum{
-				QuorumNumerator:   numerator,
+				QuorumNumerator:   setQuorumNumerator(warpConfig.QuorumNumerator),
 				QuorumDenominator: params.WarpQuorumDenominator,
 			}, nil
 		}
@@ -349,12 +353,8 @@ func getWarpQuorum(
 		for _, precompile := range chainConfig.UpgradeConfig.PrecompileUpgrades {
 			warpConfig, ok := precompile.Config.(*warp.Config)
 			if ok {
-				numerator := warpConfig.QuorumNumerator
-				if numerator == 0 {
-					numerator = params.WarpDefaultQuorumNumerator
-				}
 				return WarpQuorum{
-					QuorumNumerator:   numerator,
+					QuorumNumerator:   setQuorumNumerator(warpConfig.QuorumNumerator),
 					QuorumDenominator: params.WarpQuorumDenominator,
 				}, nil
 			}
