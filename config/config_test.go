@@ -13,9 +13,14 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/awm-relayer/utils"
+	mock_ethclient "github.com/ava-labs/awm-relayer/vms/evm/mocks"
+	"github.com/ava-labs/subnet-evm/params"
+	"github.com/ava-labs/subnet-evm/x/warp"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 )
 
 var (
@@ -410,4 +415,118 @@ func TestGetRelayerAccountInfoSkipChainConfigCheckCompatible(t *testing.T) {
 
 	require.NoError(t, err)
 	require.Equal(t, expectedAddress, address.String())
+}
+
+func TestGetWarpQuorum(t *testing.T) {
+	subnetID, err := ids.FromString("p433wpuXyJiDhyazPYyZMJeaoPSW76CBZ2x7wrVPLgvokotXz")
+	require.NoError(t, err)
+
+	testCases := []struct {
+		name                string
+		subnetID            ids.ID
+		chainConfig         params.ChainConfig
+		getChainConfigCalls int
+		expectedError       error
+		expectedQuorum      WarpQuorum
+	}{
+		{
+			name:                "primary network",
+			subnetID:            ids.Empty,
+			getChainConfigCalls: 0,
+			expectedError:       nil,
+			expectedQuorum: WarpQuorum{
+				QuorumNumerator:   params.WarpDefaultQuorumNumerator,
+				QuorumDenominator: params.WarpQuorumDenominator,
+			},
+		},
+		{
+			name:                "subnet genesis precompile",
+			subnetID:            subnetID,
+			getChainConfigCalls: 1,
+			chainConfig: params.ChainConfig{
+				GenesisPrecompiles: params.Precompiles{
+					"warpConfig": &warp.Config{
+						QuorumNumerator: 0,
+					},
+				},
+			},
+			expectedError: nil,
+			expectedQuorum: WarpQuorum{
+				QuorumNumerator:   params.WarpDefaultQuorumNumerator,
+				QuorumDenominator: params.WarpQuorumDenominator,
+			},
+		},
+		{
+			name:                "subnet genesis precompile non-default",
+			subnetID:            subnetID,
+			getChainConfigCalls: 1,
+			chainConfig: params.ChainConfig{
+				GenesisPrecompiles: params.Precompiles{
+					"warpConfig": &warp.Config{
+						QuorumNumerator: 50,
+					},
+				},
+			},
+			expectedError: nil,
+			expectedQuorum: WarpQuorum{
+				QuorumNumerator:   50,
+				QuorumDenominator: params.WarpQuorumDenominator,
+			},
+		},
+		{
+			name:                "subnet upgrade precompile",
+			subnetID:            subnetID,
+			getChainConfigCalls: 1,
+			chainConfig: params.ChainConfig{
+				UpgradeConfig: params.UpgradeConfig{
+					PrecompileUpgrades: []params.PrecompileUpgrade{
+						{
+							Config: &warp.Config{
+								QuorumNumerator: 0,
+							},
+						},
+					},
+				},
+			},
+			expectedError: nil,
+			expectedQuorum: WarpQuorum{
+				QuorumNumerator:   params.WarpDefaultQuorumNumerator,
+				QuorumDenominator: params.WarpQuorumDenominator,
+			},
+		},
+		{
+			name:                "subnet upgrade precompile non-default",
+			subnetID:            subnetID,
+			getChainConfigCalls: 1,
+			chainConfig: params.ChainConfig{
+				UpgradeConfig: params.UpgradeConfig{
+					PrecompileUpgrades: []params.PrecompileUpgrade{
+						{
+							Config: &warp.Config{
+								QuorumNumerator: 50,
+							},
+						},
+					},
+				},
+			},
+			expectedError: nil,
+			expectedQuorum: WarpQuorum{
+				QuorumNumerator:   50,
+				QuorumDenominator: params.WarpQuorumDenominator,
+			},
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			client := mock_ethclient.NewMockClient(gomock.NewController(t))
+			gomock.InOrder(
+				client.EXPECT().ChainConfig(gomock.Any()).Return(&testCase.chainConfig, nil).Times(testCase.getChainConfigCalls),
+			)
+
+			quorum, err := getWarpQuorum(testCase.subnetID, client)
+			require.Equal(t, testCase.expectedError, err)
+			require.Equal(t, testCase.expectedQuorum, quorum)
+		})
+	}
 }

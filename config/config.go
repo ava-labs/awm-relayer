@@ -322,7 +322,7 @@ func setQuorumNumerator(cfgNumerator uint64) uint64 {
 // Differentiates between subnet-evm and coreth RPC internally
 func getWarpQuorum(
 	subnetID ids.ID,
-	rpc string,
+	client ethclient.Client,
 ) (WarpQuorum, error) {
 	if subnetID == constants.PrimaryNetworkID {
 		return WarpQuorum{
@@ -331,10 +331,6 @@ func getWarpQuorum(
 		}, nil
 	} else {
 		// Fetch the subnet's chain config
-		client, err := ethclient.Dial(rpc)
-		if err != nil {
-			return WarpQuorum{}, fmt.Errorf("failed to dial subnet %s: %v", subnetID, err)
-		}
 		chainConfig, err := client.ChainConfig(context.Background())
 		if err != nil {
 			return WarpQuorum{}, fmt.Errorf("failed to fetch chain config for subnet %s: %v", subnetID, err)
@@ -350,7 +346,8 @@ func getWarpQuorum(
 		}
 
 		// If we didn't find the Warp config in the genesis precompile list, check the upgrade precompiles
-		for _, precompile := range chainConfig.UpgradeConfig.PrecompileUpgrades {
+		upgrades := chainConfig.ToWithUpgradesJSON().UpgradeConfig.PrecompileUpgrades
+		for _, precompile := range upgrades {
 			warpConfig, ok := precompile.Config.(*warp.Config)
 			if ok {
 				return WarpQuorum{
@@ -373,10 +370,15 @@ func (c *Config) initializeWarpQuorum() error {
 			return fmt.Errorf("invalid subnetID in configuration. error: %v", err)
 		}
 
-		quorum, err := getWarpQuorum(subnetID, sourceSubnet.GetNodeRPCEndpoint())
+		client, err := ethclient.Dial(sourceSubnet.GetNodeRPCEndpoint())
+		if err != nil {
+			return fmt.Errorf("failed to dial source subnet %s: %v", subnetID, err)
+		}
+		quorum, err := getWarpQuorum(subnetID, client)
 		if err != nil {
 			return err
 		}
+
 		c.warpQuorum[subnetID] = quorum
 	}
 
@@ -392,10 +394,15 @@ func (c *Config) initializeWarpQuorum() error {
 			continue
 		}
 
-		quorum, err := getWarpQuorum(subnetID, destinationSubnet.GetNodeRPCEndpoint())
+		client, err := ethclient.Dial(destinationSubnet.GetNodeRPCEndpoint())
+		if err != nil {
+			return fmt.Errorf("failed to dial destination subnet %s: %v", subnetID, err)
+		}
+		quorum, err := getWarpQuorum(subnetID, client)
 		if err != nil {
 			return err
 		}
+
 		c.warpQuorum[subnetID] = quorum
 	}
 	return nil
