@@ -179,8 +179,7 @@ func (r *Relayer) processMissedBlocks(
 	// 1) The database contains the latest processed block data for the chain
 	//    - In this case, we process from the maximum of the latest processed block and the configured start block height to the latest block
 	// 2) The database has been configured for the chain, but does not contain the latest processed block data
-	//    - In this case, if a start block height is provided, we process from the start block height to the latest block
-	//    - Otherwise, we save the current block height in the database, but do not process any historical warp logs
+	//    - In this case, we process from the start block height to the latest block
 	height := startBlockHeight
 	if err == nil {
 		// Use the max of the latest processed block and the start block height
