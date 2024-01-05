@@ -329,35 +329,35 @@ func getWarpQuorum(
 			QuorumNumerator:   params.WarpDefaultQuorumNumerator,
 			QuorumDenominator: params.WarpQuorumDenominator,
 		}, nil
-	} else {
-		// Fetch the subnet's chain config
-		chainConfig, err := client.ChainConfig(context.Background())
-		if err != nil {
-			return WarpQuorum{}, fmt.Errorf("failed to fetch chain config for subnet %s: %v", subnetID, err)
-		}
+	}
 
-		// First, check if the Warp precompile was enabled at genesis
-		warpConfig, ok := chainConfig.GenesisPrecompiles["warpConfig"].(*warp.Config)
+	// Fetch the subnet's chain config
+	chainConfig, err := client.ChainConfig(context.Background())
+	if err != nil {
+		return WarpQuorum{}, fmt.Errorf("failed to fetch chain config for subnet %s: %v", subnetID, err)
+	}
+
+	// First, check the list of precompile upgrades to get the most up to date Warp config
+	upgrades := chainConfig.ToWithUpgradesJSON().UpgradeConfig.PrecompileUpgrades
+	for _, precompile := range upgrades {
+		warpConfig, ok := precompile.Config.(*warp.Config)
 		if ok {
 			return WarpQuorum{
 				QuorumNumerator:   setQuorumNumerator(warpConfig.QuorumNumerator),
 				QuorumDenominator: params.WarpQuorumDenominator,
 			}, nil
 		}
-
-		// If we didn't find the Warp config in the genesis precompile list, check the upgrade precompiles
-		upgrades := chainConfig.ToWithUpgradesJSON().UpgradeConfig.PrecompileUpgrades
-		for _, precompile := range upgrades {
-			warpConfig, ok := precompile.Config.(*warp.Config)
-			if ok {
-				return WarpQuorum{
-					QuorumNumerator:   setQuorumNumerator(warpConfig.QuorumNumerator),
-					QuorumDenominator: params.WarpQuorumDenominator,
-				}, nil
-			}
-		}
-		return WarpQuorum{}, fmt.Errorf("failed to find warp config for subnet %s", subnetID)
 	}
+
+	// If we didn't find the Warp config in the upgrade precompile list, check the genesis config
+	warpConfig, ok := chainConfig.GenesisPrecompiles["warpConfig"].(*warp.Config)
+	if ok {
+		return WarpQuorum{
+			QuorumNumerator:   setQuorumNumerator(warpConfig.QuorumNumerator),
+			QuorumDenominator: params.WarpQuorumDenominator,
+		}, nil
+	}
+	return WarpQuorum{}, fmt.Errorf("failed to find warp config for subnet %s", subnetID)
 }
 
 func (c *Config) initializeWarpQuorum() error {
@@ -374,6 +374,7 @@ func (c *Config) initializeWarpQuorum() error {
 		if err != nil {
 			return fmt.Errorf("failed to dial source subnet %s: %v", subnetID, err)
 		}
+		defer client.Close()
 		quorum, err := getWarpQuorum(subnetID, client)
 		if err != nil {
 			return err
@@ -398,6 +399,7 @@ func (c *Config) initializeWarpQuorum() error {
 		if err != nil {
 			return fmt.Errorf("failed to dial destination subnet %s: %v", subnetID, err)
 		}
+		defer client.Close()
 		quorum, err := getWarpQuorum(subnetID, client)
 		if err != nil {
 			return err
