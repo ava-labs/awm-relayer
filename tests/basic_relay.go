@@ -292,11 +292,13 @@ func BasicRelay(network interfaces.LocalNetwork) {
 	_ = relayerCmd.Wait()
 }
 
-func sendBasicTeleporterMessage(ctx context.Context,
+func sendBasicTeleporterMessage(
+	ctx context.Context,
 	source interfaces.SubnetTestInfo,
 	destination interfaces.SubnetTestInfo,
 	fundedKey *ecdsa.PrivateKey,
-	fundedAddress common.Address) (teleportermessenger.TeleporterMessage, *big.Int) {
+	fundedAddress common.Address,
+) (teleportermessenger.TeleporterMessage, *big.Int) {
 	log.Info("Packing Teleporter message")
 	teleporterMessage := teleportermessenger.TeleporterMessage{
 		MessageID:               big.NewInt(1),
