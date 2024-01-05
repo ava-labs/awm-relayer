@@ -136,7 +136,9 @@ func NewRelayer(
 	}
 
 	if shouldProcessMissedBlocks {
-		err = r.processMissedBlocks(sub)
+		// If StartBlockHeight is not set in the config, then we process from height 0
+		startHeight := big.NewInt(0).SetUint64(sourceSubnetInfo.StartBlockHeight)
+		err = r.processMissedBlocks(sub, startHeight)
 		if err != nil {
 			logger.Error(
 				"Failed to process historical blocks mined during relayer downtime",
@@ -158,63 +160,61 @@ func NewRelayer(
 	return &r, sub, nil
 }
 
+// Helper to process missed blocks. Chooses as the starting block the maximum of the latest processed block and the configured start block height.
+// startBlockHeight cannot be nil
 func (r *Relayer) processMissedBlocks(
 	sub vms.Subscriber,
+	startBlockHeight *big.Int,
 ) error {
-	// Get the latest processed block height from the database.
+	if startBlockHeight == nil {
+		return fmt.Errorf("startBlockHeight cannot be nil")
+	}
+	// Attempt to get the latest processed block height from the database.
+	// Note that the retrieved latest processed block may have already been partially (or fully) processed by the relayer on a previous run. When
+	// processing a warp message in real time, which is when we update the latest processed block in the database, we have no way of knowing
+	// if that is the last warp message in the block
 	latestProcessedBlockData, err := r.db.Get(r.sourceBlockchainID, []byte(database.LatestProcessedBlockKey))
 
-	// The following cases are treated as successful:
+	// First, determine the height to process from. There are two cases:
 	// 1) The database contains the latest processed block data for the chain
-	//    - In this case, we parse the block height and process warp logs from that height to the current block
+	//    - In this case, we process from the maximum of the latest processed block and the configured start block height to the latest block
 	// 2) The database has been configured for the chain, but does not contain the latest processed block data
-	//    - In this case, we save the current block height in the database, but do not process any historical warp logs
+	//    - In this case, we process from the start block height to the latest block
+	height := startBlockHeight
 	if err == nil {
-		// If the database contains the latest processed block data, then back-process all warp messages from that block to the latest block
-		// Note that the retrieved latest processed block may have already been partially (or fully) processed by the relayer on a previous run. When
-		// processing a warp message in real time, which is when we update the latest processed block in the database, we have no way of knowing
-		// if that is the last warp message in the block
+		// Use the max of the latest processed block and the start block height
 		latestProcessedBlock, success := new(big.Int).SetString(string(latestProcessedBlockData), 10)
 		if !success {
 			r.logger.Error("failed to convert latest block to big.Int", zap.Error(err))
 			return err
 		}
-
-		err = sub.ProcessFromHeight(latestProcessedBlock)
-		if err != nil {
-			r.logger.Warn(
-				"Encountered an error when processing historical blocks. Continuing to normal relaying operation.",
-				zap.String("blockchainID", r.sourceBlockchainID.String()),
-				zap.Error(err),
-			)
-		}
-		return nil
+		height = utils.MaxBigInt(latestProcessedBlock, height)
+	} else if !errors.Is(err, database.ErrChainNotFound) && !errors.Is(err, database.ErrKeyNotFound) {
+		// Otherwise, we've encountered an unknown database error
+		r.logger.Warn(
+			"failed to get latest block from database",
+			zap.String("blockchainID", r.sourceBlockchainID.String()),
+			zap.Error(err),
+		)
+		return err
 	}
-	if errors.Is(err, database.ErrChainNotFound) || errors.Is(err, database.ErrKeyNotFound) {
-		// Otherwise, latestProcessedBlock is nil, so we instead store the latest block height.
-		r.logger.Info(
-			"Latest processed block not found in database. Starting from latest block.",
+
+	// Process from the determined height to the latest block.
+	if height.Cmp(big.NewInt(0)) == 0 {
+		r.logger.Warn(
+			"Processing from height 0. This may take a long time. If this was not intended, please set startBlockHeight to a non-zero value in the configuration",
 			zap.String("blockchainID", r.sourceBlockchainID.String()),
 		)
-
-		err := sub.SetProcessedBlockHeightToLatest()
-		if err != nil {
-			r.logger.Warn(
-				"Failed to update latest processed block. Continuing to normal relaying operation",
-				zap.String("blockchainID", r.sourceBlockchainID.String()),
-				zap.Error(err),
-			)
-		}
-		return nil
 	}
-
-	// If neither of the above conditions are met, then we return an error
-	r.logger.Warn(
-		"failed to get latest block from database",
-		zap.String("blockchainID", r.sourceBlockchainID.String()),
-		zap.Error(err),
-	)
-	return err
+	err = sub.ProcessFromHeight(height)
+	if err != nil {
+		r.logger.Warn(
+			"Encountered an error when processing historical blocks. Continuing to normal relaying operation.",
+			zap.String("blockchainID", r.sourceBlockchainID.String()),
+			zap.Error(err),
+		)
+	}
+	return nil
 }
 
 // RelayMessage relays a single warp message to the destination chain. Warp message relay requests from the same origin chain are processed serially

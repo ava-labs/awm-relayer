@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
+	"os"
 	"sync"
 	"time"
 
@@ -41,13 +42,22 @@ type AppRequestNetwork struct {
 
 // NewNetwork connects to a peers at the app request level.
 func NewNetwork(
-	logger logging.Logger,
+	logLevel logging.Level,
 	registerer prometheus.Registerer,
 	networkID uint32,
 	subnetIDs []ids.ID,
 	blockchainIDs []ids.ID,
 	APINodeURL string,
 ) (*AppRequestNetwork, map[ids.ID]chan message.InboundMessage, error) {
+	logger := logging.NewLogger(
+		"awm-relayer",
+		logging.NewWrappedCore(
+			logLevel,
+			os.Stdout,
+			logging.JSON.ConsoleEncoder(),
+		),
+	)
+
 	if networkID != constants.MainnetID &&
 		networkID != constants.FujiID &&
 		len(APINodeURL) == 0 {
