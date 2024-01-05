@@ -136,9 +136,9 @@ func NewRelayer(
 	}
 
 	if shouldProcessMissedBlocks {
-		// If CatchUpBlockHeight is not set in the config, then we process from height 0
-		catchUpHeight := big.NewInt(0).SetUint64(sourceSubnetInfo.CatchUpBlockHeight)
-		err = r.processMissedBlocks(sub, catchUpHeight)
+		// If StartBlockHeight is not set in the config, then we process from height 0
+		startHeight := big.NewInt(0).SetUint64(sourceSubnetInfo.StartBlockHeight)
+		err = r.processMissedBlocks(sub, startHeight)
 		if err != nil {
 			logger.Error(
 				"Failed to process historical blocks mined during relayer downtime",
@@ -162,7 +162,7 @@ func NewRelayer(
 
 func (r *Relayer) processMissedBlocks(
 	sub vms.Subscriber,
-	catchUpBlockHeight *big.Int,
+	startBlockHeight *big.Int,
 ) error {
 	// Attempt to get the latest processed block height from the database.
 	// Note that the retrieved latest processed block may have already been partially (or fully) processed by the relayer on a previous run. When
@@ -172,23 +172,23 @@ func (r *Relayer) processMissedBlocks(
 
 	// First, determine the height to process from. There are two cases:
 	// 1) The database contains the latest processed block data for the chain
-	//    - In this case, we process from the maximum of the latest processed block and the catch up block height to the latest block
+	//    - In this case, we process from the maximum of the latest processed block and the configured start block height to the latest block
 	// 2) The database has been configured for the chain, but does not contain the latest processed block data
-	//    - In this case, if a catch up block height is provided, we process from the catch up block height to the latest block
+	//    - In this case, if a start block height is provided, we process from the start block height to the latest block
 	//    - Otherwise, we save the current block height in the database, but do not process any historical warp logs
 	var height *big.Int = nil
 	if err == nil {
-		// Use the max of the latest processed block and the catch up block height
+		// Use the max of the latest processed block and the start block height
 		latestProcessedBlock, success := new(big.Int).SetString(string(latestProcessedBlockData), 10)
 		if !success {
 			r.logger.Error("failed to convert latest block to big.Int", zap.Error(err))
 			return err
 		}
-		height = utils.MaxBigInt(latestProcessedBlock, catchUpBlockHeight)
+		height = utils.MaxBigInt(latestProcessedBlock, startBlockHeight)
 	} else if errors.Is(err, database.ErrChainNotFound) || errors.Is(err, database.ErrKeyNotFound) {
-		// If the database does not contain the latest processed block data, then we check if a catch up block height is provided.
-		if catchUpBlockHeight != nil {
-			height = catchUpBlockHeight
+		// If the database does not contain the latest processed block data, then we check if a start block height is provided.
+		if startBlockHeight != nil {
+			height = startBlockHeight
 		}
 	} else {
 		// Otherwise, we've encountered an unknown database error

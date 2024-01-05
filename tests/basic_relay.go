@@ -244,9 +244,9 @@ func BasicRelay(network interfaces.LocalNetwork) {
 	_ = relayerCmd.Wait()
 
 	//
-	// Set CatchUpBlockHeight in config
+	// Set StartBlockHeight in config
 	//
-	log.Info("Test Setting CatchUpBlockHeight in config")
+	log.Info("Test Setting StartBlockHeight in config")
 
 	// Send three Teleporter messages from subnet A to subnet B
 	log.Info("Sending three Teleporter messages from subnet A to subnet B")
@@ -260,10 +260,10 @@ func BasicRelay(network interfaces.LocalNetwork) {
 
 	// Configure the relayer such that it will only process the last of the three messages sent above.
 	// The relayer DB stores the height of the block *before* the first message, so by setting the
-	// CatchUpBlockHeight to the block height of the *third* message, we expect the relayer to skip
+	// StartBlockHeight to the block height of the *third* message, we expect the relayer to skip
 	// the first two messages on startup, but process the third.
 	modifiedRelayerConfig := relayerConfig
-	modifiedRelayerConfig.SourceSubnets[0].CatchUpBlockHeight = currHeight
+	modifiedRelayerConfig.SourceSubnets[0].StartBlockHeight = currHeight
 	modifiedRelayerConfig.ProcessMissedBlocks = true
 	relayerConfigPath = writeRelayerConfig(modifiedRelayerConfig)
 
