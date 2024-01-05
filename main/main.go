@@ -84,10 +84,6 @@ func main() {
 		return
 	}
 
-	// Initialize the global app request network
-	logger.Info("Initializing app request network")
-	sourceSubnetIDs, sourceBlockchainIDs := cfg.GetSourceIDs()
-
 	// Initialize metrics gathered through prometheus
 	gatherer, registerer, err := initMetrics()
 	if err != nil {
@@ -96,7 +92,12 @@ func main() {
 		panic(err)
 	}
 
-	// Unless the log level is debug, set the network log level to error
+	// Initialize the global app request network
+	logger.Info("Initializing app request network")
+	sourceSubnetIDs, sourceBlockchainIDs := cfg.GetSourceIDs()
+
+	// The app request network generates P2P networking logs that are verbose at the info level.
+	// Unless the log level is debug, set the network log level to error to avoid spamming the logs.
 	networkLogLevel := logging.Error
 	if logLevel == logging.Debug {
 		networkLogLevel = logging.Debug
