@@ -136,6 +136,7 @@ func NewRelayer(
 	}
 
 	if shouldProcessMissedBlocks {
+		// If CatchUpBlockHeight is not set in the config, then we process from height 0
 		catchUpHeight := big.NewInt(0).SetUint64(sourceSubnetInfo.CatchUpBlockHeight)
 		err = r.processMissedBlocks(sub, catchUpHeight)
 		if err != nil {
@@ -201,6 +202,12 @@ func (r *Relayer) processMissedBlocks(
 
 	// If we've determined a height to process from, then we process from that height to the latest block.
 	if height != nil {
+		if height.Cmp(big.NewInt(0)) == 0 {
+			r.logger.Warn(
+				"Processing from height 0. This may take a long time. If this was not intended, please set startBlockHeight to a non-zero value in the configuration",
+				zap.String("blockchainID", r.sourceBlockchainID.String()),
+			)
+		}
 		err = sub.ProcessFromHeight(height)
 		if err != nil {
 			r.logger.Warn(
