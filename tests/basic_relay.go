@@ -259,7 +259,7 @@ func relayBasicMessage(
 ) {
 	log.Info("Packing Teleporter message")
 	teleporterMessage := teleportermessenger.TeleporterMessage{
-		MessageID:               big.NewInt(1),
+		MessageNonce:            big.NewInt(1),
 		SenderAddress:           fundedAddress,
 		DestinationBlockchainID: destination.BlockchainID,
 		DestinationAddress:      fundedAddress,
@@ -340,7 +340,7 @@ func relayBasicMessage(
 	receiveEvent, err := teleporterTestUtils.GetEventFromLogs(receipt.Logs, destination.TeleporterMessenger.ParseReceiveCrossChainMessage)
 	Expect(err).Should(BeNil())
 	Expect(receiveEvent.OriginBlockchainID[:]).Should(Equal(source.BlockchainID[:]))
-	Expect(receiveEvent.Message.MessageID.Uint64()).Should(Equal(teleporterMessageID.Uint64()))
+	Expect(receiveEvent.MessageID[:]).Should(Equal(teleporterMessageID[:]))
 
 	//
 	// Validate Received Warp Message Values
@@ -356,7 +356,8 @@ func relayBasicMessage(
 	receivedTeleporterMessage, err := teleportermessenger.UnpackTeleporterMessage(addressedPayload.Payload)
 	Expect(err).Should(BeNil())
 
-	Expect(receivedTeleporterMessage.MessageID.Uint64()).Should(Equal(teleporterMessageID.Uint64()))
+	receivedMessageID := teleporterTestUtils.CalculateMessageID(source, destination, teleporterMessage.MessageNonce)
+	Expect(receivedMessageID).Should(Equal(teleporterMessageID))
 	Expect(receivedTeleporterMessage.SenderAddress).Should(Equal(teleporterMessage.SenderAddress))
 	receivedDestinationID, err := ids.ToID(receivedTeleporterMessage.DestinationBlockchainID[:])
 	Expect(err).Should(BeNil())

@@ -5,6 +5,7 @@
 //
 //	mockgen -source=destination_client.go -destination=./mocks/mock_destination_client.go -package=mocks
 //
+
 // Package mocks is a generated GoMock package.
 package mocks
 
@@ -57,7 +58,7 @@ func (mr *MockDestinationClientMockRecorder) Client() *gomock.Call {
 // DestinationBlockchainID mocks base method.
 func (m *MockDestinationClient) DestinationBlockchainID() ids.ID {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "destinationBlockchainID")
+	ret := m.ctrl.Call(m, "DestinationBlockchainID")
 	ret0, _ := ret[0].(ids.ID)
 	return ret0
 }
@@ -65,7 +66,7 @@ func (m *MockDestinationClient) DestinationBlockchainID() ids.ID {
 // DestinationBlockchainID indicates an expected call of DestinationBlockchainID.
 func (mr *MockDestinationClientMockRecorder) DestinationBlockchainID() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "destinationBlockchainID", reflect.TypeOf((*MockDestinationClient)(nil).DestinationBlockchainID))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DestinationBlockchainID", reflect.TypeOf((*MockDestinationClient)(nil).DestinationBlockchainID))
 }
 
 // SendTx mocks base method.

@@ -5,6 +5,7 @@
 //
 //	mockgen -source=destination_client.go -destination=./mocks/mock_eth_client.go -package=mocks
 //
+
 // Package mocks is a generated GoMock package.
 package mocks
 

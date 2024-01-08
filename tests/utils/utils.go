@@ -8,6 +8,7 @@ import (
 	"context"
 	"os"
 	"os/exec"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/log"
 	. "github.com/onsi/gomega"
@@ -53,5 +54,5 @@ func RunRelayerExecutable(ctx context.Context, relayerConfigPath string) (*exec.
 func ReadHexTextFile(filename string) string {
 	fileData, err := os.ReadFile(filename)
 	Expect(err).Should(BeNil())
-	return string(fileData)
+	return strings.TrimRight(string(fileData), "\n")
 }
