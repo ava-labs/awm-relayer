@@ -207,13 +207,6 @@ func runRelayer(logger logging.Logger,
 		zap.String("blockchainID", sourceSubnetInfo.BlockchainID),
 	)
 
-	subnetID, err := ids.FromString(sourceSubnetInfo.SubnetID)
-	if err != nil {
-		// The subnetID should have already been validated
-		panic(err)
-	}
-	quorum := cfg.GetWarpQuorum()[subnetID]
-
 	relayer, subscriber, err := relayer.NewRelayer(
 		logger,
 		db,
@@ -223,7 +216,6 @@ func runRelayer(logger logging.Logger,
 		responseChan,
 		destinationClients,
 		cfg.ProcessMissedBlocks,
-		quorum,
 	)
 	if err != nil {
 		logger.Error(
@@ -249,7 +241,7 @@ func runRelayer(logger logging.Logger,
 			)
 
 			// Relay the message to the destination chain. Continue on failure.
-			err = relayer.RelayMessage(&txLog, metrics, messageCreator)
+			err = relayer.RelayMessage(&txLog, metrics, messageCreator, &cfg)
 			if err != nil {
 				logger.Error(
 					"Error relaying message",

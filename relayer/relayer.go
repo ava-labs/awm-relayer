@@ -41,7 +41,6 @@ type Relayer struct {
 	db                       database.RelayerDatabase
 	supportedDestinations    set.Set[ids.ID]
 	apiNodeURI               string
-	warpQuorum               config.WarpQuorum
 }
 
 func NewRelayer(
@@ -53,7 +52,6 @@ func NewRelayer(
 	responseChan chan message.InboundMessage,
 	destinationClients map[ids.ID]vms.DestinationClient,
 	shouldProcessMissedBlocks bool,
-	warpQuorum config.WarpQuorum,
 ) (*Relayer, vms.Subscriber, error) {
 	sub := vms.NewSubscriber(logger, sourceSubnetInfo, db)
 
@@ -124,7 +122,6 @@ func NewRelayer(
 		db:                       db,
 		supportedDestinations:    supportedDestinationsBlockchainIDs,
 		apiNodeURI:               uri,
-		warpQuorum:               warpQuorum,
 	}
 
 	// Open the subscription. We must do this before processing any missed messages, otherwise we may miss an incoming message
@@ -221,7 +218,12 @@ func (r *Relayer) processMissedBlocks(
 }
 
 // RelayMessage relays a single warp message to the destination chain. Warp message relay requests from the same origin chain are processed serially
-func (r *Relayer) RelayMessage(warpLogInfo *vmtypes.WarpLogInfo, metrics *MessageRelayerMetrics, messageCreator message.Creator) error {
+func (r *Relayer) RelayMessage(
+	warpLogInfo *vmtypes.WarpLogInfo,
+	metrics *MessageRelayerMetrics,
+	messageCreator message.Creator,
+	cfg *config.Config,
+) error {
 	r.logger.Info(
 		"Relaying message",
 		zap.String("blockchainID", r.sourceBlockchainID.String()),
@@ -274,7 +276,16 @@ func (r *Relayer) RelayMessage(warpLogInfo *vmtypes.WarpLogInfo, metrics *Messag
 	}
 
 	// Create and run the message relayer to attempt to deliver the message to the destination chain
-	messageRelayer := newMessageRelayer(r.logger, metrics, r, warpMessageInfo.WarpUnsignedMessage, destinationBlockchainID, r.responseChan, messageCreator)
+	messageRelayer := newMessageRelayer(
+		r.logger,
+		metrics,
+		r,
+		warpMessageInfo.WarpUnsignedMessage,
+		destinationBlockchainID,
+		cfg.GetWarpQuorum()[destinationBlockchainID],
+		r.responseChan,
+		messageCreator,
+	)
 	if err != nil {
 		r.logger.Error(
 			"Failed to create message relayer",
