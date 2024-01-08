@@ -260,7 +260,6 @@ func runRelayer(
 		messageCreator,
 		relayerHealth,
 		cfg.ProcessMissedBlocks,
-		quorum,
 	)
 	if err != nil {
 		return fmt.Errorf("Failed to create relayer instance: %w", err)

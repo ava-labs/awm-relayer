@@ -418,11 +418,13 @@ func TestGetRelayerAccountInfoSkipChainConfigCheckCompatible(t *testing.T) {
 }
 
 func TestGetWarpQuorum(t *testing.T) {
-	subnetID, err := ids.FromString("p433wpuXyJiDhyazPYyZMJeaoPSW76CBZ2x7wrVPLgvokotXz")
+	blockchainID, err := ids.FromString("p433wpuXyJiDhyazPYyZMJeaoPSW76CBZ2x7wrVPLgvokotXz")
 	require.NoError(t, err)
+	subnetID, err := ids.FromString("2PsShLjrFFwR51DMcAh8pyuwzLn1Ym3zRhuXLTmLCR1STk2mL6")
 
 	testCases := []struct {
 		name                string
+		blockchainID        ids.ID
 		subnetID            ids.ID
 		chainConfig         params.ChainConfig
 		getChainConfigCalls int
@@ -431,6 +433,7 @@ func TestGetWarpQuorum(t *testing.T) {
 	}{
 		{
 			name:                "primary network",
+			blockchainID:        blockchainID,
 			subnetID:            ids.Empty,
 			getChainConfigCalls: 0,
 			expectedError:       nil,
@@ -441,6 +444,7 @@ func TestGetWarpQuorum(t *testing.T) {
 		},
 		{
 			name:                "subnet genesis precompile",
+			blockchainID:        blockchainID,
 			subnetID:            subnetID,
 			getChainConfigCalls: 1,
 			chainConfig: params.ChainConfig{
@@ -458,6 +462,7 @@ func TestGetWarpQuorum(t *testing.T) {
 		},
 		{
 			name:                "subnet genesis precompile non-default",
+			blockchainID:        blockchainID,
 			subnetID:            subnetID,
 			getChainConfigCalls: 1,
 			chainConfig: params.ChainConfig{
@@ -475,6 +480,7 @@ func TestGetWarpQuorum(t *testing.T) {
 		},
 		{
 			name:                "subnet upgrade precompile",
+			blockchainID:        blockchainID,
 			subnetID:            subnetID,
 			getChainConfigCalls: 1,
 			chainConfig: params.ChainConfig{
@@ -496,6 +502,7 @@ func TestGetWarpQuorum(t *testing.T) {
 		},
 		{
 			name:                "subnet upgrade precompile non-default",
+			blockchainID:        blockchainID,
 			subnetID:            subnetID,
 			getChainConfigCalls: 1,
 			chainConfig: params.ChainConfig{
@@ -524,7 +531,7 @@ func TestGetWarpQuorum(t *testing.T) {
 				client.EXPECT().ChainConfig(gomock.Any()).Return(&testCase.chainConfig, nil).Times(testCase.getChainConfigCalls),
 			)
 
-			quorum, err := getWarpQuorum(testCase.subnetID, client)
+			quorum, err := getWarpQuorum(testCase.blockchainID, testCase.subnetID, client)
 			require.Equal(t, testCase.expectedError, err)
 			require.Equal(t, testCase.expectedQuorum, quorum)
 		})
