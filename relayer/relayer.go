@@ -218,7 +218,12 @@ func (r *Relayer) processMissedBlocks(
 }
 
 // RelayMessage relays a single warp message to the destination chain. Warp message relay requests from the same origin chain are processed serially
-func (r *Relayer) RelayMessage(warpLogInfo *vmtypes.WarpLogInfo, metrics *MessageRelayerMetrics, messageCreator message.Creator) error {
+func (r *Relayer) RelayMessage(
+	warpLogInfo *vmtypes.WarpLogInfo,
+	metrics *MessageRelayerMetrics,
+	messageCreator message.Creator,
+	cfg *config.Config,
+) error {
 	r.logger.Info(
 		"Relaying message",
 		zap.String("blockchainID", r.sourceBlockchainID.String()),
@@ -271,7 +276,16 @@ func (r *Relayer) RelayMessage(warpLogInfo *vmtypes.WarpLogInfo, metrics *Messag
 	}
 
 	// Create and run the message relayer to attempt to deliver the message to the destination chain
-	messageRelayer := newMessageRelayer(r.logger, metrics, r, warpMessageInfo.WarpUnsignedMessage, destinationBlockchainID, r.responseChan, messageCreator)
+	messageRelayer := newMessageRelayer(
+		r.logger,
+		metrics,
+		r,
+		warpMessageInfo.WarpUnsignedMessage,
+		destinationBlockchainID,
+		cfg.GetWarpQuorum()[destinationBlockchainID],
+		r.responseChan,
+		messageCreator,
+	)
 	if err != nil {
 		r.logger.Error(
 			"Failed to create message relayer",

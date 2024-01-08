@@ -84,18 +84,17 @@ func main() {
 		return
 	}
 
+	// Initialize metrics gathered through prometheus
+	gatherer, registerer, err := initializeMetrics()
+	if err != nil {
+		logger.Fatal("Failed to set up prometheus metrics",
+			zap.Error(err))
+		return
+	}
+
 	// Initialize the global app request network
 	logger.Info("Initializing app request network")
 	sourceSubnetIDs, sourceBlockchainIDs := cfg.GetSourceIDs()
-
-	// Initialize metrics gathered through prometheus
-	gatherer, registerer, err := initMetrics()
-	if err != nil {
-		logger.Fatal("failed to set up prometheus metrics",
-			zap.Error(err))
-		panic(err)
-	}
-
 	network, responseChans, err := peers.NewNetwork(logger, registerer, cfg.NetworkID, sourceSubnetIDs, sourceBlockchainIDs, cfg.PChainAPIURL)
 	if err != nil {
 		logger.Error(
@@ -180,7 +179,7 @@ func main() {
 				responseChans[blockchainID],
 				destinationClients,
 				messageCreator,
-				cfg.ProcessMissedBlocks,
+				cfg,
 			)
 			logger.Info(
 				"Relayer exiting.",
@@ -201,7 +200,7 @@ func runRelayer(logger logging.Logger,
 	responseChan chan message.InboundMessage,
 	destinationClients map[ids.ID]vms.DestinationClient,
 	messageCreator message.Creator,
-	processMissedBlocks bool,
+	cfg config.Config,
 ) {
 	logger.Info(
 		"Creating relayer",
@@ -216,7 +215,7 @@ func runRelayer(logger logging.Logger,
 		network,
 		responseChan,
 		destinationClients,
-		processMissedBlocks,
+		cfg.ProcessMissedBlocks,
 	)
 	if err != nil {
 		logger.Error(
@@ -242,7 +241,7 @@ func runRelayer(logger logging.Logger,
 			)
 
 			// Relay the message to the destination chain. Continue on failure.
-			err = relayer.RelayMessage(&txLog, metrics, messageCreator)
+			err = relayer.RelayMessage(&txLog, metrics, messageCreator, &cfg)
 			if err != nil {
 				logger.Error(
 					"Error relaying message",
@@ -276,17 +275,11 @@ func startMetricsServer(logger logging.Logger, gatherer prometheus.Gatherer, por
 	go func() {
 		logger.Info("starting metrics server...",
 			zap.Uint32("port", port))
-		err := http.ListenAndServe(fmt.Sprintf(":%d", port), nil)
-		if err != nil {
-			logger.Fatal("metrics server exited",
-				zap.Error(err),
-				zap.Uint32("port", port))
-			panic(err)
-		}
+		log.Fatalln(http.ListenAndServe(fmt.Sprintf(":%d", port), nil))
 	}()
 }
 
-func initMetrics() (prometheus.Gatherer, prometheus.Registerer, error) {
+func initializeMetrics() (prometheus.Gatherer, prometheus.Registerer, error) {
 	gatherer := metrics.NewMultiGatherer()
 	registry := prometheus.NewRegistry()
 	if err := gatherer.Register("app", registry); err != nil {

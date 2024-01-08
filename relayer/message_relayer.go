@@ -20,11 +20,11 @@ import (
 	"github.com/ava-labs/avalanchego/utils/set"
 	"github.com/ava-labs/avalanchego/vms/platformvm/warp"
 	avalancheWarp "github.com/ava-labs/avalanchego/vms/platformvm/warp"
+	"github.com/ava-labs/awm-relayer/config"
 	"github.com/ava-labs/awm-relayer/messages"
 	"github.com/ava-labs/awm-relayer/peers"
 	"github.com/ava-labs/awm-relayer/utils"
 	"github.com/ava-labs/awm-relayer/vms/vmtypes"
-	"github.com/ava-labs/coreth/params"
 	coreEthMsg "github.com/ava-labs/coreth/plugin/evm/message"
 	msg "github.com/ava-labs/subnet-evm/plugin/evm/message"
 	warpBackend "github.com/ava-labs/subnet-evm/warp"
@@ -57,6 +57,7 @@ type messageRelayer struct {
 	relayer                 *Relayer
 	warpMessage             *warp.UnsignedMessage
 	destinationBlockchainID ids.ID
+	warpQuorum              config.WarpQuorum
 	messageResponseChan     chan message.InboundMessage
 	logger                  logging.Logger
 	messageCreator          message.Creator
@@ -69,6 +70,7 @@ func newMessageRelayer(
 	relayer *Relayer,
 	warpMessage *warp.UnsignedMessage,
 	destinationBlockchainID ids.ID,
+	warpQuorum config.WarpQuorum,
 	messageResponseChan chan message.InboundMessage,
 	messageCreator message.Creator,
 ) *messageRelayer {
@@ -76,6 +78,7 @@ func newMessageRelayer(
 		relayer:                 relayer,
 		warpMessage:             warpMessage,
 		destinationBlockchainID: destinationBlockchainID,
+		warpQuorum:              warpQuorum,
 		messageResponseChan:     messageResponseChan,
 		logger:                  logger,
 		metrics:                 metrics,
@@ -183,7 +186,7 @@ func (r *messageRelayer) createSignedMessage() (*warp.Message, error) {
 		signedWarpMessageBytes, err = warpClient.GetMessageAggregateSignature(
 			context.Background(),
 			r.warpMessage.ID(),
-			params.WarpDefaultQuorumNumerator,
+			r.warpQuorum.QuorumNumerator,
 			signingSubnetID.String(),
 		)
 		if err == nil {
@@ -411,7 +414,12 @@ func (r *messageRelayer) createSignedMessageAppRequest(requestID uint32) (*warp.
 					}
 
 					// As soon as the signatures exceed the stake weight threshold we try to aggregate and send the transaction.
-					if utils.CheckStakeWeightExceedsThreshold(accumulatedSignatureWeight, totalValidatorWeight, params.WarpDefaultQuorumNumerator, params.WarpQuorumDenominator) {
+					if utils.CheckStakeWeightExceedsThreshold(
+						accumulatedSignatureWeight,
+						totalValidatorWeight,
+						r.warpQuorum.QuorumNumerator,
+						r.warpQuorum.QuorumDenominator,
+					) {
 						aggSig, vdrBitSet, err := r.aggregateSignatures(signatureMap)
 						if err != nil {
 							r.logger.Error(
