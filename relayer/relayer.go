@@ -136,7 +136,7 @@ func NewRelayer(
 	}
 
 	if shouldProcessMissedBlocks {
-		// If StartBlockHeight is not set in the config, then we process from height 0
+		// If StartBlockHeight is not set in the config, then we default to 0
 		startHeight := big.NewInt(0).SetUint64(sourceSubnetInfo.StartBlockHeight)
 		err = r.processMissedBlocks(sub, startHeight)
 		if err != nil {
