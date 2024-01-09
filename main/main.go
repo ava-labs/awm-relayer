@@ -159,7 +159,11 @@ func main() {
 	}
 
 	// Create relayers for each of the subnets configured as a source
+	// Each relayer goroutine should persist for the lifetime of the program,
+	// so we exit if any of them fail. In the case of a consistently failing
+	// goroutine, that blockchain should likely be disabled in the configuration.
 	var wg sync.WaitGroup
+	wg.Add(1) // Single counter to exit as soon as any relayer goroutine fails
 	for _, s := range cfg.SourceSubnets {
 		blockchainID, err := ids.FromString(s.BlockchainID)
 		if err != nil {
@@ -169,7 +173,6 @@ func main() {
 			)
 			return
 		}
-		wg.Add(1)
 		subnetInfo := s
 		go func() {
 			defer func() {
