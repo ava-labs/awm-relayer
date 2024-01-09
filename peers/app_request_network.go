@@ -50,7 +50,7 @@ func NewNetwork(
 	APINodeURL string,
 ) (*AppRequestNetwork, map[ids.ID]chan message.InboundMessage, error) {
 	logger := logging.NewLogger(
-		"awm-relayer",
+		"awm-relayer-p2p",
 		logging.NewWrappedCore(
 			logLevel,
 			os.Stdout,

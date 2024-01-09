@@ -97,10 +97,10 @@ func main() {
 	sourceSubnetIDs, sourceBlockchainIDs := cfg.GetSourceIDs()
 
 	// The app request network generates P2P networking logs that are verbose at the info level.
-	// Unless the log level is debug, set the network log level to error to avoid spamming the logs.
+	// Unless the log level is debug or lower, set the network log level to error to avoid spamming the logs.
 	networkLogLevel := logging.Error
-	if logLevel == logging.Debug {
-		networkLogLevel = logging.Debug
+	if logLevel <= logging.Debug {
+		networkLogLevel = logLevel
 	}
 	network, responseChans, err := peers.NewNetwork(networkLogLevel, registerer, cfg.NetworkID, sourceSubnetIDs, sourceBlockchainIDs, cfg.PChainAPIURL)
 	if err != nil {
