@@ -339,6 +339,9 @@ func getWarpQuorum(
 	}
 
 	// First, check the list of precompile upgrades to get the most up to date Warp config
+	// We only need to consider the most recent Warp config, since the QuorumNumerator is used
+	// at signature verification time on the receiving chain, regardless of the Warp config at the
+	// time of the message's creation
 	var warpConfig *warp.Config
 	for _, precompile := range chainConfig.UpgradeConfig.PrecompileUpgrades {
 		cfg, ok := precompile.Config.(*warp.Config)
