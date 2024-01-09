@@ -340,14 +340,24 @@ func getWarpQuorum(
 
 	// First, check the list of precompile upgrades to get the most up to date Warp config
 	upgrades := chainConfig.ToWithUpgradesJSON().UpgradeConfig.PrecompileUpgrades
+	var warpConfig *warp.Config
 	for _, precompile := range upgrades {
-		warpConfig, ok := precompile.Config.(*warp.Config)
+		cfg, ok := precompile.Config.(*warp.Config)
 		if ok {
-			return WarpQuorum{
-				QuorumNumerator:   setQuorumNumerator(warpConfig.QuorumNumerator),
-				QuorumDenominator: params.WarpQuorumDenominator,
-			}, nil
+			if warpConfig == nil {
+				cfg = warpConfig
+				continue
+			}
+			if *cfg.Timestamp() > *warpConfig.Timestamp() {
+				warpConfig = cfg
+			}
 		}
+	}
+	if warpConfig != nil {
+		return WarpQuorum{
+			QuorumNumerator:   setQuorumNumerator(warpConfig.QuorumNumerator),
+			QuorumDenominator: params.WarpQuorumDenominator,
+		}, nil
 	}
 
 	// If we didn't find the Warp config in the upgrade precompile list, check the genesis config
