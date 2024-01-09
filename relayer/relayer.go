@@ -188,7 +188,20 @@ func (r *Relayer) processMissedBlocks(
 			r.logger.Error("failed to convert latest block to big.Int", zap.Error(err))
 			return err
 		}
-		height = utils.MaxBigInt(latestProcessedBlock, height)
+		if latestProcessedBlock.Cmp(height) > 0 {
+			r.logger.Info(
+				"Processing historical blocks from the latest processed block in the DB",
+				zap.String("blockchainID", r.sourceBlockchainID.String()),
+				zap.String("latestProcessedBlock", latestProcessedBlock.String()),
+			)
+			height = latestProcessedBlock
+		} else {
+			r.logger.Info(
+				"Processing historical blocks from the configured start block height",
+				zap.String("blockchainID", r.sourceBlockchainID.String()),
+				zap.String("startBlockHeight", height.String()),
+			)
+		}
 	} else if !errors.Is(err, database.ErrChainNotFound) && !errors.Is(err, database.ErrKeyNotFound) {
 		// Otherwise, we've encountered an unknown database error
 		r.logger.Warn(
