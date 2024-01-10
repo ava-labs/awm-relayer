@@ -347,7 +347,7 @@ func getWarpQuorum(
 		cfg, ok := precompile.Config.(*warp.Config)
 		if ok {
 			if warpConfig == nil {
-				cfg = warpConfig
+				warpConfig = cfg
 				continue
 			}
 			if *cfg.Timestamp() > *warpConfig.Timestamp() {
