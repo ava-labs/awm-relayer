@@ -186,30 +186,7 @@ func (r *Relayer) processMissedBlocks(
 			return errors.New("database does not contain latest processed block data and startBlockHeight is nil.")
 		}
 		height = startBlockHeight
-	} else if err == nil {
-		// If the database does contain the latest processed block data for the chain,
-		// use the max of the latest processed block and the configured start block height (if it was provided)
-		latestProcessedBlock, success := new(big.Int).SetString(string(latestProcessedBlockData), 10)
-		if !success {
-			r.logger.Error("failed to convert latest block to big.Int", zap.Error(err))
-			return err
-		}
-		if startBlockHeight == nil || latestProcessedBlock.Cmp(startBlockHeight) > 0 {
-			r.logger.Info(
-				"Processing historical blocks from the latest processed block in the DB",
-				zap.String("blockchainID", r.sourceBlockchainID.String()),
-				zap.String("latestProcessedBlock", latestProcessedBlock.String()),
-			)
-			height = latestProcessedBlock
-		} else {
-			r.logger.Info(
-				"Processing historical blocks from the configured start block height",
-				zap.String("blockchainID", r.sourceBlockchainID.String()),
-				zap.String("startBlockHeight", startBlockHeight.String()),
-			)
-			height = startBlockHeight
-		}
-	} else {
+	} else if err != nil {
 		// Otherwise, we've encountered an unknown database error
 		r.logger.Warn(
 			"failed to get latest block from database",
@@ -217,6 +194,29 @@ func (r *Relayer) processMissedBlocks(
 			zap.Error(err),
 		)
 		return err
+	}
+
+	// If the database does contain the latest processed block data for the chain,
+	// use the max of the latest processed block and the configured start block height (if it was provided)
+	latestProcessedBlock, success := new(big.Int).SetString(string(latestProcessedBlockData), 10)
+	if !success {
+		r.logger.Error("failed to convert latest block to big.Int", zap.Error(err))
+		return err
+	}
+	if startBlockHeight == nil || latestProcessedBlock.Cmp(startBlockHeight) > 0 {
+		r.logger.Info(
+			"Processing historical blocks from the latest processed block in the DB",
+			zap.String("blockchainID", r.sourceBlockchainID.String()),
+			zap.String("latestProcessedBlock", latestProcessedBlock.String()),
+		)
+		height = latestProcessedBlock
+	} else {
+		r.logger.Info(
+			"Processing historical blocks from the configured start block height",
+			zap.String("blockchainID", r.sourceBlockchainID.String()),
+			zap.String("startBlockHeight", startBlockHeight.String()),
+		)
+		height = startBlockHeight
 	}
 
 	// Process from the determined height to the latest block.
