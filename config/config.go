@@ -288,6 +288,7 @@ func (s *SourceSubnet) Validate(destinationBlockchainIDs *set.Set[string]) error
 	// Validate the starting block height and set the bigint field
 	// If -1 is provided, set the bigint field to 0 to indicate that the relayer should start from genesis
 	// 0 is treated the same as the field being unset, since there's no way to differentiate between the two when unmarshalling
+	// In this case, StartBlockHeightBigInt is nil
 	if s.StartBlockHeight < -1 {
 		return fmt.Errorf("invalid start block height in source subnet configuration. Provided height: %d", s.StartBlockHeight)
 	}

@@ -164,22 +164,25 @@ func (r *Relayer) processMissedBlocks(
 	sub vms.Subscriber,
 	startBlockHeight *big.Int,
 ) error {
-	// Attempt to get the latest processed block height from the database.
-	// Note that the retrieved latest processed block may have already been partially (or fully) processed by the relayer on a previous run. When
-	// processing a warp message in real time, which is when we update the latest processed block in the database, we have no way of knowing
-	// if that is the last warp message in the block
-
 	// First, determine the height to process from. There are two cases:
 	// 1) The database contains the latest processed block data for the chain
 	//    - In this case, we process from the maximum of the latest processed block and the configured start block height to the latest block
 	// 2) The database has been configured for the chain, but does not contain the latest processed block data
 	//    - In this case, we process from the start block height to the latest block
 	var height *big.Int
+
+	// Attempt to get the latest processed block height from the database.
+	// Note that the retrieved latest processed block may have already been partially (or fully) processed by the relayer on a previous run. When
+	// processing a warp message in real time, which is when we update the latest processed block in the database, we have no way of knowing
+	// if that is the last warp message in the block
 	latestProcessedBlockData, err := r.db.Get(r.sourceBlockchainID, []byte(database.LatestProcessedBlockKey))
 	if errors.Is(err, database.ErrChainNotFound) || errors.Is(err, database.ErrKeyNotFound) {
 		// The database does not contain the latest processed block data for the chain, so use the configured StartBlockHeight instead
 		if startBlockHeight == nil {
-			r.logger.Warn("database does not contain latest processed block data and startBlockHeight is nil. Please provide a StartBlockHeight in the configuration.")
+			r.logger.Warn(
+				"database does not contain latest processed block data and startBlockHeight is nil. Please provide a StartBlockHeight in the configuration.",
+				zap.String("blockchainID", r.sourceBlockchainID.String()),
+			)
 			return errors.New("database does not contain latest processed block data and startBlockHeight is nil.")
 		}
 		height = startBlockHeight
