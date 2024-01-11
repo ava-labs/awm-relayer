@@ -26,6 +26,10 @@ import (
 	"go.uber.org/zap"
 )
 
+const (
+	startupResubscribeAttempts = 10
+)
+
 // Relayer handles all messages sent from a given source chain
 type Relayer struct {
 	Subscriber               vms.Subscriber
@@ -128,7 +132,7 @@ func NewRelayer(
 
 	// Open the subscription. We must do this before processing any missed messages, otherwise we may miss an incoming message
 	// in between fetching the latest block and subscribing.
-	err = r.Subscriber.Subscribe()
+	err = r.Subscriber.Subscribe(startupResubscribeAttempts)
 	if err != nil {
 		logger.Error(
 			"Failed to subscribe to node",

@@ -29,14 +29,11 @@ const (
 	// Max buffer size for ethereum subscription channels
 	maxClientSubscriptionBuffer = 20000
 	subscribeRetryTimeout       = 1 * time.Second
-	maxResubscribeAttempts      = 10
 	MaxBlocksPerRequest         = 200
 )
 
-var (
-	// Errors
-	ErrInvalidLog = errors.New("invalid warp message log")
-)
+// Errors
+var ErrInvalidLog = errors.New("invalid warp message log")
 
 // The filter query used to match logs emitted by the Warp precompile
 var warpFilterQuery = interfaces.FilterQuery{
@@ -271,7 +268,7 @@ func (s *subscriber) SetProcessedBlockHeightToLatest() error {
 	return nil
 }
 
-func (s *subscriber) Subscribe() error {
+func (s *subscriber) Subscribe(maxResubscribeAttempts int) error {
 	// Retry subscribing until successful. Attempt to resubscribe maxResubscribeAttempts times
 	for attempt := 0; attempt < maxResubscribeAttempts; attempt++ {
 		// Unsubscribe before resubscribing
