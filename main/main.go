@@ -115,12 +115,12 @@ func main() {
 				var unhealthyRelayers []string
 				for id, health := range relayerHealth {
 					if !health.Load() {
-						unhealthlyRelayers = append(unhealthlyRelayers, id.Hex())
+						unhealthyRelayers = append(unhealthyRelayers, id.Hex())
 					}
 				}
 
-				if len(unhealthlyRelayers) > 0 {
-					return fmt.Errorf("relayers are unhealthy for blockchains %v", unhealthlyRelayers)
+				if len(unhealthyRelayers) > 0 {
+					return fmt.Errorf("relayers are unhealthy for blockchains %v", unhealthyRelayers)
 				}
 				return nil
 			},
