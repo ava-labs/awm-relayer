@@ -24,7 +24,6 @@ import (
 	"github.com/ava-labs/awm-relayer/peers"
 	"github.com/ava-labs/awm-relayer/relayer"
 	"github.com/ava-labs/awm-relayer/vms"
-	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
@@ -121,7 +120,7 @@ func main() {
 				}
 
 				if len(unhealthlyRelayers) > 0 {
-					return errors.Errorf("relayers %v are unhealthy", unhealthlyRelayers)
+					return fmt.Errorf("relayers %v are unhealthy", unhealthlyRelayers)
 				}
 				return nil
 			},
