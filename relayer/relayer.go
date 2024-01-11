@@ -9,6 +9,7 @@ import (
 	"math/big"
 	"math/rand"
 	"strconv"
+	"sync/atomic"
 
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/message"
@@ -27,7 +28,8 @@ import (
 )
 
 const (
-	startupResubscribeAttempts = 10
+	startupResubscribeAttempts       = 10
+	disconnectionResubscribeAttempts = 1000_000
 )
 
 // Relayer handles all messages sent from a given source chain
@@ -46,6 +48,7 @@ type Relayer struct {
 	db                       database.RelayerDatabase
 	supportedDestinations    set.Set[ids.ID]
 	apiNodeURI               string
+	healthStatus             *atomic.Bool
 }
 
 func NewRelayer(
@@ -57,6 +60,7 @@ func NewRelayer(
 	responseChan chan message.InboundMessage,
 	destinationClients map[ids.ID]vms.DestinationClient,
 	shouldProcessMissedBlocks bool,
+	relayerHealth *atomic.Bool,
 ) (*Relayer, error) {
 	sub := vms.NewSubscriber(logger, sourceSubnetInfo, db)
 
@@ -128,6 +132,7 @@ func NewRelayer(
 		db:                       db,
 		supportedDestinations:    supportedDestinationsBlockchainIDs,
 		apiNodeURI:               uri,
+		healthStatus:             relayerHealth,
 	}
 
 	// Open the subscription. We must do this before processing any missed messages, otherwise we may miss an incoming message
@@ -219,6 +224,26 @@ func (r *Relayer) processMissedBlocks() error {
 		zap.Error(err),
 	)
 	return err
+}
+
+// Sets the relayer health status to false while attempting to reconnect.
+func (r *Relayer) ReconnectToSubscriber() error {
+	r.healthStatus.Store(false)
+
+	// Attempt to reconnect the subscription
+	err := r.Subscriber.Subscribe(disconnectionResubscribeAttempts)
+	if err != nil {
+		r.logger.Error(
+			"Failed to resubscribe to node. Relayer goroutine exiting.",
+			zap.String("originChainID", r.sourceBlockchainID.Hex()),
+			zap.Error(err),
+		)
+		return fmt.Errorf("failed to resubscribe to node: %w", err)
+	}
+
+	// Success
+	r.healthStatus.Store(true)
+	return nil
 }
 
 // RelayMessage relays a single warp message to the destination chain. Warp message relay requests from the same origin chain are processed serially
