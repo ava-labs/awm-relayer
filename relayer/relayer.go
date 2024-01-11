@@ -158,9 +158,7 @@ func NewRelayer(
 	return &r, sub, nil
 }
 
-func (r *Relayer) processMissedBlocks(
-	sub vms.Subscriber,
-) error {
+func (r *Relayer) processMissedBlocks(sub vms.Subscriber) error {
 	// Get the latest processed block height from the database.
 	latestProcessedBlockData, err := r.db.Get(r.sourceBlockchainID, []byte(database.LatestProcessedBlockKey))
 
