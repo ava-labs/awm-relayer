@@ -208,7 +208,7 @@ func runRelayer(logger logging.Logger,
 		zap.String("blockchainID", sourceSubnetInfo.BlockchainID),
 	)
 
-	relayer, subscriber, err := relayer.NewRelayer(
+	relayer, err := relayer.NewRelayer(
 		logger,
 		db,
 		sourceSubnetInfo,
@@ -233,7 +233,7 @@ func runRelayer(logger logging.Logger,
 	// Wait for logs from the subscribed node
 	for {
 		select {
-		case txLog := <-subscriber.Logs():
+		case txLog := <-relayer.Subscriber.Logs():
 			logger.Info(
 				"Handling Teleporter submit message log.",
 				zap.String("txId", hex.EncodeToString(txLog.SourceTxID)),
@@ -251,13 +251,13 @@ func runRelayer(logger logging.Logger,
 				)
 				continue
 			}
-		case err := <-subscriber.Err():
+		case err := <-relayer.Subscriber.Err():
 			logger.Error(
 				"Received error from subscribed node",
 				zap.String("originChainID", sourceSubnetInfo.BlockchainID),
 				zap.Error(err),
 			)
-			err = subscriber.Subscribe()
+			err = relayer.Subscriber.Subscribe()
 			if err != nil {
 				logger.Error(
 					"Failed to resubscribe to node. Relayer goroutine exiting.",

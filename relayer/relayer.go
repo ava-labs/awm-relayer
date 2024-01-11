@@ -28,6 +28,7 @@ import (
 
 // Relayer handles all messages sent from a given source chain
 type Relayer struct {
+	Subscriber               vms.Subscriber
 	pChainClient             platformvm.Client
 	canonicalValidatorClient *CanonicalValidatorClient
 	currentRequestID         uint32
@@ -52,7 +53,7 @@ func NewRelayer(
 	responseChan chan message.InboundMessage,
 	destinationClients map[ids.ID]vms.DestinationClient,
 	shouldProcessMissedBlocks bool,
-) (*Relayer, vms.Subscriber, error) {
+) (*Relayer, error) {
 	sub := vms.NewSubscriber(logger, sourceSubnetInfo, db)
 
 	subnetID, err := ids.FromString(sourceSubnetInfo.SubnetID)
@@ -61,7 +62,7 @@ func NewRelayer(
 			"Invalid subnetID in configuration",
 			zap.Error(err),
 		)
-		return nil, nil, err
+		return nil, err
 	}
 
 	blockchainID, err := ids.FromString(sourceSubnetInfo.BlockchainID)
@@ -70,7 +71,7 @@ func NewRelayer(
 			"Failed to decode base-58 encoded source chain ID",
 			zap.Error(err),
 		)
-		return nil, nil, err
+		return nil, err
 	}
 
 	var filteredDestinationClients map[ids.ID]vms.DestinationClient
@@ -94,7 +95,7 @@ func NewRelayer(
 				"Failed to create message manager",
 				zap.Error(err),
 			)
-			return nil, nil, err
+			return nil, err
 		}
 		messageManagers[addressHash] = messageManager
 	}
@@ -109,6 +110,7 @@ func NewRelayer(
 		zap.String("blockchainIDHex", blockchainID.Hex()),
 	)
 	r := Relayer{
+		Subscriber:               sub,
 		pChainClient:             pChainClient,
 		canonicalValidatorClient: NewCanonicalValidatorClient(logger, pChainClient),
 		currentRequestID:         rand.Uint32(), // Initialize to a random value to mitigate requestID collision
@@ -126,26 +128,26 @@ func NewRelayer(
 
 	// Open the subscription. We must do this before processing any missed messages, otherwise we may miss an incoming message
 	// in between fetching the latest block and subscribing.
-	err = sub.Subscribe()
+	err = r.Subscriber.Subscribe()
 	if err != nil {
 		logger.Error(
 			"Failed to subscribe to node",
 			zap.Error(err),
 		)
-		return nil, nil, err
+		return nil, err
 	}
 
 	if shouldProcessMissedBlocks {
-		err = r.processMissedBlocks(sub)
+		err = r.processMissedBlocks()
 		if err != nil {
 			logger.Error(
 				"Failed to process historical blocks mined during relayer downtime",
 				zap.Error(err),
 			)
-			return nil, nil, err
+			return nil, err
 		}
 	} else {
-		err = sub.SetProcessedBlockHeightToLatest()
+		err = r.Subscriber.SetProcessedBlockHeightToLatest()
 		if err != nil {
 			logger.Warn(
 				"Failed to update latest processed block. Continuing to normal relaying operation",
@@ -155,10 +157,10 @@ func NewRelayer(
 		}
 	}
 
-	return &r, sub, nil
+	return &r, nil
 }
 
-func (r *Relayer) processMissedBlocks(sub vms.Subscriber) error {
+func (r *Relayer) processMissedBlocks() error {
 	// Get the latest processed block height from the database.
 	latestProcessedBlockData, err := r.db.Get(r.sourceBlockchainID, []byte(database.LatestProcessedBlockKey))
 
@@ -178,7 +180,7 @@ func (r *Relayer) processMissedBlocks(sub vms.Subscriber) error {
 			return err
 		}
 
-		err = sub.ProcessFromHeight(latestProcessedBlock)
+		err = r.Subscriber.ProcessFromHeight(latestProcessedBlock)
 		if err != nil {
 			r.logger.Warn(
 				"Encountered an error when processing historical blocks. Continuing to normal relaying operation.",
@@ -195,7 +197,7 @@ func (r *Relayer) processMissedBlocks(sub vms.Subscriber) error {
 			zap.String("blockchainID", r.sourceBlockchainID.String()),
 		)
 
-		err := sub.SetProcessedBlockHeightToLatest()
+		err := r.Subscriber.SetProcessedBlockHeightToLatest()
 		if err != nil {
 			r.logger.Warn(
 				"Failed to update latest processed block. Continuing to normal relaying operation",
