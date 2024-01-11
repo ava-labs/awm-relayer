@@ -269,7 +269,12 @@ func runRelayer(
 			)
 			err = relayer.ReconnectToSubscriber()
 			if err != nil {
-				return fmt.Errorf("exiting relayer goroutine: %w", err)
+				logger.Error(
+					"Relayer goroutine exiting.",
+					zap.String("originChainID", sourceSubnetInfo.BlockchainID),
+					zap.Error(err),
+				)
+				return fmt.Errorf("relayer goroutine exiting: %w", err)
 			}
 		case <-ctx.Done():
 			relayerHealth.Store(false)

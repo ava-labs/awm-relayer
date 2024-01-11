@@ -233,11 +233,6 @@ func (r *Relayer) ReconnectToSubscriber() error {
 	// Attempt to reconnect the subscription
 	err := r.Subscriber.Subscribe(disconnectionResubscribeAttempts)
 	if err != nil {
-		r.logger.Error(
-			"Failed to resubscribe to node. Relayer goroutine exiting.",
-			zap.String("originChainID", r.sourceBlockchainID.Hex()),
-			zap.Error(err),
-		)
 		return fmt.Errorf("failed to resubscribe to node: %w", err)
 	}
 
