@@ -112,7 +112,7 @@ func main() {
 		health.WithCheck(health.Check{
 			Name: "relayers-all",
 			Check: func(context.Context) error {
-				var unhealthlyRelayers []string
+				var unhealthyRelayers []string
 				for id, health := range relayerHealth {
 					if !health.Load() {
 						unhealthlyRelayers = append(unhealthlyRelayers, id.Hex())
