@@ -107,7 +107,7 @@ func main() {
 		return
 	}
 
-	// Create a health check server that polls a single atomic bool, settable by any relayer goroutine on failure
+	// Each goroutine will have an atomic bool that it can set to false if it ever disconnects from its subscription.
 	relayerHealth := make(map[ids.ID]*atomic.Bool)
 
 	checker := health.NewChecker(
@@ -174,9 +174,11 @@ func main() {
 		}
 		wg.Add(1)
 		subnetInfo := s
+
 		health := atomic.Bool{}
 		health.Store(true)
 		relayerHealth[blockchainID] = &health
+
 		go func() {
 			defer wg.Done()
 			// runRelayer runs until it errors or the context is cancelled by another goroutine
@@ -194,6 +196,8 @@ func main() {
 				cfg.ProcessMissedBlocks,
 				&health,
 			)
+			// This will set ctx.Done(), causing the other goroutines to exit.
+			// Only the first call to cancelFunc() will set the error.
 			cancelFunc(err)
 			logger.Info(
 				"Relayer exiting.",
