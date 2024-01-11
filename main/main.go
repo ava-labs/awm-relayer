@@ -120,7 +120,7 @@ func main() {
 				}
 
 				if len(unhealthlyRelayers) > 0 {
-					return fmt.Errorf("relayers %v are unhealthy", unhealthlyRelayers)
+					return fmt.Errorf("relayers are unhealthy for blockchains %v", unhealthlyRelayers)
 				}
 				return nil
 			},
