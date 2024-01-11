@@ -28,8 +28,8 @@ import (
 )
 
 const (
-	startupResubscribeAttempts       = 10
-	disconnectionResubscribeAttempts = 1000_000
+	maxSubscribeAttempts   = 10
+	maxResubscribeAttempts = 1000_000
 )
 
 // Relayer handles all messages sent from a given source chain
@@ -137,7 +137,7 @@ func NewRelayer(
 
 	// Open the subscription. We must do this before processing any missed messages, otherwise we may miss an incoming message
 	// in between fetching the latest block and subscribing.
-	err = r.Subscriber.Subscribe(startupResubscribeAttempts)
+	err = r.Subscriber.Subscribe(maxSubscribeAttempts)
 	if err != nil {
 		logger.Error(
 			"Failed to subscribe to node",
@@ -231,7 +231,7 @@ func (r *Relayer) ReconnectToSubscriber() error {
 	r.healthStatus.Store(false)
 
 	// Attempt to reconnect the subscription
-	err := r.Subscriber.Subscribe(disconnectionResubscribeAttempts)
+	err := r.Subscriber.Subscribe(maxResubscribeAttempts)
 	if err != nil {
 		return fmt.Errorf("failed to resubscribe to node: %w", err)
 	}
