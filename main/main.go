@@ -32,8 +32,8 @@ import (
 )
 
 const (
-	defaultApiPort                   = 8080
-	defaultMetricsPort               = 9090
+	defaultApiPort     = 8080
+	defaultMetricsPort = 9090
 )
 
 func main() {
