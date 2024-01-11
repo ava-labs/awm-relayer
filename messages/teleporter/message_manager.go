@@ -5,7 +5,6 @@ package teleporter
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"math/big"
 
@@ -298,21 +297,13 @@ func (m *messageManager) parseTeleporterMessage(warpMessageID ids.ID, warpPayloa
 func (m *messageManager) getTeleporterMessenger(destinationClient vms.DestinationClient) (*teleportermessenger.TeleporterMessenger, error) {
 	client, ok := destinationClient.Client().(ethclient.Client)
 	if !ok {
-		m.logger.Error(
-			"Destination client is not an Ethereum client.",
-			zap.String("destinationBlockchainID", destinationClient.DestinationBlockchainID().String()),
-		)
-		return nil, errors.New("destination client is not an Ethereum client")
+		panic(fmt.Sprintf("Destination client for chain %s is not an Ethereum client", destinationClient.DestinationBlockchainID().String()))
 	}
 
 	// Get the teleporter messenger contract
 	teleporterMessenger, err := teleportermessenger.NewTeleporterMessenger(common.BytesToAddress(m.protocolAddress[:]), client)
 	if err != nil {
-		m.logger.Error(
-			"Failed to get teleporter messenger contract",
-			zap.Error(err),
-		)
-		return nil, err
+		panic("Failed to get teleporter messenger contract")
 	}
 	return teleporterMessenger, nil
 }
