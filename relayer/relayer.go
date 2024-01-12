@@ -174,7 +174,6 @@ func (r *Relayer) calculateStartingBlockHeight(
 	sub vms.Subscriber,
 	startBlockHeight uint64,
 ) (*big.Int, error) {
-	var height *big.Int
 	startBlockHeightBigInt := big.NewInt(0).SetUint64(startBlockHeight)
 
 	// Attempt to get the latest processed block height from the database.
@@ -215,17 +214,15 @@ func (r *Relayer) calculateStartingBlockHeight(
 			zap.String("blockchainID", r.sourceBlockchainID.String()),
 			zap.String("latestProcessedBlock", latestProcessedBlock.String()),
 		)
-		height = latestProcessedBlock
-	} else {
-		r.logger.Info(
-			"Processing historical blocks from the configured start block height",
-			zap.String("blockchainID", r.sourceBlockchainID.String()),
-			zap.Uint64("startBlockHeight", startBlockHeight),
-		)
-		height = startBlockHeightBigInt
+		return latestProcessedBlock, nil
 	}
-
-	return height, nil
+	// Otherwise, return the configured start block height
+	r.logger.Info(
+		"Processing historical blocks from the configured start block height",
+		zap.String("blockchainID", r.sourceBlockchainID.String()),
+		zap.Uint64("startBlockHeight", startBlockHeight),
+	)
+	return startBlockHeightBigInt, nil
 }
 
 func (r *Relayer) setProcessedBlockHeightToLatest() error {
