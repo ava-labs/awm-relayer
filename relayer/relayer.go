@@ -141,7 +141,7 @@ func NewRelayer(
 	}
 
 	if shouldProcessMissedBlocks {
-		height, err := r.setProcessedBlockHeight(sub, sourceSubnetInfo.StartBlockHeight)
+		height, err := r.calculateStartingBlockHeight(sub, sourceSubnetInfo.StartBlockHeight)
 		if err != nil {
 			logger.Error(
 				"Failed to process historical blocks mined during relayer downtime",
@@ -164,17 +164,16 @@ func NewRelayer(
 	return &r, sub, nil
 }
 
-// Helper to process missed blocks. Chooses as the starting block the maximum of the latest processed block and the configured start block height.
-// If the DB does not contain a value, startBlockHeight cannot be nil
-func (r *Relayer) setProcessedBlockHeight(
+// Determines the height to process from. There are two cases:
+// 1) The database contains the latest processed block data for the chain
+//   - In this case, we return the maximum of the latest processed block and the configured start block height
+//
+// 2) The database has been configured for the chain, but does not contain the latest processed block data
+//   - In this case, we return the configured start block height
+func (r *Relayer) calculateStartingBlockHeight(
 	sub vms.Subscriber,
 	startBlockHeight uint64,
 ) (*big.Int, error) {
-	// First, determine the height to process from. There are two cases:
-	// 1) The database contains the latest processed block data for the chain
-	//    - In this case, we process from the maximum of the latest processed block and the configured start block height to the latest block
-	// 2) The database has been configured for the chain, but does not contain the latest processed block data
-	//    - In this case, we process from the start block height to the latest block
 	var height *big.Int
 	startBlockHeightBigInt := big.NewInt(0).SetUint64(startBlockHeight)
 
@@ -192,7 +191,7 @@ func (r *Relayer) setProcessedBlockHeight(
 			)
 			return nil, errors.New("database does not contain latest processed block data and startBlockHeight is nil.")
 		}
-		height = startBlockHeightBigInt
+		return startBlockHeightBigInt, nil
 	} else if err != nil {
 		// Otherwise, we've encountered an unknown database error
 		r.logger.Warn(
