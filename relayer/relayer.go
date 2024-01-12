@@ -30,8 +30,10 @@ import (
 )
 
 const (
-	maxSubscribeAttempts   = 10
-	maxResubscribeAttempts = 1000_000
+	maxSubscribeAttempts = 10
+	// TODO increase number of resubscribe attempts when we are able to process missed blocks and
+	// refresh the chain config on reconnect.
+	maxResubscribeAttempts = 10
 )
 
 // Relayer handles all messages sent from a given source chain
