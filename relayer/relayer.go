@@ -178,7 +178,7 @@ func (r *Relayer) calculateStartingBlockHeight(
 
 	// Attempt to get the latest processed block height from the database.
 	// Note that there may be unrelayed messages in the latest processed block
-	// because it is updated as soon as a single message from that block is relayed, 
+	// because it is updated as soon as a single message from that block is relayed,
 	// and there may be multiple message in the same block.
 	latestProcessedBlockData, err := r.db.Get(r.sourceBlockchainID, []byte(database.LatestProcessedBlockKey))
 	if errors.Is(err, database.ErrChainNotFound) || errors.Is(err, database.ErrKeyNotFound) {
