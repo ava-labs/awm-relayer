@@ -149,7 +149,7 @@ func NewRelayer(
 			)
 			return nil, nil, err
 		}
-		sub.ProcessFromHeight(height)
+		sub.ProcessFromHeight(big.NewInt(0).SetUint64(height))
 	} else {
 		err = r.setProcessedBlockHeightToLatest()
 		if err != nil {
@@ -173,9 +173,7 @@ func NewRelayer(
 func (r *Relayer) calculateStartingBlockHeight(
 	sub vms.Subscriber,
 	startBlockHeight uint64,
-) (*big.Int, error) {
-	startBlockHeightBigInt := big.NewInt(0).SetUint64(startBlockHeight)
-
+) (uint64, error) {
 	// Attempt to get the latest processed block height from the database.
 	// Note that there may be unrelayed messages in the latest processed block
 	// because it is updated as soon as a single message from that block is relayed,
@@ -188,9 +186,9 @@ func (r *Relayer) calculateStartingBlockHeight(
 				"database does not contain latest processed block data and startBlockHeight is unset. Please provide a non-zero startBlockHeight in the configuration.",
 				zap.String("blockchainID", r.sourceBlockchainID.String()),
 			)
-			return nil, errors.New("database does not contain latest processed block data and startBlockHeight is unset.")
+			return 0, errors.New("database does not contain latest processed block data and startBlockHeight is unset.")
 		}
-		return startBlockHeightBigInt, nil
+		return startBlockHeight, nil
 	} else if err != nil {
 		// Otherwise, we've encountered an unknown database error
 		r.logger.Warn(
@@ -198,7 +196,7 @@ func (r *Relayer) calculateStartingBlockHeight(
 			zap.String("blockchainID", r.sourceBlockchainID.String()),
 			zap.Error(err),
 		)
-		return nil, err
+		return 0, err
 	}
 
 	// If the database does contain the latest processed block data for the chain,
@@ -206,15 +204,15 @@ func (r *Relayer) calculateStartingBlockHeight(
 	latestProcessedBlock, success := new(big.Int).SetString(string(latestProcessedBlockData), 10)
 	if !success {
 		r.logger.Error("failed to convert latest block to big.Int", zap.Error(err))
-		return nil, err
+		return 0, err
 	}
-	if startBlockHeight == 0 || latestProcessedBlock.Cmp(startBlockHeightBigInt) > 0 {
+	if startBlockHeight == 0 || latestProcessedBlock.Uint64() > startBlockHeight {
 		r.logger.Info(
 			"Processing historical blocks from the latest processed block in the DB",
 			zap.String("blockchainID", r.sourceBlockchainID.String()),
 			zap.String("latestProcessedBlock", latestProcessedBlock.String()),
 		)
-		return latestProcessedBlock, nil
+		return latestProcessedBlock.Uint64(), nil
 	}
 	// Otherwise, return the configured start block height
 	r.logger.Info(
@@ -222,7 +220,7 @@ func (r *Relayer) calculateStartingBlockHeight(
 		zap.String("blockchainID", r.sourceBlockchainID.String()),
 		zap.Uint64("startBlockHeight", startBlockHeight),
 	)
-	return startBlockHeightBigInt, nil
+	return startBlockHeight, nil
 }
 
 func (r *Relayer) setProcessedBlockHeightToLatest() error {
