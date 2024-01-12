@@ -47,14 +47,10 @@ type SourceSubnet struct {
 	WSEndpoint            string                           `mapstructure:"ws-endpoint" json:"ws-endpoint"`
 	MessageContracts      map[string]MessageProtocolConfig `mapstructure:"message-contracts" json:"message-contracts"`
 	SupportedDestinations []string                         `mapstructure:"supported-destinations" json:"supported-destinations"`
-	StartBlockHeight      int64                            `mapstructure:"start-block-height" json:"start-block-height"`
+	StartBlockHeight      uint64                           `mapstructure:"start-block-height" json:"start-block-height"`
 
 	// convenience field to access the supported destinations after initialization
 	supportedDestinations set.Set[ids.ID]
-
-	// convenience field to store the starting block height as a bigint so that we can differentiate
-	// between a 0 value and an unset value
-	StartBlockHeightBigInt *big.Int
 }
 
 type DestinationSubnet struct {
@@ -283,19 +279,6 @@ func (s *SourceSubnet) Validate(destinationBlockchainIDs *set.Set[string]) error
 				blockchainID)
 		}
 		s.supportedDestinations.Add(blockchainID)
-	}
-
-	// Validate the starting block height and set the bigint field
-	// If -1 is provided, set the bigint field to 0 to indicate that the relayer should start from genesis
-	// 0 is treated the same as the field being unset, since there's no way to differentiate between the two when unmarshalling
-	// In this case, StartBlockHeightBigInt is nil
-	if s.StartBlockHeight < -1 {
-		return fmt.Errorf("invalid start block height in source subnet configuration. Provided height: %d", s.StartBlockHeight)
-	}
-	if s.StartBlockHeight == -1 {
-		s.StartBlockHeightBigInt = big.NewInt(0)
-	} else if s.StartBlockHeight > 0 {
-		s.StartBlockHeightBigInt = big.NewInt(s.StartBlockHeight)
 	}
 
 	return nil

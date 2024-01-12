@@ -141,7 +141,7 @@ func NewRelayer(
 	}
 
 	if shouldProcessMissedBlocks {
-		err, height := r.setProcessedBlockHeight(sub, sourceSubnetInfo.StartBlockHeightBigInt)
+		height, err := r.setProcessedBlockHeight(sub, sourceSubnetInfo.StartBlockHeight)
 		if err != nil {
 			logger.Error(
 				"Failed to process historical blocks mined during relayer downtime",
@@ -168,14 +168,15 @@ func NewRelayer(
 // If the DB does not contain a value, startBlockHeight cannot be nil
 func (r *Relayer) setProcessedBlockHeight(
 	sub vms.Subscriber,
-	startBlockHeight *big.Int,
-) (error, *big.Int) {
+	startBlockHeight uint64,
+) (*big.Int, error) {
 	// First, determine the height to process from. There are two cases:
 	// 1) The database contains the latest processed block data for the chain
 	//    - In this case, we process from the maximum of the latest processed block and the configured start block height to the latest block
 	// 2) The database has been configured for the chain, but does not contain the latest processed block data
 	//    - In this case, we process from the start block height to the latest block
 	var height *big.Int
+	startBlockHeightBigInt := big.NewInt(0).SetUint64(startBlockHeight)
 
 	// Attempt to get the latest processed block height from the database.
 	// Note that the retrieved latest processed block may have already been partially (or fully) processed by the relayer on a previous run. When
@@ -184,14 +185,14 @@ func (r *Relayer) setProcessedBlockHeight(
 	latestProcessedBlockData, err := r.db.Get(r.sourceBlockchainID, []byte(database.LatestProcessedBlockKey))
 	if errors.Is(err, database.ErrChainNotFound) || errors.Is(err, database.ErrKeyNotFound) {
 		// The database does not contain the latest processed block data for the chain, so use the configured StartBlockHeight instead
-		if startBlockHeight == nil {
+		if startBlockHeight == 0 {
 			r.logger.Warn(
-				"database does not contain latest processed block data and startBlockHeight is nil. Please provide a StartBlockHeight in the configuration.",
+				"database does not contain latest processed block data and startBlockHeight is unset. Please provide a non-zero StartBlockHeight in the configuration.",
 				zap.String("blockchainID", r.sourceBlockchainID.String()),
 			)
-			return errors.New("database does not contain latest processed block data and startBlockHeight is nil."), nil
+			return nil, errors.New("database does not contain latest processed block data and startBlockHeight is nil.")
 		}
-		height = startBlockHeight
+		height = startBlockHeightBigInt
 	} else if err != nil {
 		// Otherwise, we've encountered an unknown database error
 		r.logger.Warn(
@@ -199,7 +200,7 @@ func (r *Relayer) setProcessedBlockHeight(
 			zap.String("blockchainID", r.sourceBlockchainID.String()),
 			zap.Error(err),
 		)
-		return err, nil
+		return nil, err
 	}
 
 	// If the database does contain the latest processed block data for the chain,
@@ -207,9 +208,9 @@ func (r *Relayer) setProcessedBlockHeight(
 	latestProcessedBlock, success := new(big.Int).SetString(string(latestProcessedBlockData), 10)
 	if !success {
 		r.logger.Error("failed to convert latest block to big.Int", zap.Error(err))
-		return err, nil
+		return nil, err
 	}
-	if startBlockHeight == nil || latestProcessedBlock.Cmp(startBlockHeight) > 0 {
+	if startBlockHeight == 0 || latestProcessedBlock.Cmp(startBlockHeightBigInt) > 0 {
 		r.logger.Info(
 			"Processing historical blocks from the latest processed block in the DB",
 			zap.String("blockchainID", r.sourceBlockchainID.String()),
@@ -220,20 +221,12 @@ func (r *Relayer) setProcessedBlockHeight(
 		r.logger.Info(
 			"Processing historical blocks from the configured start block height",
 			zap.String("blockchainID", r.sourceBlockchainID.String()),
-			zap.String("startBlockHeight", startBlockHeight.String()),
+			zap.Uint64("startBlockHeight", startBlockHeight),
 		)
-		height = startBlockHeight
+		height = startBlockHeightBigInt
 	}
 
-	// Process from the determined height to the latest block.
-	if height.Cmp(big.NewInt(0)) == 0 {
-		r.logger.Warn(
-			"Processing from height 0. This may take a long time. If this was not intended, please set startBlockHeight to a non-zero value in the configuration",
-			zap.String("blockchainID", r.sourceBlockchainID.String()),
-		)
-	}
-
-	return nil, height
+	return height, nil
 }
 
 func (r *Relayer) setProcessedBlockHeightToLatest() error {

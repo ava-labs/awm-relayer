@@ -83,12 +83,8 @@ The relayer is configured via a JSON file, the path to which is passed in via th
   `"supported-destinations": []string` 
   - List of destination subnet IDs that the source subnet supports. If empty, then all destinations are supported.
 
-  `"start-block-height": signed integer`
-  - The block height at which to back-process transactions from the source subnet. If the database already contains a later block height for the source subnet, then that will be used instead.
-  - Usage: 
-    - `"start-block-height": -1` - Specify genesis as the start block height
-    - `"start-block-height": 0` - Treated the same as this key not being set
-    - `"start-block-height": > 0` - Start processing from the specified block height
+  `"start-block-height": unsigned integer`
+  - The block height at which to back-process transactions from the source subnet. If the database already contains a later block height for the source subnet, then that will be used instead. Must be non-zero, otherwise this is ignored.
 
 `"destination-subnets": []DestinationSubnets`
 - The list of destination subnets to support. Each `DestinationSubnet` has the following configuration:
