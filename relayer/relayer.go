@@ -186,7 +186,7 @@ func (r *Relayer) calculateStartingBlockHeight(
 		// The database does not contain the latest processed block data for the chain, so use the configured StartBlockHeight instead
 		if startBlockHeight == 0 {
 			r.logger.Warn(
-				"database does not contain latest processed block data and startBlockHeight is unset. Please provide a non-zero StartBlockHeight in the configuration.",
+				"database does not contain latest processed block data and startBlockHeight is unset. Please provide a non-zero startBlockHeight in the configuration.",
 				zap.String("blockchainID", r.sourceBlockchainID.String()),
 			)
 			return nil, errors.New("database does not contain latest processed block data and startBlockHeight is unset.")
