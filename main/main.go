@@ -160,9 +160,6 @@ func main() {
 
 	// Create relayers for each of the subnets configured as a source
 	// On exit, the relayer goroutine will set the healthy flag to false
-	// This should most likely cause the host to restart the relayer process,
-	// as this may be an indication that the relayer is in an inconsistent state
-	// with respect to the source blockchain.
 	var wg sync.WaitGroup
 	for _, s := range cfg.SourceSubnets {
 		blockchainID, err := ids.FromString(s.BlockchainID)
