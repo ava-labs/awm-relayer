@@ -8,7 +8,6 @@ import (
 
 	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/awm-relayer/config"
-	"github.com/ava-labs/awm-relayer/database"
 	"github.com/ava-labs/awm-relayer/vms/evm"
 	"github.com/ava-labs/awm-relayer/vms/vmtypes"
 )
@@ -19,9 +18,6 @@ import (
 type Subscriber interface {
 	// ProcessFromHeight processes events from {height} to the latest block
 	ProcessFromHeight(height *big.Int) error
-
-	// SetProcessedBlockHeightToLatest retrieves the latest block from the chain and updates the database
-	SetProcessedBlockHeightToLatest() error
 
 	// Subscribe registers a subscription. After Subscribe is called,
 	// log events that match [filter] are written to the channel returned
@@ -40,10 +36,10 @@ type Subscriber interface {
 }
 
 // NewSubscriber returns a concrete Subscriber according to the VM specified by [subnetInfo]
-func NewSubscriber(logger logging.Logger, subnetInfo config.SourceSubnet, db database.RelayerDatabase) Subscriber {
+func NewSubscriber(logger logging.Logger, subnetInfo config.SourceSubnet) Subscriber {
 	switch config.ParseVM(subnetInfo.VM) {
 	case config.EVM:
-		return evm.NewSubscriber(logger, subnetInfo, db)
+		return evm.NewSubscriber(logger, subnetInfo)
 	default:
 		return nil
 	}

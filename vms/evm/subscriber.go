@@ -9,13 +9,11 @@ import (
 	"fmt"
 	"math/big"
 	"sort"
-	"strconv"
 	"time"
 
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/awm-relayer/config"
-	"github.com/ava-labs/awm-relayer/database"
 	"github.com/ava-labs/awm-relayer/vms/vmtypes"
 	"github.com/ava-labs/subnet-evm/core/types"
 	"github.com/ava-labs/subnet-evm/ethclient"
@@ -60,14 +58,13 @@ type subscriber struct {
 	sub          interfaces.Subscription
 
 	logger logging.Logger
-	db     database.RelayerDatabase
 
 	// seams for mock injection:
 	dial func(url string) (ethclient.Client, error)
 }
 
 // NewSubscriber returns a subscriber
-func NewSubscriber(logger logging.Logger, subnetInfo config.SourceSubnet, db database.RelayerDatabase) *subscriber {
+func NewSubscriber(logger logging.Logger, subnetInfo config.SourceSubnet) *subscriber {
 	blockchainID, err := ids.FromString(subnetInfo.BlockchainID)
 	if err != nil {
 		logger.Error(
@@ -84,7 +81,6 @@ func NewSubscriber(logger logging.Logger, subnetInfo config.SourceSubnet, db dat
 		nodeRPCURL:   subnetInfo.GetNodeRPCEndpoint(),
 		blockchainID: blockchainID,
 		logger:       logger,
-		db:           db,
 		logsChan:     logs,
 		dial:         ethclient.Dial,
 	}
@@ -230,45 +226,6 @@ func (s *subscriber) processBlockRange(
 			continue
 		}
 		s.logsChan <- *messageInfo
-	}
-	return nil
-}
-
-func (s *subscriber) SetProcessedBlockHeightToLatest() error {
-	ethClient, err := s.dial(s.nodeWSURL)
-	if err != nil {
-		s.logger.Error(
-			"Failed to dial node",
-			zap.String("blockchainID", s.blockchainID.String()),
-			zap.Error(err),
-		)
-		return err
-	}
-
-	latestBlock, err := ethClient.BlockNumber(context.Background())
-	if err != nil {
-		s.logger.Error(
-			"Failed to get latest block",
-			zap.String("blockchainID", s.blockchainID.String()),
-			zap.Error(err),
-		)
-		return err
-	}
-
-	s.logger.Info(
-		"Updating latest processed block in database",
-		zap.String("blockchainID", s.blockchainID.String()),
-		zap.Uint64("latestBlock", latestBlock),
-	)
-
-	err = s.db.Put(s.blockchainID, []byte(database.LatestProcessedBlockKey), []byte(strconv.FormatUint(latestBlock, 10)))
-	if err != nil {
-		s.logger.Error(
-			fmt.Sprintf("failed to put %s into database", database.LatestProcessedBlockKey),
-			zap.String("blockchainID", s.blockchainID.String()),
-			zap.Error(err),
-		)
-		return err
 	}
 	return nil
 }

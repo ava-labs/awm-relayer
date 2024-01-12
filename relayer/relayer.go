@@ -4,6 +4,7 @@
 package relayer
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"math/big"
@@ -22,6 +23,7 @@ import (
 	"github.com/ava-labs/awm-relayer/utils"
 	vms "github.com/ava-labs/awm-relayer/vms"
 	"github.com/ava-labs/awm-relayer/vms/vmtypes"
+	"github.com/ava-labs/coreth/ethclient"
 	"github.com/ethereum/go-ethereum/common"
 	"go.uber.org/zap"
 )
@@ -40,6 +42,7 @@ type Relayer struct {
 	logger                   logging.Logger
 	db                       database.RelayerDatabase
 	supportedDestinations    set.Set[ids.ID]
+	rpcEndpoint              string
 	apiNodeURI               string
 }
 
@@ -53,7 +56,7 @@ func NewRelayer(
 	destinationClients map[ids.ID]vms.DestinationClient,
 	shouldProcessMissedBlocks bool,
 ) (*Relayer, vms.Subscriber, error) {
-	sub := vms.NewSubscriber(logger, sourceSubnetInfo, db)
+	sub := vms.NewSubscriber(logger, sourceSubnetInfo)
 
 	subnetID, err := ids.FromString(sourceSubnetInfo.SubnetID)
 	if err != nil {
@@ -99,7 +102,8 @@ func NewRelayer(
 		messageManagers[addressHash] = messageManager
 	}
 
-	uri := utils.StripFromString(sourceSubnetInfo.GetNodeRPCEndpoint(), "/ext")
+	rpcEndpoint := sourceSubnetInfo.GetNodeRPCEndpoint()
+	uri := utils.StripFromString(rpcEndpoint, "/ext")
 
 	logger.Info(
 		"Creating relayer",
@@ -121,6 +125,7 @@ func NewRelayer(
 		logger:                   logger,
 		db:                       db,
 		supportedDestinations:    supportedDestinationsBlockchainIDs,
+		rpcEndpoint:              rpcEndpoint,
 		apiNodeURI:               uri,
 	}
 
@@ -146,7 +151,7 @@ func NewRelayer(
 		}
 		sub.ProcessFromHeight(height)
 	} else {
-		err = sub.SetProcessedBlockHeightToLatest()
+		err = r.setProcessedBlockHeightToLatest()
 		if err != nil {
 			logger.Warn(
 				"Failed to update latest processed block. Continuing to normal relaying operation",
@@ -229,6 +234,45 @@ func (r *Relayer) setProcessedBlockHeight(
 	}
 
 	return nil, height
+}
+
+func (r *Relayer) setProcessedBlockHeightToLatest() error {
+	ethClient, err := ethclient.Dial(r.rpcEndpoint)
+	if err != nil {
+		r.logger.Error(
+			"Failed to dial node",
+			zap.String("blockchainID", r.sourceBlockchainID.String()),
+			zap.Error(err),
+		)
+		return err
+	}
+
+	latestBlock, err := ethClient.BlockNumber(context.Background())
+	if err != nil {
+		r.logger.Error(
+			"Failed to get latest block",
+			zap.String("blockchainID", r.sourceBlockchainID.String()),
+			zap.Error(err),
+		)
+		return err
+	}
+
+	r.logger.Info(
+		"Updating latest processed block in database",
+		zap.String("blockchainID", r.sourceBlockchainID.String()),
+		zap.Uint64("latestBlock", latestBlock),
+	)
+
+	err = r.db.Put(r.sourceBlockchainID, []byte(database.LatestProcessedBlockKey), []byte(strconv.FormatUint(latestBlock, 10)))
+	if err != nil {
+		r.logger.Error(
+			fmt.Sprintf("failed to put %s into database", database.LatestProcessedBlockKey),
+			zap.String("blockchainID", r.sourceBlockchainID.String()),
+			zap.Error(err),
+		)
+		return err
+	}
+	return nil
 }
 
 // RelayMessage relays a single warp message to the destination chain. Warp message relay requests from the same origin chain are processed serially
