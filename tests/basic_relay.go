@@ -272,15 +272,15 @@ func BasicRelay(network interfaces.LocalNetwork) {
 	log.Info("Waiting for a new block confirmation on subnet B")
 	<-newHeadsB
 	delivered1, err := subnetBInfo.TeleporterMessenger.MessageReceived(
-		&bind.CallOpts{}, subnetAInfo.BlockchainID, id1,
+		&bind.CallOpts{}, id1,
 	)
 	Expect(err).Should(BeNil())
 	delivered2, err := subnetBInfo.TeleporterMessenger.MessageReceived(
-		&bind.CallOpts{}, subnetAInfo.BlockchainID, id2,
+		&bind.CallOpts{}, id2,
 	)
 	Expect(err).Should(BeNil())
 	delivered3, err := subnetBInfo.TeleporterMessenger.MessageReceived(
-		&bind.CallOpts{}, subnetAInfo.BlockchainID, id3,
+		&bind.CallOpts{}, id3,
 	)
 	Expect(err).Should(BeNil())
 	Expect(delivered1).Should(BeFalse())
@@ -298,7 +298,7 @@ func sendBasicTeleporterMessage(
 	destination interfaces.SubnetTestInfo,
 	fundedKey *ecdsa.PrivateKey,
 	fundedAddress common.Address,
-) (teleportermessenger.TeleporterMessage, *big.Int) {
+) (teleportermessenger.TeleporterMessage, ids.ID) {
 	log.Info("Packing Teleporter message")
 	teleporterMessage := teleportermessenger.TeleporterMessage{
 		MessageNonce:            big.NewInt(1),
