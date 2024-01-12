@@ -5,7 +5,6 @@ package main
 
 import (
 	"context"
-	"encoding/hex"
 	"fmt"
 	"log"
 	"net/http"
@@ -112,10 +111,11 @@ func main() {
 		health.WithCheck(health.Check{
 			Name: "relayers-all",
 			Check: func(context.Context) error {
+				// Store the IDs as the cb58 encoding
 				var unhealthyRelayers []string
 				for id, health := range relayerHealth {
 					if !health.Load() {
-						unhealthyRelayers = append(unhealthyRelayers, id.Hex())
+						unhealthyRelayers = append(unhealthyRelayers, id.String())
 					}
 				}
 
@@ -223,12 +223,14 @@ func runRelayer(
 
 	relayer, err := relayer.NewRelayer(
 		logger,
+		metrics,
 		db,
 		sourceSubnetInfo,
 		pChainClient,
 		network,
 		responseChan,
 		destinationClients,
+		messageCreator,
 		processMissedBlocks,
 		relayerHealth,
 	)
@@ -241,50 +243,7 @@ func runRelayer(
 	)
 
 	// Wait for logs from the subscribed node
-	for {
-		select {
-		case txLog := <-relayer.Subscriber.Logs():
-			logger.Info(
-				"Handling Teleporter submit message log.",
-				zap.String("txId", hex.EncodeToString(txLog.SourceTxID)),
-				zap.String("originChainId", sourceSubnetInfo.BlockchainID),
-				zap.String("sourceAddress", txLog.SourceAddress.String()),
-			)
-
-			// Relay the message to the destination chain. Continue on failure.
-			err = relayer.RelayMessage(&txLog, metrics, messageCreator)
-			if err != nil {
-				logger.Error(
-					"Error relaying message",
-					zap.String("originChainID", sourceSubnetInfo.BlockchainID),
-					zap.Error(err),
-				)
-				continue
-			}
-		case err := <-relayer.Subscriber.Err():
-			logger.Error(
-				"Received error from subscribed node",
-				zap.String("originChainID", sourceSubnetInfo.BlockchainID),
-				zap.Error(err),
-			)
-			err = relayer.ReconnectToSubscriber()
-			if err != nil {
-				logger.Error(
-					"Relayer goroutine exiting.",
-					zap.String("originChainID", sourceSubnetInfo.BlockchainID),
-					zap.Error(err),
-				)
-				return fmt.Errorf("relayer goroutine exiting: %w", err)
-			}
-		case <-ctx.Done():
-			relayerHealth.Store(false)
-			logger.Info(
-				"Exiting Relayer because context cancelled",
-				zap.String("originChainId", sourceSubnetInfo.BlockchainID),
-			)
-			return nil
-		}
-	}
+	return relayer.ProcessLogs(ctx)
 }
 
 func startMetricsServer(logger logging.Logger, gatherer prometheus.Gatherer, port uint32) {

@@ -4,6 +4,8 @@
 package relayer
 
 import (
+	"context"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"math/big"
@@ -45,20 +47,24 @@ type Relayer struct {
 	contractMessage          vms.ContractMessage
 	messageManagers          map[common.Hash]messages.MessageManager
 	logger                   logging.Logger
+	metrics                  *MessageRelayerMetrics
 	db                       database.RelayerDatabase
 	supportedDestinations    set.Set[ids.ID]
 	apiNodeURI               string
+	messageCreator           message.Creator
 	healthStatus             *atomic.Bool
 }
 
 func NewRelayer(
 	logger logging.Logger,
+	metrics *MessageRelayerMetrics,
 	db database.RelayerDatabase,
 	sourceSubnetInfo config.SourceSubnet,
 	pChainClient platformvm.Client,
 	network *peers.AppRequestNetwork,
 	responseChan chan message.InboundMessage,
 	destinationClients map[ids.ID]vms.DestinationClient,
+	messageCreator message.Creator,
 	shouldProcessMissedBlocks bool,
 	relayerHealth *atomic.Bool,
 ) (*Relayer, error) {
@@ -129,9 +135,11 @@ func NewRelayer(
 		contractMessage:          vms.NewContractMessage(logger, sourceSubnetInfo),
 		messageManagers:          messageManagers,
 		logger:                   logger,
+		metrics:                  metrics,
 		db:                       db,
 		supportedDestinations:    supportedDestinationsBlockchainIDs,
 		apiNodeURI:               uri,
+		messageCreator:           messageCreator,
 		healthStatus:             relayerHealth,
 	}
 
@@ -167,6 +175,54 @@ func NewRelayer(
 	}
 
 	return &r, nil
+}
+
+func (r *Relayer) ProcessLogs(ctx context.Context) error {
+	for {
+		select {
+		case txLog := <-r.Subscriber.Logs():
+			r.logger.Info(
+				"Handling Teleporter submit message log.",
+				zap.String("txId", hex.EncodeToString(txLog.SourceTxID)),
+				zap.String("originChainId", r.sourceBlockchainID.String()),
+				zap.String("sourceAddress", txLog.SourceAddress.String()),
+			)
+
+			// Relay the message to the destination chain. Continue on failure.
+			err := r.RelayMessage(&txLog)
+			if err != nil {
+				r.logger.Error(
+					"Error relaying message",
+					zap.String("originChainID", r.sourceBlockchainID.String()),
+					zap.Error(err),
+				)
+				continue
+			}
+		case err := <-r.Subscriber.Err():
+			r.healthStatus.Store(false)
+			r.logger.Error(
+				"Received error from subscribed node",
+				zap.String("originChainID", r.sourceBlockchainID.String()),
+				zap.Error(err),
+			)
+			err = r.ReconnectToSubscriber()
+			if err != nil {
+				r.logger.Error(
+					"Relayer goroutine exiting.",
+					zap.String("originChainID", r.sourceBlockchainID.String()),
+					zap.Error(err),
+				)
+				return fmt.Errorf("relayer goroutine exiting: %w", err)
+			}
+		case <-ctx.Done():
+			r.healthStatus.Store(false)
+			r.logger.Info(
+				"Exiting Relayer because context cancelled",
+				zap.String("originChainId", r.sourceBlockchainID.String()),
+			)
+			return nil
+		}
+	}
 }
 
 func (r *Relayer) processMissedBlocks() error {
@@ -228,8 +284,6 @@ func (r *Relayer) processMissedBlocks() error {
 
 // Sets the relayer health status to false while attempting to reconnect.
 func (r *Relayer) ReconnectToSubscriber() error {
-	r.healthStatus.Store(false)
-
 	// Attempt to reconnect the subscription
 	err := r.Subscriber.Subscribe(maxResubscribeAttempts)
 	if err != nil {
@@ -242,7 +296,7 @@ func (r *Relayer) ReconnectToSubscriber() error {
 }
 
 // RelayMessage relays a single warp message to the destination chain. Warp message relay requests from the same origin chain are processed serially
-func (r *Relayer) RelayMessage(warpLogInfo *vmtypes.WarpLogInfo, metrics *MessageRelayerMetrics, messageCreator message.Creator) error {
+func (r *Relayer) RelayMessage(warpLogInfo *vmtypes.WarpLogInfo) error {
 	r.logger.Info(
 		"Relaying message",
 		zap.String("blockchainID", r.sourceBlockchainID.String()),
@@ -295,7 +349,7 @@ func (r *Relayer) RelayMessage(warpLogInfo *vmtypes.WarpLogInfo, metrics *Messag
 	}
 
 	// Create and run the message relayer to attempt to deliver the message to the destination chain
-	messageRelayer := newMessageRelayer(r.logger, metrics, r, warpMessageInfo.WarpUnsignedMessage, destinationBlockchainID, r.responseChan, messageCreator)
+	messageRelayer := newMessageRelayer(r, warpMessageInfo.WarpUnsignedMessage, destinationBlockchainID, r.responseChan)
 	if err != nil {
 		r.logger.Error(
 			"Failed to create message relayer",
