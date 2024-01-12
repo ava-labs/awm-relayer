@@ -178,9 +178,9 @@ func (r *Relayer) calculateStartingBlockHeight(
 	startBlockHeightBigInt := big.NewInt(0).SetUint64(startBlockHeight)
 
 	// Attempt to get the latest processed block height from the database.
-	// Note that the retrieved latest processed block may have already been partially (or fully) processed by the relayer on a previous run. When
-	// processing a warp message in real time, which is when we update the latest processed block in the database, we have no way of knowing
-	// if that is the last warp message in the block
+	// Note that there may be unrelayed messages in the latest processed block
+	// because it is updated as soon as a single message from that block is relayed, 
+	// and there may be multiple message in the same block.
 	latestProcessedBlockData, err := r.db.Get(r.sourceBlockchainID, []byte(database.LatestProcessedBlockKey))
 	if errors.Is(err, database.ErrChainNotFound) || errors.Is(err, database.ErrKeyNotFound) {
 		// The database does not contain the latest processed block data for the chain, so use the configured StartBlockHeight instead
