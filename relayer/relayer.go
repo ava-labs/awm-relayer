@@ -179,6 +179,9 @@ func NewRelayer(
 	return &r, nil
 }
 
+// Listens to the Subscriber logs channel to process them.
+// On subscriber error, attempts to reconnect and errors if unable.
+// Exits if context is cancelled by another goroutine.
 func (r *Relayer) ProcessLogs(ctx context.Context) error {
 	for {
 		select {
@@ -207,6 +210,8 @@ func (r *Relayer) ProcessLogs(ctx context.Context) error {
 				zap.String("originChainID", r.sourceBlockchainID.String()),
 				zap.Error(err),
 			)
+			// TODO try to resubscribe in perpetuity once we have a mechanism for refreshing state
+			// variables such as Quorum values and processing missed blocks.
 			err = r.ReconnectToSubscriber()
 			if err != nil {
 				r.logger.Error(
@@ -351,7 +356,7 @@ func (r *Relayer) RelayMessage(warpLogInfo *vmtypes.WarpLogInfo) error {
 	}
 
 	// Create and run the message relayer to attempt to deliver the message to the destination chain
-	messageRelayer := newMessageRelayer(r, warpMessageInfo.WarpUnsignedMessage, destinationBlockchainID, r.responseChan)
+	messageRelayer := newMessageRelayer(r, warpMessageInfo.WarpUnsignedMessage, destinationBlockchainID)
 	if err != nil {
 		r.logger.Error(
 			"Failed to create message relayer",

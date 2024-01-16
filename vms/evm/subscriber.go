@@ -268,9 +268,11 @@ func (s *subscriber) SetProcessedBlockHeightToLatest() error {
 	return nil
 }
 
+// Loops forever iff maxResubscribeAttempts == 0
 func (s *subscriber) Subscribe(maxResubscribeAttempts int) error {
 	// Retry subscribing until successful. Attempt to resubscribe maxResubscribeAttempts times
-	for attempt := 0; attempt < maxResubscribeAttempts; attempt++ {
+	attempt := 1
+	for {
 		// Unsubscribe before resubscribing
 		// s.sub should only be nil on the first call to Subscribe
 		if s.sub != nil {
@@ -292,9 +294,12 @@ func (s *subscriber) Subscribe(maxResubscribeAttempts int) error {
 			zap.Error(err),
 		)
 
-		if attempt != maxResubscribeAttempts-1 {
-			time.Sleep(subscribeRetryTimeout)
+		if attempt == maxResubscribeAttempts {
+			break
 		}
+
+		time.Sleep(subscribeRetryTimeout)
+		attempt++
 	}
 
 	return fmt.Errorf("failed to subscribe to node with all %d attempts", maxResubscribeAttempts)

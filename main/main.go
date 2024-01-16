@@ -243,6 +243,7 @@ func runRelayer(
 	)
 
 	// Wait for logs from the subscribed node
+	// Will only return on error or context cancellation
 	return relayer.ProcessLogs(ctx)
 }
 
