@@ -31,7 +31,7 @@ import (
 
 const (
 	maxSubscribeAttempts = 10
-	// TODO increase number of resubscribe attempts when we are able to process missed blocks and
+	// TODO attempt to resubscribe in perpetuity once we are able to process missed blocks and
 	// refresh the chain config on reconnect.
 	maxResubscribeAttempts = 10
 )
