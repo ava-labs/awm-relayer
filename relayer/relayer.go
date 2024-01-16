@@ -150,7 +150,10 @@ func NewRelayer(
 			)
 			return nil, nil, err
 		}
-		sub.ProcessFromHeight(big.NewInt(0).SetUint64(height), doneProcessingMissedBlocks)
+		// Process historical blocks asynchronously so that the main processing loop can
+		// start processing new blocks as soon as possible. Otherwise, it's possible for
+		// ProcessFromHeight to overload the message queue and cause a deadlock.
+		go sub.ProcessFromHeight(big.NewInt(0).SetUint64(height), doneProcessingMissedBlocks)
 	} else {
 		err = r.setProcessedBlockHeightToLatest()
 		if err != nil {
