@@ -130,7 +130,7 @@ func (s *subscriber) forwardLogs() {
 // number of blocks retrieved in a single eth_getLogs request to
 // `MaxBlocksPerRequest`; if processing more than that, multiple eth_getLogs
 // requests will be made.
-func (s *subscriber) ProcessFromHeight(height *big.Int) error {
+func (s *subscriber) ProcessFromHeight(height *big.Int, done chan bool) error {
 	s.logger.Info(
 		"Processing historical logs",
 		zap.String("fromBlockHeight", height.String()),
@@ -173,7 +173,7 @@ func (s *subscriber) ProcessFromHeight(height *big.Int) error {
 			return err
 		}
 	}
-
+	done <- true
 	return nil
 }
 

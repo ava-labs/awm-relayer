@@ -191,7 +191,7 @@ func main() {
 			)
 			logger.Info(
 				"Relayer exiting.",
-				zap.String("blockchainID", blockchainID.String()),
+				zap.String("originBlockchainID", blockchainID.String()),
 			)
 		}()
 	}
@@ -212,9 +212,17 @@ func runRelayer(logger logging.Logger,
 ) {
 	logger.Info(
 		"Creating relayer",
-		zap.String("blockchainID", sourceSubnetInfo.BlockchainID),
+		zap.String("originBlockchainID", sourceSubnetInfo.BlockchainID),
 	)
 
+	// Marks when the relayer has finished the catch-up process on startup.
+	// Until that time, we do not know the order in which messages are processed,
+	// since the catch-up process occurs concurrently with normal message processing
+	// via the subscriber's Subscribe method. As a result, we cannot safely write the
+	// latest processed block to the database without risking missing a block in a fault
+	// scenario.
+	doneCatchingUp := make(chan bool, 1)
+	writeToDB := false
 	relayer, subscriber, err := relayer.NewRelayer(
 		logger,
 		db,
@@ -224,6 +232,7 @@ func runRelayer(logger logging.Logger,
 		responseChan,
 		destinationClients,
 		processMissedBlocks,
+		doneCatchingUp,
 	)
 	if err != nil {
 		logger.Error(
@@ -234,26 +243,32 @@ func runRelayer(logger logging.Logger,
 	}
 	logger.Info(
 		"Created relayer. Listening for messages to relay.",
-		zap.String("blockchainID", sourceSubnetInfo.BlockchainID),
+		zap.String("originBlockchainID", sourceSubnetInfo.BlockchainID),
 	)
 
 	// Wait for logs from the subscribed node
 	for {
 		select {
+		case <-doneCatchingUp:
+			logger.Info(
+				"Relayer caught up to subscribed node. Starting to write to database.",
+				zap.String("originBlockchainID", sourceSubnetInfo.BlockchainID),
+			)
+			writeToDB = true
 		case txLog := <-subscriber.Logs():
 			logger.Info(
 				"Handling Teleporter submit message log.",
 				zap.String("txId", hex.EncodeToString(txLog.SourceTxID)),
-				zap.String("originChainId", sourceSubnetInfo.BlockchainID),
+				zap.String("originBlockchainID", sourceSubnetInfo.BlockchainID),
 				zap.String("sourceAddress", txLog.SourceAddress.String()),
 			)
 
 			// Relay the message to the destination chain. Continue on failure.
-			err = relayer.RelayMessage(&txLog, metrics, messageCreator)
+			err = relayer.RelayMessage(&txLog, metrics, messageCreator, writeToDB)
 			if err != nil {
 				logger.Error(
 					"Error relaying message",
-					zap.String("originChainID", sourceSubnetInfo.BlockchainID),
+					zap.String("originBlockchainID", sourceSubnetInfo.BlockchainID),
 					zap.Error(err),
 				)
 				continue
@@ -261,14 +276,14 @@ func runRelayer(logger logging.Logger,
 		case err := <-subscriber.Err():
 			logger.Error(
 				"Received error from subscribed node",
-				zap.String("originChainID", sourceSubnetInfo.BlockchainID),
+				zap.String("originBlockchainID", sourceSubnetInfo.BlockchainID),
 				zap.Error(err),
 			)
 			err = subscriber.Subscribe()
 			if err != nil {
 				logger.Error(
 					"Failed to resubscribe to node. Relayer goroutine exiting.",
-					zap.String("originChainID", sourceSubnetInfo.BlockchainID),
+					zap.String("originBlockchainID", sourceSubnetInfo.BlockchainID),
 					zap.Error(err),
 				)
 				return

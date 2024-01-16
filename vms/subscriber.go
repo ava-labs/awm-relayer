@@ -17,7 +17,7 @@ import (
 // may be in any order.
 type Subscriber interface {
 	// ProcessFromHeight processes events from {height} to the latest block
-	ProcessFromHeight(height *big.Int) error
+	ProcessFromHeight(height *big.Int, done chan bool) error
 
 	// Subscribe registers a subscription. After Subscribe is called,
 	// log events that match [filter] are written to the channel returned

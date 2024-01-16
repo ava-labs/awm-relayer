@@ -117,7 +117,8 @@ func TestProcessFromHeight(t *testing.T) {
 				min(i+MaxBlocksPerRequest-1, tc.latest),
 			)
 		}
-
-		subscriberUnderTest.ProcessFromHeight(big.NewInt(tc.input))
+		done := make(chan bool, 1)
+		subscriberUnderTest.ProcessFromHeight(big.NewInt(tc.input), done)
+		close(done)
 	}
 }
