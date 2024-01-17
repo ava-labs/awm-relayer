@@ -11,7 +11,6 @@ import (
 	"math/big"
 	"math/rand"
 	"strconv"
-	"sync/atomic"
 
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/message"
@@ -26,6 +25,7 @@ import (
 	vms "github.com/ava-labs/awm-relayer/vms"
 	"github.com/ava-labs/awm-relayer/vms/vmtypes"
 	"github.com/ethereum/go-ethereum/common"
+	"go.uber.org/atomic"
 	"go.uber.org/zap"
 )
 

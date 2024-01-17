@@ -9,7 +9,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"sync/atomic"
 
 	"github.com/alexliesenfeld/health"
 	"github.com/ava-labs/avalanchego/api/metrics"
@@ -25,6 +24,7 @@ import (
 	"github.com/ava-labs/awm-relayer/vms"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"go.uber.org/atomic"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 )
@@ -171,9 +171,8 @@ func main() {
 		}
 		subnetInfo := s
 
-		health := atomic.Bool{}
-		health.Store(true)
-		relayerHealth[blockchainID] = &health
+		health := atomic.NewBool(true)
+		relayerHealth[blockchainID] = health
 
 		// errgroup will cancel the context when the first goroutine returns an error
 		errGroup.Go(func() error {
@@ -190,7 +189,7 @@ func main() {
 				destinationClients,
 				messageCreator,
 				cfg.ProcessMissedBlocks,
-				&health,
+				health,
 			)
 		})
 	}
@@ -213,7 +212,7 @@ func runRelayer(
 	responseChan chan message.InboundMessage,
 	destinationClients map[ids.ID]vms.DestinationClient,
 	messageCreator message.Creator,
-	processMissedBlocks bool,
+	shouldProcessMissedBlocks bool,
 	relayerHealth *atomic.Bool,
 ) error {
 	logger.Info(
@@ -231,7 +230,7 @@ func runRelayer(
 		responseChan,
 		destinationClients,
 		messageCreator,
-		processMissedBlocks,
+		shouldProcessMissedBlocks,
 		relayerHealth,
 	)
 	if err != nil {
