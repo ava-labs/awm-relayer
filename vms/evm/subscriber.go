@@ -105,6 +105,7 @@ func (s *subscriber) NewWarpLogInfo(log types.Log) (*vmtypes.WarpLogInfo, error)
 	}
 
 	return &vmtypes.WarpLogInfo{
+		// BytesToAddress takes the last 20 bytes of the byte array if it is longer than 20 bytes
 		SourceAddress:    common.BytesToAddress(log.Topics[1][:]),
 		SourceTxID:       log.TxHash[:],
 		UnsignedMsgBytes: log.Data,
