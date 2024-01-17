@@ -181,6 +181,7 @@ func NewRelayer(
 				zap.Error(err),
 			)
 			return nil, err
+		}
 	} else {
 		err = r.setProcessedBlockHeightToLatest()
 		if err != nil {
