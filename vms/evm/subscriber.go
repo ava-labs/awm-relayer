@@ -105,7 +105,7 @@ func (s *subscriber) NewWarpLogInfo(log types.Log) (*vmtypes.WarpLogInfo, error)
 	}
 
 	return &vmtypes.WarpLogInfo{
-		SourceAddress:    log.Topics[1],
+		SourceAddress:    common.BytesToAddress(log.Topics[1][:]),
 		SourceTxID:       log.TxHash[:],
 		UnsignedMsgBytes: log.Data,
 		BlockNumber:      log.BlockNumber,
