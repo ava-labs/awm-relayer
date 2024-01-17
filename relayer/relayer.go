@@ -28,6 +28,11 @@ import (
 	"go.uber.org/zap"
 )
 
+var (
+	// Errors
+	ErrNoStartBlock = errors.New("database does not contain latest processed block data and startBlockHeight is unset.")
+)
+
 // Relayer handles all messages sent from a given source chain
 type Relayer struct {
 	pChainClient             platformvm.Client
@@ -141,7 +146,7 @@ func NewRelayer(
 	}
 
 	if shouldProcessMissedBlocks {
-		height, err := r.calculateStartingBlockHeight(sub, sourceSubnetInfo.StartBlockHeight)
+		height, err := r.calculateStartingBlockHeight(sourceSubnetInfo.StartBlockHeight)
 		if err != nil {
 			logger.Error(
 				"Failed to process historical blocks mined during relayer downtime",
@@ -170,10 +175,7 @@ func NewRelayer(
 //
 // 2) The database has been configured for the chain, but does not contain the latest processed block data
 //   - In this case, we return the configured start block height
-func (r *Relayer) calculateStartingBlockHeight(
-	sub vms.Subscriber,
-	startBlockHeight uint64,
-) (uint64, error) {
+func (r *Relayer) calculateStartingBlockHeight(startBlockHeight uint64) (uint64, error) {
 	// Attempt to get the latest processed block height from the database.
 	// Note that there may be unrelayed messages in the latest processed block
 	// because it is updated as soon as a single message from that block is relayed,
@@ -186,7 +188,7 @@ func (r *Relayer) calculateStartingBlockHeight(
 				"database does not contain latest processed block data and startBlockHeight is unset. Please provide a non-zero startBlockHeight in the configuration.",
 				zap.String("blockchainID", r.sourceBlockchainID.String()),
 			)
-			return 0, errors.New("database does not contain latest processed block data and startBlockHeight is unset.")
+			return 0, ErrNoStartBlock
 		}
 		return startBlockHeight, nil
 	} else if err != nil {
