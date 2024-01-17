@@ -6,7 +6,6 @@ package config
 import (
 	"crypto/ecdsa"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"net/url"
 	"os"
@@ -25,10 +24,6 @@ const (
 	relayerPrivateKeyBytes      = 32
 	accountPrivateKeyEnvVarName = "ACCOUNT_PRIVATE_KEY"
 	cChainIdentifierString      = "C"
-)
-
-var (
-	ErrInvalidPrivateKey = errors.New("failed to set private key string")
 )
 
 type MessageProtocolConfig struct {
