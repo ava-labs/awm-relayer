@@ -206,7 +206,7 @@ func (r *Relayer) calculateStartingBlockHeight(
 		r.logger.Error("failed to parse Uint from the database", zap.Error(err))
 		return 0, err
 	}
-	if startBlockHeight == 0 || latestProcessedBlock > startBlockHeight {
+	if latestProcessedBlock > startBlockHeight {
 		r.logger.Info(
 			"Processing historical blocks from the latest processed block in the DB",
 			zap.String("blockchainID", r.sourceBlockchainID.String()),
