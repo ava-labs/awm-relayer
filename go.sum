@@ -69,14 +69,6 @@ github.com/ava-labs/coreth v0.12.9-rc.9 h1:mvYxABdyPByXwwwIxnTBCiNO23dsE1Kfnd5H1
 github.com/ava-labs/coreth v0.12.9-rc.9/go.mod h1:yrf2vEah4Fgj6sJ4UpHewo4DLolwdpf2bJuLRT80PGw=
 github.com/ava-labs/subnet-evm v0.5.10 h1:ed9BxoiuXRnB/qKakKzYKtZzV/gVjOB2LxuDegpLs9g=
 github.com/ava-labs/subnet-evm v0.5.10/go.mod h1:wln8B4siQ1Osch+elW9vW1XJGjj5PYxQETkzFyDEMjk=
-github.com/ava-labs/teleporter v0.0.0-20231221165433-826fa59bed3c h1:vnMlfP4SHFoatRufgUma/eGwvVzWdwMo17ADdrh6YYQ=
-github.com/ava-labs/teleporter v0.0.0-20231221165433-826fa59bed3c/go.mod h1:qeclhkPTO4R2McXNrXXca4JmiRSgQ0gJ0KtJWzQGGPE=
-github.com/ava-labs/teleporter v0.0.0-20240104215757-839006a992f2 h1:gqO87g7c6Gy5ZjEzz/oQ3KgnGqvdy73hypnQ+gvmTbQ=
-github.com/ava-labs/teleporter v0.0.0-20240104215757-839006a992f2/go.mod h1:qeclhkPTO4R2McXNrXXca4JmiRSgQ0gJ0KtJWzQGGPE=
-github.com/ava-labs/teleporter v0.0.0-20240105220309-160c7b8bce4b h1:tBUZfmBqdAykjTcL771SZcE5iQ5kgRZ6nz9Q/VQNTK0=
-github.com/ava-labs/teleporter v0.0.0-20240105220309-160c7b8bce4b/go.mod h1:qeclhkPTO4R2McXNrXXca4JmiRSgQ0gJ0KtJWzQGGPE=
-github.com/ava-labs/teleporter v0.0.0-20240105221051-581342d9f521 h1:rHbDNvhen/qDQyOuFkdkQ91MjPSNOcmbrUtaTEjriH8=
-github.com/ava-labs/teleporter v0.0.0-20240105221051-581342d9f521/go.mod h1:qeclhkPTO4R2McXNrXXca4JmiRSgQ0gJ0KtJWzQGGPE=
 github.com/ava-labs/teleporter v0.0.0-20240108172200-f03f526e5312 h1:rG9xkvCXRU4FBi1IBIXPxnTwxRv7mM6j0PX7FQss32g=
 github.com/ava-labs/teleporter v0.0.0-20240108172200-f03f526e5312/go.mod h1:qeclhkPTO4R2McXNrXXca4JmiRSgQ0gJ0KtJWzQGGPE=
 github.com/aymerick/raymond v2.0.3-0.20180322193309-b565731e1464+incompatible/go.mod h1:osfaiScAUVup+UC9Nfq76eWqDhXlp+4UYaA8uhTBO6g=
@@ -621,6 +613,8 @@ go.opentelemetry.io/otel/trace v1.11.0/go.mod h1:nyYjis9jy0gytE9LXGU+/m1sHTKbRY0
 go.opentelemetry.io/proto/otlp v0.7.0/go.mod h1:PqfVotwruBrMGOCsRd/89rSnXhoiJIqeYNgFYFoEGnI=
 go.opentelemetry.io/proto/otlp v0.19.0 h1:IVN6GR+mhC4s5yfcTbmzHYODqvWAp3ZedA2SJPI1Nnw=
 go.opentelemetry.io/proto/otlp v0.19.0/go.mod h1:H7XAot3MsfNsj7EXtrA2q5xSNQ10UqI405h3+duxN4U=
+go.uber.org/atomic v1.11.0 h1:ZvwS0R+56ePWxUNi+Atn9dWONBPp/AUETXlHW0DxSjE=
+go.uber.org/atomic v1.11.0/go.mod h1:LUxbIzbOniOlMKjJjyPfpl4v+PKK2cNJn91OQbhoJI0=
 go.uber.org/goleak v1.2.1 h1:NBol2c7O1ZokfZ0LEU9K6Whx/KnwvepVetCUhtKja4A=
 go.uber.org/mock v0.4.0 h1:VcM4ZOtdbR4f6VXfiOpwpVJDL6lCReaZ6mw31wqh7KU=
 go.uber.org/mock v0.4.0/go.mod h1:a6FSlNadKUHUa9IP5Vyt1zh4fC7uAwxMutEAscFbkZc=

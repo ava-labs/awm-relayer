@@ -36,6 +36,7 @@ type MessageProtocolConfig struct {
 	MessageFormat string                 `mapstructure:"message-format" json:"message-format"`
 	Settings      map[string]interface{} `mapstructure:"settings" json:"settings"`
 }
+
 type SourceSubnet struct {
 	SubnetID              string                           `mapstructure:"subnet-id" json:"subnet-id"`
 	BlockchainID          string                           `mapstructure:"blockchain-id" json:"blockchain-id"`

@@ -5,13 +5,10 @@ package main
 
 import (
 	"context"
-	"encoding/hex"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
-	"sync"
-	"sync/atomic"
 
 	"github.com/alexliesenfeld/health"
 	"github.com/ava-labs/avalanchego/api/metrics"
@@ -27,7 +24,9 @@ import (
 	"github.com/ava-labs/awm-relayer/vms"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"go.uber.org/atomic"
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 )
 
 const (
@@ -111,16 +110,23 @@ func main() {
 		return
 	}
 
-	// Create a health check server that polls a single atomic bool, settable by any relayer goroutine on failure
-	healthy := atomic.Bool{}
-	healthy.Store(true)
+	// Each goroutine will have an atomic bool that it can set to false if it ever disconnects from its subscription.
+	relayerHealth := make(map[ids.ID]*atomic.Bool)
 
 	checker := health.NewChecker(
 		health.WithCheck(health.Check{
 			Name: "relayers-all",
 			Check: func(context.Context) error {
-				if !healthy.Load() {
-					return fmt.Errorf("relayer is unhealthy")
+				// Store the IDs as the cb58 encoding
+				var unhealthyRelayers []string
+				for id, health := range relayerHealth {
+					if !health.Load() {
+						unhealthyRelayers = append(unhealthyRelayers, id.String())
+					}
+				}
+
+				if len(unhealthyRelayers) > 0 {
+					return fmt.Errorf("relayers are unhealthy for blockchains %v", unhealthyRelayers)
 				}
 				return nil
 			},
@@ -159,8 +165,7 @@ func main() {
 	}
 
 	// Create relayers for each of the subnets configured as a source
-	// On exit, the relayer goroutine will set the healthy flag to false
-	var wg sync.WaitGroup
+	errGroup, ctx := errgroup.WithContext(context.Background())
 	for _, s := range cfg.SourceSubnets {
 		blockchainID, err := ids.FromString(s.BlockchainID)
 		if err != nil {
@@ -170,14 +175,16 @@ func main() {
 			)
 			return
 		}
-		wg.Add(1)
 		subnetInfo := s
-		go func() {
-			defer func() {
-				wg.Done()
-				healthy.Store(false)
-			}()
-			runRelayer(
+
+		health := atomic.NewBool(true)
+		relayerHealth[blockchainID] = health
+
+		// errgroup will cancel the context when the first goroutine returns an error
+		errGroup.Go(func() error {
+			// runRelayer runs until it errors or the context is cancelled by another goroutine
+			return runRelayer(
+				ctx,
 				logger,
 				metrics,
 				db,
@@ -188,18 +195,21 @@ func main() {
 				destinationClients,
 				messageCreator,
 				cfg.ProcessMissedBlocks,
+				health,
 			)
-			logger.Info(
-				"Relayer exiting.",
-				zap.String("blockchainID", blockchainID.String()),
-			)
-		}()
+		})
 	}
-	wg.Wait()
+	err = errGroup.Wait()
+	logger.Error(
+		"Relayer exiting.",
+		zap.Error(err),
+	)
 }
 
 // runRelayer creates a relayer instance for a subnet. It listens for warp messages on that subnet, and handles delivery to the destination
-func runRelayer(logger logging.Logger,
+func runRelayer(
+	ctx context.Context,
+	logger logging.Logger,
 	metrics *relayer.MessageRelayerMetrics,
 	db database.RelayerDatabase,
 	sourceSubnetInfo config.SourceSubnet,
@@ -208,29 +218,29 @@ func runRelayer(logger logging.Logger,
 	responseChan chan message.InboundMessage,
 	destinationClients map[ids.ID]vms.DestinationClient,
 	messageCreator message.Creator,
-	processMissedBlocks bool,
-) {
+	shouldProcessMissedBlocks bool,
+	relayerHealth *atomic.Bool,
+) error {
 	logger.Info(
 		"Creating relayer",
 		zap.String("blockchainID", sourceSubnetInfo.BlockchainID),
 	)
 
-	relayer, subscriber, err := relayer.NewRelayer(
+	relayer, err := relayer.NewRelayer(
 		logger,
+		metrics,
 		db,
 		sourceSubnetInfo,
 		pChainClient,
 		network,
 		responseChan,
 		destinationClients,
-		processMissedBlocks,
+		messageCreator,
+		shouldProcessMissedBlocks,
+		relayerHealth,
 	)
 	if err != nil {
-		logger.Error(
-			"Failed to create relayer instance",
-			zap.Error(err),
-		)
-		return
+		return fmt.Errorf("Failed to create relayer instance: %w", err)
 	}
 	logger.Info(
 		"Created relayer. Listening for messages to relay.",
@@ -238,43 +248,8 @@ func runRelayer(logger logging.Logger,
 	)
 
 	// Wait for logs from the subscribed node
-	for {
-		select {
-		case txLog := <-subscriber.Logs():
-			logger.Info(
-				"Handling Teleporter submit message log.",
-				zap.String("txId", hex.EncodeToString(txLog.SourceTxID)),
-				zap.String("originChainId", sourceSubnetInfo.BlockchainID),
-				zap.String("sourceAddress", txLog.SourceAddress.String()),
-			)
-
-			// Relay the message to the destination chain. Continue on failure.
-			err = relayer.RelayMessage(&txLog, metrics, messageCreator)
-			if err != nil {
-				logger.Error(
-					"Error relaying message",
-					zap.String("originChainID", sourceSubnetInfo.BlockchainID),
-					zap.Error(err),
-				)
-				continue
-			}
-		case err := <-subscriber.Err():
-			logger.Error(
-				"Received error from subscribed node",
-				zap.String("originChainID", sourceSubnetInfo.BlockchainID),
-				zap.Error(err),
-			)
-			err = subscriber.Subscribe()
-			if err != nil {
-				logger.Error(
-					"Failed to resubscribe to node. Relayer goroutine exiting.",
-					zap.String("originChainID", sourceSubnetInfo.BlockchainID),
-					zap.Error(err),
-				)
-				return
-			}
-		}
-	}
+	// Will only return on error or context cancellation
+	return relayer.ProcessLogs(ctx)
 }
 
 func startMetricsServer(logger logging.Logger, gatherer prometheus.Gatherer, port uint32) {
