@@ -169,12 +169,18 @@ func NewRelayer(
 		height, err := r.calculateStartingBlockHeight(sourceSubnetInfo.StartBlockHeight)
 		if err != nil {
 			logger.Error(
-				"Failed to process historical blocks mined during relayer downtime",
+				"Failed to calculate starting block height on startup",
 				zap.Error(err),
 			)
 			return nil, err
 		}
-		sub.ProcessFromHeight(big.NewInt(0).SetUint64(height))
+		err = sub.ProcessFromHeight(big.NewInt(0).SetUint64(height))
+		if err != nil {
+			logger.Error(
+				"Failed to process blocks from height on startup",
+				zap.Error(err),
+			)
+			return nil, err
 	} else {
 		err = r.setProcessedBlockHeightToLatest()
 		if err != nil {
@@ -183,6 +189,7 @@ func NewRelayer(
 				zap.String("blockchainID", r.sourceBlockchainID.String()),
 				zap.Error(err),
 			)
+			return nil, err
 		}
 	}
 
