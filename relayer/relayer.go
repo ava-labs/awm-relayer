@@ -157,7 +157,7 @@ func NewRelayer(
 	} else {
 		err = r.setProcessedBlockHeightToLatest()
 		if err != nil {
-			logger.Warn(
+			logger.Error(
 				"Failed to update latest processed block. Continuing to normal relaying operation",
 				zap.String("blockchainID", r.sourceBlockchainID.String()),
 				zap.Error(err),
@@ -196,7 +196,7 @@ func (r *Relayer) calculateStartingBlockHeight(
 		return startBlockHeight, nil
 	} else if err != nil {
 		// Otherwise, we've encountered an unknown database error
-		r.logger.Warn(
+		r.logger.Error(
 			"failed to get latest block from database",
 			zap.String("blockchainID", r.sourceBlockchainID.String()),
 			zap.Error(err),
@@ -353,7 +353,7 @@ func (r *Relayer) RelayMessage(warpLogInfo *vmtypes.WarpLogInfo, metrics *Messag
 		// This is necessary because the relayer may be processing blocks out of order on startup
 		latestProcessedBlockData, err := r.db.Get(r.sourceBlockchainID, []byte(database.LatestProcessedBlockKey))
 		if err != nil && !errors.Is(err, database.ErrChainNotFound) && !errors.Is(err, database.ErrKeyNotFound) {
-			r.logger.Warn(
+			r.logger.Error(
 				"Encountered an unknown error while getting latest processed block from database",
 				zap.String("blockchainID", r.sourceBlockchainID.String()),
 				zap.Error(err),
@@ -373,6 +373,7 @@ func (r *Relayer) RelayMessage(warpLogInfo *vmtypes.WarpLogInfo, metrics *Messag
 					zap.Error(err),
 				)
 			}
+			return err
 		}
 	}
 
