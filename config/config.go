@@ -6,9 +6,7 @@ package config
 import (
 	"crypto/ecdsa"
 	"encoding/hex"
-	"errors"
 	"fmt"
-	"math/big"
 	"net/url"
 	"os"
 
@@ -26,10 +24,6 @@ const (
 	relayerPrivateKeyBytes      = 32
 	accountPrivateKeyEnvVarName = "ACCOUNT_PRIVATE_KEY"
 	cChainIdentifierString      = "C"
-)
-
-var (
-	ErrInvalidPrivateKey = errors.New("failed to set private key string")
 )
 
 type MessageProtocolConfig struct {
@@ -395,17 +389,12 @@ func (s *SourceSubnet) GetNodeWSEndpoint() string {
 
 // Get the private key and derive the wallet address from a relayer's configured private key for a given destination subnet.
 func (s *DestinationSubnet) GetRelayerAccountInfo() (*ecdsa.PrivateKey, common.Address, error) {
-	var ok bool
-	pk := new(ecdsa.PrivateKey)
-	pk.D, ok = new(big.Int).SetString(s.AccountPrivateKey, 16)
-	if !ok {
-		return nil, common.Address{}, ErrInvalidPrivateKey
+	pk, err := crypto.HexToECDSA(s.AccountPrivateKey)
+	if err != nil {
+		return nil, common.Address{}, err
 	}
-	pk.PublicKey.Curve = crypto.S256()
-	pk.PublicKey.X, pk.PublicKey.Y = pk.PublicKey.Curve.ScalarBaseMult(pk.D.Bytes())
-	pkBytes := pk.PublicKey.X.Bytes()
-	pkBytes = append(pkBytes, pk.PublicKey.Y.Bytes()...)
-	return pk, common.BytesToAddress(crypto.Keccak256(pkBytes)), nil
+
+	return pk, crypto.PubkeyToAddress(pk.PublicKey), nil
 }
 
 //
