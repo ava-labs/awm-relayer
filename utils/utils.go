@@ -94,13 +94,6 @@ func SanitizeHexString(hex string) string {
 	return hex
 }
 
-func MaxBigInt(a, b *big.Int) *big.Int {
-	if a.Cmp(b) > 0 {
-		return new(big.Int).Set(a)
-	}
-	return new(big.Int).Set(b)
-}
-
 // StripFromString strips the input string starting from the first occurrence of the substring.
 func StripFromString(input, substring string) string {
 	index := strings.Index(input, substring)
