@@ -5,6 +5,7 @@ package relayer
 
 import (
 	"context"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"math/big"
@@ -25,11 +26,25 @@ import (
 	"github.com/ava-labs/awm-relayer/vms/vmtypes"
 	"github.com/ava-labs/coreth/ethclient"
 	"github.com/ethereum/go-ethereum/common"
+	"go.uber.org/atomic"
 	"go.uber.org/zap"
+)
+
+var (
+	// Errors
+	ErrNoStartBlock = errors.New("database does not contain latest processed block data and startBlockHeight is unset.")
+)
+
+const (
+	maxSubscribeAttempts = 10
+	// TODO attempt to resubscribe in perpetuity once we are able to process missed blocks and
+	// refresh the chain config on reconnect.
+	maxResubscribeAttempts = 10
 )
 
 // Relayer handles all messages sent from a given source chain
 type Relayer struct {
+	Subscriber               vms.Subscriber
 	pChainClient             platformvm.Client
 	canonicalValidatorClient *CanonicalValidatorClient
 	currentRequestID         uint32
@@ -40,23 +55,29 @@ type Relayer struct {
 	contractMessage          vms.ContractMessage
 	messageManagers          map[common.Hash]messages.MessageManager
 	logger                   logging.Logger
+	metrics                  *MessageRelayerMetrics
 	db                       database.RelayerDatabase
 	supportedDestinations    set.Set[ids.ID]
 	rpcEndpoint              string
 	apiNodeURI               string
+	messageCreator           message.Creator
+	healthStatus             *atomic.Bool
 }
 
 func NewRelayer(
 	logger logging.Logger,
+	metrics *MessageRelayerMetrics,
 	db database.RelayerDatabase,
 	sourceSubnetInfo config.SourceSubnet,
 	pChainClient platformvm.Client,
 	network *peers.AppRequestNetwork,
 	responseChan chan message.InboundMessage,
 	destinationClients map[ids.ID]vms.DestinationClient,
+	messageCreator message.Creator,
 	shouldProcessMissedBlocks bool,
 	doneProcessingMissedBlocks chan bool,
-) (*Relayer, vms.Subscriber, error) {
+	relayerHealth *atomic.Bool,
+) (*Relayer, error) {
 	sub := vms.NewSubscriber(logger, sourceSubnetInfo)
 
 	subnetID, err := ids.FromString(sourceSubnetInfo.SubnetID)
@@ -65,7 +86,7 @@ func NewRelayer(
 			"Invalid subnetID in configuration",
 			zap.Error(err),
 		)
-		return nil, nil, err
+		return nil, err
 	}
 
 	blockchainID, err := ids.FromString(sourceSubnetInfo.BlockchainID)
@@ -74,7 +95,7 @@ func NewRelayer(
 			"Failed to decode base-58 encoded source chain ID",
 			zap.Error(err),
 		)
-		return nil, nil, err
+		return nil, err
 	}
 
 	var filteredDestinationClients map[ids.ID]vms.DestinationClient
@@ -98,7 +119,7 @@ func NewRelayer(
 				"Failed to create message manager",
 				zap.Error(err),
 			)
-			return nil, nil, err
+			return nil, err
 		}
 		messageManagers[addressHash] = messageManager
 	}
@@ -114,6 +135,7 @@ func NewRelayer(
 		zap.String("blockchainIDHex", blockchainID.Hex()),
 	)
 	r := Relayer{
+		Subscriber:               sub,
 		pChainClient:             pChainClient,
 		canonicalValidatorClient: NewCanonicalValidatorClient(logger, pChainClient),
 		currentRequestID:         rand.Uint32(), // Initialize to a random value to mitigate requestID collision
@@ -124,35 +146,39 @@ func NewRelayer(
 		contractMessage:          vms.NewContractMessage(logger, sourceSubnetInfo),
 		messageManagers:          messageManagers,
 		logger:                   logger,
+		metrics:                  metrics,
 		db:                       db,
 		supportedDestinations:    supportedDestinationsBlockchainIDs,
 		rpcEndpoint:              rpcEndpoint,
 		apiNodeURI:               uri,
+		messageCreator:           messageCreator,
+		healthStatus:             relayerHealth,
 	}
 
 	// Open the subscription. We must do this before processing any missed messages, otherwise we may miss an incoming message
 	// in between fetching the latest block and subscribing.
-	err = sub.Subscribe()
+	err = r.Subscriber.Subscribe(maxSubscribeAttempts)
 	if err != nil {
 		logger.Error(
 			"Failed to subscribe to node",
 			zap.Error(err),
 		)
-		return nil, nil, err
+		return nil, err
 	}
 
 	if shouldProcessMissedBlocks {
-		height, err := r.calculateStartingBlockHeight(sub, sourceSubnetInfo.StartBlockHeight)
+		height, err := r.calculateStartingBlockHeight(sourceSubnetInfo.StartBlockHeight)
 		if err != nil {
 			logger.Error(
-				"Failed to process historical blocks mined during relayer downtime",
+				"Failed to calculate starting block height on startup",
 				zap.Error(err),
 			)
-			return nil, nil, err
+			return nil, err
 		}
 		// Process historical blocks asynchronously so that the main processing loop can
 		// start processing new blocks as soon as possible. Otherwise, it's possible for
 		// ProcessFromHeight to overload the message queue and cause a deadlock.
+		// TODONOW: Handle the error case here
 		go sub.ProcessFromHeight(big.NewInt(0).SetUint64(height), doneProcessingMissedBlocks)
 	} else {
 		err = r.setProcessedBlockHeightToLatest()
@@ -162,11 +188,66 @@ func NewRelayer(
 				zap.String("blockchainID", r.sourceBlockchainID.String()),
 				zap.Error(err),
 			)
+			return nil, err
 		}
 		doneProcessingMissedBlocks <- true
 	}
 
-	return &r, sub, nil
+	return &r, nil
+}
+
+// Listens to the Subscriber logs channel to process them.
+// On subscriber error, attempts to reconnect and errors if unable.
+// Exits if context is cancelled by another goroutine.
+func (r *Relayer) ProcessLogs(ctx context.Context) error {
+	for {
+		select {
+		case txLog := <-r.Subscriber.Logs():
+			r.logger.Info(
+				"Handling Teleporter submit message log.",
+				zap.String("txId", hex.EncodeToString(txLog.SourceTxID)),
+				zap.String("originChainId", r.sourceBlockchainID.String()),
+				zap.String("sourceAddress", txLog.SourceAddress.String()),
+			)
+
+			// Relay the message to the destination chain. Continue on failure.
+			// TODONOW: set the bool here only once we've finished catching up
+			err := r.RelayMessage(&txLog, true)
+			if err != nil {
+				r.logger.Error(
+					"Error relaying message",
+					zap.String("originChainID", r.sourceBlockchainID.String()),
+					zap.Error(err),
+				)
+				continue
+			}
+		case err := <-r.Subscriber.Err():
+			r.healthStatus.Store(false)
+			r.logger.Error(
+				"Received error from subscribed node",
+				zap.String("originChainID", r.sourceBlockchainID.String()),
+				zap.Error(err),
+			)
+			// TODO try to resubscribe in perpetuity once we have a mechanism for refreshing state
+			// variables such as Quorum values and processing missed blocks.
+			err = r.ReconnectToSubscriber()
+			if err != nil {
+				r.logger.Error(
+					"Relayer goroutine exiting.",
+					zap.String("originChainID", r.sourceBlockchainID.String()),
+					zap.Error(err),
+				)
+				return fmt.Errorf("relayer goroutine exiting: %w", err)
+			}
+		case <-ctx.Done():
+			r.healthStatus.Store(false)
+			r.logger.Info(
+				"Exiting Relayer because context cancelled",
+				zap.String("originChainId", r.sourceBlockchainID.String()),
+			)
+			return nil
+		}
+	}
 }
 
 // Determines the height to process from. There are two cases:
@@ -175,10 +256,7 @@ func NewRelayer(
 //
 // 2) The database has been configured for the chain, but does not contain the latest processed block data
 //   - In this case, we return the configured start block height
-func (r *Relayer) calculateStartingBlockHeight(
-	sub vms.Subscriber,
-	startBlockHeight uint64,
-) (uint64, error) {
+func (r *Relayer) calculateStartingBlockHeight(startBlockHeight uint64) (uint64, error) {
 	// Attempt to get the latest processed block height from the database.
 	// Note that there may be unrelayed messages in the latest processed block
 	// because it is updated as soon as a single message from that block is relayed,
@@ -191,7 +269,7 @@ func (r *Relayer) calculateStartingBlockHeight(
 				"database does not contain latest processed block data and startBlockHeight is unset. Please provide a non-zero startBlockHeight in the configuration.",
 				zap.String("blockchainID", r.sourceBlockchainID.String()),
 			)
-			return 0, errors.New("database does not contain latest processed block data and startBlockHeight is unset.")
+			return 0, ErrNoStartBlock
 		}
 		return startBlockHeight, nil
 	} else if err != nil {
@@ -206,18 +284,18 @@ func (r *Relayer) calculateStartingBlockHeight(
 
 	// If the database does contain the latest processed block data for the chain,
 	// use the max of the latest processed block and the configured start block height (if it was provided)
-	latestProcessedBlock, success := new(big.Int).SetString(string(latestProcessedBlockData), 10)
-	if !success {
-		r.logger.Error("failed to convert latest block to big.Int", zap.Error(err))
+	latestProcessedBlock, err := strconv.ParseUint(string(latestProcessedBlockData), 10, 64)
+	if err != nil {
+		r.logger.Error("failed to parse Uint from the database", zap.Error(err))
 		return 0, err
 	}
-	if startBlockHeight == 0 || latestProcessedBlock.Uint64() > startBlockHeight {
+	if latestProcessedBlock > startBlockHeight {
 		r.logger.Info(
 			"Processing historical blocks from the latest processed block in the DB",
 			zap.String("blockchainID", r.sourceBlockchainID.String()),
-			zap.String("latestProcessedBlock", latestProcessedBlock.String()),
+			zap.Uint64("latestProcessedBlock", latestProcessedBlock),
 		)
-		return latestProcessedBlock.Uint64(), nil
+		return latestProcessedBlock, nil
 	}
 	// Otherwise, return the configured start block height
 	r.logger.Info(
@@ -267,8 +345,21 @@ func (r *Relayer) setProcessedBlockHeightToLatest() error {
 	return nil
 }
 
+// Sets the relayer health status to false while attempting to reconnect.
+func (r *Relayer) ReconnectToSubscriber() error {
+	// Attempt to reconnect the subscription
+	err := r.Subscriber.Subscribe(maxResubscribeAttempts)
+	if err != nil {
+		return fmt.Errorf("failed to resubscribe to node: %w", err)
+	}
+
+	// Success
+	r.healthStatus.Store(true)
+	return nil
+}
+
 // RelayMessage relays a single warp message to the destination chain. Warp message relay requests from the same origin chain are processed serially
-func (r *Relayer) RelayMessage(warpLogInfo *vmtypes.WarpLogInfo, metrics *MessageRelayerMetrics, messageCreator message.Creator, storeProcessedHeight bool) error {
+func (r *Relayer) RelayMessage(warpLogInfo *vmtypes.WarpLogInfo, storeProcessedHeight bool) error {
 	r.logger.Info(
 		"Relaying message",
 		zap.String("blockchainID", r.sourceBlockchainID.String()),
@@ -321,7 +412,7 @@ func (r *Relayer) RelayMessage(warpLogInfo *vmtypes.WarpLogInfo, metrics *Messag
 	}
 
 	// Create and run the message relayer to attempt to deliver the message to the destination chain
-	messageRelayer := newMessageRelayer(r.logger, metrics, r, warpMessageInfo.WarpUnsignedMessage, destinationBlockchainID, r.responseChan, messageCreator)
+	messageRelayer := newMessageRelayer(r, warpMessageInfo.WarpUnsignedMessage, destinationBlockchainID)
 	if err != nil {
 		r.logger.Error(
 			"Failed to create message relayer",

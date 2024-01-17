@@ -22,7 +22,7 @@ type Subscriber interface {
 	// Subscribe registers a subscription. After Subscribe is called,
 	// log events that match [filter] are written to the channel returned
 	// by Logs
-	Subscribe() error
+	Subscribe(maxResubscribeAttempts int) error
 
 	// Logs returns the channel that the subscription writes events to
 	Logs() <-chan vmtypes.WarpLogInfo
