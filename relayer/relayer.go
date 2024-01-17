@@ -347,34 +347,36 @@ func (r *Relayer) RelayMessage(warpLogInfo *vmtypes.WarpLogInfo, metrics *Messag
 	// Increment the request ID for the next message relay request
 	r.currentRequestID++
 
+	if !storeProcessedHeight {
+		return nil
+	}
+
 	// Update the database with the latest processed block height
-	if storeProcessedHeight {
-		// First, check that the stored height is less than the current block height
-		// This is necessary because the relayer may be processing blocks out of order on startup
-		latestProcessedBlockData, err := r.db.Get(r.sourceBlockchainID, []byte(database.LatestProcessedBlockKey))
-		if err != nil && !errors.Is(err, database.ErrChainNotFound) && !errors.Is(err, database.ErrKeyNotFound) {
+	// First, check that the stored height is less than the current block height
+	// This is necessary because the relayer may be processing blocks out of order on startup
+	latestProcessedBlockData, err := r.db.Get(r.sourceBlockchainID, []byte(database.LatestProcessedBlockKey))
+	if err != nil && !errors.Is(err, database.ErrChainNotFound) && !errors.Is(err, database.ErrKeyNotFound) {
+		r.logger.Error(
+			"Encountered an unknown error while getting latest processed block from database",
+			zap.String("blockchainID", r.sourceBlockchainID.String()),
+			zap.Error(err),
+		)
+		return err
+	}
+	latestProcessedBlock, success := new(big.Int).SetString(string(latestProcessedBlockData), 10)
+	if !success {
+		r.logger.Error("failed to convert latest block to big.Int", zap.Error(err))
+		return err
+	}
+	if warpLogInfo.BlockNumber > latestProcessedBlock.Uint64() {
+		err = r.db.Put(r.sourceBlockchainID, []byte(database.LatestProcessedBlockKey), []byte(strconv.FormatUint(warpLogInfo.BlockNumber, 10)))
+		if err != nil {
 			r.logger.Error(
-				"Encountered an unknown error while getting latest processed block from database",
-				zap.String("blockchainID", r.sourceBlockchainID.String()),
+				fmt.Sprintf("failed to put %s into database", database.LatestProcessedBlockKey),
 				zap.Error(err),
 			)
-			return err
 		}
-		latestProcessedBlock, success := new(big.Int).SetString(string(latestProcessedBlockData), 10)
-		if !success {
-			r.logger.Error("failed to convert latest block to big.Int", zap.Error(err))
-			return err
-		}
-		if warpLogInfo.BlockNumber > latestProcessedBlock.Uint64() {
-			err = r.db.Put(r.sourceBlockchainID, []byte(database.LatestProcessedBlockKey), []byte(strconv.FormatUint(warpLogInfo.BlockNumber, 10)))
-			if err != nil {
-				r.logger.Error(
-					fmt.Sprintf("failed to put %s into database", database.LatestProcessedBlockKey),
-					zap.Error(err),
-				)
-			}
-			return err
-		}
+		return err
 	}
 
 	return nil
