@@ -226,13 +226,6 @@ func runRelayer(
 		zap.String("originBlockchainID", sourceSubnetInfo.BlockchainID),
 	)
 
-	// Marks when the relayer has finished the catch-up process on startup.
-	// Until that time, we do not know the order in which messages are processed,
-	// since the catch-up process occurs concurrently with normal message processing
-	// via the subscriber's Subscribe method. As a result, we cannot safely write the
-	// latest processed block to the database without risking missing a block in a fault
-	// scenario.
-	doneCatchingUp := make(chan bool, 1)
 	relayer, err := relayer.NewRelayer(
 		logger,
 		metrics,
@@ -244,7 +237,6 @@ func runRelayer(
 		destinationClients,
 		messageCreator,
 		shouldProcessMissedBlocks,
-		doneCatchingUp,
 		relayerHealth,
 	)
 	if err != nil {

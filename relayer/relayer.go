@@ -61,6 +61,7 @@ type Relayer struct {
 	rpcEndpoint              string
 	apiNodeURI               string
 	messageCreator           message.Creator
+	catchUpResultChan        chan bool
 	healthStatus             *atomic.Bool
 }
 
@@ -75,7 +76,6 @@ func NewRelayer(
 	destinationClients map[ids.ID]vms.DestinationClient,
 	messageCreator message.Creator,
 	shouldProcessMissedBlocks bool,
-	doneProcessingMissedBlocks chan bool,
 	relayerHealth *atomic.Bool,
 ) (*Relayer, error) {
 	sub := vms.NewSubscriber(logger, sourceSubnetInfo)
@@ -127,6 +127,14 @@ func NewRelayer(
 	rpcEndpoint := sourceSubnetInfo.GetNodeRPCEndpoint()
 	uri := utils.StripFromString(rpcEndpoint, "/ext")
 
+	// Marks when the relayer has finished the catch-up process on startup.
+	// Until that time, we do not know the order in which messages are processed,
+	// since the catch-up process occurs concurrently with normal message processing
+	// via the subscriber's Subscribe method. As a result, we cannot safely write the
+	// latest processed block to the database without risking missing a block in a fault
+	// scenario.
+	catchUpResultChan := make(chan bool, 1)
+
 	logger.Info(
 		"Creating relayer",
 		zap.String("subnetID", subnetID.String()),
@@ -152,6 +160,7 @@ func NewRelayer(
 		rpcEndpoint:              rpcEndpoint,
 		apiNodeURI:               uri,
 		messageCreator:           messageCreator,
+		catchUpResultChan:        catchUpResultChan,
 		healthStatus:             relayerHealth,
 	}
 
@@ -178,8 +187,7 @@ func NewRelayer(
 		// Process historical blocks asynchronously so that the main processing loop can
 		// start processing new blocks as soon as possible. Otherwise, it's possible for
 		// ProcessFromHeight to overload the message queue and cause a deadlock.
-		// TODONOW: Handle the error case here
-		go sub.ProcessFromHeight(big.NewInt(0).SetUint64(height), doneProcessingMissedBlocks)
+		go sub.ProcessFromHeight(big.NewInt(0).SetUint64(height), r.catchUpResultChan)
 	} else {
 		err = r.setProcessedBlockHeightToLatest()
 		if err != nil {
@@ -190,7 +198,7 @@ func NewRelayer(
 			)
 			return nil, err
 		}
-		doneProcessingMissedBlocks <- true
+		r.catchUpResultChan <- true
 	}
 
 	return &r, nil
@@ -200,8 +208,20 @@ func NewRelayer(
 // On subscriber error, attempts to reconnect and errors if unable.
 // Exits if context is cancelled by another goroutine.
 func (r *Relayer) ProcessLogs(ctx context.Context) error {
+	doneCatchingUp := false
 	for {
 		select {
+		case catchUpResult := <-r.catchUpResultChan:
+			if !catchUpResult {
+				r.healthStatus.Store(false)
+				r.logger.Error(
+					"Failed to catch up on historical blocks. Exiting relayer goroutine.",
+					zap.String("originChainId", r.sourceBlockchainID.String()),
+				)
+				return fmt.Errorf("failed to catch up on historical blocks")
+			} else {
+				doneCatchingUp = true
+			}
 		case txLog := <-r.Subscriber.Logs():
 			r.logger.Info(
 				"Handling Teleporter submit message log.",
@@ -211,8 +231,7 @@ func (r *Relayer) ProcessLogs(ctx context.Context) error {
 			)
 
 			// Relay the message to the destination chain. Continue on failure.
-			// TODONOW: set the bool here only once we've finished catching up
-			err := r.RelayMessage(&txLog, true)
+			err := r.RelayMessage(&txLog, doneCatchingUp)
 			if err != nil {
 				r.logger.Error(
 					"Error relaying message",

@@ -127,18 +127,21 @@ func (s *subscriber) forwardLogs() {
 // number of blocks retrieved in a single eth_getLogs request to
 // `MaxBlocksPerRequest`; if processing more than that, multiple eth_getLogs
 // requests will be made.
-func (s *subscriber) ProcessFromHeight(height *big.Int, done chan bool) error {
+// Writes true to the done channel when finished, or false if an error occurs
+func (s *subscriber) ProcessFromHeight(height *big.Int, done chan bool) {
 	s.logger.Info(
 		"Processing historical logs",
 		zap.String("fromBlockHeight", height.String()),
 		zap.String("blockchainID", s.blockchainID.String()),
 	)
 	if height == nil {
-		return fmt.Errorf("cannot process logs from nil height")
+		s.logger.Error("cannot process logs from nil height")
+		done <- false
 	}
 	ethClient, err := s.dial(s.nodeWSURL)
 	if err != nil {
-		return err
+		s.logger.Error("failed to dial eth client", zap.Error(err))
+		done <- false
 	}
 
 	// Grab the latest block before filtering logs so we don't miss any before updating the db
@@ -149,7 +152,7 @@ func (s *subscriber) ProcessFromHeight(height *big.Int, done chan bool) error {
 			zap.String("blockchainID", s.blockchainID.String()),
 			zap.Error(err),
 		)
-		return err
+		done <- false
 	}
 
 	bigLatestBlockHeight := big.NewInt(0).SetUint64(latestBlockHeight)
@@ -167,11 +170,11 @@ func (s *subscriber) ProcessFromHeight(height *big.Int, done chan bool) error {
 
 		err = s.processBlockRange(ethClient, fromBlock, toBlock)
 		if err != nil {
-			return err
+			s.logger.Error("failed to process block range", zap.Error(err))
+			done <- false
 		}
 	}
 	done <- true
-	return nil
 }
 
 // Filter logs from the latest processed block to the latest block

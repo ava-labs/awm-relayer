@@ -16,8 +16,9 @@ import (
 // channel returned by Logs() are assumed to be in block order. Logs within individual blocks
 // may be in any order.
 type Subscriber interface {
-	// ProcessFromHeight processes events from {height} to the latest block
-	ProcessFromHeight(height *big.Int, done chan bool) error
+	// ProcessFromHeight processes events from {height} to the latest block.
+	// Writes true to the channel on success, false on failure
+	ProcessFromHeight(height *big.Int, done chan bool)
 
 	// Subscribe registers a subscription. After Subscribe is called,
 	// log events that match [filter] are written to the channel returned
