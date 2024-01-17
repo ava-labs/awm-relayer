@@ -201,18 +201,18 @@ func (r *Relayer) calculateStartingBlockHeight(
 
 	// If the database does contain the latest processed block data for the chain,
 	// use the max of the latest processed block and the configured start block height (if it was provided)
-	latestProcessedBlock, success := new(big.Int).SetString(string(latestProcessedBlockData), 10)
-	if !success {
-		r.logger.Error("failed to convert latest block to big.Int", zap.Error(err))
+	latestProcessedBlock, err := strconv.ParseUint(string(latestProcessedBlockData), 10, 64)
+	if err != nil {
+		r.logger.Error("failed to parse Uint from the database", zap.Error(err))
 		return 0, err
 	}
-	if startBlockHeight == 0 || latestProcessedBlock.Uint64() > startBlockHeight {
+	if startBlockHeight == 0 || latestProcessedBlock > startBlockHeight {
 		r.logger.Info(
 			"Processing historical blocks from the latest processed block in the DB",
 			zap.String("blockchainID", r.sourceBlockchainID.String()),
-			zap.String("latestProcessedBlock", latestProcessedBlock.String()),
+			zap.Uint64("latestProcessedBlock", latestProcessedBlock),
 		)
-		return latestProcessedBlock.Uint64(), nil
+		return latestProcessedBlock, nil
 	}
 	// Otherwise, return the configured start block height
 	r.logger.Info(
