@@ -5,17 +5,14 @@ import (
 	"os"
 	"testing"
 
-	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/awm-relayer/config"
-	"github.com/ava-labs/awm-relayer/database"
 	mock_ethclient "github.com/ava-labs/awm-relayer/vms/evm/mocks"
 	"github.com/ava-labs/subnet-evm/core/types"
 	"github.com/ava-labs/subnet-evm/ethclient"
 	"github.com/ava-labs/subnet-evm/interfaces"
 	"github.com/ava-labs/subnet-evm/x/warp"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 )
 
@@ -39,14 +36,8 @@ func makeSubscriberWithMockEthClient(t *testing.T) (*subscriber, *mock_ethclient
 		),
 	)
 
-	subnetId, err := ids.FromString(sourceSubnet.BlockchainID)
-	require.NoError(t, err, "Failed to create subnet ID")
-
-	db, err := database.NewJSONFileStorage(logger, t.TempDir(), []ids.ID{subnetId})
-	require.NoError(t, err, "Failed to create JSON file storage")
-
 	mockEthClient := mock_ethclient.NewMockClient(gomock.NewController(t))
-	subscriber := NewSubscriber(logger, sourceSubnet, db)
+	subscriber := NewSubscriber(logger, sourceSubnet)
 	subscriber.dial = func(_url string) (ethclient.Client, error) { return mockEthClient, nil }
 
 	return subscriber, mockEthClient
