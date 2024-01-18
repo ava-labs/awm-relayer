@@ -184,7 +184,7 @@ func NewRelayer(
 			)
 			return nil, err
 		}
-		// Process historical blocks asynchronously so that the main processing loop can
+		// Process historical blocks in a separate goroutine so that the main processing loop can
 		// start processing new blocks as soon as possible. Otherwise, it's possible for
 		// ProcessFromHeight to overload the message queue and cause a deadlock.
 		go sub.ProcessFromHeight(big.NewInt(0).SetUint64(height), r.catchUpResultChan)
