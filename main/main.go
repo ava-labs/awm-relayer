@@ -83,10 +83,6 @@ func main() {
 		return
 	}
 
-	// Initialize the global app request network
-	logger.Info("Initializing app request network")
-	sourceSubnetIDs, sourceBlockchainIDs := cfg.GetSourceIDs()
-
 	// Initialize metrics gathered through prometheus
 	gatherer, registerer, err := initMetrics()
 	if err != nil {
@@ -95,7 +91,17 @@ func main() {
 		panic(err)
 	}
 
-	network, responseChans, err := peers.NewNetwork(logger, registerer, cfg.NetworkID, sourceSubnetIDs, sourceBlockchainIDs, cfg.PChainAPIURL)
+	// Initialize the global app request network
+	logger.Info("Initializing app request network")
+	sourceSubnetIDs, sourceBlockchainIDs := cfg.GetSourceIDs()
+
+	// The app request network generates P2P networking logs that are verbose at the info level.
+	// Unless the log level is debug or lower, set the network log level to error to avoid spamming the logs.
+	networkLogLevel := logging.Error
+	if logLevel <= logging.Debug {
+		networkLogLevel = logLevel
+	}
+	network, responseChans, err := peers.NewNetwork(networkLogLevel, registerer, cfg.NetworkID, sourceSubnetIDs, sourceBlockchainIDs, cfg.PChainAPIURL)
 	if err != nil {
 		logger.Error(
 			"Failed to create app request network",
