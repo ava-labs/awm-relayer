@@ -83,7 +83,7 @@ func NewSubscriber(logger logging.Logger, subnetInfo config.SourceSubnet) *subsc
 	}
 }
 
-func (s *subscriber) NewWarpLogInfo(log types.Log) (*vmtypes.WarpLogInfo, error) {
+func (s *subscriber) NewWarpLogInfo(log types.Log, isCatchUpMessage bool) (*vmtypes.WarpLogInfo, error) {
 	if len(log.Topics) != 3 {
 		s.logger.Error(
 			"Log did not have the correct number of topics",
@@ -105,13 +105,14 @@ func (s *subscriber) NewWarpLogInfo(log types.Log) (*vmtypes.WarpLogInfo, error)
 		SourceTxID:       log.TxHash[:],
 		UnsignedMsgBytes: log.Data,
 		BlockNumber:      log.BlockNumber,
+		IsCatchUpMessage: isCatchUpMessage,
 	}, nil
 }
 
 // forward logs from the concrete log channel to the interface channel
 func (s *subscriber) forwardLogs() {
 	for msgLog := range s.evmLog {
-		messageInfo, err := s.NewWarpLogInfo(msgLog)
+		messageInfo, err := s.NewWarpLogInfo(msgLog, false)
 		if err != nil {
 			s.logger.Error(
 				"Invalid log. Continuing.",
@@ -216,7 +217,7 @@ func (s *subscriber) processBlockRange(
 		zap.String("blockchainID", s.blockchainID.String()),
 	)
 	for _, log := range logs {
-		messageInfo, err := s.NewWarpLogInfo(log)
+		messageInfo, err := s.NewWarpLogInfo(log, true)
 		if err != nil {
 			s.logger.Error(
 				"Invalid log when processing from height. Continuing.",

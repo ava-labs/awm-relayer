@@ -15,4 +15,5 @@ type WarpLogInfo struct {
 	SourceTxID       []byte
 	UnsignedMsgBytes []byte
 	BlockNumber      uint64
+	IsCatchUpMessage bool
 }

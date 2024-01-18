@@ -223,6 +223,7 @@ func (r *Relayer) ProcessLogs(ctx context.Context) error {
 				doneCatchingUp = true
 			}
 		case txLog := <-r.Subscriber.Logs():
+			// Relay the message to the destination chain. Continue on failure.
 			r.logger.Info(
 				"Handling Teleporter submit message log.",
 				zap.String("txId", hex.EncodeToString(txLog.SourceTxID)),
@@ -230,8 +231,9 @@ func (r *Relayer) ProcessLogs(ctx context.Context) error {
 				zap.String("sourceAddress", txLog.SourceAddress.String()),
 			)
 
-			// Relay the message to the destination chain. Continue on failure.
-			err := r.RelayMessage(&txLog, doneCatchingUp)
+			// Messages are either catch-up messages, or live incoming messages.
+			// For live messages, we only write to the database if we're done catching up.
+			err := r.RelayMessage(&txLog, doneCatchingUp || txLog.IsCatchUpMessage)
 			if err != nil {
 				r.logger.Error(
 					"Error relaying message",
