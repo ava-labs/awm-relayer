@@ -30,7 +30,7 @@ type CallContractChecker struct {
 }
 
 var (
-	messageProtocolAddress = common.HexToHash("0xd81545385803bCD83bd59f58Ba2d2c0562387F83")
+	messageProtocolAddress = common.HexToAddress("0xd81545385803bCD83bd59f58Ba2d2c0562387F83")
 	messageProtocolConfig  = config.MessageProtocolConfig{
 		MessageFormat: config.TELEPORTER.String(),
 		Settings: map[string]interface{}{
@@ -211,13 +211,12 @@ func TestShouldSendMessage(t *testing.T) {
 			ethClient := mock_evm.NewMockClient(ctrl)
 			mockClient.EXPECT().Client().Return(ethClient).Times(test.clientTimes)
 			mockClient.EXPECT().SenderAddress().Return(test.senderAddressResult).Times(test.senderAddressTimes)
-			protocolAddress := common.BytesToAddress(messageProtocolAddress[:])
 			if test.calculateMessageIDCall != nil {
-				messageIDInput := interfaces.CallMsg{From: bind.CallOpts{}.From, To: &protocolAddress, Data: test.calculateMessageIDCall.input}
+				messageIDInput := interfaces.CallMsg{From: bind.CallOpts{}.From, To: &messageProtocolAddress, Data: test.calculateMessageIDCall.input}
 				ethClient.EXPECT().CallContract(gomock.Any(), gomock.Eq(messageIDInput), gomock.Any()).Return(test.calculateMessageIDCall.expectedResult, nil).Times(test.calculateMessageIDCall.times)
 			}
 			if test.messageReceivedCall != nil {
-				messageReceivedInput := interfaces.CallMsg{From: bind.CallOpts{}.From, To: &protocolAddress, Data: test.messageReceivedCall.input}
+				messageReceivedInput := interfaces.CallMsg{From: bind.CallOpts{}.From, To: &messageProtocolAddress, Data: test.messageReceivedCall.input}
 				ethClient.EXPECT().CallContract(gomock.Any(), gomock.Eq(messageReceivedInput), gomock.Any()).Return(test.messageReceivedCall.expectedResult, nil).Times(test.messageReceivedCall.times)
 			}
 
