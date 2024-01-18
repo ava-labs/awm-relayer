@@ -29,7 +29,7 @@ const (
 
 type messageManager struct {
 	messageConfig   Config
-	protocolAddress common.Hash
+	protocolAddress common.Address
 
 	// We parse teleporter messages in ShouldSendMessage, cache them to be reused in SendMessage
 	// The cache is keyed by the Warp message ID, NOT the Teleporter message ID
@@ -41,7 +41,7 @@ type messageManager struct {
 
 func NewMessageManager(
 	logger logging.Logger,
-	messageProtocolAddress common.Hash,
+	messageProtocolAddress common.Address,
 	messageProtocolConfig config.MessageProtocolConfig,
 	destinationClients map[ids.ID]vms.DestinationClient,
 ) (*messageManager, error) {
@@ -284,7 +284,7 @@ func (m *messageManager) getTeleporterMessenger(destinationClient vms.Destinatio
 	}
 
 	// Get the teleporter messenger contract
-	teleporterMessenger, err := teleportermessenger.NewTeleporterMessenger(common.BytesToAddress(m.protocolAddress[:]), client)
+	teleporterMessenger, err := teleportermessenger.NewTeleporterMessenger(m.protocolAddress, client)
 	if err != nil {
 		panic("Failed to get teleporter messenger contract")
 	}
