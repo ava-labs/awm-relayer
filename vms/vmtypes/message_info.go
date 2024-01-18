@@ -11,7 +11,7 @@ import (
 // describes the transaction information emitted by the source chain,
 // including the Warp Message payload bytes
 type WarpLogInfo struct {
-	SourceAddress    common.Hash
+	SourceAddress    common.Address
 	SourceTxID       []byte
 	UnsignedMsgBytes []byte
 	BlockNumber      uint64
