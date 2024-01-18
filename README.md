@@ -34,7 +34,7 @@ The relayer is configured via a JSON file, the path to which is passed in via th
 `"log-level": "debug" | "info" | "warn" | "error" | "fatal" | "panic"` 
 - The log level for the relayer. Defaults to `info`.
 
-`"network-id": integer`
+`"network-id": unsigned integer`
 - The ID of the Avalanche network to which the relayer will connect. Defaults to `1` (Mainnet).
 
 `"p-chain-api-url": string`
@@ -65,7 +65,7 @@ The relayer is configured via a JSON file, the path to which is passed in via th
   `"api-node-host": string` 
   - The host of the source subnet's API node.
 
-  `"api-node-port": integer` 
+  `"api-node-port": unsigned integer` 
   - The port of the source subnet's API node.
 
   `"encrypt-connection": boolean` 
@@ -83,6 +83,9 @@ The relayer is configured via a JSON file, the path to which is passed in via th
   `"supported-destinations": []string` 
   - List of destination subnet IDs that the source subnet supports. If empty, then all destinations are supported.
 
+  `"start-block-height": unsigned integer`
+  - The block height at which to back-process transactions from the source subnet. If the database already contains a later block height for the source subnet, then that will be used instead. Must be non-zero.
+
 `"destination-subnets": []DestinationSubnets`
 - The list of destination subnets to support. Each `DestinationSubnet` has the following configuration:
 
@@ -98,7 +101,7 @@ The relayer is configured via a JSON file, the path to which is passed in via th
   `"api-node-host": string` 
   - The host of the source subnet's API node.
 
-  `"api-node-port": integer` 
+  `"api-node-port": unsigned integer` 
   - The port of the source subnet's API node.
 
   `"encrypt-connection": boolean` 

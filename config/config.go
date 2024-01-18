@@ -42,6 +42,7 @@ type SourceSubnet struct {
 	WSEndpoint            string                           `mapstructure:"ws-endpoint" json:"ws-endpoint"`
 	MessageContracts      map[string]MessageProtocolConfig `mapstructure:"message-contracts" json:"message-contracts"`
 	SupportedDestinations []string                         `mapstructure:"supported-destinations" json:"supported-destinations"`
+	StartBlockHeight      uint64                           `mapstructure:"start-block-height" json:"start-block-height"`
 
 	// convenience field to access the supported destinations after initialization
 	supportedDestinations set.Set[ids.ID]
@@ -187,7 +188,7 @@ func (c *Config) Validate() error {
 	sourceBlockchains := set.NewSet[string](len(c.SourceSubnets))
 	var sourceSubnetIDs []ids.ID
 	var sourceBlockchainIDs []ids.ID
-	for _, s := range c.SourceSubnets {
+	for i, s := range c.SourceSubnets {
 		// Validate configuration
 		if err := s.Validate(&destinationChains); err != nil {
 			return err
@@ -210,6 +211,9 @@ func (c *Config) Validate() error {
 			return fmt.Errorf("invalid subnetID in configuration. error: %v", err)
 		}
 		sourceBlockchainIDs = append(sourceBlockchainIDs, blockchainID)
+
+		// Write back to the config
+		c.SourceSubnets[i] = s
 	}
 
 	c.sourceSubnetIDs = sourceSubnetIDs
