@@ -101,7 +101,8 @@ func (s *subscriber) NewWarpLogInfo(log types.Log, isCatchUpMessage bool) (*vmty
 	}
 
 	return &vmtypes.WarpLogInfo{
-		SourceAddress:    log.Topics[1],
+		// BytesToAddress takes the last 20 bytes of the byte array if it is longer than 20 bytes
+		SourceAddress:    common.BytesToAddress(log.Topics[1][:]),
 		SourceTxID:       log.TxHash[:],
 		UnsignedMsgBytes: log.Data,
 		BlockNumber:      log.BlockNumber,

@@ -6,6 +6,7 @@ package config
 import (
 	"crypto/ecdsa"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math/big"
 	"os"
@@ -245,7 +246,7 @@ func TestGetRelayerAccountInfo(t *testing.T) {
 					D: big.NewInt(-5567472993773453273),
 				},
 				addr: common.HexToAddress("0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC"),
-				err:  ErrInvalidPrivateKey,
+				err:  errors.New("invalid hex character 'x' in private key"),
 			},
 		},
 		{
@@ -258,7 +259,7 @@ func TestGetRelayerAccountInfo(t *testing.T) {
 					D: big.NewInt(-5567472993773453273),
 				},
 				addr: common.HexToAddress("0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC"),
-				err:  ErrInvalidPrivateKey,
+				err:  errors.New("invalid hex character 'i' in private key"),
 			},
 		},
 	}
