@@ -345,7 +345,7 @@ func (r *Relayer) setProcessedBlockHeightToLatest() error {
 		zap.Uint64("latestBlock", latestBlock),
 	)
 
-	err = r.storeProcessedBlockHeight(latestBlock)
+	err = r.storeBlockHeight(latestBlock)
 	if err != nil {
 		r.logger.Error(
 			fmt.Sprintf("failed to put %s into database", database.LatestProcessedBlockKey),
@@ -455,30 +455,7 @@ func (r *Relayer) RelayMessage(warpLogInfo *vmtypes.WarpLogInfo, storeProcessedH
 	}
 
 	// Update the database with the latest processed block height
-	// First, check that the stored height is less than the current block height
-	// This is necessary because the relayer may be processing blocks out of order on startup
-	latestProcessedBlock, err := r.getLatestProcessedBlockHeight()
-	if err != nil && !errors.Is(err, database.ErrChainNotFound) && !errors.Is(err, database.ErrKeyNotFound) {
-		r.logger.Error(
-			"Encountered an unknown error while getting latest processed block from database",
-			zap.String("blockchainID", r.sourceBlockchainID.String()),
-			zap.Error(err),
-		)
-		return err
-	}
-
-	if warpLogInfo.BlockNumber > latestProcessedBlock {
-		err = r.storeProcessedBlockHeight(warpLogInfo.BlockNumber)
-		if err != nil {
-			r.logger.Error(
-				fmt.Sprintf("failed to put %s into database", database.LatestProcessedBlockKey),
-				zap.Error(err),
-			)
-		}
-		return err
-	}
-
-	return nil
+	return r.storeLatestBlockHeight(warpLogInfo.BlockNumber)
 }
 
 // Returns whether destinationBlockchainID is a supported destination.
@@ -504,6 +481,36 @@ func (r *Relayer) getLatestProcessedBlockHeight() (uint64, error) {
 }
 
 // Store the block height in the database. Does not check against the current latest processed block height.
-func (r *Relayer) storeProcessedBlockHeight(height uint64) error {
+func (r *Relayer) storeBlockHeight(height uint64) error {
 	return r.db.Put(r.sourceBlockchainID, []byte(database.LatestProcessedBlockKey), []byte(strconv.FormatUint(height, 10)))
+}
+
+// Stores the block height in the database if it is greater than the current latest processed block height.
+func (r *Relayer) storeLatestBlockHeight(height uint64) error {
+	// First, check that the stored height is less than the current block height
+	// This is necessary because the relayer may be processing blocks out of order on startup
+	latestProcessedBlock, err := r.getLatestProcessedBlockHeight()
+	if err != nil && !errors.Is(err, database.ErrChainNotFound) && !errors.Is(err, database.ErrKeyNotFound) {
+		r.logger.Error(
+			"Encountered an unknown error while getting latest processed block from database",
+			zap.String("blockchainID", r.sourceBlockchainID.String()),
+			zap.Error(err),
+		)
+		return err
+	}
+
+	// An unhandled error at this point indicates the DB does not store the block data for the chain,
+	// so we write unconditionally in that case. Otherwise, we only overwrite if the new height is greater
+	// than the stored height.
+	if err != nil || height > latestProcessedBlock {
+		err = r.storeBlockHeight(height)
+		if err != nil {
+			r.logger.Error(
+				fmt.Sprintf("failed to put %s into database", database.LatestProcessedBlockKey),
+				zap.Error(err),
+			)
+		}
+		return err
+	}
+	return nil
 }
