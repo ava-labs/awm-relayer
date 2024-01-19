@@ -233,6 +233,9 @@ func (r *Relayer) ProcessLogs(ctx context.Context) error {
 
 			// Messages are either catch-up messages, or live incoming messages.
 			// For live messages, we only write to the database if we're done catching up.
+			// This is because during the catch-up process, we cannot guarantee the order
+			// of live messages relative to catch-up messages, whereas we know that catch-up
+			// messages will always be ordered relative to each other.
 			err := r.RelayMessage(&txLog, doneCatchingUp || txLog.IsCatchUpMessage)
 			if err != nil {
 				r.logger.Error(
