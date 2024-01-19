@@ -53,7 +53,7 @@ type Relayer struct {
 	sourceBlockchainID       ids.ID
 	responseChan             chan message.InboundMessage
 	contractMessage          vms.ContractMessage
-	messageManagers          map[common.Hash]messages.MessageManager
+	messageManagers          map[common.Address]messages.MessageManager
 	logger                   logging.Logger
 	metrics                  *MessageRelayerMetrics
 	db                       database.RelayerDatabase
@@ -110,10 +110,10 @@ func NewRelayer(
 	}
 
 	// Create message managers for each supported message protocol
-	messageManagers := make(map[common.Hash]messages.MessageManager)
-	for address, config := range sourceSubnetInfo.MessageContracts {
-		addressHash := common.HexToHash(address)
-		messageManager, err := messages.NewMessageManager(logger, addressHash, config, filteredDestinationClients)
+	messageManagers := make(map[common.Address]messages.MessageManager)
+	for addressStr, config := range sourceSubnetInfo.MessageContracts {
+		address := common.HexToAddress(addressStr)
+		messageManager, err := messages.NewMessageManager(logger, address, config, filteredDestinationClients)
 		if err != nil {
 			logger.Error(
 				"Failed to create message manager",
@@ -121,7 +121,7 @@ func NewRelayer(
 			)
 			return nil, err
 		}
-		messageManagers[addressHash] = messageManager
+		messageManagers[address] = messageManager
 	}
 
 	rpcEndpoint := sourceSubnetInfo.GetNodeRPCEndpoint()

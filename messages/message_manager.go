@@ -35,14 +35,15 @@ type MessageManager interface {
 // Note that DestinationClients may be invoked concurrently by many MessageManagers, so it is assumed that they are implemented in a thread-safe way
 func NewMessageManager(
 	logger logging.Logger,
-	messageProtocolAddress common.Hash,
+	messageProtocolAddress common.Address,
 	messageProtocolConfig config.MessageProtocolConfig,
 	destinationClients map[ids.ID]vms.DestinationClient,
 ) (MessageManager, error) {
 	format := messageProtocolConfig.MessageFormat
 	switch config.ParseMessageProtocol(format) {
 	case config.TELEPORTER:
-		return teleporter.NewMessageManager(logger,
+		return teleporter.NewMessageManager(
+			logger,
 			messageProtocolAddress,
 			messageProtocolConfig,
 			destinationClients,
