@@ -6,10 +6,18 @@ package tests
 import (
 	"bufio"
 	"context"
+	"crypto/ecdsa"
+	"encoding/hex"
 	"os"
 	"os/exec"
 	"strings"
 
+	"github.com/ava-labs/avalanchego/utils/logging"
+	"github.com/ava-labs/awm-relayer/config"
+	"github.com/ava-labs/awm-relayer/peers"
+	"github.com/ava-labs/teleporter/tests/interfaces"
+	teleporterTestUtils "github.com/ava-labs/teleporter/tests/utils"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 	. "github.com/onsi/gomega"
 )
@@ -55,4 +63,93 @@ func ReadHexTextFile(filename string) string {
 	fileData, err := os.ReadFile(filename)
 	Expect(err).Should(BeNil())
 	return strings.TrimRight(string(fileData), "\n")
+}
+
+func CreateDefaultRelayerConfig(
+	subnetAInfo interfaces.SubnetTestInfo,
+	subnetBInfo interfaces.SubnetTestInfo,
+	storageLocation string,
+	teleporterContractAddress common.Address,
+	fundedAddress common.Address,
+	relayerKey *ecdsa.PrivateKey,
+) config.Config {
+	hostA, portA, err := teleporterTestUtils.GetURIHostAndPort(subnetAInfo.NodeURIs[0])
+	Expect(err).Should(BeNil())
+
+	hostB, portB, err := teleporterTestUtils.GetURIHostAndPort(subnetBInfo.NodeURIs[0])
+	Expect(err).Should(BeNil())
+
+	log.Info(
+		"Setting up relayer config",
+		"hostA", hostA,
+		"portA", portA,
+		"blockChainA", subnetAInfo.BlockchainID.String(),
+		"hostB", hostB,
+		"portB", portB,
+		"blockChainB", subnetBInfo.BlockchainID.String(),
+		"subnetA", subnetAInfo.SubnetID.String(),
+		"subnetB", subnetBInfo.SubnetID.String(),
+	)
+
+	return config.Config{
+		LogLevel:          logging.Info.LowerString(),
+		NetworkID:         peers.LocalNetworkID,
+		PChainAPIURL:      subnetAInfo.NodeURIs[0],
+		EncryptConnection: false,
+		StorageLocation:   storageLocation,
+		SourceSubnets: []config.SourceSubnet{
+			{
+				SubnetID:          subnetAInfo.SubnetID.String(),
+				BlockchainID:      subnetAInfo.BlockchainID.String(),
+				VM:                config.EVM.String(),
+				EncryptConnection: false,
+				APINodeHost:       hostA,
+				APINodePort:       portA,
+				MessageContracts: map[string]config.MessageProtocolConfig{
+					teleporterContractAddress.Hex(): {
+						MessageFormat: config.TELEPORTER.String(),
+						Settings: map[string]interface{}{
+							"reward-address": fundedAddress.Hex(),
+						},
+					},
+				},
+			},
+			{
+				SubnetID:          subnetBInfo.SubnetID.String(),
+				BlockchainID:      subnetBInfo.BlockchainID.String(),
+				VM:                config.EVM.String(),
+				EncryptConnection: false,
+				APINodeHost:       hostB,
+				APINodePort:       portB,
+				MessageContracts: map[string]config.MessageProtocolConfig{
+					teleporterContractAddress.Hex(): {
+						MessageFormat: config.TELEPORTER.String(),
+						Settings: map[string]interface{}{
+							"reward-address": fundedAddress.Hex(),
+						},
+					},
+				},
+			},
+		},
+		DestinationSubnets: []config.DestinationSubnet{
+			{
+				SubnetID:          subnetAInfo.SubnetID.String(),
+				BlockchainID:      subnetAInfo.BlockchainID.String(),
+				VM:                config.EVM.String(),
+				EncryptConnection: false,
+				APINodeHost:       hostA,
+				APINodePort:       portA,
+				AccountPrivateKey: hex.EncodeToString(relayerKey.D.Bytes()),
+			},
+			{
+				SubnetID:          subnetBInfo.SubnetID.String(),
+				BlockchainID:      subnetBInfo.BlockchainID.String(),
+				VM:                config.EVM.String(),
+				EncryptConnection: false,
+				APINodeHost:       hostB,
+				APINodePort:       portB,
+				AccountPrivateKey: hex.EncodeToString(relayerKey.D.Bytes()),
+			},
+		},
+	}
 }

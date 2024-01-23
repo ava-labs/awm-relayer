@@ -8,10 +8,8 @@ import (
 	"os/exec"
 	"time"
 
-	"github.com/ava-labs/avalanchego/utils/logging"
 	avalancheWarp "github.com/ava-labs/avalanchego/vms/platformvm/warp"
 	"github.com/ava-labs/awm-relayer/config"
-	"github.com/ava-labs/awm-relayer/peers"
 	testUtils "github.com/ava-labs/awm-relayer/tests/utils"
 	"github.com/ava-labs/subnet-evm/accounts/abi/bind"
 	"github.com/ava-labs/subnet-evm/core/types"
@@ -19,7 +17,6 @@ import (
 	"github.com/ava-labs/subnet-evm/x/warp"
 	"github.com/ava-labs/teleporter/tests/interfaces"
 	"github.com/ava-labs/teleporter/tests/utils"
-	teleporterTestUtils "github.com/ava-labs/teleporter/tests/utils"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
@@ -69,95 +66,24 @@ func ManualMessage(network interfaces.LocalNetwork) {
 	//
 	// Set up relayer config to deliver one of the two previously sent messages
 	//
-	hostA, portA, err := teleporterTestUtils.GetURIHostAndPort(subnetAInfo.NodeURIs[0])
-	Expect(err).Should(BeNil())
-
-	hostB, portB, err := teleporterTestUtils.GetURIHostAndPort(subnetBInfo.NodeURIs[0])
-	Expect(err).Should(BeNil())
-
-	log.Info(
-		"Setting up relayer config",
-		"hostA", hostA,
-		"portA", portA,
-		"blockChainA", subnetAInfo.BlockchainID.String(),
-		"hostB", hostB,
-		"portB", portB,
-		"blockChainB", subnetBInfo.BlockchainID.String(),
-		"subnetA", subnetAInfo.SubnetID.String(),
-		"subnetB", subnetBInfo.SubnetID.String(),
+	relayerConfig := testUtils.CreateDefaultRelayerConfig(
+		subnetAInfo,
+		subnetBInfo,
+		storageLocation,
+		teleporterContractAddress,
+		fundedAddress,
+		relayerKey,
 	)
-
-	relayerConfig := config.Config{
-		LogLevel:            logging.Info.LowerString(),
-		NetworkID:           peers.LocalNetworkID,
-		PChainAPIURL:        subnetAInfo.NodeURIs[0],
-		EncryptConnection:   false,
-		StorageLocation:     storageLocation,
-		ProcessMissedBlocks: false,
-		ManualWarpMessages: []config.ManualWarpMessage{
-			{
-				UnsignedMessageBytes:    hex.EncodeToString(msg1.Bytes()),
-				SourceBlockchainID:      subnetAInfo.BlockchainID.String(),
-				DestinationBlockchainID: subnetBInfo.BlockchainID.String(),
-				SourceAddress:           teleporterContractAddress.Hex(),
-				DestinationAddress:      teleporterContractAddress.Hex(),
-			},
-		},
-		SourceSubnets: []config.SourceSubnet{
-			{
-				SubnetID:          subnetAInfo.SubnetID.String(),
-				BlockchainID:      subnetAInfo.BlockchainID.String(),
-				VM:                config.EVM.String(),
-				EncryptConnection: false,
-				APINodeHost:       hostA,
-				APINodePort:       portA,
-				MessageContracts: map[string]config.MessageProtocolConfig{
-					teleporterContractAddress.Hex(): {
-						MessageFormat: config.TELEPORTER.String(),
-						Settings: map[string]interface{}{
-							"reward-address": fundedAddress.Hex(),
-						},
-					},
-				},
-			},
-			{
-				SubnetID:          subnetBInfo.SubnetID.String(),
-				BlockchainID:      subnetBInfo.BlockchainID.String(),
-				VM:                config.EVM.String(),
-				EncryptConnection: false,
-				APINodeHost:       hostB,
-				APINodePort:       portB,
-				MessageContracts: map[string]config.MessageProtocolConfig{
-					teleporterContractAddress.Hex(): {
-						MessageFormat: config.TELEPORTER.String(),
-						Settings: map[string]interface{}{
-							"reward-address": fundedAddress.Hex(),
-						},
-					},
-				},
-			},
-		},
-		DestinationSubnets: []config.DestinationSubnet{
-			{
-				SubnetID:          subnetAInfo.SubnetID.String(),
-				BlockchainID:      subnetAInfo.BlockchainID.String(),
-				VM:                config.EVM.String(),
-				EncryptConnection: false,
-				APINodeHost:       hostA,
-				APINodePort:       portA,
-				AccountPrivateKey: hex.EncodeToString(relayerKey.D.Bytes()),
-			},
-			{
-				SubnetID:          subnetBInfo.SubnetID.String(),
-				BlockchainID:      subnetBInfo.BlockchainID.String(),
-				VM:                config.EVM.String(),
-				EncryptConnection: false,
-				APINodeHost:       hostB,
-				APINodePort:       portB,
-				AccountPrivateKey: hex.EncodeToString(relayerKey.D.Bytes()),
-			},
+	relayerConfig.ManualWarpMessages = []config.ManualWarpMessage{
+		{
+			UnsignedMessageBytes:    hex.EncodeToString(msg1.Bytes()),
+			SourceBlockchainID:      subnetAInfo.BlockchainID.String(),
+			DestinationBlockchainID: subnetBInfo.BlockchainID.String(),
+			SourceAddress:           teleporterContractAddress.Hex(),
+			DestinationAddress:      teleporterContractAddress.Hex(),
 		},
 	}
+	relayerConfig.ProcessMissedBlocks = false
 
 	relayerConfigPath := writeRelayerConfig(relayerConfig)
 
