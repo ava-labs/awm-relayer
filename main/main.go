@@ -5,10 +5,12 @@ package main
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/alexliesenfeld/health"
 	"github.com/ava-labs/avalanchego/api/metrics"
@@ -22,6 +24,8 @@ import (
 	"github.com/ava-labs/awm-relayer/peers"
 	"github.com/ava-labs/awm-relayer/relayer"
 	"github.com/ava-labs/awm-relayer/vms"
+	"github.com/ava-labs/awm-relayer/vms/vmtypes"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/atomic"
@@ -164,6 +168,50 @@ func main() {
 		return
 	}
 
+	logger.Info(
+		"DBG: Manual Warp Messages",
+		zap.Any("manualWarpMessages", cfg.ManualWarpMessages),
+	)
+	manualWarpMessages := make(map[ids.ID][]*vmtypes.WarpLogInfo)
+	for _, msg := range cfg.ManualWarpMessages {
+		blockchainID, err := ids.FromString(msg.SourceBlockchainID)
+		if err != nil {
+			logger.Error(
+				"Invalid blockchainID in manual warp message",
+				zap.Error(err),
+				zap.String("providedID", msg.SourceBlockchainID),
+			)
+			return
+		}
+		unsignedMsg, err := hex.DecodeString(strings.TrimPrefix(msg.UnsignedMessageBytes, "0x"))
+		if err != nil {
+			logger.Error(
+				"Invalid unsigned message bytes in manual warp message",
+				zap.Error(err),
+				zap.String("providedBytes", msg.UnsignedMessageBytes),
+			)
+			return
+		}
+		sourceAddress, err := hex.DecodeString(strings.TrimPrefix(msg.SourceAddress, "0x"))
+		if err != nil {
+			logger.Error(
+				"Invalid source address in manual warp message",
+				zap.Error(err),
+				zap.String("providedAddress", msg.SourceAddress),
+			)
+			return
+		}
+		warpMessageInfo := vmtypes.WarpLogInfo{
+			SourceAddress:    common.BytesToAddress(sourceAddress),
+			UnsignedMsgBytes: unsignedMsg,
+		}
+		manualWarpMessages[blockchainID] = append(manualWarpMessages[blockchainID], &warpMessageInfo)
+	}
+	logger.Info(
+		"DBG: Manual Warp Messages map",
+		zap.Any("manualWarpMessages", manualWarpMessages),
+	)
+
 	// Create relayers for each of the subnets configured as a source
 	errGroup, ctx := errgroup.WithContext(context.Background())
 	for _, s := range cfg.SourceSubnets {
@@ -196,6 +244,7 @@ func main() {
 				messageCreator,
 				cfg.ProcessMissedBlocks,
 				health,
+				manualWarpMessages[blockchainID],
 			)
 		})
 	}
@@ -220,6 +269,7 @@ func runRelayer(
 	messageCreator message.Creator,
 	shouldProcessMissedBlocks bool,
 	relayerHealth *atomic.Bool,
+	manualWarpMessages []*vmtypes.WarpLogInfo,
 ) error {
 	logger.Info(
 		"Creating relayer",
@@ -243,7 +293,30 @@ func runRelayer(
 		return fmt.Errorf("Failed to create relayer instance: %w", err)
 	}
 	logger.Info(
-		"Created relayer. Listening for messages to relay.",
+		"Created relayer",
+		zap.String("blockchainID", sourceSubnetInfo.BlockchainID),
+	)
+
+	// Send any messages that were specified in the configuration
+	for _, warpMessage := range manualWarpMessages {
+		logger.Info(
+			"Relaying manual Warp message",
+			zap.String("blockchainID", sourceSubnetInfo.BlockchainID),
+			zap.String("warpMessageBytes", hex.EncodeToString(warpMessage.UnsignedMsgBytes)),
+		)
+		err := relayer.RelayMessage(warpMessage)
+		if err != nil {
+			logger.Error(
+				"Failed to relay manual Warp message. Skipping.",
+				zap.Error(err),
+				zap.String("warpMessageBytes", hex.EncodeToString(warpMessage.UnsignedMsgBytes)),
+			)
+			continue
+		}
+	}
+
+	logger.Info(
+		"Relayer initialized. Listening for messages to relay.",
 		zap.String("blockchainID", sourceSubnetInfo.BlockchainID),
 	)
 

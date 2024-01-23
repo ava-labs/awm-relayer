@@ -34,21 +34,17 @@ import (
 	. "github.com/onsi/gomega"
 )
 
+// TODO: move to utils
 var (
 	storageLocation = fmt.Sprintf("%s/.awm-relayer-storage", os.TempDir())
 )
 
-// Ginkgo describe node that acts as a container for the relayer e2e tests. This test suite
-// will run in order, starting off by setting up the subnet URIs and creating a relayer config
-// file. It will then build the relayer binary and run it with the config file. The relayer
-// will then send a transaction to the source subnet to issue a Warp message simulting a transaction
-// sent from the Teleporter contract. The relayer will then wait for the transaction to be confirmed
-// on the destination subnet and verify that the Warp message was received and unpacked correctly.
+// This tests the basic functionality of the relayer, including:
+// - Relaying from Subnet A to Subnet B
+// - Relaying from Subnet B to Subnet A
+// - Relaying an already delivered message
+// - Setting StartBlockHeight in config
 func BasicRelay(network interfaces.LocalNetwork) {
-	var (
-		relayerCmd    *exec.Cmd
-		relayerCancel context.CancelFunc
-	)
 	subnetAInfo := network.GetPrimaryNetworkInfo()
 	subnetBInfo, _ := utils.GetTwoSubnets(network)
 	fundedAddress, fundedKey := network.GetFundedAccountInfo()
@@ -174,7 +170,7 @@ func BasicRelay(network interfaces.LocalNetwork) {
 	log.Info("Test Relaying from Subnet A to Subnet B")
 
 	log.Info("Starting the relayer")
-	relayerCmd, relayerCancel = testUtils.RunRelayerExecutable(ctx, relayerConfigPath)
+	relayerCmd, relayerCancel := testUtils.RunRelayerExecutable(ctx, relayerConfigPath)
 
 	// Sleep for some time to make sure relayer has started up and subscribed.
 	log.Info("Waiting for the relayer to start up")
@@ -250,9 +246,9 @@ func BasicRelay(network interfaces.LocalNetwork) {
 
 	// Send three Teleporter messages from subnet A to subnet B
 	log.Info("Sending three Teleporter messages from subnet A to subnet B")
-	_, id1 := sendBasicTeleporterMessage(ctx, subnetAInfo, subnetBInfo, fundedKey, fundedAddress)
-	_, id2 := sendBasicTeleporterMessage(ctx, subnetAInfo, subnetBInfo, fundedKey, fundedAddress)
-	_, id3 := sendBasicTeleporterMessage(ctx, subnetAInfo, subnetBInfo, fundedKey, fundedAddress)
+	_, _, id1 := sendBasicTeleporterMessage(ctx, subnetAInfo, subnetBInfo, fundedKey, fundedAddress)
+	_, _, id2 := sendBasicTeleporterMessage(ctx, subnetAInfo, subnetBInfo, fundedKey, fundedAddress)
+	_, _, id3 := sendBasicTeleporterMessage(ctx, subnetAInfo, subnetBInfo, fundedKey, fundedAddress)
 
 	currHeight, err := subnetAInfo.RPCClient.BlockNumber(ctx)
 	Expect(err).Should(BeNil())
@@ -298,7 +294,7 @@ func sendBasicTeleporterMessage(
 	destination interfaces.SubnetTestInfo,
 	fundedKey *ecdsa.PrivateKey,
 	fundedAddress common.Address,
-) (teleportermessenger.TeleporterMessage, ids.ID) {
+) (*types.Receipt, teleportermessenger.TeleporterMessage, ids.ID) {
 	log.Info("Packing Teleporter message")
 	teleporterMessage := teleportermessenger.TeleporterMessage{
 		MessageNonce:            big.NewInt(1),
@@ -329,7 +325,7 @@ func sendBasicTeleporterMessage(
 		"sourceBlockchainID", source.BlockchainID,
 		"destinationBlockchainID", destination.BlockchainID,
 	)
-	_, teleporterMessageID := teleporterTestUtils.SendCrossChainMessageAndWaitForAcceptance(
+	receipt, teleporterMessageID := teleporterTestUtils.SendCrossChainMessageAndWaitForAcceptance(
 		ctx,
 		source,
 		destination,
@@ -337,7 +333,7 @@ func sendBasicTeleporterMessage(
 		fundedKey,
 	)
 
-	return teleporterMessage, teleporterMessageID
+	return receipt, teleporterMessage, teleporterMessageID
 }
 
 func relayBasicMessage(
@@ -352,7 +348,7 @@ func relayBasicMessage(
 	Expect(err).Should(BeNil())
 	defer sub.Unsubscribe()
 
-	teleporterMessage, teleporterMessageID := sendBasicTeleporterMessage(
+	_, teleporterMessage, teleporterMessageID := sendBasicTeleporterMessage(
 		ctx,
 		source,
 		destination,

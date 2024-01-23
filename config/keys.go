@@ -15,4 +15,5 @@ const (
 	AccountPrivateKeyKey   = "account-private-key"
 	StorageLocationKey     = "storage-location"
 	ProcessMissedBlocksKey = "process-missed-blocks"
+	ManualWarpMessagesKey  = "manual-warp-messages"
 )

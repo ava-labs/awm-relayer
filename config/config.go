@@ -31,6 +31,15 @@ type MessageProtocolConfig struct {
 	Settings      map[string]interface{} `mapstructure:"settings" json:"settings"`
 }
 
+// TODO: Add verification
+type ManualWarpMessage struct {
+	UnsignedMessageBytes    string `mapstructure:"unsigned-message-bytes" json:"unsigned-message-bytes"`
+	SourceBlockchainID      string `mapstructure:"source-blockchain-id" json:"source-blockchain-id"`
+	DestinationBlockchainID string `mapstructure:"destination-blockchain-id" json:"destination-blockchain-id"`
+	SourceAddress           string `mapstructure:"source-address" json:"source-address"`
+	DestinationAddress      string `mapstructure:"destination-address" json:"destination-address"`
+}
+
 type SourceSubnet struct {
 	SubnetID              string                           `mapstructure:"subnet-id" json:"subnet-id"`
 	BlockchainID          string                           `mapstructure:"blockchain-id" json:"blockchain-id"`
@@ -68,6 +77,7 @@ type Config struct {
 	SourceSubnets       []SourceSubnet      `mapstructure:"source-subnets" json:"source-subnets"`
 	DestinationSubnets  []DestinationSubnet `mapstructure:"destination-subnets" json:"destination-subnets"`
 	ProcessMissedBlocks bool                `mapstructure:"process-missed-blocks" json:"process-missed-blocks"`
+	ManualWarpMessages  []ManualWarpMessage `mapstructure:"manual-warp-messages" json:"manual-warp-messages"`
 
 	// convenience fields to access the source subnet and chain IDs after initialization
 	sourceSubnetIDs     []ids.ID
@@ -110,6 +120,9 @@ func BuildConfig(v *viper.Viper) (Config, bool, error) {
 	cfg.EncryptConnection = v.GetBool(EncryptConnectionKey)
 	cfg.StorageLocation = v.GetString(StorageLocationKey)
 	cfg.ProcessMissedBlocks = v.GetBool(ProcessMissedBlocksKey)
+	if err := v.UnmarshalKey(ManualWarpMessagesKey, &cfg.ManualWarpMessages); err != nil {
+		return Config{}, false, fmt.Errorf("failed to unmarshal manual warp messages: %v", err)
+	}
 	if err := v.UnmarshalKey(DestinationSubnetsKey, &cfg.DestinationSubnets); err != nil {
 		return Config{}, false, fmt.Errorf("failed to unmarshal destination subnets: %v", err)
 	}
