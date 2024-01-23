@@ -84,14 +84,7 @@ func ConvertProtocol(URLString, protocol string) (string, error) {
 // SanitizeHexString removes the "0x" prefix from a hex string if it exists.
 // Otherwise, returns the original string.
 func SanitizeHexString(hex string) string {
-	if len(hex)%2 != 0 || len(hex) < 2 {
-		return hex
-	}
-
-	if hex[:2] == "0x" {
-		return hex[2:]
-	}
-	return hex
+	return strings.TrimPrefix(hex, "0x")
 }
 
 // StripFromString strips the input string starting from the first occurrence of the substring.

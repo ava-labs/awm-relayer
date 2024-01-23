@@ -10,7 +10,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"strings"
 
 	"github.com/alexliesenfeld/health"
 	"github.com/ava-labs/avalanchego/api/metrics"
@@ -23,6 +22,7 @@ import (
 	"github.com/ava-labs/awm-relayer/database"
 	"github.com/ava-labs/awm-relayer/peers"
 	"github.com/ava-labs/awm-relayer/relayer"
+	"github.com/ava-labs/awm-relayer/utils"
 	"github.com/ava-labs/awm-relayer/vms"
 	"github.com/ava-labs/awm-relayer/vms/vmtypes"
 	"github.com/ethereum/go-ethereum/common"
@@ -168,10 +168,6 @@ func main() {
 		return
 	}
 
-	logger.Info(
-		"DBG: Manual Warp Messages",
-		zap.Any("manualWarpMessages", cfg.ManualWarpMessages),
-	)
 	manualWarpMessages := make(map[ids.ID][]*vmtypes.WarpLogInfo)
 	for _, msg := range cfg.ManualWarpMessages {
 		blockchainID, err := ids.FromString(msg.SourceBlockchainID)
@@ -183,7 +179,7 @@ func main() {
 			)
 			return
 		}
-		unsignedMsg, err := hex.DecodeString(strings.TrimPrefix(msg.UnsignedMessageBytes, "0x"))
+		unsignedMsg, err := hex.DecodeString(utils.SanitizeHexString(msg.UnsignedMessageBytes))
 		if err != nil {
 			logger.Error(
 				"Invalid unsigned message bytes in manual warp message",
@@ -192,7 +188,7 @@ func main() {
 			)
 			return
 		}
-		sourceAddress, err := hex.DecodeString(strings.TrimPrefix(msg.SourceAddress, "0x"))
+		sourceAddress, err := hex.DecodeString(utils.SanitizeHexString(msg.SourceAddress))
 		if err != nil {
 			logger.Error(
 				"Invalid source address in manual warp message",
@@ -207,10 +203,6 @@ func main() {
 		}
 		manualWarpMessages[blockchainID] = append(manualWarpMessages[blockchainID], &warpMessageInfo)
 	}
-	logger.Info(
-		"DBG: Manual Warp Messages map",
-		zap.Any("manualWarpMessages", manualWarpMessages),
-	)
 
 	// Create relayers for each of the subnets configured as a source
 	errGroup, ctx := errgroup.WithContext(context.Background())

@@ -4,8 +4,6 @@
 package evm
 
 import (
-	"encoding/hex"
-
 	"github.com/ava-labs/avalanchego/utils/logging"
 	avalancheWarp "github.com/ava-labs/avalanchego/vms/platformvm/warp"
 	warpPayload "github.com/ava-labs/avalanchego/vms/platformvm/warp/payload"
@@ -26,10 +24,8 @@ func NewContractMessage(logger logging.Logger, subnetInfo config.SourceSubnet) *
 }
 
 func (m *contractMessage) UnpackWarpMessage(unsignedMsgBytes []byte) (*vmtypes.WarpMessageInfo, error) {
-	m.logger.Info(
-		"DBG: Warp log data",
-		zap.String("unsignedMsgBytes", hex.EncodeToString(unsignedMsgBytes)),
-	)
+	// This function may be called with raw UnsignedMessage bytes or with ABI encoded bytes as emitted by the Warp precompile
+	// The latter case is the steady state behavior, so check that first. The former only occurs on startup.
 	unsignedMsg, err := warp.UnpackSendWarpEventDataToMessage(unsignedMsgBytes)
 	if err != nil {
 		m.logger.Warn(
@@ -45,10 +41,6 @@ func (m *contractMessage) UnpackWarpMessage(unsignedMsgBytes []byte) (*vmtypes.W
 			return nil, err
 		}
 	}
-	m.logger.Info(
-		"DBG: Parsed unsigned message",
-		zap.String("unsignedMsg", hex.EncodeToString(unsignedMsg.Bytes())),
-	)
 
 	warpPayload, err := warpPayload.ParseAddressedCall(unsignedMsg.Payload)
 	if err != nil {
