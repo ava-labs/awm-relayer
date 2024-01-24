@@ -4,6 +4,8 @@
 package evm
 
 import (
+	"errors"
+
 	"github.com/ava-labs/avalanchego/utils/logging"
 	avalancheWarp "github.com/ava-labs/avalanchego/vms/platformvm/warp"
 	warpPayload "github.com/ava-labs/avalanchego/vms/platformvm/warp/payload"
@@ -28,14 +30,16 @@ func (m *contractMessage) UnpackWarpMessage(unsignedMsgBytes []byte) (*vmtypes.W
 	// The latter case is the steady state behavior, so check that first. The former only occurs on startup.
 	unsignedMsg, err := warp.UnpackSendWarpEventDataToMessage(unsignedMsgBytes)
 	if err != nil {
-		m.logger.Warn(
+		m.logger.Debug(
 			"Failed parsing unsigned message as log. Attempting to parse as standalone message",
 			zap.Error(err),
 		)
-		unsignedMsg, err = avalancheWarp.ParseUnsignedMessage(unsignedMsgBytes)
-		if err != nil {
+		var standaloneErr error
+		unsignedMsg, standaloneErr = avalancheWarp.ParseUnsignedMessage(unsignedMsgBytes)
+		if standaloneErr != nil {
+			err = errors.Join(err, standaloneErr)
 			m.logger.Error(
-				"Failed parsing unsigned message",
+				"Failed parsing unsigned message as either log or standalone message",
 				zap.Error(err),
 			)
 			return nil, err
