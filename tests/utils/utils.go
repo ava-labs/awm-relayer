@@ -157,7 +157,7 @@ func FundRelayers(
 	fundedKey *ecdsa.PrivateKey,
 	relayerKey *ecdsa.PrivateKey,
 ) {
-	relayerAddress := crypto.PubkeyToAddress(fundedKey.PublicKey)
+	relayerAddress := crypto.PubkeyToAddress(relayerKey.PublicKey)
 	fundAmount := big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(10)) // 10eth
 
 	for _, subnetInfo := range subnetsInfo {
