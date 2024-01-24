@@ -30,7 +30,7 @@ var (
 	storageLocation = fmt.Sprintf("%s/.awm-relayer-storage", os.TempDir())
 )
 
-func BuildAndRunRelayerExecutable(ctx context.Context, relayerConfigPath string) (*exec.Cmd, context.CancelFunc) {
+func BuildAndRunRelayerExecutable(ctx context.Context, relayerConfigPath string) context.CancelFunc {
 	// Build the awm-relayer binary
 	cmd := exec.Command("./scripts/build.sh")
 	out, err := cmd.CombinedOutput()
@@ -70,7 +70,10 @@ func BuildAndRunRelayerExecutable(ctx context.Context, relayerConfigPath string)
 		}
 		cmdOutput <- "Command execution finished"
 	}()
-	return relayerCmd, relayerCancel
+	return func() {
+		relayerCancel()
+		relayerCmd.Wait()
+	}
 }
 
 func ReadHexTextFile(filename string) string {

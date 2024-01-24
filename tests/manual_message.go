@@ -84,7 +84,8 @@ func ManualMessage(network interfaces.LocalNetwork) {
 	defer sub.Unsubscribe()
 
 	log.Info("Starting the relayer")
-	relayerCmd, relayerCancel := testUtils.BuildAndRunRelayerExecutable(ctx, relayerConfigPath)
+	relayerCleanup := testUtils.BuildAndRunRelayerExecutable(ctx, relayerConfigPath)
+	defer relayerCleanup()
 
 	log.Info("Waiting for a new block confirmation on subnet B")
 	<-newHeadsB
@@ -102,10 +103,6 @@ func ManualMessage(network interfaces.LocalNetwork) {
 	)
 	Expect(err).Should(BeNil())
 	Expect(delivered2).Should(BeFalse())
-
-	// Cancel the command and stop the relayer
-	relayerCancel()
-	_ = relayerCmd.Wait()
 }
 
 func getWarpMessageFromLog(ctx context.Context, receipt *types.Receipt, source interfaces.SubnetTestInfo) *avalancheWarp.UnsignedMessage {
