@@ -32,11 +32,6 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-// TODO: move to utils
-var (
-	storageLocation = fmt.Sprintf("%s/.awm-relayer-storage", os.TempDir())
-)
-
 // This tests the basic functionality of the relayer, including:
 // - Relaying from Subnet A to Subnet B
 // - Relaying from Subnet B to Subnet A
@@ -47,6 +42,8 @@ func BasicRelay(network interfaces.LocalNetwork) {
 	subnetBInfo, _ := utils.GetTwoSubnets(network)
 	fundedAddress, fundedKey := network.GetFundedAccountInfo()
 	teleporterContractAddress := network.GetTeleporterContractAddress()
+	err := testUtils.ClearRelayerStorage()
+	Expect(err).Should(BeNil())
 
 	//
 	// Fund the relayer address on all subnets
@@ -74,7 +71,6 @@ func BasicRelay(network interfaces.LocalNetwork) {
 	relayerConfig := testUtils.CreateDefaultRelayerConfig(
 		subnetAInfo,
 		subnetBInfo,
-		storageLocation,
 		teleporterContractAddress,
 		fundedAddress,
 		relayerKey,
@@ -141,7 +137,7 @@ func BasicRelay(network interfaces.LocalNetwork) {
 			logging.JSON.ConsoleEncoder(),
 		),
 	)
-	jsonDB, err := database.NewJSONFileStorage(logger, storageLocation, []ids.ID{subnetAInfo.BlockchainID, subnetBInfo.BlockchainID})
+	jsonDB, err := database.NewJSONFileStorage(logger, testUtils.RelayerStorageLocation(), []ids.ID{subnetAInfo.BlockchainID, subnetBInfo.BlockchainID})
 	Expect(err).Should(BeNil())
 
 	// Modify the JSON database to force the relayer to re-process old blocks
@@ -222,28 +218,16 @@ func sendBasicTeleporterMessage(
 	fundedKey *ecdsa.PrivateKey,
 	fundedAddress common.Address,
 ) (*types.Receipt, teleportermessenger.TeleporterMessage, ids.ID) {
-	log.Info("Packing Teleporter message")
-	teleporterMessage := teleportermessenger.TeleporterMessage{
-		MessageNonce:            big.NewInt(1),
-		SenderAddress:           fundedAddress,
+	input := teleportermessenger.TeleporterMessageInput{
 		DestinationBlockchainID: destination.BlockchainID,
 		DestinationAddress:      fundedAddress,
-		RequiredGasLimit:        big.NewInt(1),
-		AllowedRelayerAddresses: []common.Address{},
-		Receipts:                []teleportermessenger.TeleporterMessageReceipt{},
-		Message:                 []byte{1, 2, 3, 4},
-	}
-
-	input := teleportermessenger.TeleporterMessageInput{
-		DestinationBlockchainID: teleporterMessage.DestinationBlockchainID,
-		DestinationAddress:      teleporterMessage.DestinationAddress,
 		FeeInfo: teleportermessenger.TeleporterFeeInfo{
 			FeeTokenAddress: fundedAddress,
 			Amount:          big.NewInt(0),
 		},
-		RequiredGasLimit:        teleporterMessage.RequiredGasLimit,
-		AllowedRelayerAddresses: teleporterMessage.AllowedRelayerAddresses,
-		Message:                 teleporterMessage.Message,
+		RequiredGasLimit:        big.NewInt(1),
+		AllowedRelayerAddresses: []common.Address{},
+		Message:                 []byte{1, 2, 3, 4},
 	}
 
 	// Send a transaction to the Teleporter contract
@@ -259,8 +243,10 @@ func sendBasicTeleporterMessage(
 		input,
 		fundedKey,
 	)
+	sendEvent, err := teleporterTestUtils.GetEventFromLogs(receipt.Logs, source.TeleporterMessenger.ParseSendCrossChainMessage)
+	Expect(err).Should(BeNil())
 
-	return receipt, teleporterMessage, teleporterMessageID
+	return receipt, sendEvent.Message, teleporterMessageID
 }
 
 func relayBasicMessage(

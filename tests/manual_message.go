@@ -30,6 +30,8 @@ func ManualMessage(network interfaces.LocalNetwork) {
 	subnetBInfo, _ := utils.GetTwoSubnets(network)
 	fundedAddress, fundedKey := network.GetFundedAccountInfo()
 	teleporterContractAddress := network.GetTeleporterContractAddress()
+	err := testUtils.ClearRelayerStorage()
+	Expect(err).Should(BeNil())
 
 	//
 	// Fund the relayer address on all subnets
@@ -69,7 +71,6 @@ func ManualMessage(network interfaces.LocalNetwork) {
 	relayerConfig := testUtils.CreateDefaultRelayerConfig(
 		subnetAInfo,
 		subnetBInfo,
-		storageLocation,
 		teleporterContractAddress,
 		fundedAddress,
 		relayerKey,
@@ -83,7 +84,6 @@ func ManualMessage(network interfaces.LocalNetwork) {
 			DestinationAddress:      teleporterContractAddress.Hex(),
 		},
 	}
-	relayerConfig.ProcessMissedBlocks = false
 
 	relayerConfigPath := writeRelayerConfig(relayerConfig)
 

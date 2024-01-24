@@ -8,6 +8,7 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"encoding/hex"
+	"fmt"
 	"os"
 	"os/exec"
 	"strings"
@@ -20,6 +21,10 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 	. "github.com/onsi/gomega"
+)
+
+var (
+	storageLocation = fmt.Sprintf("%s/.awm-relayer-storage", os.TempDir())
 )
 
 func RunRelayerExecutable(ctx context.Context, relayerConfigPath string) (*exec.Cmd, context.CancelFunc) {
@@ -68,7 +73,6 @@ func ReadHexTextFile(filename string) string {
 func CreateDefaultRelayerConfig(
 	subnetAInfo interfaces.SubnetTestInfo,
 	subnetBInfo interfaces.SubnetTestInfo,
-	storageLocation string,
 	teleporterContractAddress common.Address,
 	fundedAddress common.Address,
 	relayerKey *ecdsa.PrivateKey,
@@ -92,11 +96,12 @@ func CreateDefaultRelayerConfig(
 	)
 
 	return config.Config{
-		LogLevel:          logging.Info.LowerString(),
-		NetworkID:         peers.LocalNetworkID,
-		PChainAPIURL:      subnetAInfo.NodeURIs[0],
-		EncryptConnection: false,
-		StorageLocation:   storageLocation,
+		LogLevel:            logging.Info.LowerString(),
+		NetworkID:           peers.LocalNetworkID,
+		PChainAPIURL:        subnetAInfo.NodeURIs[0],
+		EncryptConnection:   false,
+		StorageLocation:     RelayerStorageLocation(),
+		ProcessMissedBlocks: false,
 		SourceSubnets: []config.SourceSubnet{
 			{
 				SubnetID:          subnetAInfo.SubnetID.String(),
@@ -152,4 +157,12 @@ func CreateDefaultRelayerConfig(
 			},
 		},
 	}
+}
+
+func RelayerStorageLocation() string {
+	return storageLocation
+}
+
+func ClearRelayerStorage() error {
+	return os.RemoveAll(storageLocation)
 }
