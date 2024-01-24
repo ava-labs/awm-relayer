@@ -86,13 +86,14 @@ func CreateDefaultRelayerConfig(
 	fundedAddress common.Address,
 	relayerKey *ecdsa.PrivateKey,
 ) config.Config {
+	log.Info(
+		"Setting up relayer config",
+	)
 	// Construct the config values for each subnet
 	hosts := make([]string, len(subnetsInfo))
 	ports := make([]uint32, len(subnetsInfo))
 	sources := make([]config.SourceSubnet, len(subnetsInfo))
 	destinations := make([]config.DestinationSubnet, len(subnetsInfo))
-	blockchainIDs := make([]string, len(subnetsInfo))
-	subnetIDs := make([]string, len(subnetsInfo))
 	for i, subnetInfo := range subnetsInfo {
 		var err error
 		hosts[i], ports[i], err = teleporterTestUtils.GetURIHostAndPort(subnetInfo.NodeURIs[0])
@@ -125,17 +126,14 @@ func CreateDefaultRelayerConfig(
 			AccountPrivateKey: hex.EncodeToString(relayerKey.D.Bytes()),
 		}
 
-		blockchainIDs[i] = subnetInfo.BlockchainID.String()
-		subnetIDs[i] = subnetInfo.SubnetID.String()
+		log.Info(
+			"Creating relayer config for subnet",
+			"subnetID", subnetInfo.SubnetID.String(),
+			"blockchainID", subnetInfo.BlockchainID.String(),
+			"host", hosts[i],
+			"port", ports[i],
+		)
 	}
-
-	log.Info(
-		"Setting up relayer config",
-		"hosts", hosts,
-		"port", ports,
-		"blockchainIDs", blockchainIDs,
-		"subnetIDs", subnetIDs,
-	)
 
 	return config.Config{
 		LogLevel:            logging.Info.LowerString(),
