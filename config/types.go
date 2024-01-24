@@ -36,12 +36,15 @@ type MessageProtocol int
 const (
 	UNKNOWN_MESSAGE_PROTOCOL MessageProtocol = iota
 	TELEPORTER
+	OFF_CHAIN
 )
 
 func (msg MessageProtocol) String() string {
 	switch msg {
 	case TELEPORTER:
 		return "teleporter"
+	case OFF_CHAIN:
+		return "off-chain"
 	default:
 		return "unknown"
 	}
@@ -52,6 +55,8 @@ func ParseMessageProtocol(msg string) MessageProtocol {
 	switch msg {
 	case "teleporter":
 		return TELEPORTER
+	case "off-chain":
+		return OFF_CHAIN
 	default:
 		return UNKNOWN_MESSAGE_PROTOCOL
 	}

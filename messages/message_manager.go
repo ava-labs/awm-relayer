@@ -12,6 +12,7 @@ import (
 	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/avalanchego/vms/platformvm/warp"
 	"github.com/ava-labs/awm-relayer/config"
+	offchainregistry "github.com/ava-labs/awm-relayer/messages/off-chain-registry"
 	"github.com/ava-labs/awm-relayer/messages/teleporter"
 	"github.com/ava-labs/awm-relayer/vms"
 	"github.com/ava-labs/awm-relayer/vms/vmtypes"
@@ -43,6 +44,13 @@ func NewMessageManager(
 	switch config.ParseMessageProtocol(format) {
 	case config.TELEPORTER:
 		return teleporter.NewMessageManager(
+			logger,
+			messageProtocolAddress,
+			messageProtocolConfig,
+			destinationClients,
+		)
+	case config.OFF_CHAIN:
+		return offchainregistry.NewMessageManager(
 			logger,
 			messageProtocolAddress,
 			messageProtocolConfig,
