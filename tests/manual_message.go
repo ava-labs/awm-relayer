@@ -58,8 +58,7 @@ func ManualMessage(network interfaces.LocalNetwork) {
 	// Set up relayer config to deliver one of the two previously sent messages
 	//
 	relayerConfig := testUtils.CreateDefaultRelayerConfig(
-		subnetAInfo,
-		subnetBInfo,
+		[]interfaces.SubnetTestInfo{subnetAInfo, subnetBInfo},
 		teleporterContractAddress,
 		fundedAddress,
 		relayerKey,

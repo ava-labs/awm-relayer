@@ -59,8 +59,7 @@ func BasicRelay(network interfaces.LocalNetwork) {
 	// Set up relayer config
 	//
 	relayerConfig := testUtils.CreateDefaultRelayerConfig(
-		subnetAInfo,
-		subnetBInfo,
+		[]interfaces.SubnetTestInfo{subnetAInfo, subnetBInfo},
 		teleporterContractAddress,
 		fundedAddress,
 		relayerKey,
