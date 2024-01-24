@@ -30,7 +30,13 @@ var (
 	storageLocation = fmt.Sprintf("%s/.awm-relayer-storage", os.TempDir())
 )
 
-func RunRelayerExecutable(ctx context.Context, relayerConfigPath string) (*exec.Cmd, context.CancelFunc) {
+func BuildAndRunRelayerExecutable(ctx context.Context, relayerConfigPath string) (*exec.Cmd, context.CancelFunc) {
+	// Build the awm-relayer binary
+	cmd := exec.Command("./scripts/build.sh")
+	out, err := cmd.CombinedOutput()
+	fmt.Println(string(out))
+	Expect(err).Should(BeNil())
+
 	cmdOutput := make(chan string)
 
 	// Run awm relayer binary with config path

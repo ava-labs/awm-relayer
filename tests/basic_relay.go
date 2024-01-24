@@ -4,10 +4,8 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"encoding/json"
-	"fmt"
 	"math/big"
 	"os"
-	"os/exec"
 	"time"
 
 	"github.com/ava-labs/avalanchego/ids"
@@ -68,21 +66,12 @@ func BasicRelay(network interfaces.LocalNetwork) {
 	relayerConfigPath := writeRelayerConfig(relayerConfig)
 
 	//
-	// Build Relayer
-	//
-	// Build the awm-relayer binary
-	cmd := exec.Command("./scripts/build.sh")
-	out, err := cmd.CombinedOutput()
-	fmt.Println(string(out))
-	Expect(err).Should(BeNil())
-
-	//
 	// Test Relaying from Subnet A to Subnet B
 	//
 	log.Info("Test Relaying from Subnet A to Subnet B")
 
 	log.Info("Starting the relayer")
-	relayerCmd, relayerCancel := testUtils.RunRelayerExecutable(ctx, relayerConfigPath)
+	relayerCmd, relayerCancel := testUtils.BuildAndRunRelayerExecutable(ctx, relayerConfigPath)
 
 	// Sleep for some time to make sure relayer has started up and subscribed.
 	log.Info("Waiting for the relayer to start up")
@@ -141,7 +130,7 @@ func BasicRelay(network interfaces.LocalNetwork) {
 
 	// Run the relayer
 	log.Info("Creating new relayer instance to test already delivered message")
-	relayerCmd, relayerCancel = testUtils.RunRelayerExecutable(ctx, relayerConfigPath)
+	relayerCmd, relayerCancel = testUtils.BuildAndRunRelayerExecutable(ctx, relayerConfigPath)
 
 	// We should not receive a new block on subnet B, since the relayer should have seen the Teleporter message was already delivered
 	log.Info("Waiting for 10s to ensure no new block confirmations on destination chain")
@@ -176,7 +165,7 @@ func BasicRelay(network interfaces.LocalNetwork) {
 	relayerConfigPath = writeRelayerConfig(modifiedRelayerConfig)
 
 	log.Info("Starting the relayer")
-	relayerCmd, relayerCancel = testUtils.RunRelayerExecutable(ctx, relayerConfigPath)
+	relayerCmd, relayerCancel = testUtils.BuildAndRunRelayerExecutable(ctx, relayerConfigPath)
 	log.Info("Waiting for a new block confirmation on subnet B")
 	<-newHeadsB
 	delivered1, err := subnetBInfo.TeleporterMessenger.MessageReceived(

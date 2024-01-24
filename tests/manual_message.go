@@ -3,8 +3,6 @@ package tests
 import (
 	"context"
 	"encoding/hex"
-	"fmt"
-	"os/exec"
 	"time"
 
 	avalancheWarp "github.com/ava-labs/avalanchego/vms/platformvm/warp"
@@ -76,15 +74,6 @@ func ManualMessage(network interfaces.LocalNetwork) {
 	relayerConfigPath := writeRelayerConfig(relayerConfig)
 
 	//
-	// Build Relayer
-	//
-	// Build the awm-relayer binary
-	cmd := exec.Command("./scripts/build.sh")
-	out, err := cmd.CombinedOutput()
-	fmt.Println(string(out))
-	Expect(err).Should(BeNil())
-
-	//
 	// Run the Relayer. On startup, we should deliver the message provided in the config
 	//
 
@@ -95,7 +84,7 @@ func ManualMessage(network interfaces.LocalNetwork) {
 	defer sub.Unsubscribe()
 
 	log.Info("Starting the relayer")
-	relayerCmd, relayerCancel := testUtils.RunRelayerExecutable(ctx, relayerConfigPath)
+	relayerCmd, relayerCancel := testUtils.BuildAndRunRelayerExecutable(ctx, relayerConfigPath)
 
 	log.Info("Waiting for a new block confirmation on subnet B")
 	<-newHeadsB
