@@ -238,7 +238,7 @@ func runRelayer(
 ) error {
 	logger.Info(
 		"Creating relayer",
-		zap.String("blockchainID", sourceSubnetInfo.BlockchainID),
+		zap.String("originBlockchainID", sourceSubnetInfo.BlockchainID),
 	)
 
 	relayer, err := relayer.NewRelayer(
@@ -269,7 +269,7 @@ func runRelayer(
 			zap.String("blockchainID", sourceSubnetInfo.BlockchainID),
 			zap.String("warpMessageBytes", hex.EncodeToString(warpMessage.UnsignedMsgBytes)),
 		)
-		err := relayer.RelayMessage(warpMessage)
+		err := relayer.RelayMessage(warpMessage, false)
 		if err != nil {
 			logger.Error(
 				"Failed to relay manual Warp message. Skipping.",
@@ -282,7 +282,7 @@ func runRelayer(
 
 	logger.Info(
 		"Relayer initialized. Listening for messages to relay.",
-		zap.String("blockchainID", sourceSubnetInfo.BlockchainID),
+		zap.String("originBlockchainID", sourceSubnetInfo.BlockchainID),
 	)
 
 	// Wait for logs from the subscribed node
