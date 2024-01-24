@@ -9,6 +9,7 @@ import (
 	"crypto/ecdsa"
 	"encoding/hex"
 	"fmt"
+	"math/big"
 	"os"
 	"os/exec"
 	"strings"
@@ -17,8 +18,10 @@ import (
 	"github.com/ava-labs/awm-relayer/config"
 	"github.com/ava-labs/awm-relayer/peers"
 	"github.com/ava-labs/teleporter/tests/interfaces"
+	"github.com/ava-labs/teleporter/tests/utils"
 	teleporterTestUtils "github.com/ava-labs/teleporter/tests/utils"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	. "github.com/onsi/gomega"
 )
@@ -165,4 +168,21 @@ func RelayerStorageLocation() string {
 
 func ClearRelayerStorage() error {
 	return os.RemoveAll(storageLocation)
+}
+
+func FundRelayers(
+	ctx context.Context,
+	subnetsInfo []interfaces.SubnetTestInfo,
+	fundedKey *ecdsa.PrivateKey,
+	relayerKey *ecdsa.PrivateKey,
+) {
+	relayerAddress := crypto.PubkeyToAddress(fundedKey.PublicKey)
+	fundAmount := big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(10)) // 10eth
+
+	for _, subnetInfo := range subnetsInfo {
+		fundRelayerTx := utils.CreateNativeTransferTransaction(
+			ctx, subnetInfo, fundedKey, relayerAddress, fundAmount,
+		)
+		utils.SendTransactionAndWaitForSuccess(ctx, subnetInfo, fundRelayerTx)
+	}
 }

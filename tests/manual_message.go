@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
-	"math/big"
 	"os/exec"
 	"time"
 
@@ -41,17 +40,7 @@ func ManualMessage(network interfaces.LocalNetwork) {
 	log.Info("Funding relayer address on all subnets")
 	relayerKey, err := crypto.GenerateKey()
 	Expect(err).Should(BeNil())
-	relayerAddress := crypto.PubkeyToAddress(relayerKey.PublicKey)
-
-	fundAmount := big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(10)) // 10eth
-	fundRelayerTxA := utils.CreateNativeTransferTransaction(
-		ctx, subnetAInfo, fundedKey, relayerAddress, fundAmount,
-	)
-	utils.SendTransactionAndWaitForSuccess(ctx, subnetAInfo, fundRelayerTxA)
-	fundRelayerTxB := utils.CreateNativeTransferTransaction(
-		ctx, subnetBInfo, fundedKey, relayerAddress, fundAmount,
-	)
-	utils.SendTransactionAndWaitForSuccess(ctx, subnetBInfo, fundRelayerTxB)
+	testUtils.FundRelayers(ctx, []interfaces.SubnetTestInfo{subnetAInfo, subnetBInfo}, fundedKey, relayerKey)
 
 	//
 	// Send two Teleporter message on Subnet A, before the relayer is running
