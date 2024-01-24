@@ -27,7 +27,7 @@ type MessageManager interface {
 
 	// SendMessage sends the signed message to the destination chain. The payload parsed according to
 	// the VM rules is also passed in, since MessageManager does not assume any particular VM
-	SendMessage(signedMessage *warp.Message, destinationAddress common.Address, destinationBlockchainID ids.ID) error
+	SendMessage(signedMessage *warp.Message, destinationBlockchainID ids.ID) error
 
 	// GetDestinationBlockchainID returns the destination chain ID of the destination chain for the given message
 	GetDestinationBlockchainID(unsignedMessage *warp.UnsignedMessage) (ids.ID, error)
@@ -50,7 +50,7 @@ func NewMessageManager(
 			messageProtocolConfig,
 			destinationClients,
 		)
-	case config.OFF_CHAIN:
+	case config.OFF_CHAIN_REGISTRY:
 		return offchainregistry.NewMessageManager(
 			logger,
 			messageProtocolAddress,

@@ -169,7 +169,7 @@ func (m *messageManager) ShouldSendMessage(unsignedMessage *warp.UnsignedMessage
 
 // SendMessage extracts the gasLimit and packs the call data to call the receiveCrossChainMessage method of the Teleporter contract,
 // and dispatches transaction construction and broadcast to the destination client
-func (m *messageManager) SendMessage(signedMessage *warp.Message, _ common.Address, destinationBlockchainID ids.ID) error {
+func (m *messageManager) SendMessage(signedMessage *warp.Message, destinationBlockchainID ids.ID) error {
 	teleporterMessage, err := m.parseTeleporterMessage(&signedMessage.UnsignedMessage)
 	if err != nil {
 		m.logger.Error(
