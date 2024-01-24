@@ -61,6 +61,7 @@ type Relayer struct {
 	rpcEndpoint              string
 	apiNodeURI               string
 	messageCreator           message.Creator
+	catchUpResultChan        chan bool
 	healthStatus             *atomic.Bool
 }
 
@@ -126,6 +127,14 @@ func NewRelayer(
 	rpcEndpoint := sourceSubnetInfo.GetNodeRPCEndpoint()
 	uri := utils.StripFromString(rpcEndpoint, "/ext")
 
+	// Marks when the relayer has finished the catch-up process on startup.
+	// Until that time, we do not know the order in which messages are processed,
+	// since the catch-up process occurs concurrently with normal message processing
+	// via the subscriber's Subscribe method. As a result, we cannot safely write the
+	// latest processed block to the database without risking missing a block in a fault
+	// scenario.
+	catchUpResultChan := make(chan bool, 1)
+
 	logger.Info(
 		"Creating relayer",
 		zap.String("subnetID", subnetID.String()),
@@ -151,6 +160,7 @@ func NewRelayer(
 		rpcEndpoint:              rpcEndpoint,
 		apiNodeURI:               uri,
 		messageCreator:           messageCreator,
+		catchUpResultChan:        catchUpResultChan,
 		healthStatus:             relayerHealth,
 	}
 
@@ -174,24 +184,21 @@ func NewRelayer(
 			)
 			return nil, err
 		}
-		err = sub.ProcessFromHeight(big.NewInt(0).SetUint64(height))
-		if err != nil {
-			logger.Error(
-				"Failed to process blocks from height on startup",
-				zap.Error(err),
-			)
-			return nil, err
-		}
+		// Process historical blocks in a separate goroutine so that the main processing loop can
+		// start processing new blocks as soon as possible. Otherwise, it's possible for
+		// ProcessFromHeight to overload the message queue and cause a deadlock.
+		go sub.ProcessFromHeight(big.NewInt(0).SetUint64(height), r.catchUpResultChan)
 	} else {
 		err = r.setProcessedBlockHeightToLatest()
 		if err != nil {
-			logger.Warn(
+			logger.Error(
 				"Failed to update latest processed block. Continuing to normal relaying operation",
 				zap.String("blockchainID", r.sourceBlockchainID.String()),
 				zap.Error(err),
 			)
 			return nil, err
 		}
+		r.catchUpResultChan <- true
 	}
 
 	return &r, nil
@@ -201,9 +208,22 @@ func NewRelayer(
 // On subscriber error, attempts to reconnect and errors if unable.
 // Exits if context is cancelled by another goroutine.
 func (r *Relayer) ProcessLogs(ctx context.Context) error {
+	doneCatchingUp := false
 	for {
 		select {
+		case catchUpResult := <-r.catchUpResultChan:
+			if !catchUpResult {
+				r.healthStatus.Store(false)
+				r.logger.Error(
+					"Failed to catch up on historical blocks. Exiting relayer goroutine.",
+					zap.String("originChainId", r.sourceBlockchainID.String()),
+				)
+				return fmt.Errorf("failed to catch up on historical blocks")
+			} else {
+				doneCatchingUp = true
+			}
 		case txLog := <-r.Subscriber.Logs():
+			// Relay the message to the destination chain. Continue on failure.
 			r.logger.Info(
 				"Handling Teleporter submit message log.",
 				zap.String("txId", hex.EncodeToString(txLog.SourceTxID)),
@@ -211,8 +231,12 @@ func (r *Relayer) ProcessLogs(ctx context.Context) error {
 				zap.String("sourceAddress", txLog.SourceAddress.String()),
 			)
 
-			// Relay the message to the destination chain. Continue on failure.
-			err := r.RelayMessage(&txLog)
+			// Messages are either catch-up messages, or live incoming messages.
+			// For live messages, we only write to the database if we're done catching up.
+			// This is because during the catch-up process, we cannot guarantee the order
+			// of live messages relative to catch-up messages, whereas we know that catch-up
+			// messages will always be ordered relative to each other.
+			err := r.RelayMessage(&txLog, doneCatchingUp || txLog.IsCatchUpMessage)
 			if err != nil {
 				r.logger.Error(
 					"Error relaying message",
@@ -257,11 +281,7 @@ func (r *Relayer) ProcessLogs(ctx context.Context) error {
 // 2) The database has been configured for the chain, but does not contain the latest processed block data
 //   - In this case, we return the configured start block height
 func (r *Relayer) calculateStartingBlockHeight(startBlockHeight uint64) (uint64, error) {
-	// Attempt to get the latest processed block height from the database.
-	// Note that there may be unrelayed messages in the latest processed block
-	// because it is updated as soon as a single message from that block is relayed,
-	// and there may be multiple message in the same block.
-	latestProcessedBlockData, err := r.db.Get(r.sourceBlockchainID, []byte(database.LatestProcessedBlockKey))
+	latestProcessedBlock, err := r.getLatestProcessedBlockHeight()
 	if errors.Is(err, database.ErrChainNotFound) || errors.Is(err, database.ErrKeyNotFound) {
 		// The database does not contain the latest processed block data for the chain, so use the configured StartBlockHeight instead
 		if startBlockHeight == 0 {
@@ -274,7 +294,7 @@ func (r *Relayer) calculateStartingBlockHeight(startBlockHeight uint64) (uint64,
 		return startBlockHeight, nil
 	} else if err != nil {
 		// Otherwise, we've encountered an unknown database error
-		r.logger.Warn(
+		r.logger.Error(
 			"failed to get latest block from database",
 			zap.String("blockchainID", r.sourceBlockchainID.String()),
 			zap.Error(err),
@@ -284,11 +304,6 @@ func (r *Relayer) calculateStartingBlockHeight(startBlockHeight uint64) (uint64,
 
 	// If the database does contain the latest processed block data for the chain,
 	// use the max of the latest processed block and the configured start block height (if it was provided)
-	latestProcessedBlock, err := strconv.ParseUint(string(latestProcessedBlockData), 10, 64)
-	if err != nil {
-		r.logger.Error("failed to parse Uint from the database", zap.Error(err))
-		return 0, err
-	}
 	if latestProcessedBlock > startBlockHeight {
 		r.logger.Info(
 			"Processing historical blocks from the latest processed block in the DB",
@@ -333,7 +348,7 @@ func (r *Relayer) setProcessedBlockHeightToLatest() error {
 		zap.Uint64("latestBlock", latestBlock),
 	)
 
-	err = r.db.Put(r.sourceBlockchainID, []byte(database.LatestProcessedBlockKey), []byte(strconv.FormatUint(latestBlock, 10)))
+	err = r.storeBlockHeight(latestBlock)
 	if err != nil {
 		r.logger.Error(
 			fmt.Sprintf("failed to put %s into database", database.LatestProcessedBlockKey),
@@ -359,7 +374,7 @@ func (r *Relayer) ReconnectToSubscriber() error {
 }
 
 // RelayMessage relays a single warp message to the destination chain. Warp message relay requests from the same origin chain are processed serially
-func (r *Relayer) RelayMessage(warpLogInfo *vmtypes.WarpLogInfo) error {
+func (r *Relayer) RelayMessage(warpLogInfo *vmtypes.WarpLogInfo, storeProcessedHeight bool) error {
 	r.logger.Info(
 		"Relaying message",
 		zap.String("blockchainID", r.sourceBlockchainID.String()),
@@ -438,20 +453,67 @@ func (r *Relayer) RelayMessage(warpLogInfo *vmtypes.WarpLogInfo) error {
 	// Increment the request ID for the next message relay request
 	r.currentRequestID++
 
-	// Update the database with the latest processed block height
-	err = r.db.Put(r.sourceBlockchainID, []byte(database.LatestProcessedBlockKey), []byte(strconv.FormatUint(warpLogInfo.BlockNumber, 10)))
-	if err != nil {
-		r.logger.Error(
-			fmt.Sprintf("failed to put %s into database", database.LatestProcessedBlockKey),
-			zap.Error(err),
-		)
+	if !storeProcessedHeight {
+		return nil
 	}
 
-	return nil
+	// Update the database with the latest processed block height
+	return r.storeLatestBlockHeight(warpLogInfo.BlockNumber)
 }
 
 // Returns whether destinationBlockchainID is a supported destination.
 // If supportedDestinations is empty, then all destination chain IDs are supported.
 func (r *Relayer) CheckSupportedDestination(destinationBlockchainID ids.ID) bool {
 	return len(r.supportedDestinations) == 0 || r.supportedDestinations.Contains(destinationBlockchainID)
+}
+
+// Get the latest processed block height from the database.
+// Note that there may be unrelayed messages in the latest processed block
+// because it is updated as soon as a single message from that block is relayed,
+// and there may be multiple message in the same block.
+func (r *Relayer) getLatestProcessedBlockHeight() (uint64, error) {
+	latestProcessedBlockData, err := r.db.Get(r.sourceBlockchainID, []byte(database.LatestProcessedBlockKey))
+	if err != nil {
+		return 0, err
+	}
+	latestProcessedBlock, err := strconv.ParseUint(string(latestProcessedBlockData), 10, 64)
+	if err != nil {
+		return 0, err
+	}
+	return latestProcessedBlock, nil
+}
+
+// Store the block height in the database. Does not check against the current latest processed block height.
+func (r *Relayer) storeBlockHeight(height uint64) error {
+	return r.db.Put(r.sourceBlockchainID, []byte(database.LatestProcessedBlockKey), []byte(strconv.FormatUint(height, 10)))
+}
+
+// Stores the block height in the database if it is greater than the current latest processed block height.
+func (r *Relayer) storeLatestBlockHeight(height uint64) error {
+	// First, check that the stored height is less than the current block height
+	// This is necessary because the relayer may be processing blocks out of order on startup
+	latestProcessedBlock, err := r.getLatestProcessedBlockHeight()
+	if err != nil && !errors.Is(err, database.ErrChainNotFound) && !errors.Is(err, database.ErrKeyNotFound) {
+		r.logger.Error(
+			"Encountered an unknown error while getting latest processed block from database",
+			zap.String("blockchainID", r.sourceBlockchainID.String()),
+			zap.Error(err),
+		)
+		return err
+	}
+
+	// An unhandled error at this point indicates the DB does not store the block data for the chain,
+	// so we write unconditionally in that case. Otherwise, we only overwrite if the new height is greater
+	// than the stored height.
+	if err != nil || height > latestProcessedBlock {
+		err = r.storeBlockHeight(height)
+		if err != nil {
+			r.logger.Error(
+				fmt.Sprintf("failed to put %s into database", database.LatestProcessedBlockKey),
+				zap.Error(err),
+			)
+		}
+		return err
+	}
+	return nil
 }

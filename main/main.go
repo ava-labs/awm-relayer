@@ -223,7 +223,7 @@ func runRelayer(
 ) error {
 	logger.Info(
 		"Creating relayer",
-		zap.String("blockchainID", sourceSubnetInfo.BlockchainID),
+		zap.String("originBlockchainID", sourceSubnetInfo.BlockchainID),
 	)
 
 	relayer, err := relayer.NewRelayer(
@@ -244,7 +244,7 @@ func runRelayer(
 	}
 	logger.Info(
 		"Created relayer. Listening for messages to relay.",
-		zap.String("blockchainID", sourceSubnetInfo.BlockchainID),
+		zap.String("originBlockchainID", sourceSubnetInfo.BlockchainID),
 	)
 
 	// Wait for logs from the subscribed node

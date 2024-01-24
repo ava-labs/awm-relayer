@@ -83,7 +83,7 @@ func NewSubscriber(logger logging.Logger, subnetInfo config.SourceSubnet) *subsc
 	}
 }
 
-func (s *subscriber) NewWarpLogInfo(log types.Log) (*vmtypes.WarpLogInfo, error) {
+func (s *subscriber) NewWarpLogInfo(log types.Log, isCatchUpMessage bool) (*vmtypes.WarpLogInfo, error) {
 	if len(log.Topics) != 3 {
 		s.logger.Error(
 			"Log did not have the correct number of topics",
@@ -106,13 +106,14 @@ func (s *subscriber) NewWarpLogInfo(log types.Log) (*vmtypes.WarpLogInfo, error)
 		SourceTxID:       log.TxHash[:],
 		UnsignedMsgBytes: log.Data,
 		BlockNumber:      log.BlockNumber,
+		IsCatchUpMessage: isCatchUpMessage,
 	}, nil
 }
 
 // forward logs from the concrete log channel to the interface channel
 func (s *subscriber) forwardLogs() {
 	for msgLog := range s.evmLog {
-		messageInfo, err := s.NewWarpLogInfo(msgLog)
+		messageInfo, err := s.NewWarpLogInfo(msgLog, false)
 		if err != nil {
 			s.logger.Error(
 				"Invalid log. Continuing.",
@@ -128,18 +129,21 @@ func (s *subscriber) forwardLogs() {
 // number of blocks retrieved in a single eth_getLogs request to
 // `MaxBlocksPerRequest`; if processing more than that, multiple eth_getLogs
 // requests will be made.
-func (s *subscriber) ProcessFromHeight(height *big.Int) error {
+// Writes true to the done channel when finished, or false if an error occurs
+func (s *subscriber) ProcessFromHeight(height *big.Int, done chan bool) {
 	s.logger.Info(
 		"Processing historical logs",
 		zap.String("fromBlockHeight", height.String()),
 		zap.String("blockchainID", s.blockchainID.String()),
 	)
 	if height == nil {
-		return fmt.Errorf("cannot process logs from nil height")
+		s.logger.Error("cannot process logs from nil height")
+		done <- false
 	}
 	ethClient, err := s.dial(s.nodeWSURL)
 	if err != nil {
-		return err
+		s.logger.Error("failed to dial eth client", zap.Error(err))
+		done <- false
 	}
 
 	// Grab the latest block before filtering logs so we don't miss any before updating the db
@@ -150,7 +154,7 @@ func (s *subscriber) ProcessFromHeight(height *big.Int) error {
 			zap.String("blockchainID", s.blockchainID.String()),
 			zap.Error(err),
 		)
-		return err
+		done <- false
 	}
 
 	bigLatestBlockHeight := big.NewInt(0).SetUint64(latestBlockHeight)
@@ -168,11 +172,11 @@ func (s *subscriber) ProcessFromHeight(height *big.Int) error {
 
 		err = s.processBlockRange(ethClient, fromBlock, toBlock)
 		if err != nil {
-			return err
+			s.logger.Error("failed to process block range", zap.Error(err))
+			done <- false
 		}
 	}
-
-	return nil
+	done <- true
 }
 
 // Filter logs from the latest processed block to the latest block
@@ -214,7 +218,7 @@ func (s *subscriber) processBlockRange(
 		zap.String("blockchainID", s.blockchainID.String()),
 	)
 	for _, log := range logs {
-		messageInfo, err := s.NewWarpLogInfo(log)
+		messageInfo, err := s.NewWarpLogInfo(log, true)
 		if err != nil {
 			s.logger.Error(
 				"Invalid log when processing from height. Continuing.",
