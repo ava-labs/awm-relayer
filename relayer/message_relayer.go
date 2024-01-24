@@ -22,7 +22,6 @@ import (
 	"github.com/ava-labs/awm-relayer/messages"
 	"github.com/ava-labs/awm-relayer/peers"
 	"github.com/ava-labs/awm-relayer/utils"
-	"github.com/ava-labs/awm-relayer/vms/vmtypes"
 	"github.com/ava-labs/coreth/params"
 	coreEthMsg "github.com/ava-labs/coreth/plugin/evm/message"
 	msg "github.com/ava-labs/subnet-evm/plugin/evm/message"
@@ -71,8 +70,8 @@ func newMessageRelayer(
 	}
 }
 
-func (r *messageRelayer) relayMessage(warpMessageInfo *vmtypes.WarpMessageInfo, requestID uint32, messageManager messages.MessageManager, useAppRequestNetwork bool) error {
-	shouldSend, err := messageManager.ShouldSendMessage(warpMessageInfo.WarpUnsignedMessage, r.destinationBlockchainID)
+func (r *messageRelayer) relayMessage(unsignedMessage *warp.UnsignedMessage, requestID uint32, messageManager messages.MessageManager, useAppRequestNetwork bool) error {
+	shouldSend, err := messageManager.ShouldSendMessage(unsignedMessage, r.destinationBlockchainID)
 	if err != nil {
 		r.relayer.logger.Error(
 			"Failed to check if message should be sent",
