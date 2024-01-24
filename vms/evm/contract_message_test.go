@@ -72,6 +72,7 @@ func TestUnpack(t *testing.T) {
 			input, err := hex.DecodeString(testCase.input)
 			require.NoError(t, err)
 
+			mockLogger.EXPECT().Warn(gomock.Any(), gomock.Any()).Times(testCase.errorLogTimes)
 			mockLogger.EXPECT().Error(gomock.Any(), gomock.Any()).Times(testCase.errorLogTimes)
 			msg, err := m.UnpackWarpMessage(input)
 			if testCase.expectError {

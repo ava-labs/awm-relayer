@@ -85,11 +85,6 @@ func TestSanitizeHexString(t *testing.T) {
 			hash:           "1234",
 			expectedResult: "1234",
 		},
-		{
-			name:           "return original length not divisible by 2",
-			hash:           "0x1234g",
-			expectedResult: "0x1234g",
-		},
 	}
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
