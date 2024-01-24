@@ -22,10 +22,8 @@ import (
 	"github.com/ava-labs/awm-relayer/database"
 	"github.com/ava-labs/awm-relayer/peers"
 	"github.com/ava-labs/awm-relayer/relayer"
-	"github.com/ava-labs/awm-relayer/utils"
 	"github.com/ava-labs/awm-relayer/vms"
 	"github.com/ava-labs/awm-relayer/vms/vmtypes"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/atomic"
@@ -170,38 +168,13 @@ func main() {
 
 	manualWarpMessages := make(map[ids.ID][]*vmtypes.WarpLogInfo)
 	for _, msg := range cfg.ManualWarpMessages {
-		blockchainID, err := ids.FromString(msg.SourceBlockchainID)
-		if err != nil {
-			logger.Error(
-				"Invalid blockchainID in manual warp message",
-				zap.Error(err),
-				zap.String("providedID", msg.SourceBlockchainID),
-			)
-			return
-		}
-		unsignedMsg, err := hex.DecodeString(utils.SanitizeHexString(msg.UnsignedMessageBytes))
-		if err != nil {
-			logger.Error(
-				"Invalid unsigned message bytes in manual warp message",
-				zap.Error(err),
-				zap.String("providedBytes", msg.UnsignedMessageBytes),
-			)
-			return
-		}
-		sourceAddress, err := hex.DecodeString(utils.SanitizeHexString(msg.SourceAddress))
-		if err != nil {
-			logger.Error(
-				"Invalid source address in manual warp message",
-				zap.Error(err),
-				zap.String("providedAddress", msg.SourceAddress),
-			)
-			return
-		}
+		sourceBlockchainID := msg.GetSourceBlockchainID()
+
 		warpMessageInfo := vmtypes.WarpLogInfo{
-			SourceAddress:    common.BytesToAddress(sourceAddress),
-			UnsignedMsgBytes: unsignedMsg,
+			SourceAddress:    msg.GetSourceAddress(),
+			UnsignedMsgBytes: msg.GetUnsignedMessageBytes(),
 		}
-		manualWarpMessages[blockchainID] = append(manualWarpMessages[blockchainID], &warpMessageInfo)
+		manualWarpMessages[sourceBlockchainID] = append(manualWarpMessages[sourceBlockchainID], &warpMessageInfo)
 	}
 
 	// Create relayers for each of the subnets configured as a source
