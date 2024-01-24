@@ -93,13 +93,10 @@ func CreateDefaultRelayerConfig(
 		"Setting up relayer config",
 	)
 	// Construct the config values for each subnet
-	hosts := make([]string, len(subnetsInfo))
-	ports := make([]uint32, len(subnetsInfo))
 	sources := make([]config.SourceSubnet, len(subnetsInfo))
 	destinations := make([]config.DestinationSubnet, len(subnetsInfo))
 	for i, subnetInfo := range subnetsInfo {
-		var err error
-		hosts[i], ports[i], err = teleporterTestUtils.GetURIHostAndPort(subnetInfo.NodeURIs[0])
+		host, port, err := teleporterTestUtils.GetURIHostAndPort(subnetInfo.NodeURIs[0])
 		Expect(err).Should(BeNil())
 
 		sources[i] = config.SourceSubnet{
@@ -107,8 +104,8 @@ func CreateDefaultRelayerConfig(
 			BlockchainID:      subnetInfo.BlockchainID.String(),
 			VM:                config.EVM.String(),
 			EncryptConnection: false,
-			APINodeHost:       hosts[i],
-			APINodePort:       ports[i],
+			APINodeHost:       host,
+			APINodePort:       port,
 			MessageContracts: map[string]config.MessageProtocolConfig{
 				teleporterContractAddress.Hex(): {
 					MessageFormat: config.TELEPORTER.String(),
@@ -124,8 +121,8 @@ func CreateDefaultRelayerConfig(
 			BlockchainID:      subnetInfo.BlockchainID.String(),
 			VM:                config.EVM.String(),
 			EncryptConnection: false,
-			APINodeHost:       hosts[i],
-			APINodePort:       ports[i],
+			APINodeHost:       host,
+			APINodePort:       port,
 			AccountPrivateKey: hex.EncodeToString(relayerKey.D.Bytes()),
 		}
 
@@ -133,8 +130,8 @@ func CreateDefaultRelayerConfig(
 			"Creating relayer config for subnet",
 			"subnetID", subnetInfo.SubnetID.String(),
 			"blockchainID", subnetInfo.BlockchainID.String(),
-			"host", hosts[i],
-			"port", ports[i],
+			"host", host,
+			"port", port,
 		)
 	}
 
