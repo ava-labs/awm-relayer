@@ -27,6 +27,7 @@ import (
 	coreEthMsg "github.com/ava-labs/coreth/plugin/evm/message"
 	msg "github.com/ava-labs/subnet-evm/plugin/evm/message"
 	warpBackend "github.com/ava-labs/subnet-evm/warp"
+	"github.com/ethereum/go-ethereum/common"
 
 	"go.uber.org/zap"
 )
@@ -71,7 +72,7 @@ func newMessageRelayer(
 }
 
 func (r *messageRelayer) relayMessage(warpMessageInfo *vmtypes.WarpMessageInfo, requestID uint32, messageManager messages.MessageManager, useAppRequestNetwork bool) error {
-	shouldSend, err := messageManager.ShouldSendMessage(warpMessageInfo, r.destinationBlockchainID)
+	shouldSend, err := messageManager.ShouldSendMessage(warpMessageInfo.WarpUnsignedMessage, r.destinationBlockchainID)
 	if err != nil {
 		r.relayer.logger.Error(
 			"Failed to check if message should be sent",
@@ -115,7 +116,8 @@ func (r *messageRelayer) relayMessage(warpMessageInfo *vmtypes.WarpMessageInfo, 
 	// create signed message latency (ms)
 	r.setCreateSignedMessageLatencyMS(float64(time.Since(startCreateSignedMessageTime).Milliseconds()))
 
-	err = messageManager.SendMessage(signedMessage, warpMessageInfo.WarpPayload, r.destinationBlockchainID)
+	// TODONOW: get the address from somewhere
+	err = messageManager.SendMessage(signedMessage, common.Address{}, r.destinationBlockchainID)
 	if err != nil {
 		r.relayer.logger.Error(
 			"Failed to send warp message",

@@ -6,7 +6,6 @@ import (
 	"github.com/ava-labs/avalanchego/vms/platformvm/warp"
 	"github.com/ava-labs/awm-relayer/config"
 	"github.com/ava-labs/awm-relayer/vms"
-	"github.com/ava-labs/awm-relayer/vms/vmtypes"
 	"github.com/ethereum/go-ethereum/common"
 )
 
@@ -27,15 +26,15 @@ func NewMessageManager(
 	}, nil
 }
 
-func (m *messageManager) ShouldSendMessage(warpMessageInfo *vmtypes.WarpMessageInfo, destinationBlockchainID ids.ID) (bool, error) {
+func (m *messageManager) ShouldSendMessage(unsignedMessage *warp.UnsignedMessage, destinationBlockchainID ids.ID) (bool, error) {
 	return true, nil
 
 }
 
-func (m *messageManager) SendMessage(signedMessage *warp.Message, parsedVmPayload []byte, destinationBlockchainID ids.ID) error {
+func (m *messageManager) SendMessage(signedMessage *warp.Message, destinationAddress common.Address, destinationBlockchainID ids.ID) error {
 	return nil
 }
 
-func (m *messageManager) GetDestinationBlockchainID(warpMessageInfo *vmtypes.WarpMessageInfo) (ids.ID, error) {
-	return warpMessageInfo.WarpUnsignedMessage.SourceChainID, nil
+func (m *messageManager) GetDestinationBlockchainID(unsignedMessage *warp.UnsignedMessage) (ids.ID, error) {
+	return unsignedMessage.SourceChainID, nil
 }

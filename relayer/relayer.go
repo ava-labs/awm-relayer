@@ -407,7 +407,7 @@ func (r *Relayer) RelayMessage(warpLogInfo *vmtypes.WarpLogInfo, storeProcessedH
 		return nil
 	}
 
-	destinationBlockchainID, err := messageManager.GetDestinationBlockchainID(warpMessageInfo)
+	destinationBlockchainID, err := messageManager.GetDestinationBlockchainID(warpMessageInfo.WarpUnsignedMessage)
 	if err != nil {
 		r.logger.Error(
 			"Failed to get destination chain ID",
