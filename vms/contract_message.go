@@ -12,7 +12,7 @@ import (
 
 type ContractMessage interface {
 	// UnpackWarpMessage unpacks the warp message from the VM
-	UnpackWarpMessage(warpMessageInfo *vmtypes.WarpMessageInfo) error
+	UnpackWarpMessage(unsignedMsgBytes []byte) (*vmtypes.WarpMessageInfo, error)
 }
 
 func NewContractMessage(logger logging.Logger, subnetInfo config.SourceSubnet) ContractMessage {

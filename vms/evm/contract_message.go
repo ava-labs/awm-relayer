@@ -25,24 +25,24 @@ func NewContractMessage(logger logging.Logger, subnetInfo config.SourceSubnet) *
 	}
 }
 
-func (m *contractMessage) UnpackWarpMessage(warpMessageInfo *vmtypes.WarpMessageInfo) error {
+func (m *contractMessage) UnpackWarpMessage(unsignedMsgBytes []byte) (*vmtypes.WarpMessageInfo, error) {
 	// This function may be called with raw UnsignedMessage bytes or with ABI encoded bytes as emitted by the Warp precompile
 	// The latter case is the steady state behavior, so check that first. The former only occurs on startup.
-	unsignedMsg, err := warp.UnpackSendWarpEventDataToMessage(warpMessageInfo.UnsignedMsgBytes)
+	unsignedMsg, err := warp.UnpackSendWarpEventDataToMessage(unsignedMsgBytes)
 	if err != nil {
 		m.logger.Debug(
 			"Failed parsing unsigned message as log. Attempting to parse as standalone message",
 			zap.Error(err),
 		)
 		var standaloneErr error
-		unsignedMsg, standaloneErr = avalancheWarp.ParseUnsignedMessage(warpMessageInfo.UnsignedMsgBytes)
+		unsignedMsg, standaloneErr = avalancheWarp.ParseUnsignedMessage(unsignedMsgBytes)
 		if standaloneErr != nil {
 			err = errors.Join(err, standaloneErr)
 			m.logger.Error(
 				"Failed parsing unsigned message as either log or standalone message",
 				zap.Error(err),
 			)
-			return err
+			return nil, err
 		}
 	}
 
@@ -52,11 +52,12 @@ func (m *contractMessage) UnpackWarpMessage(warpMessageInfo *vmtypes.WarpMessage
 			"Failed parsing addressed payload",
 			zap.Error(err),
 		)
-		return err
+		return nil, err
 	}
 
-	warpMessageInfo.WarpUnsignedMessage = unsignedMsg
-	warpMessageInfo.WarpPayload = warpPayload.Payload
-
-	return nil
+	messageInfo := vmtypes.WarpMessageInfo{
+		WarpUnsignedMessage: unsignedMsg,
+		WarpPayload:         warpPayload.Payload,
+	}
+	return &messageInfo, nil
 }
