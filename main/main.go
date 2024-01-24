@@ -166,11 +166,11 @@ func main() {
 		return
 	}
 
-	manualWarpMessages := make(map[ids.ID][]*vmtypes.WarpLogInfo)
+	manualWarpMessages := make(map[ids.ID][]*vmtypes.WarpMessageInfo)
 	for _, msg := range cfg.ManualWarpMessages {
 		sourceBlockchainID := msg.GetSourceBlockchainID()
 
-		warpMessageInfo := vmtypes.WarpLogInfo{
+		warpMessageInfo := vmtypes.WarpMessageInfo{
 			SourceAddress:    msg.GetSourceAddress(),
 			UnsignedMsgBytes: msg.GetUnsignedMessageBytes(),
 		}
@@ -234,7 +234,7 @@ func runRelayer(
 	messageCreator message.Creator,
 	shouldProcessMissedBlocks bool,
 	relayerHealth *atomic.Bool,
-	manualWarpMessages []*vmtypes.WarpLogInfo,
+	manualWarpMessages []*vmtypes.WarpMessageInfo,
 ) error {
 	logger.Info(
 		"Creating relayer",

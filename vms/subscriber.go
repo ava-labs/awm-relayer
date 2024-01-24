@@ -26,7 +26,7 @@ type Subscriber interface {
 	Subscribe(maxResubscribeAttempts int) error
 
 	// Logs returns the channel that the subscription writes events to
-	Logs() <-chan vmtypes.WarpLogInfo
+	Logs() <-chan vmtypes.WarpMessageInfo
 
 	// Err returns the channel that the subscription writes errors to
 	// If an error is sent to this channel, the subscription should be closed

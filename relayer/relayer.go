@@ -374,13 +374,13 @@ func (r *Relayer) ReconnectToSubscriber() error {
 }
 
 // RelayMessage relays a single warp message to the destination chain. Warp message relay requests from the same origin chain are processed serially
-func (r *Relayer) RelayMessage(warpLogInfo *vmtypes.WarpLogInfo, storeProcessedHeight bool) error {
+func (r *Relayer) RelayMessage(warpMessageInfo *vmtypes.WarpMessageInfo, storeProcessedHeight bool) error {
 	r.logger.Info(
 		"Relaying message",
 		zap.String("blockchainID", r.sourceBlockchainID.String()),
 	)
 	// Unpack the VM message bytes into a Warp message
-	warpMessageInfo, err := r.contractMessage.UnpackWarpMessage(warpLogInfo.UnsignedMsgBytes)
+	err := r.contractMessage.UnpackWarpMessage(warpMessageInfo)
 	if err != nil {
 		r.logger.Error(
 			"Failed to unpack sender message",
@@ -396,13 +396,13 @@ func (r *Relayer) RelayMessage(warpLogInfo *vmtypes.WarpLogInfo, storeProcessedH
 	)
 
 	// Check that the warp message is from a support message protocol contract address.
-	messageManager, supportedMessageProtocol := r.messageManagers[warpLogInfo.SourceAddress]
+	messageManager, supportedMessageProtocol := r.messageManagers[warpMessageInfo.SourceAddress]
 	if !supportedMessageProtocol {
 		// Do not return an error here because it is expected for there to be messages from other contracts
 		// than just the ones supported by a single relayer instance.
 		r.logger.Debug(
 			"Warp message from unsupported message protocol address. Not relaying.",
-			zap.String("protocolAddress", warpLogInfo.SourceAddress.Hex()),
+			zap.String("protocolAddress", warpMessageInfo.SourceAddress.Hex()),
 		)
 		return nil
 	}
@@ -458,7 +458,7 @@ func (r *Relayer) RelayMessage(warpLogInfo *vmtypes.WarpLogInfo, storeProcessedH
 	}
 
 	// Update the database with the latest processed block height
-	return r.storeLatestBlockHeight(warpLogInfo.BlockNumber)
+	return r.storeLatestBlockHeight(warpMessageInfo.BlockNumber)
 }
 
 // Returns whether destinationBlockchainID is a supported destination.
