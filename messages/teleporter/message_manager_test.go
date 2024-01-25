@@ -10,11 +10,11 @@ import (
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/avalanchego/vms/platformvm/warp"
+	warpPayload "github.com/ava-labs/avalanchego/vms/platformvm/warp/payload"
 	"github.com/ava-labs/awm-relayer/config"
 	"github.com/ava-labs/awm-relayer/vms"
 	mock_evm "github.com/ava-labs/awm-relayer/vms/evm/mocks"
 	mock_vms "github.com/ava-labs/awm-relayer/vms/mocks"
-	"github.com/ava-labs/awm-relayer/vms/vmtypes"
 	"github.com/ava-labs/subnet-evm/accounts/abi/bind"
 	"github.com/ava-labs/subnet-evm/interfaces"
 	teleportermessenger "github.com/ava-labs/teleporter/abi-bindings/go/Teleporter/TeleporterMessenger"
@@ -38,13 +38,15 @@ var (
 		},
 	}
 	destinationBlockchainIDString = "S4mMqUXe7vHsGiRAma6bv3CKnyaLssyAxmQ2KvFpX1KEvfFCD"
+	destinationBlockchainID, _    = ids.FromString(destinationBlockchainIDString)
 	messageIDstring               = "2CQw6XkzbDZY87XRomuszWkCBDTUvMaZv3YE2PAf7cicxWWEMF"
 	validRelayerAddress           = common.HexToAddress("0x0123456789abcdef0123456789abcdef01234567")
 	validTeleporterMessage        = teleportermessenger.TeleporterMessage{
-		MessageNonce:       big.NewInt(1),
-		SenderAddress:      common.HexToAddress("0x0123456789abcdef0123456789abcdef01234567"),
-		DestinationAddress: common.HexToAddress("0x0123456789abcdef0123456789abcdef01234567"),
-		RequiredGasLimit:   big.NewInt(2),
+		MessageNonce:            big.NewInt(1),
+		OriginSenderAddress:     common.HexToAddress("0x0123456789abcdef0123456789abcdef01234567"),
+		DestinationBlockchainID: destinationBlockchainID,
+		DestinationAddress:      common.HexToAddress("0x0123456789abcdef0123456789abcdef01234567"),
+		RequiredGasLimit:        big.NewInt(2),
 		AllowedRelayerAddresses: []common.Address{
 			validRelayerAddress,
 		},
@@ -80,8 +82,11 @@ func TestShouldSendMessage(t *testing.T) {
 	validMessageBytes, err := teleportermessenger.PackTeleporterMessage(validTeleporterMessage)
 	require.NoError(t, err)
 
+	validAddressedCall, err := warpPayload.NewAddressedCall(messageProtocolAddress.Bytes(), validMessageBytes)
+	require.NoError(t, err)
+
 	sourceBlockchainID := ids.Empty
-	warpUnsignedMessage, err := warp.NewUnsignedMessage(0, sourceBlockchainID, validMessageBytes)
+	warpUnsignedMessage, err := warp.NewUnsignedMessage(0, sourceBlockchainID, validAddressedCall.Bytes())
 	require.NoError(t, err)
 
 	// Create all the inputs and expected outputs for Teleporter calls
@@ -107,17 +112,15 @@ func TestShouldSendMessage(t *testing.T) {
 	messageDelivered, err := teleportermessenger.PackMessageReceivedOutput(true)
 	require.NoError(t, err)
 
-	// Make a copy of the previous Warp message with a new Warp message ID
-	validTeleporterMessage.MessageNonce = big.NewInt(2)
-	validMessageBytes2, err := teleportermessenger.PackTeleporterMessage(validTeleporterMessage)
+	invalidAddressedCall, err := warpPayload.NewAddressedCall(messageProtocolAddress.Bytes(), validMessageBytes)
 	require.NoError(t, err)
-	warpUnsignedMessage2, err := warp.NewUnsignedMessage(0, sourceBlockchainID, validMessageBytes2)
+	invalidWarpUnsignedMessage, err := warp.NewUnsignedMessage(0, sourceBlockchainID, append(invalidAddressedCall.Bytes(), []byte{1, 2, 3, 4}...))
 	require.NoError(t, err)
 
 	testCases := []struct {
 		name                    string
 		destinationBlockchainID ids.ID
-		warpMessageInfo         *vmtypes.WarpMessageInfo
+		warpUnsignedMessage     *warp.UnsignedMessage
 		senderAddressResult     common.Address
 		senderAddressTimes      int
 		clientTimes             int
@@ -129,13 +132,10 @@ func TestShouldSendMessage(t *testing.T) {
 		{
 			name:                    "valid message",
 			destinationBlockchainID: destinationBlockchainID,
-			warpMessageInfo: &vmtypes.WarpMessageInfo{
-				WarpUnsignedMessage: warpUnsignedMessage,
-				WarpPayload:         validMessageBytes,
-			},
-			senderAddressResult: validRelayerAddress,
-			senderAddressTimes:  1,
-			clientTimes:         1,
+			warpUnsignedMessage:     warpUnsignedMessage,
+			senderAddressResult:     validRelayerAddress,
+			senderAddressTimes:      1,
+			clientTimes:             1,
 			calculateMessageIDCall: &CallContractChecker{
 				input:          calculateMessageIDInput,
 				expectedResult: messageIDOutput,
@@ -151,31 +151,22 @@ func TestShouldSendMessage(t *testing.T) {
 		{
 			name:                    "invalid message",
 			destinationBlockchainID: destinationBlockchainID,
-			warpMessageInfo: &vmtypes.WarpMessageInfo{
-				WarpUnsignedMessage: warpUnsignedMessage2,
-				WarpPayload:         []byte{1, 2, 3, 4},
-			},
-			expectedError: true,
+			warpUnsignedMessage:     invalidWarpUnsignedMessage,
+			expectedError:           true,
 		},
 		{
 			name:                    "invalid destination chain id",
 			destinationBlockchainID: ids.Empty,
-			warpMessageInfo: &vmtypes.WarpMessageInfo{
-				WarpUnsignedMessage: warpUnsignedMessage,
-				WarpPayload:         validMessageBytes,
-			},
-			expectedError: true,
+			warpUnsignedMessage:     warpUnsignedMessage,
+			expectedError:           true,
 		},
 		{
 			name:                    "not allowed",
 			destinationBlockchainID: destinationBlockchainID,
-			warpMessageInfo: &vmtypes.WarpMessageInfo{
-				WarpUnsignedMessage: warpUnsignedMessage,
-				WarpPayload:         validMessageBytes,
-			},
-			senderAddressResult: common.Address{},
-			senderAddressTimes:  1,
-			clientTimes:         1,
+			warpUnsignedMessage:     warpUnsignedMessage,
+			senderAddressResult:     common.Address{},
+			senderAddressTimes:      1,
+			clientTimes:             1,
 			calculateMessageIDCall: &CallContractChecker{
 				input:          calculateMessageIDInput,
 				expectedResult: messageIDOutput,
@@ -186,13 +177,10 @@ func TestShouldSendMessage(t *testing.T) {
 		{
 			name:                    "message already delivered",
 			destinationBlockchainID: destinationBlockchainID,
-			warpMessageInfo: &vmtypes.WarpMessageInfo{
-				WarpUnsignedMessage: warpUnsignedMessage,
-				WarpPayload:         validMessageBytes,
-			},
-			senderAddressResult: validRelayerAddress,
-			senderAddressTimes:  1,
-			clientTimes:         1,
+			warpUnsignedMessage:     warpUnsignedMessage,
+			senderAddressResult:     validRelayerAddress,
+			senderAddressTimes:      1,
+			clientTimes:             1,
 			calculateMessageIDCall: &CallContractChecker{
 				input:          calculateMessageIDInput,
 				expectedResult: messageIDOutput,
@@ -220,7 +208,7 @@ func TestShouldSendMessage(t *testing.T) {
 				ethClient.EXPECT().CallContract(gomock.Any(), gomock.Eq(messageReceivedInput), gomock.Any()).Return(test.messageReceivedCall.expectedResult, nil).Times(test.messageReceivedCall.times)
 			}
 
-			result, err := messageManager.ShouldSendMessage(test.warpMessageInfo, test.destinationBlockchainID)
+			result, err := messageManager.ShouldSendMessage(test.warpUnsignedMessage, test.destinationBlockchainID)
 			if test.expectedError {
 				require.Error(t, err)
 			} else {

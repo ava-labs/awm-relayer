@@ -170,11 +170,11 @@ func main() {
 	for _, msg := range cfg.ManualWarpMessages {
 		sourceBlockchainID := msg.GetSourceBlockchainID()
 
-		warpMessageInfo := vmtypes.WarpLogInfo{
+		warpLogInfo := vmtypes.WarpLogInfo{
 			SourceAddress:    msg.GetSourceAddress(),
 			UnsignedMsgBytes: msg.GetUnsignedMessageBytes(),
 		}
-		manualWarpMessages[sourceBlockchainID] = append(manualWarpMessages[sourceBlockchainID], &warpMessageInfo)
+		manualWarpMessages[sourceBlockchainID] = append(manualWarpMessages[sourceBlockchainID], &warpLogInfo)
 	}
 
 	// Create relayers for each of the subnets configured as a source

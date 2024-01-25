@@ -283,7 +283,7 @@ func relayBasicMessage(
 	// Check that the transaction emits ReceiveCrossChainMessage
 	receiveEvent, err := teleporterTestUtils.GetEventFromLogs(receipt.Logs, destination.TeleporterMessenger.ParseReceiveCrossChainMessage)
 	Expect(err).Should(BeNil())
-	Expect(receiveEvent.OriginBlockchainID[:]).Should(Equal(source.BlockchainID[:]))
+	Expect(receiveEvent.SourceBlockchainID[:]).Should(Equal(source.BlockchainID[:]))
 	Expect(receiveEvent.MessageID[:]).Should(Equal(teleporterMessageID[:]))
 
 	//
@@ -302,7 +302,7 @@ func relayBasicMessage(
 
 	receivedMessageID := teleporterTestUtils.CalculateMessageID(source, destination, teleporterMessage.MessageNonce)
 	Expect(receivedMessageID).Should(Equal(teleporterMessageID))
-	Expect(receivedTeleporterMessage.SenderAddress).Should(Equal(teleporterMessage.SenderAddress))
+	Expect(receivedTeleporterMessage.OriginSenderAddress).Should(Equal(teleporterMessage.OriginSenderAddress))
 	receivedDestinationID, err := ids.ToID(receivedTeleporterMessage.DestinationBlockchainID[:])
 	Expect(err).Should(BeNil())
 	Expect(receivedDestinationID).Should(Equal(destination.BlockchainID))

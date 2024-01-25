@@ -13,7 +13,6 @@ import (
 
 	ids "github.com/ava-labs/avalanchego/ids"
 	warp "github.com/ava-labs/avalanchego/vms/platformvm/warp"
-	vmtypes "github.com/ava-labs/awm-relayer/vms/vmtypes"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -41,45 +40,45 @@ func (m *MockMessageManager) EXPECT() *MockMessageManagerMockRecorder {
 }
 
 // GetDestinationBlockchainID mocks base method.
-func (m *MockMessageManager) GetDestinationBlockchainID(warpMessageInfo *vmtypes.WarpMessageInfo) (ids.ID, error) {
+func (m *MockMessageManager) GetDestinationBlockchainID(unsignedMessage *warp.UnsignedMessage) (ids.ID, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetDestinationBlockchainID", warpMessageInfo)
+	ret := m.ctrl.Call(m, "GetDestinationBlockchainID", unsignedMessage)
 	ret0, _ := ret[0].(ids.ID)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetDestinationBlockchainID indicates an expected call of GetDestinationBlockchainID.
-func (mr *MockMessageManagerMockRecorder) GetDestinationBlockchainID(warpMessageInfo any) *gomock.Call {
+func (mr *MockMessageManagerMockRecorder) GetDestinationBlockchainID(unsignedMessage any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDestinationBlockchainID", reflect.TypeOf((*MockMessageManager)(nil).GetDestinationBlockchainID), warpMessageInfo)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDestinationBlockchainID", reflect.TypeOf((*MockMessageManager)(nil).GetDestinationBlockchainID), unsignedMessage)
 }
 
 // SendMessage mocks base method.
-func (m *MockMessageManager) SendMessage(signedMessage *warp.Message, parsedVmPayload []byte, destinationBlockchainID ids.ID) error {
+func (m *MockMessageManager) SendMessage(signedMessage *warp.Message, destinationBlockchainID ids.ID) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SendMessage", signedMessage, parsedVmPayload, destinationBlockchainID)
+	ret := m.ctrl.Call(m, "SendMessage", signedMessage, destinationBlockchainID)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SendMessage indicates an expected call of SendMessage.
-func (mr *MockMessageManagerMockRecorder) SendMessage(signedMessage, parsedVmPayload, destinationBlockchainID any) *gomock.Call {
+func (mr *MockMessageManagerMockRecorder) SendMessage(signedMessage, destinationBlockchainID any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendMessage", reflect.TypeOf((*MockMessageManager)(nil).SendMessage), signedMessage, parsedVmPayload, destinationBlockchainID)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendMessage", reflect.TypeOf((*MockMessageManager)(nil).SendMessage), signedMessage, destinationBlockchainID)
 }
 
 // ShouldSendMessage mocks base method.
-func (m *MockMessageManager) ShouldSendMessage(warpMessageInfo *vmtypes.WarpMessageInfo, destinationBlockchainID ids.ID) (bool, error) {
+func (m *MockMessageManager) ShouldSendMessage(unsignedMessage *warp.UnsignedMessage, destinationBlockchainID ids.ID) (bool, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ShouldSendMessage", warpMessageInfo, destinationBlockchainID)
+	ret := m.ctrl.Call(m, "ShouldSendMessage", unsignedMessage, destinationBlockchainID)
 	ret0, _ := ret[0].(bool)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ShouldSendMessage indicates an expected call of ShouldSendMessage.
-func (mr *MockMessageManagerMockRecorder) ShouldSendMessage(warpMessageInfo, destinationBlockchainID any) *gomock.Call {
+func (mr *MockMessageManagerMockRecorder) ShouldSendMessage(unsignedMessage, destinationBlockchainID any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ShouldSendMessage", reflect.TypeOf((*MockMessageManager)(nil).ShouldSendMessage), warpMessageInfo, destinationBlockchainID)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ShouldSendMessage", reflect.TypeOf((*MockMessageManager)(nil).ShouldSendMessage), unsignedMessage, destinationBlockchainID)
 }
