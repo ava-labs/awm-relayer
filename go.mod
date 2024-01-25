@@ -6,7 +6,7 @@ require (
 	github.com/ava-labs/avalanchego v1.10.18
 	github.com/ava-labs/coreth v0.12.10-rc.5
 	github.com/ava-labs/subnet-evm v0.5.11
-	github.com/ava-labs/teleporter v0.1.1-0.20240124230931-979ca4200da4
+	github.com/ava-labs/teleporter v0.1.1-0.20240125203414-e714ebbb20f9
 	github.com/ethereum/go-ethereum v1.12.0
 	github.com/onsi/ginkgo/v2 v2.15.0
 	github.com/onsi/gomega v1.31.1
@@ -21,7 +21,7 @@ require (
 
 require (
 	github.com/Microsoft/go-winio v0.5.2 // indirect
-	github.com/ava-labs/avalanche-network-runner v1.7.5-0.20240124213748-f804bbde896f // indirect
+	github.com/ava-labs/avalanche-network-runner v1.7.4-rc.0 // indirect
 	github.com/cockroachdb/errors v1.9.1 // indirect
 	github.com/cockroachdb/logtags v0.0.0-20230118201751-21c54148d20b // indirect
 	github.com/cockroachdb/pebble v0.0.0-20230209160836-829675f94811 // indirect
