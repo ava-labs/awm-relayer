@@ -439,7 +439,7 @@ func (r *Relayer) RelayMessage(warpLogInfo *vmtypes.WarpLogInfo, storeProcessedH
 	// Relay the message to the destination. Messages from a given source chain must be processed in serial in order to
 	// guarantee that the previous block (n-1) is fully processed by the relayer when processing a given log from block n.
 	// TODO: Add a config option to use the Warp API, instead of hardcoding to the app request network here
-	err = messageRelayer.relayMessage(unsignedMessage, r.currentRequestID, messageManager, true)
+	err = messageRelayer.relayMessage(unsignedMessage, r.currentRequestID, messageManager, false)
 	if err != nil {
 		r.logger.Error(
 			"Failed to run message relayer",
