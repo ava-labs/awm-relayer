@@ -11,7 +11,7 @@ import (
 	"github.com/ava-labs/subnet-evm/accounts/abi/bind"
 	"github.com/ava-labs/subnet-evm/core/types"
 	subnetEvmInterfaces "github.com/ava-labs/subnet-evm/interfaces"
-	"github.com/ava-labs/subnet-evm/x/warp"
+	"github.com/ava-labs/subnet-evm/precompile/contracts/warp"
 	"github.com/ava-labs/teleporter/tests/interfaces"
 	"github.com/ava-labs/teleporter/tests/utils"
 	"github.com/ethereum/go-ethereum/common"

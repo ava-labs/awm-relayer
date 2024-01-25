@@ -2,14 +2,20 @@ package offchainregistry
 
 import (
 	"encoding/json"
+	"fmt"
 
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/avalanchego/vms/platformvm/warp"
 	"github.com/ava-labs/awm-relayer/config"
 	"github.com/ava-labs/awm-relayer/vms"
+	teleporterregistry "github.com/ava-labs/teleporter/abi-bindings/go/Teleporter/upgrades/TeleporterRegistry"
 	"github.com/ethereum/go-ethereum/common"
 	"go.uber.org/zap"
+)
+
+const (
+	addProtocolVersionGasLimit uint64 = 500_000
 )
 
 type messageManager struct {
@@ -56,7 +62,38 @@ func (m *messageManager) ShouldSendMessage(unsignedMessage *warp.UnsignedMessage
 }
 
 func (m *messageManager) SendMessage(signedMessage *warp.Message, destinationBlockchainID ids.ID) error {
-	//TODONOW: Implement
+	// Get the correct destination client from the global map
+	destinationClient, ok := m.destinationClients[destinationBlockchainID]
+	if !ok {
+		return fmt.Errorf("relayer not configured to deliver to destination. DestinationBlockchainID=%s", destinationBlockchainID)
+	}
+
+	// Construct the transaction call data to call the TeleporterRegistry contract.
+	callData, err := teleporterregistry.PackAddProtocolVersion(0)
+	if err != nil {
+		m.logger.Error(
+			"Failed packing receiveCrossChainMessage call data",
+			zap.String("destinationBlockchainID", destinationBlockchainID.String()),
+			zap.String("warpMessageID", signedMessage.ID().String()),
+		)
+		return err
+	}
+
+	err = destinationClient.SendTx(signedMessage, m.registryAddress.Hex(), addProtocolVersionGasLimit, callData)
+	if err != nil {
+		m.logger.Error(
+			"Failed to send tx.",
+			zap.String("destinationBlockchainID", destinationBlockchainID.String()),
+			zap.String("warpMessageID", signedMessage.ID().String()),
+			zap.Error(err),
+		)
+		return err
+	}
+	m.logger.Info(
+		"Sent message to destination chain",
+		zap.String("destinationBlockchainID", destinationBlockchainID.String()),
+		zap.String("warpMessageID", signedMessage.ID().String()),
+	)
 	return nil
 }
 

@@ -9,6 +9,7 @@ import (
 
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/message"
+	"github.com/ava-labs/avalanchego/snow/engine/common"
 	"github.com/ava-labs/avalanchego/snow/networking/router"
 	"github.com/ava-labs/avalanchego/utils/constants"
 	"github.com/ava-labs/avalanchego/utils/logging"
@@ -78,7 +79,7 @@ func (h *RelayerExternalHandler) HandleInbound(_ context.Context, inboundMessage
 		"receiving message",
 		zap.Stringer("op", inboundMessage.Op()),
 	)
-	if inboundMessage.Op() == message.AppResponseOp || inboundMessage.Op() == message.AppRequestFailedOp {
+	if inboundMessage.Op() == message.AppResponseOp || inboundMessage.Op() == message.AppErrorOp {
 		h.log.Info("handling app response", zap.Stringer("from", inboundMessage.NodeID()))
 
 		// Extract the message fields
@@ -149,10 +150,12 @@ func (h *RelayerExternalHandler) Disconnected(nodeID ids.NodeID) {
 // If RegisterResponse is not called before the timeout, HandleInbound is called with
 // an internally created AppRequestFailed message.
 func (h *RelayerExternalHandler) RegisterRequest(reqID ids.RequestID) {
-	inMsg := message.InternalAppRequestFailed(
+	inMsg := message.InboundAppError(
 		reqID.NodeID,
 		reqID.SourceChainID,
 		reqID.RequestID,
+		common.ErrTimeout.Code,
+		common.ErrTimeout.Message,
 	)
 	h.timeoutManager.Put(reqID, false, func() {
 		h.HandleInbound(context.Background(), inMsg)
