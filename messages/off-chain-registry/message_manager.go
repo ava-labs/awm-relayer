@@ -71,6 +71,7 @@ func (m *messageManager) SendMessage(signedMessage *warp.Message, destinationBlo
 	}
 
 	// Construct the transaction call data to call the TeleporterRegistry contract.
+	// Only one off-chain registry Warp message is sent at a time, so we hardcode the index to 0 in the call.
 	callData, err := teleporterregistry.PackAddProtocolVersion(0)
 	if err != nil {
 		m.logger.Error(
