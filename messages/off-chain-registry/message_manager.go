@@ -30,7 +30,6 @@ type messageManager struct {
 
 func NewMessageManager(
 	logger logging.Logger,
-	messageProtocolAddress common.Address,
 	messageProtocolConfig config.MessageProtocolConfig,
 	destinationClients map[ids.ID]vms.DestinationClient,
 ) (*messageManager, error) {
