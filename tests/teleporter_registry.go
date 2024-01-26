@@ -11,7 +11,6 @@ import (
 	testUtils "github.com/ava-labs/awm-relayer/tests/utils"
 	"github.com/ava-labs/subnet-evm/accounts/abi/bind"
 	"github.com/ava-labs/subnet-evm/core/types"
-	teleporterregistry "github.com/ava-labs/teleporter/abi-bindings/go/Teleporter/upgrades/TeleporterRegistry"
 	"github.com/ava-labs/teleporter/tests/interfaces"
 	"github.com/ava-labs/teleporter/tests/utils"
 	"github.com/ethereum/go-ethereum/common"
@@ -54,11 +53,6 @@ func TeleporterRegistry(network interfaces.LocalNetwork) {
 	log.Info("Creating off-chain Warp message")
 	newProtocolAddress := common.HexToAddress("0x0123456789abcdef0123456789abcdef01234567")
 	networkID := network.GetNetworkID()
-	entry := teleporterregistry.ProtocolRegistryEntry{
-		Version:         expectedNewVersion,
-		ProtocolAddress: newProtocolAddress,
-	}
-	unsignedMessage := utils.CreateOffChainRegistryMessage(networkID, cChainInfo, entry)
 
 	//
 	// Set up the nodes to accept the off-chain message

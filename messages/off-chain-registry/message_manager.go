@@ -62,7 +62,6 @@ func NewMessageManager(
 
 func (m *messageManager) ShouldSendMessage(unsignedMessage *warp.UnsignedMessage, destinationBlockchainID ids.ID) (bool, error) {
 	return true, nil
-
 }
 
 func (m *messageManager) SendMessage(signedMessage *warp.Message, destinationBlockchainID ids.ID) error {
