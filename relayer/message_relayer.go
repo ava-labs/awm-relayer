@@ -18,6 +18,7 @@ import (
 	"github.com/ava-labs/avalanchego/utils/crypto/bls"
 	"github.com/ava-labs/avalanchego/utils/set"
 	avalancheWarp "github.com/ava-labs/avalanchego/vms/platformvm/warp"
+	"github.com/ava-labs/awm-relayer/config"
 	"github.com/ava-labs/awm-relayer/messages"
 	"github.com/ava-labs/awm-relayer/peers"
 	"github.com/ava-labs/awm-relayer/utils"
@@ -53,17 +54,20 @@ type messageRelayer struct {
 	relayer                 *Relayer
 	warpMessage             *avalancheWarp.UnsignedMessage
 	destinationBlockchainID ids.ID
+	warpQuorum              config.WarpQuorum
 }
 
 func newMessageRelayer(
 	relayer *Relayer,
 	warpMessage *avalancheWarp.UnsignedMessage,
 	destinationBlockchainID ids.ID,
+	cfg config.Config,
 ) *messageRelayer {
 	return &messageRelayer{
 		relayer:                 relayer,
 		warpMessage:             warpMessage,
 		destinationBlockchainID: destinationBlockchainID,
+		warpQuorum:              cfg.GetWarpQuorum()[destinationBlockchainID],
 	}
 }
 
@@ -167,7 +171,7 @@ func (r *messageRelayer) createSignedMessage() (*avalancheWarp.Message, error) {
 		signedWarpMessageBytes, err = warpClient.GetMessageAggregateSignature(
 			context.Background(),
 			r.warpMessage.ID(),
-			r.relayer.warpQuorum.QuorumNumerator,
+			r.warpQuorum.QuorumNumerator,
 			signingSubnetID.String(),
 		)
 		if err == nil {
@@ -398,8 +402,8 @@ func (r *messageRelayer) createSignedMessageAppRequest(requestID uint32) (*avala
 					if utils.CheckStakeWeightExceedsThreshold(
 						accumulatedSignatureWeight,
 						totalValidatorWeight,
-						r.relayer.warpQuorum.QuorumNumerator,
-						r.relayer.warpQuorum.QuorumDenominator,
+						r.warpQuorum.QuorumNumerator,
+						r.warpQuorum.QuorumDenominator,
 					) {
 						aggSig, vdrBitSet, err := r.aggregateSignatures(signatureMap)
 						if err != nil {
