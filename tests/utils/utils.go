@@ -16,6 +16,7 @@ import (
 
 	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/awm-relayer/config"
+	offchainregistry "github.com/ava-labs/awm-relayer/messages/off-chain-registry"
 	"github.com/ava-labs/awm-relayer/peers"
 	"github.com/ava-labs/teleporter/tests/interfaces"
 	"github.com/ava-labs/teleporter/tests/utils"
@@ -111,6 +112,12 @@ func CreateDefaultRelayerConfig(
 					MessageFormat: config.TELEPORTER.String(),
 					Settings: map[string]interface{}{
 						"reward-address": fundedAddress.Hex(),
+					},
+				},
+				offchainregistry.OffChainRegistrySourceAddress.Hex(): {
+					MessageFormat: config.OFF_CHAIN_REGISTRY.String(),
+					Settings: map[string]interface{}{
+						"teleporter-registry-address": subnetInfo.TeleporterRegistryAddress.Hex(),
 					},
 				},
 			},
