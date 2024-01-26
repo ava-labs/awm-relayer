@@ -17,7 +17,7 @@ import (
 	"github.com/ava-labs/awm-relayer/utils"
 	mock_ethclient "github.com/ava-labs/awm-relayer/vms/evm/mocks"
 	"github.com/ava-labs/subnet-evm/params"
-	"github.com/ava-labs/subnet-evm/x/warp"
+	"github.com/ava-labs/subnet-evm/precompile/contracts/warp"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -427,7 +427,7 @@ func TestGetWarpQuorum(t *testing.T) {
 		name                string
 		blockchainID        ids.ID
 		subnetID            ids.ID
-		chainConfig         params.ChainConfig
+		chainConfig         params.ChainConfigWithUpgradesJSON
 		getChainConfigCalls int
 		expectedError       error
 		expectedQuorum      WarpQuorum
@@ -439,8 +439,8 @@ func TestGetWarpQuorum(t *testing.T) {
 			getChainConfigCalls: 0,
 			expectedError:       nil,
 			expectedQuorum: WarpQuorum{
-				QuorumNumerator:   params.WarpDefaultQuorumNumerator,
-				QuorumDenominator: params.WarpQuorumDenominator,
+				QuorumNumerator:   warp.WarpDefaultQuorumNumerator,
+				QuorumDenominator: warp.WarpQuorumDenominator,
 			},
 		},
 		{
@@ -448,17 +448,19 @@ func TestGetWarpQuorum(t *testing.T) {
 			blockchainID:        blockchainID,
 			subnetID:            subnetID,
 			getChainConfigCalls: 1,
-			chainConfig: params.ChainConfig{
-				GenesisPrecompiles: params.Precompiles{
-					"warpConfig": &warp.Config{
-						QuorumNumerator: 0,
+			chainConfig: params.ChainConfigWithUpgradesJSON{
+				ChainConfig: params.ChainConfig{
+					GenesisPrecompiles: params.Precompiles{
+						"warpConfig": &warp.Config{
+							QuorumNumerator: 0,
+						},
 					},
 				},
 			},
 			expectedError: nil,
 			expectedQuorum: WarpQuorum{
-				QuorumNumerator:   params.WarpDefaultQuorumNumerator,
-				QuorumDenominator: params.WarpQuorumDenominator,
+				QuorumNumerator:   warp.WarpDefaultQuorumNumerator,
+				QuorumDenominator: warp.WarpQuorumDenominator,
 			},
 		},
 		{
@@ -466,17 +468,19 @@ func TestGetWarpQuorum(t *testing.T) {
 			blockchainID:        blockchainID,
 			subnetID:            subnetID,
 			getChainConfigCalls: 1,
-			chainConfig: params.ChainConfig{
-				GenesisPrecompiles: params.Precompiles{
-					"warpConfig": &warp.Config{
-						QuorumNumerator: 50,
+			chainConfig: params.ChainConfigWithUpgradesJSON{
+				ChainConfig: params.ChainConfig{
+					GenesisPrecompiles: params.Precompiles{
+						"warpConfig": &warp.Config{
+							QuorumNumerator: 50,
+						},
 					},
 				},
 			},
 			expectedError: nil,
 			expectedQuorum: WarpQuorum{
 				QuorumNumerator:   50,
-				QuorumDenominator: params.WarpQuorumDenominator,
+				QuorumDenominator: warp.WarpQuorumDenominator,
 			},
 		},
 		{
@@ -484,7 +488,7 @@ func TestGetWarpQuorum(t *testing.T) {
 			blockchainID:        blockchainID,
 			subnetID:            subnetID,
 			getChainConfigCalls: 1,
-			chainConfig: params.ChainConfig{
+			chainConfig: params.ChainConfigWithUpgradesJSON{
 				UpgradeConfig: params.UpgradeConfig{
 					PrecompileUpgrades: []params.PrecompileUpgrade{
 						{
@@ -497,8 +501,8 @@ func TestGetWarpQuorum(t *testing.T) {
 			},
 			expectedError: nil,
 			expectedQuorum: WarpQuorum{
-				QuorumNumerator:   params.WarpDefaultQuorumNumerator,
-				QuorumDenominator: params.WarpQuorumDenominator,
+				QuorumNumerator:   warp.WarpDefaultQuorumNumerator,
+				QuorumDenominator: warp.WarpQuorumDenominator,
 			},
 		},
 		{
@@ -506,7 +510,7 @@ func TestGetWarpQuorum(t *testing.T) {
 			blockchainID:        blockchainID,
 			subnetID:            subnetID,
 			getChainConfigCalls: 1,
-			chainConfig: params.ChainConfig{
+			chainConfig: params.ChainConfigWithUpgradesJSON{
 				UpgradeConfig: params.UpgradeConfig{
 					PrecompileUpgrades: []params.PrecompileUpgrade{
 						{
@@ -520,7 +524,7 @@ func TestGetWarpQuorum(t *testing.T) {
 			expectedError: nil,
 			expectedQuorum: WarpQuorum{
 				QuorumNumerator:   50,
-				QuorumDenominator: params.WarpQuorumDenominator,
+				QuorumDenominator: warp.WarpQuorumDenominator,
 			},
 		},
 	}

@@ -17,8 +17,7 @@ import (
 	"github.com/ava-labs/avalanchego/utils/set"
 	"github.com/ava-labs/awm-relayer/utils"
 	"github.com/ava-labs/subnet-evm/ethclient"
-	"github.com/ava-labs/subnet-evm/params"
-	"github.com/ava-labs/subnet-evm/x/warp"
+	"github.com/ava-labs/subnet-evm/precompile/contracts/warp"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/spf13/viper"
@@ -189,10 +188,6 @@ func BuildConfig(v *viper.Viper) (Config, bool, error) {
 	}
 	cfg.PChainAPIURL = pChainapiUrl
 
-	if err = cfg.initializeWarpQuorum(); err != nil {
-		return Config{}, false, err
-	}
-
 	return cfg, optionOverwritten, nil
 }
 
@@ -313,7 +308,7 @@ func (m *ManualWarpMessage) Validate() error {
 // If the numerator in the Warp config is 0, use the default value
 func setQuorumNumerator(cfgNumerator uint64) uint64 {
 	if cfgNumerator == 0 {
-		return params.WarpDefaultQuorumNumerator
+		return warp.WarpDefaultQuorumNumerator
 	}
 	return cfgNumerator
 }
@@ -327,8 +322,8 @@ func getWarpQuorum(
 ) (WarpQuorum, error) {
 	if subnetID == constants.PrimaryNetworkID {
 		return WarpQuorum{
-			QuorumNumerator:   params.WarpDefaultQuorumNumerator,
-			QuorumDenominator: params.WarpQuorumDenominator,
+			QuorumNumerator:   warp.WarpDefaultQuorumNumerator,
+			QuorumDenominator: warp.WarpQuorumDenominator,
 		}, nil
 	}
 
@@ -358,7 +353,7 @@ func getWarpQuorum(
 	if warpConfig != nil {
 		return WarpQuorum{
 			QuorumNumerator:   setQuorumNumerator(warpConfig.QuorumNumerator),
-			QuorumDenominator: params.WarpQuorumDenominator,
+			QuorumDenominator: warp.WarpQuorumDenominator,
 		}, nil
 	}
 
@@ -367,13 +362,13 @@ func getWarpQuorum(
 	if ok {
 		return WarpQuorum{
 			QuorumNumerator:   setQuorumNumerator(warpConfig.QuorumNumerator),
-			QuorumDenominator: params.WarpQuorumDenominator,
+			QuorumDenominator: warp.WarpQuorumDenominator,
 		}, nil
 	}
 	return WarpQuorum{}, fmt.Errorf("failed to find warp config for blockchain %s", blockchainID)
 }
 
-func (c *Config) initializeWarpQuorum() error {
+func (c *Config) InitializeWarpQuorum() error {
 	c.warpQuorum = make(map[ids.ID]WarpQuorum)
 
 	// Fetch the Warp quorum values for each source subnet

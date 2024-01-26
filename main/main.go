@@ -49,6 +49,12 @@ func main() {
 		fmt.Printf("couldn't build config: %s\n", err)
 		os.Exit(1)
 	}
+	// Initialize the Warp Quorum values by fetching via RPC
+	// We do this here so that BuildConfig doesn't need to make RPC calls
+	if err = cfg.InitializeWarpQuorum(); err != nil {
+		fmt.Printf("couldn't initialize warp quorum: %s\n", err)
+		os.Exit(1)
+	}
 
 	logLevel, err := logging.ToLevel(cfg.LogLevel)
 	if err != nil {
@@ -241,12 +247,12 @@ func runRelayer(
 		zap.String("originBlockchainID", sourceSubnetInfo.BlockchainID),
 	)
 
-	subnetID, err := ids.FromString(sourceSubnetInfo.SubnetID)
+	blockchainID, err := ids.FromString(sourceSubnetInfo.BlockchainID)
 	if err != nil {
 		// The subnetID should have already been validated
 		panic(err)
 	}
-	quorum := cfg.GetWarpQuorum()[subnetID]
+	quorum := cfg.GetWarpQuorum()[blockchainID]
 
 	relayer, err := relayer.NewRelayer(
 		logger,
@@ -260,6 +266,7 @@ func runRelayer(
 		messageCreator,
 		relayerHealth,
 		cfg.ProcessMissedBlocks,
+		quorum,
 	)
 	if err != nil {
 		return fmt.Errorf("Failed to create relayer instance: %w", err)
