@@ -7,7 +7,7 @@ import (
 )
 
 type Config struct {
-	TeleporterRegistryAddress string `json:"reward-address"`
+	TeleporterRegistryAddress string `json:"teleporter-registry-address"`
 }
 
 func (c *Config) Validate() error {
