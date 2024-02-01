@@ -4,7 +4,6 @@
 package teleporter
 
 import (
-	"fmt"
 	"math/big"
 	"testing"
 
@@ -115,7 +114,6 @@ func TestShouldSendMessage(t *testing.T) {
 		senderAddressTimes      int
 		clientTimes             int
 		messageReceivedCall     *CallContractChecker
-		messageIDOutput         []byte
 		expectedError           bool
 		expectedResult          bool
 	}{
@@ -171,13 +169,12 @@ func TestShouldSendMessage(t *testing.T) {
 	}
 	for _, test := range testCases {
 		t.Run(test.name, func(t *testing.T) {
-			fmt.Println(test.name)
 			ethClient := mock_evm.NewMockClient(ctrl)
 			mockClient.EXPECT().Client().Return(ethClient).Times(test.clientTimes)
 			mockClient.EXPECT().SenderAddress().Return(test.senderAddressResult).Times(test.senderAddressTimes)
 			if test.messageReceivedCall != nil {
 				messageReceivedInput := interfaces.CallMsg{From: bind.CallOpts{}.From, To: &messageProtocolAddress, Data: test.messageReceivedCall.input}
-				ethClient.EXPECT().CallContract(gomock.Any(), gomock.Eq(messageReceivedInput), gomock.Any()).Return(test.messageReceivedCall.expectedResult, nil).Times(0)
+				ethClient.EXPECT().CallContract(gomock.Any(), gomock.Eq(messageReceivedInput), gomock.Any()).Return(test.messageReceivedCall.expectedResult, nil).Times(test.messageReceivedCall.times)
 			}
 
 			result, err := messageManager.ShouldSendMessage(test.warpUnsignedMessage, test.destinationBlockchainID)
