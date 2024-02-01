@@ -24,6 +24,7 @@ import (
 	"github.com/ava-labs/teleporter/tests/interfaces"
 	"github.com/ava-labs/teleporter/tests/utils"
 	teleporterTestUtils "github.com/ava-labs/teleporter/tests/utils"
+	teleporterutils "github.com/ava-labs/teleporter/utils/teleporter-utils"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
@@ -81,6 +82,7 @@ func BasicRelay(network interfaces.LocalNetwork) {
 	log.Info("Sending transaction from Subnet A to Subnet B")
 	relayBasicMessage(
 		ctx,
+		teleporterContractAddress,
 		subnetAInfo,
 		subnetBInfo,
 		fundedKey,
@@ -93,6 +95,7 @@ func BasicRelay(network interfaces.LocalNetwork) {
 	log.Info("Test Relaying from Subnet B to Subnet A")
 	relayBasicMessage(
 		ctx,
+		teleporterContractAddress,
 		subnetBInfo,
 		subnetAInfo,
 		fundedKey,
@@ -226,6 +229,7 @@ func sendBasicTeleporterMessage(
 
 func relayBasicMessage(
 	ctx context.Context,
+	teleporterContractAddress common.Address,
 	source interfaces.SubnetTestInfo,
 	destination interfaces.SubnetTestInfo,
 	fundedKey *ecdsa.PrivateKey,
@@ -300,7 +304,13 @@ func relayBasicMessage(
 	receivedTeleporterMessage, err := teleportermessenger.UnpackTeleporterMessage(addressedPayload.Payload)
 	Expect(err).Should(BeNil())
 
-	receivedMessageID := teleporterTestUtils.CalculateMessageID(source, destination, teleporterMessage.MessageNonce)
+	receivedMessageID, err := teleporterutils.CalculateMessageID(
+		teleporterContractAddress,
+		source.BlockchainID,
+		destination.BlockchainID,
+		teleporterMessage.MessageNonce,
+	)
+	Expect(err).Should(BeNil())
 	Expect(receivedMessageID).Should(Equal(teleporterMessageID))
 	Expect(receivedTeleporterMessage.OriginSenderAddress).Should(Equal(teleporterMessage.OriginSenderAddress))
 	receivedDestinationID, err := ids.ToID(receivedTeleporterMessage.DestinationBlockchainID[:])
