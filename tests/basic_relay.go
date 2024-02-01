@@ -17,7 +17,6 @@ import (
 	warpPayload "github.com/ava-labs/avalanchego/vms/platformvm/warp/payload"
 	"github.com/ava-labs/awm-relayer/config"
 	"github.com/ava-labs/awm-relayer/database"
-	"github.com/ava-labs/awm-relayer/peers"
 	testUtils "github.com/ava-labs/awm-relayer/tests/utils"
 	"github.com/ava-labs/subnet-evm/accounts/abi/bind"
 	"github.com/ava-labs/subnet-evm/core/types"
@@ -97,8 +96,9 @@ func BasicRelay(network interfaces.LocalNetwork) {
 	)
 
 	relayerConfig := config.Config{
-		LogLevel:          logging.Debug.LowerString(),
-		NetworkID:         peers.LocalNetworkID,
+		LogLevel: logging.Debug.LowerString(),
+		// TODO: There's currently a bug in ANR v1.7.4-rc.0 that specifies the network ID as 0. We should change this back to peers.LocalNetworkID once fixed.
+		NetworkID:         0,
 		PChainAPIURL:      subnetAInfo.NodeURIs[0],
 		EncryptConnection: false,
 		StorageLocation:   storageLocation,
