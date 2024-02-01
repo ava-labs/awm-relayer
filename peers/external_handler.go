@@ -76,11 +76,11 @@ func NewRelayerExternalHandler(
 // When a cross-chain message is picked up by a Relayer, HandleInbound routes AppResponses traffic to the appropriate Relayer
 func (h *RelayerExternalHandler) HandleInbound(_ context.Context, inboundMessage message.InboundMessage) {
 	h.log.Debug(
-		"receiving message",
+		"Receiving message",
 		zap.Stringer("op", inboundMessage.Op()),
 	)
 	if inboundMessage.Op() == message.AppResponseOp || inboundMessage.Op() == message.AppErrorOp {
-		h.log.Info("handling app response", zap.Stringer("from", inboundMessage.NodeID()))
+		h.log.Info("Handling app response", zap.Stringer("from", inboundMessage.NodeID()))
 
 		// Extract the message fields
 		m := inboundMessage.Message()
@@ -91,19 +91,19 @@ func (h *RelayerExternalHandler) HandleInbound(_ context.Context, inboundMessage
 		// inbound cross-chain app message, then we would get the incorrect chain ID.
 		blockchainID, err := message.GetChainID(m)
 		if err != nil {
-			h.log.Error("could not get blockchainID from message")
+			h.log.Error("Could not get blockchainID from message")
 			inboundMessage.OnFinishedHandling()
 			return
 		}
 		sourceBlockchainID, err := message.GetSourceChainID(m)
 		if err != nil {
-			h.log.Error("could not get sourceBlockchainID from message")
+			h.log.Error("Could not get sourceBlockchainID from message")
 			inboundMessage.OnFinishedHandling()
 			return
 		}
 		requestID, ok := message.GetRequestID(m)
 		if !ok {
-			h.log.Error("could not get requestID from message")
+			h.log.Error("Could not get requestID from message")
 			inboundMessage.OnFinishedHandling()
 			return
 		}
@@ -126,14 +126,14 @@ func (h *RelayerExternalHandler) HandleInbound(_ context.Context, inboundMessage
 			h.responseChans[blockchainID] <- inboundMessage
 		}(inboundMessage, blockchainID)
 	} else {
-		h.log.Debug("ignoring message", zap.Stringer("op", inboundMessage.Op()))
+		h.log.Debug("Ignoring message", zap.Stringer("op", inboundMessage.Op()))
 		inboundMessage.OnFinishedHandling()
 	}
 }
 
 func (h *RelayerExternalHandler) Connected(nodeID ids.NodeID, version *version.Application, subnetID ids.ID) {
 	h.log.Info(
-		"connected",
+		"Connected",
 		zap.Stringer("nodeID", nodeID),
 		zap.Stringer("version", version),
 		zap.Stringer("subnetID", subnetID),
@@ -142,7 +142,7 @@ func (h *RelayerExternalHandler) Connected(nodeID ids.NodeID, version *version.A
 
 func (h *RelayerExternalHandler) Disconnected(nodeID ids.NodeID) {
 	h.log.Info(
-		"disconnected",
+		"Disconnected",
 		zap.Stringer("nodeID", nodeID),
 	)
 }
