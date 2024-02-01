@@ -126,6 +126,7 @@ func (h *RelayerExternalHandler) HandleInbound(_ context.Context, inboundMessage
 			h.responseChans[blockchainID] <- inboundMessage
 		}(inboundMessage, blockchainID)
 	} else {
+		h.log.Debug("ignoring message", zap.Stringer("op", inboundMessage.Op()))
 		inboundMessage.OnFinishedHandling()
 	}
 }
