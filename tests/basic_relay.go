@@ -17,17 +17,17 @@ import (
 	warpPayload "github.com/ava-labs/avalanchego/vms/platformvm/warp/payload"
 	"github.com/ava-labs/awm-relayer/config"
 	"github.com/ava-labs/awm-relayer/database"
-	"github.com/ava-labs/awm-relayer/peers"
 	testUtils "github.com/ava-labs/awm-relayer/tests/utils"
 	"github.com/ava-labs/subnet-evm/accounts/abi/bind"
 	"github.com/ava-labs/subnet-evm/core/types"
+	"github.com/ava-labs/subnet-evm/precompile/contracts/warp"
 	predicateutils "github.com/ava-labs/subnet-evm/predicate"
 	subnetevmutils "github.com/ava-labs/subnet-evm/utils"
-	"github.com/ava-labs/subnet-evm/x/warp"
 	teleportermessenger "github.com/ava-labs/teleporter/abi-bindings/go/Teleporter/TeleporterMessenger"
 	"github.com/ava-labs/teleporter/tests/interfaces"
 	"github.com/ava-labs/teleporter/tests/utils"
 	teleporterTestUtils "github.com/ava-labs/teleporter/tests/utils"
+	teleporterUtils "github.com/ava-labs/teleporter/utils/teleporter-utils"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
@@ -96,8 +96,9 @@ func BasicRelay(network interfaces.LocalNetwork) {
 	)
 
 	relayerConfig := config.Config{
-		LogLevel:          logging.Info.LowerString(),
-		NetworkID:         peers.LocalNetworkID,
+		LogLevel: logging.Info.LowerString(),
+		// TODO: There's currently a bug in ANR v1.7.4-rc.0 that specifies the network ID as 0. We should change this back to constants.DefaultNetworkID once fixed.
+		NetworkID:         0,
 		PChainAPIURL:      subnetAInfo.NodeURIs[0],
 		EncryptConnection: false,
 		StorageLocation:   storageLocation,
@@ -185,6 +186,7 @@ func BasicRelay(network interfaces.LocalNetwork) {
 		ctx,
 		subnetAInfo,
 		subnetBInfo,
+		teleporterContractAddress,
 		fundedKey,
 		fundedAddress,
 	)
@@ -197,6 +199,7 @@ func BasicRelay(network interfaces.LocalNetwork) {
 		ctx,
 		subnetBInfo,
 		subnetAInfo,
+		teleporterContractAddress,
 		fundedKey,
 		fundedAddress,
 	)
@@ -302,7 +305,7 @@ func sendBasicTeleporterMessage(
 	log.Info("Packing Teleporter message")
 	teleporterMessage := teleportermessenger.TeleporterMessage{
 		MessageNonce:            big.NewInt(1),
-		SenderAddress:           fundedAddress,
+		OriginSenderAddress:     fundedAddress,
 		DestinationBlockchainID: destination.BlockchainID,
 		DestinationAddress:      fundedAddress,
 		RequiredGasLimit:        big.NewInt(1),
@@ -344,6 +347,7 @@ func relayBasicMessage(
 	ctx context.Context,
 	source interfaces.SubnetTestInfo,
 	destination interfaces.SubnetTestInfo,
+	teleporterContractAddress common.Address,
 	fundedKey *ecdsa.PrivateKey,
 	fundedAddress common.Address,
 ) {
@@ -399,7 +403,7 @@ func relayBasicMessage(
 	// Check that the transaction emits ReceiveCrossChainMessage
 	receiveEvent, err := teleporterTestUtils.GetEventFromLogs(receipt.Logs, destination.TeleporterMessenger.ParseReceiveCrossChainMessage)
 	Expect(err).Should(BeNil())
-	Expect(receiveEvent.OriginBlockchainID[:]).Should(Equal(source.BlockchainID[:]))
+	Expect(receiveEvent.SourceBlockchainID[:]).Should(Equal(source.BlockchainID[:]))
 	Expect(receiveEvent.MessageID[:]).Should(Equal(teleporterMessageID[:]))
 
 	//
@@ -416,9 +420,10 @@ func relayBasicMessage(
 	receivedTeleporterMessage, err := teleportermessenger.UnpackTeleporterMessage(addressedPayload.Payload)
 	Expect(err).Should(BeNil())
 
-	receivedMessageID := teleporterTestUtils.CalculateMessageID(source, destination, teleporterMessage.MessageNonce)
+	receivedMessageID, err := teleporterUtils.CalculateMessageID(teleporterContractAddress, source.BlockchainID, destination.BlockchainID, teleporterMessage.MessageNonce)
+	Expect(err).Should(BeNil())
 	Expect(receivedMessageID).Should(Equal(teleporterMessageID))
-	Expect(receivedTeleporterMessage.SenderAddress).Should(Equal(teleporterMessage.SenderAddress))
+	Expect(receivedTeleporterMessage.OriginSenderAddress).Should(Equal(teleporterMessage.OriginSenderAddress))
 	receivedDestinationID, err := ids.ToID(receivedTeleporterMessage.DestinationBlockchainID[:])
 	Expect(err).Should(BeNil())
 	Expect(receivedDestinationID).Should(Equal(destination.BlockchainID))

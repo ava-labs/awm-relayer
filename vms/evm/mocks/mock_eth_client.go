@@ -16,6 +16,7 @@ import (
 	ids "github.com/ava-labs/avalanchego/ids"
 	types "github.com/ava-labs/subnet-evm/core/types"
 	interfaces "github.com/ava-labs/subnet-evm/interfaces"
+	params "github.com/ava-labs/subnet-evm/params"
 	rpc "github.com/ava-labs/subnet-evm/rpc"
 	common "github.com/ethereum/go-ethereum/common"
 	gomock "go.uber.org/mock/gomock"
@@ -192,6 +193,21 @@ func (m *MockClient) CallContractAtHash(ctx context.Context, msg interfaces.Call
 func (mr *MockClientMockRecorder) CallContractAtHash(ctx, msg, blockHash any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CallContractAtHash", reflect.TypeOf((*MockClient)(nil).CallContractAtHash), ctx, msg, blockHash)
+}
+
+// ChainConfig mocks base method.
+func (m *MockClient) ChainConfig(arg0 context.Context) (*params.ChainConfigWithUpgradesJSON, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ChainConfig", arg0)
+	ret0, _ := ret[0].(*params.ChainConfigWithUpgradesJSON)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ChainConfig indicates an expected call of ChainConfig.
+func (mr *MockClientMockRecorder) ChainConfig(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ChainConfig", reflect.TypeOf((*MockClient)(nil).ChainConfig), arg0)
 }
 
 // ChainID mocks base method.
