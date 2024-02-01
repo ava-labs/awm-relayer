@@ -96,7 +96,7 @@ func BasicRelay(network interfaces.LocalNetwork) {
 	)
 
 	relayerConfig := config.Config{
-		LogLevel: logging.Debug.LowerString(),
+		LogLevel: logging.Info.LowerString(),
 		// TODO: There's currently a bug in ANR v1.7.4-rc.0 that specifies the network ID as 0. We should change this back to peers.LocalNetworkID once fixed.
 		NetworkID:         0,
 		PChainAPIURL:      subnetAInfo.NodeURIs[0],
