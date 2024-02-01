@@ -18,6 +18,7 @@ import (
 	"github.com/ava-labs/subnet-evm/accounts/abi/bind"
 	"github.com/ava-labs/subnet-evm/interfaces"
 	teleportermessenger "github.com/ava-labs/teleporter/abi-bindings/go/Teleporter/TeleporterMessenger"
+	teleporterutils "github.com/ava-labs/teleporter/utils/teleporter-utils"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -39,7 +40,6 @@ var (
 	}
 	destinationBlockchainIDString = "S4mMqUXe7vHsGiRAma6bv3CKnyaLssyAxmQ2KvFpX1KEvfFCD"
 	destinationBlockchainID, _    = ids.FromString(destinationBlockchainIDString)
-	messageIDstring               = "2CQw6XkzbDZY87XRomuszWkCBDTUvMaZv3YE2PAf7cicxWWEMF"
 	validRelayerAddress           = common.HexToAddress("0x0123456789abcdef0123456789abcdef01234567")
 	validTeleporterMessage        = teleportermessenger.TeleporterMessage{
 		MessageNonce:            big.NewInt(1),
@@ -63,8 +63,6 @@ var (
 func TestShouldSendMessage(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	logger := logging.NoLog{}
-	destinationBlockchainID, err := ids.FromString(destinationBlockchainIDString)
-	require.NoError(t, err)
 
 	mockClient := mock_vms.NewMockDestinationClient(ctrl)
 	destinationClients := map[ids.ID]vms.DestinationClient{
@@ -89,7 +87,7 @@ func TestShouldSendMessage(t *testing.T) {
 	warpUnsignedMessage, err := warp.NewUnsignedMessage(0, sourceBlockchainID, validAddressedCall.Bytes())
 	require.NoError(t, err)
 
-	messageID, err := ids.FromString(messageIDstring)
+	messageID, err := teleporterutils.CalculateMessageID(messageProtocolAddress, sourceBlockchainID, destinationBlockchainID, validTeleporterMessage.MessageNonce)
 	require.NoError(t, err)
 
 	messageReceivedInput, err := teleportermessenger.PackMessageReceived(messageID)
@@ -149,7 +147,7 @@ func TestShouldSendMessage(t *testing.T) {
 			warpUnsignedMessage:     warpUnsignedMessage,
 			senderAddressResult:     common.Address{},
 			senderAddressTimes:      1,
-			clientTimes:             1,
+			clientTimes:             0,
 			expectedResult:          false,
 		},
 		{
