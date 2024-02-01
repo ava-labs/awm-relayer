@@ -25,7 +25,6 @@ import (
 )
 
 const (
-	LocalNetworkID            = 1337 // ID used by avalanche-cli for local networks
 	InboundMessageChannelSize = 1000
 	DefaultAppRequestTimeout  = time.Second * 2
 
