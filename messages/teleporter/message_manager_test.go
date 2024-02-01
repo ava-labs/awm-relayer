@@ -41,10 +41,10 @@ var (
 	messageIDstring               = "2CQw6XkzbDZY87XRomuszWkCBDTUvMaZv3YE2PAf7cicxWWEMF"
 	validRelayerAddress           = common.HexToAddress("0x0123456789abcdef0123456789abcdef01234567")
 	validTeleporterMessage        = teleportermessenger.TeleporterMessage{
-		MessageNonce:       big.NewInt(1),
-		SenderAddress:      common.HexToAddress("0x0123456789abcdef0123456789abcdef01234567"),
-		DestinationAddress: common.HexToAddress("0x0123456789abcdef0123456789abcdef01234567"),
-		RequiredGasLimit:   big.NewInt(2),
+		MessageNonce:        big.NewInt(1),
+		OriginSenderAddress: common.HexToAddress("0x0123456789abcdef0123456789abcdef01234567"),
+		DestinationAddress:  common.HexToAddress("0x0123456789abcdef0123456789abcdef01234567"),
+		RequiredGasLimit:    big.NewInt(2),
 		AllowedRelayerAddresses: []common.Address{
 			validRelayerAddress,
 		},
