@@ -421,6 +421,7 @@ func relayBasicMessage(
 	Expect(err).Should(BeNil())
 
 	receivedMessageID, err := teleporterUtils.CalculateMessageID(teleporterContractAddress, source.BlockchainID, destination.BlockchainID, teleporterMessage.MessageNonce)
+	Expect(err).Should(BeNil())
 	Expect(receivedMessageID).Should(Equal(teleporterMessageID))
 	Expect(receivedTeleporterMessage.OriginSenderAddress).Should(Equal(teleporterMessage.OriginSenderAddress))
 	receivedDestinationID, err := ids.ToID(receivedTeleporterMessage.DestinationBlockchainID[:])
