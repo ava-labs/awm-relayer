@@ -340,14 +340,15 @@ func getWarpQuorum(
 	var warpConfig *warp.Config
 	for _, precompile := range chainConfig.UpgradeConfig.PrecompileUpgrades {
 		cfg, ok := precompile.Config.(*warp.Config)
-		if ok {
-			if warpConfig == nil {
-				warpConfig = cfg
-				continue
-			}
-			if *cfg.Timestamp() > *warpConfig.Timestamp() {
-				warpConfig = cfg
-			}
+		if !ok {
+			continue
+		}
+		if warpConfig == nil {
+			warpConfig = cfg
+			continue
+		}
+		if *cfg.Timestamp() > *warpConfig.Timestamp() {
+			warpConfig = cfg
 		}
 	}
 	if warpConfig != nil {
