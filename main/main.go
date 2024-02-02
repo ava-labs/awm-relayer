@@ -147,7 +147,14 @@ func main() {
 
 	startMetricsServer(logger, gatherer, defaultMetricsPort)
 
-	metrics := relayer.NewMessageRelayerMetrics(registerer)
+	metrics, err := relayer.NewMessageRelayerMetrics(registerer)
+	if err != nil {
+		logger.Error(
+			"Failed to create message relayer metrics",
+			zap.Error(err),
+		)
+		panic(err)
+	}
 
 	// Initialize message creator passed down to relayers for creating app requests.
 	messageCreator, err := message.NewCreator(logger, registerer, "message_creator", constants.DefaultNetworkCompressionType, constants.DefaultNetworkMaximumInboundTimeout)

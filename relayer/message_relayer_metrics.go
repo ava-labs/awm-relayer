@@ -3,7 +3,15 @@
 
 package relayer
 
-import "github.com/prometheus/client_golang/prometheus"
+import (
+	"errors"
+
+	"github.com/prometheus/client_golang/prometheus"
+)
+
+var (
+	ErrFailedToCreateMessageRelayerMetrics = errors.New("failed to create message relayer metrics")
+)
 
 type MessageRelayerMetrics struct {
 	successfulRelayMessageCount  *prometheus.CounterVec
@@ -11,7 +19,7 @@ type MessageRelayerMetrics struct {
 	failedRelayMessageCount      *prometheus.CounterVec
 }
 
-func NewMessageRelayerMetrics(registerer prometheus.Registerer) *MessageRelayerMetrics {
+func NewMessageRelayerMetrics(registerer prometheus.Registerer) (*MessageRelayerMetrics, error) {
 	successfulRelayMessageCount := prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "successful_relay_message_count",
@@ -28,6 +36,9 @@ func NewMessageRelayerMetrics(registerer prometheus.Registerer) *MessageRelayerM
 		},
 		[]string{"destination_chain_id", "source_chain_id", "source_subnet_id"},
 	)
+	if createSignedMessageLatencyMS == nil {
+		return nil, ErrFailedToCreateMessageRelayerMetrics
+	}
 	registerer.MustRegister(createSignedMessageLatencyMS)
 
 	failedRelayMessageCount := prometheus.NewCounterVec(
@@ -37,11 +48,14 @@ func NewMessageRelayerMetrics(registerer prometheus.Registerer) *MessageRelayerM
 		},
 		[]string{"destination_chain_id", "source_chain_id", "source_subnet_id", "failure_reason"},
 	)
+	if failedRelayMessageCount == nil {
+		return nil, ErrFailedToCreateMessageRelayerMetrics
+	}
 	registerer.MustRegister(failedRelayMessageCount)
 
 	return &MessageRelayerMetrics{
 		successfulRelayMessageCount:  successfulRelayMessageCount,
 		createSignedMessageLatencyMS: createSignedMessageLatencyMS,
 		failedRelayMessageCount:      failedRelayMessageCount,
-	}
+	}, nil
 }
