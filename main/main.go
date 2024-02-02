@@ -272,7 +272,7 @@ func runRelayer(
 		err := relayer.RelayMessage(warpMessage, false)
 		if err != nil {
 			logger.Error(
-				"Failed to relay manual Warp message. Skipping.",
+				"Failed to relay manual Warp message. Continuing.",
 				zap.Error(err),
 				zap.String("warpMessageBytes", hex.EncodeToString(warpMessage.UnsignedMsgBytes)),
 			)
