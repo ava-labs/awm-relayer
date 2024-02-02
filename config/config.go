@@ -316,8 +316,8 @@ func calculateQuorumNumerator(cfgNumerator uint64) uint64 {
 // Helper to retrieve the Warp Quorum from the chain config.
 // Differentiates between subnet-evm and coreth RPC internally
 func getWarpQuorum(
-	blockchainID ids.ID,
 	subnetID ids.ID,
+	blockchainID ids.ID,
 	client ethclient.Client,
 ) (WarpQuorum, error) {
 	if subnetID == constants.PrimaryNetworkID {
@@ -387,7 +387,7 @@ func (c *Config) InitializeWarpQuorum() error {
 			return fmt.Errorf("failed to dial source subnet %s: %v", subnetID, err)
 		}
 		defer client.Close()
-		quorum, err := getWarpQuorum(blockchainID, subnetID, client)
+		quorum, err := getWarpQuorum(subnetID, blockchainID, client)
 		if err != nil {
 			return err
 		}
@@ -416,7 +416,7 @@ func (c *Config) InitializeWarpQuorum() error {
 			return fmt.Errorf("failed to dial destination blockchain %s: %v", blockchainID, err)
 		}
 		defer client.Close()
-		quorum, err := getWarpQuorum(blockchainID, subnetID, client)
+		quorum, err := getWarpQuorum(subnetID, blockchainID, client)
 		if err != nil {
 			return err
 		}
