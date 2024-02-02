@@ -126,7 +126,7 @@ func (m *messageManager) ShouldSendMessage(unsignedMessage *warp.UnsignedMessage
 
 	teleporterMessageID, err := teleporterutils.CalculateMessageID(m.protocolAddress, unsignedMessage.SourceChainID, destinationBlockchainID, teleporterMessage.MessageNonce)
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("failed to calculate Teleporter message ID: %w", err)
 	}
 
 	senderAddress := destinationClient.SenderAddress()
