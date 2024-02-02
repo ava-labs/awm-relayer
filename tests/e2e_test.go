@@ -50,6 +50,7 @@ var _ = ginkgo.BeforeSuite(func() {
 		teleporterDeployerAddress,
 		teleporterContractAddress,
 		fundedKey,
+		true,
 	)
 	log.Info("Deployed Teleporter contracts")
 	log.Info("Set up ginkgo before suite")

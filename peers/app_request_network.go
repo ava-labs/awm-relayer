@@ -25,7 +25,6 @@ import (
 )
 
 const (
-	LocalNetworkID            = 1337 // ID used by avalanche-cli for local networks
 	InboundMessageChannelSize = 1000
 	DefaultAppRequestTimeout  = time.Second * 2
 
@@ -207,7 +206,7 @@ func (n *AppRequestNetwork) ConnectPeers(nodeIDs set.Set[ids.NodeID]) (set.Set[i
 	peers, err := n.infoClient.Peers(context.Background())
 	if err != nil {
 		n.logger.Error(
-			"failed to get peers",
+			"Failed to get peers",
 			zap.Error(err),
 		)
 		return nil, err

@@ -17,17 +17,15 @@ import (
 	"github.com/ava-labs/avalanchego/utils/constants"
 	"github.com/ava-labs/avalanchego/utils/crypto/bls"
 	"github.com/ava-labs/avalanchego/utils/set"
-	"github.com/ava-labs/avalanchego/vms/platformvm/warp"
 	avalancheWarp "github.com/ava-labs/avalanchego/vms/platformvm/warp"
 	"github.com/ava-labs/awm-relayer/messages"
 	"github.com/ava-labs/awm-relayer/peers"
 	"github.com/ava-labs/awm-relayer/utils"
 	"github.com/ava-labs/awm-relayer/vms/vmtypes"
-	"github.com/ava-labs/coreth/params"
 	coreEthMsg "github.com/ava-labs/coreth/plugin/evm/message"
 	msg "github.com/ava-labs/subnet-evm/plugin/evm/message"
+	"github.com/ava-labs/subnet-evm/precompile/contracts/warp"
 	warpBackend "github.com/ava-labs/subnet-evm/warp"
-
 	"go.uber.org/zap"
 )
 
@@ -54,13 +52,13 @@ var (
 // Each messageRelayer runs in its own goroutine.
 type messageRelayer struct {
 	relayer                 *Relayer
-	warpMessage             *warp.UnsignedMessage
+	warpMessage             *avalancheWarp.UnsignedMessage
 	destinationBlockchainID ids.ID
 }
 
 func newMessageRelayer(
 	relayer *Relayer,
-	warpMessage *warp.UnsignedMessage,
+	warpMessage *avalancheWarp.UnsignedMessage,
 	destinationBlockchainID ids.ID,
 ) *messageRelayer {
 	return &messageRelayer{
@@ -135,7 +133,7 @@ func (r *messageRelayer) relayMessage(warpMessageInfo *vmtypes.WarpMessageInfo, 
 // createSignedMessage fetches the signed Warp message from the source chain via RPC.
 // Each VM may implement their own RPC method to construct the aggregate signature, which
 // will need to be accounted for here.
-func (r *messageRelayer) createSignedMessage() (*warp.Message, error) {
+func (r *messageRelayer) createSignedMessage() (*avalancheWarp.Message, error) {
 	r.relayer.logger.Info("Fetching aggregate signature from the source chain validators via API")
 	warpClient, err := warpBackend.NewClient(r.relayer.apiNodeURI, r.relayer.sourceBlockchainID.String())
 	if err != nil {
@@ -170,7 +168,7 @@ func (r *messageRelayer) createSignedMessage() (*warp.Message, error) {
 		signedWarpMessageBytes, err = warpClient.GetMessageAggregateSignature(
 			context.Background(),
 			r.warpMessage.ID(),
-			params.WarpDefaultQuorumNumerator,
+			warp.WarpDefaultQuorumNumerator,
 			signingSubnetID.String(),
 		)
 		if err == nil {
@@ -206,7 +204,7 @@ func (r *messageRelayer) createSignedMessage() (*warp.Message, error) {
 }
 
 // createSignedMessageAppRequest collects signatures from nodes by directly querying them via AppRequest, then aggregates the signatures, and constructs the signed warp message.
-func (r *messageRelayer) createSignedMessageAppRequest(requestID uint32) (*warp.Message, error) {
+func (r *messageRelayer) createSignedMessageAppRequest(requestID uint32) (*avalancheWarp.Message, error) {
 	r.relayer.logger.Info("Fetching aggregate signature from the source chain validators via AppRequest")
 
 	// Get the current canonical validator set of the source subnet.
@@ -353,7 +351,7 @@ func (r *messageRelayer) createSignedMessageAppRequest(requestID uint32) (*warp.
 				// This anonymous function attempts to create a signed warp message from the accumulated responses
 				// Returns an error only if a non-recoverable error occurs, otherwise returns (nil, nil) to continue processing responses
 				// When a non-nil signedMsg is returned, createSignedMessage itself returns
-				signedMsg, err := func() (*warp.Message, error) {
+				signedMsg, err := func() (*avalancheWarp.Message, error) {
 					defer response.OnFinishedHandling()
 
 					// Check if this is an expected response.
@@ -375,7 +373,7 @@ func (r *messageRelayer) createSignedMessageAppRequest(requestID uint32) (*warp.
 
 					// If we receive an AppRequestFailed, then the request timed out.
 					// We still want to increment responseCount, since we are no longer expecting a response from that node.
-					if response.Op() == message.AppRequestFailedOp {
+					if response.Op() == message.AppErrorOp {
 						r.relayer.logger.Debug("Request timed out")
 						return nil, nil
 					}
@@ -398,7 +396,7 @@ func (r *messageRelayer) createSignedMessageAppRequest(requestID uint32) (*warp.
 					}
 
 					// As soon as the signatures exceed the stake weight threshold we try to aggregate and send the transaction.
-					if utils.CheckStakeWeightExceedsThreshold(accumulatedSignatureWeight, totalValidatorWeight, params.WarpDefaultQuorumNumerator, params.WarpQuorumDenominator) {
+					if utils.CheckStakeWeightExceedsThreshold(accumulatedSignatureWeight, totalValidatorWeight, warp.WarpDefaultQuorumNumerator, warp.WarpQuorumDenominator) {
 						aggSig, vdrBitSet, err := r.aggregateSignatures(signatureMap)
 						if err != nil {
 							r.relayer.logger.Error(
@@ -409,7 +407,7 @@ func (r *messageRelayer) createSignedMessageAppRequest(requestID uint32) (*warp.
 							return nil, err
 						}
 
-						signedMsg, err := warp.NewMessage(r.warpMessage, &warp.BitSetSignature{
+						signedMsg, err := avalancheWarp.NewMessage(r.warpMessage, &avalancheWarp.BitSetSignature{
 							Signers:   vdrBitSet.Bytes(),
 							Signature: *(*[bls.SignatureLen]byte)(bls.SignatureToBytes(aggSig)),
 						})
@@ -457,7 +455,7 @@ func (r *messageRelayer) createSignedMessageAppRequest(requestID uint32) (*warp.
 	return nil, errNotEnoughSignatures
 }
 
-func (r *messageRelayer) getCurrentCanonicalValidatorSet() ([]*warp.Validator, uint64, error) {
+func (r *messageRelayer) getCurrentCanonicalValidatorSet() ([]*avalancheWarp.Validator, uint64, error) {
 	var (
 		signingSubnet ids.ID
 		err           error
@@ -488,7 +486,7 @@ func (r *messageRelayer) getCurrentCanonicalValidatorSet() ([]*warp.Validator, u
 	}
 
 	// Get the current canonical validator set of the source subnet.
-	canonicalSubnetValidators, totalValidatorWeight, err := warp.GetCanonicalValidatorSet(
+	canonicalSubnetValidators, totalValidatorWeight, err := avalancheWarp.GetCanonicalValidatorSet(
 		context.Background(),
 		r.relayer.canonicalValidatorClient,
 		height,
@@ -513,7 +511,7 @@ func (r *messageRelayer) isValidSignatureResponse(
 	pubKey *bls.PublicKey,
 ) (blsSignatureBuf, bool) {
 	// If the handler returned an error response, count the response and continue
-	if response.Op() == message.AppRequestFailedOp {
+	if response.Op() == message.AppErrorOp {
 		r.relayer.logger.Debug(
 			"Relayer async response failed",
 			zap.String("nodeID", response.NodeID().String()),
