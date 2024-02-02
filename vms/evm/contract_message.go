@@ -25,6 +25,8 @@ func NewContractMessage(logger logging.Logger, subnetInfo config.SourceSubnet) *
 	}
 }
 
+// Unpacks an AddressedCall payload from an unsigned Warp message.
+// unsignedMsgBytes may be either the raw UnsignedMessage bytes or the ABI encoded bytes as emitted by the Warp precompile
 func (m *contractMessage) UnpackWarpMessage(unsignedMsgBytes []byte) (*vmtypes.WarpMessageInfo, error) {
 	// This function may be called with raw UnsignedMessage bytes or with ABI encoded bytes as emitted by the Warp precompile
 	// The latter case is the steady state behavior, so check that first. The former only occurs on startup.

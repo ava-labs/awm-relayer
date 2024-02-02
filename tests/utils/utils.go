@@ -26,6 +26,7 @@ import (
 )
 
 var (
+	// Write the test database to /tmp since the data is not needed after the test
 	storageLocation = fmt.Sprintf("%s/.awm-relayer-storage", os.TempDir())
 )
 
