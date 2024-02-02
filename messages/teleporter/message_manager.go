@@ -188,7 +188,7 @@ func (m *messageManager) SendMessage(signedMessage *warp.Message, destinationBlo
 
 	teleporterMessageID, err := teleporterutils.CalculateMessageID(m.protocolAddress, signedMessage.SourceChainID, destinationBlockchainID, teleporterMessage.MessageNonce)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to calculate Teleporter message ID: %w", err)
 	}
 
 	m.logger.Info(
