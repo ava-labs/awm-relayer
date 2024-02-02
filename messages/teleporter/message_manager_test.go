@@ -18,6 +18,7 @@ import (
 	"github.com/ava-labs/subnet-evm/accounts/abi/bind"
 	"github.com/ava-labs/subnet-evm/interfaces"
 	teleportermessenger "github.com/ava-labs/teleporter/abi-bindings/go/Teleporter/TeleporterMessenger"
+	teleporterUtils "github.com/ava-labs/teleporter/utils/teleporter-utils"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -38,7 +39,6 @@ var (
 		},
 	}
 	destinationBlockchainIDString = "S4mMqUXe7vHsGiRAma6bv3CKnyaLssyAxmQ2KvFpX1KEvfFCD"
-	messageIDstring               = "2CQw6XkzbDZY87XRomuszWkCBDTUvMaZv3YE2PAf7cicxWWEMF"
 	validRelayerAddress           = common.HexToAddress("0x0123456789abcdef0123456789abcdef01234567")
 	validTeleporterMessage        = teleportermessenger.TeleporterMessage{
 		MessageNonce:        big.NewInt(1),
@@ -84,18 +84,7 @@ func TestShouldSendMessage(t *testing.T) {
 	warpUnsignedMessage, err := warp.NewUnsignedMessage(0, sourceBlockchainID, validMessageBytes)
 	require.NoError(t, err)
 
-	// Create all the inputs and expected outputs for Teleporter calls
-	calculateMessageIDInput, err := teleportermessenger.PackCalculateMessageID(
-		sourceBlockchainID,
-		destinationBlockchainID,
-		validTeleporterMessage.MessageNonce,
-	)
-	require.NoError(t, err)
-
-	messageID, err := ids.FromString(messageIDstring)
-	require.NoError(t, err)
-
-	messageIDOutput, err := teleportermessenger.PackCalculateMessageIDOutput(messageID)
+	messageID, err := teleporterUtils.CalculateMessageID(messageProtocolAddress, sourceBlockchainID, destinationBlockchainID, validTeleporterMessage.MessageNonce)
 	require.NoError(t, err)
 
 	messageReceivedInput, err := teleportermessenger.PackMessageReceived(messageID)
@@ -121,7 +110,6 @@ func TestShouldSendMessage(t *testing.T) {
 		senderAddressResult     common.Address
 		senderAddressTimes      int
 		clientTimes             int
-		calculateMessageIDCall  *CallContractChecker
 		messageReceivedCall     *CallContractChecker
 		expectedError           bool
 		expectedResult          bool
@@ -136,11 +124,6 @@ func TestShouldSendMessage(t *testing.T) {
 			senderAddressResult: validRelayerAddress,
 			senderAddressTimes:  1,
 			clientTimes:         1,
-			calculateMessageIDCall: &CallContractChecker{
-				input:          calculateMessageIDInput,
-				expectedResult: messageIDOutput,
-				times:          1,
-			},
 			messageReceivedCall: &CallContractChecker{
 				input:          messageReceivedInput,
 				expectedResult: messageNotDelivered,
@@ -175,13 +158,8 @@ func TestShouldSendMessage(t *testing.T) {
 			},
 			senderAddressResult: common.Address{},
 			senderAddressTimes:  1,
-			clientTimes:         1,
-			calculateMessageIDCall: &CallContractChecker{
-				input:          calculateMessageIDInput,
-				expectedResult: messageIDOutput,
-				times:          1,
-			},
-			expectedResult: false,
+			clientTimes:         0,
+			expectedResult:      false,
 		},
 		{
 			name:                    "message already delivered",
@@ -193,11 +171,6 @@ func TestShouldSendMessage(t *testing.T) {
 			senderAddressResult: validRelayerAddress,
 			senderAddressTimes:  1,
 			clientTimes:         1,
-			calculateMessageIDCall: &CallContractChecker{
-				input:          calculateMessageIDInput,
-				expectedResult: messageIDOutput,
-				times:          1,
-			},
 			messageReceivedCall: &CallContractChecker{
 				input:          messageReceivedInput,
 				expectedResult: messageDelivered,
@@ -211,10 +184,6 @@ func TestShouldSendMessage(t *testing.T) {
 			ethClient := mock_evm.NewMockClient(ctrl)
 			mockClient.EXPECT().Client().Return(ethClient).Times(test.clientTimes)
 			mockClient.EXPECT().SenderAddress().Return(test.senderAddressResult).Times(test.senderAddressTimes)
-			if test.calculateMessageIDCall != nil {
-				messageIDInput := interfaces.CallMsg{From: bind.CallOpts{}.From, To: &messageProtocolAddress, Data: test.calculateMessageIDCall.input}
-				ethClient.EXPECT().CallContract(gomock.Any(), gomock.Eq(messageIDInput), gomock.Any()).Return(test.calculateMessageIDCall.expectedResult, nil).Times(test.calculateMessageIDCall.times)
-			}
 			if test.messageReceivedCall != nil {
 				messageReceivedInput := interfaces.CallMsg{From: bind.CallOpts{}.From, To: &messageProtocolAddress, Data: test.messageReceivedCall.input}
 				ethClient.EXPECT().CallContract(gomock.Any(), gomock.Eq(messageReceivedInput), gomock.Any()).Return(test.messageReceivedCall.expectedResult, nil).Times(test.messageReceivedCall.times)
