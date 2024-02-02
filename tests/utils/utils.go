@@ -94,13 +94,13 @@ func CreateDefaultRelayerConfig(
 		"Setting up relayer config",
 	)
 	// Construct the config values for each subnet
-	sources := make([]config.SourceSubnet, len(subnetsInfo))
-	destinations := make([]config.DestinationSubnet, len(subnetsInfo))
+	sources := make([]*config.SourceSubnet, len(subnetsInfo))
+	destinations := make([]*config.DestinationSubnet, len(subnetsInfo))
 	for i, subnetInfo := range subnetsInfo {
 		host, port, err := teleporterTestUtils.GetURIHostAndPort(subnetInfo.NodeURIs[0])
 		Expect(err).Should(BeNil())
 
-		sources[i] = config.SourceSubnet{
+		sources[i] = &config.SourceSubnet{
 			SubnetID:          subnetInfo.SubnetID.String(),
 			BlockchainID:      subnetInfo.BlockchainID.String(),
 			VM:                config.EVM.String(),
@@ -123,7 +123,7 @@ func CreateDefaultRelayerConfig(
 			},
 		}
 
-		destinations[i] = config.DestinationSubnet{
+		destinations[i] = &config.DestinationSubnet{
 			SubnetID:          subnetInfo.SubnetID.String(),
 			BlockchainID:      subnetInfo.BlockchainID.String(),
 			VM:                config.EVM.String(),

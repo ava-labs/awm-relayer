@@ -211,7 +211,7 @@ func main() {
 				logger,
 				metrics,
 				db,
-				subnetInfo,
+				*subnetInfo,
 				pChainClient,
 				network,
 				responseChans[blockchainID],

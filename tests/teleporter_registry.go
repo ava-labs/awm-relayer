@@ -84,7 +84,7 @@ func TeleporterRegistry(network interfaces.LocalNetwork) {
 		fundedAddress,
 		relayerKey,
 	)
-	relayerConfig.ManualWarpMessages = []config.ManualWarpMessage{
+	relayerConfig.ManualWarpMessages = []*config.ManualWarpMessage{
 		{
 			UnsignedMessageBytes:    hex.EncodeToString(unsignedMessage.Bytes()),
 			SourceBlockchainID:      cChainInfo.BlockchainID.String(),

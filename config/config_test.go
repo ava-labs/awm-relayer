@@ -34,7 +34,7 @@ var (
 		NetworkID:         1337,
 		PChainAPIURL:      "http://test.avax.network",
 		EncryptConnection: false,
-		SourceSubnets: []SourceSubnet{
+		SourceSubnets: []*SourceSubnet{
 			{
 				APINodeHost:       "http://test.avax.network",
 				APINodePort:       0,
@@ -49,7 +49,7 @@ var (
 				},
 			},
 		},
-		DestinationSubnets: []DestinationSubnet{
+		DestinationSubnets: []*DestinationSubnet{
 			{
 				APINodeHost:       "http://test.avax.network",
 				APINodePort:       0,
@@ -340,10 +340,10 @@ func TestGetRelayerAccountPrivateKey_set_pk_with_subnet_env(t *testing.T) {
 		baseConfig: testValidConfig,
 		configModifier: func(c Config) Config {
 			// Add a second destination subnet. This PK should NOT be overwritten
-			newSubnet := c.DestinationSubnets[0]
+			newSubnet := *c.DestinationSubnets[0]
 			newSubnet.BlockchainID = testBlockchainID2
 			newSubnet.AccountPrivateKey = testPk1
-			c.DestinationSubnets = append(c.DestinationSubnets, newSubnet)
+			c.DestinationSubnets = append(c.DestinationSubnets, &newSubnet)
 			return c
 		},
 		envSetter: func() {
@@ -372,10 +372,10 @@ func TestGetRelayerAccountPrivateKey_set_pk_with_global_env(t *testing.T) {
 		baseConfig: testValidConfig,
 		configModifier: func(c Config) Config {
 			// Add a second destination subnet. This PK SHOULD be overwritten
-			newSubnet := c.DestinationSubnets[0]
+			newSubnet := *c.DestinationSubnets[0]
 			newSubnet.BlockchainID = testBlockchainID2
 			newSubnet.AccountPrivateKey = testPk1
-			c.DestinationSubnets = append(c.DestinationSubnets, newSubnet)
+			c.DestinationSubnets = append(c.DestinationSubnets, &newSubnet)
 			return c
 		},
 		envSetter: func() {

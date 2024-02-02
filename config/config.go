@@ -87,15 +87,15 @@ type WarpQuorum struct {
 }
 
 type Config struct {
-	LogLevel            string              `mapstructure:"log-level" json:"log-level"`
-	NetworkID           uint32              `mapstructure:"network-id" json:"network-id"`
-	PChainAPIURL        string              `mapstructure:"p-chain-api-url" json:"p-chain-api-url"`
-	EncryptConnection   bool                `mapstructure:"encrypt-connection" json:"encrypt-connection"`
-	StorageLocation     string              `mapstructure:"storage-location" json:"storage-location"`
-	SourceSubnets       []SourceSubnet      `mapstructure:"source-subnets" json:"source-subnets"`
-	DestinationSubnets  []DestinationSubnet `mapstructure:"destination-subnets" json:"destination-subnets"`
-	ProcessMissedBlocks bool                `mapstructure:"process-missed-blocks" json:"process-missed-blocks"`
-	ManualWarpMessages  []ManualWarpMessage `mapstructure:"manual-warp-messages" json:"manual-warp-messages"`
+	LogLevel            string               `mapstructure:"log-level" json:"log-level"`
+	NetworkID           uint32               `mapstructure:"network-id" json:"network-id"`
+	PChainAPIURL        string               `mapstructure:"p-chain-api-url" json:"p-chain-api-url"`
+	EncryptConnection   bool                 `mapstructure:"encrypt-connection" json:"encrypt-connection"`
+	StorageLocation     string               `mapstructure:"storage-location" json:"storage-location"`
+	SourceSubnets       []*SourceSubnet      `mapstructure:"source-subnets" json:"source-subnets"`
+	DestinationSubnets  []*DestinationSubnet `mapstructure:"destination-subnets" json:"destination-subnets"`
+	ProcessMissedBlocks bool                 `mapstructure:"process-missed-blocks" json:"process-missed-blocks"`
+	ManualWarpMessages  []*ManualWarpMessage `mapstructure:"manual-warp-messages" json:"manual-warp-messages"`
 
 	// convenience fields to access the source subnet and chain IDs after initialization
 	sourceSubnetIDs     []ids.ID
@@ -219,7 +219,7 @@ func (c *Config) Validate() error {
 	sourceBlockchains := set.NewSet[string](len(c.SourceSubnets))
 	var sourceSubnetIDs []ids.ID
 	var sourceBlockchainIDs []ids.ID
-	for i, s := range c.SourceSubnets {
+	for _, s := range c.SourceSubnets {
 		// Validate configuration
 		if err := s.Validate(&destinationChains); err != nil {
 			return err
@@ -242,9 +242,6 @@ func (c *Config) Validate() error {
 			return fmt.Errorf("invalid subnetID in configuration. error: %v", err)
 		}
 		sourceBlockchainIDs = append(sourceBlockchainIDs, blockchainID)
-
-		// Write back to the config
-		c.SourceSubnets[i] = s
 	}
 
 	c.sourceSubnetIDs = sourceSubnetIDs
@@ -255,7 +252,6 @@ func (c *Config) Validate() error {
 		if err := msg.Validate(); err != nil {
 			return fmt.Errorf("invalid manual warp message at index %d: %v", i, err)
 		}
-		c.ManualWarpMessages[i] = msg
 	}
 
 	return nil
@@ -372,12 +368,11 @@ func getWarpQuorum(
 
 func (c *Config) InitializeWarpQuorums() error {
 	// Fetch the Warp quorum values for each destination subnet.
-	for i, destinationSubnet := range c.DestinationSubnets {
+	for _, destinationSubnet := range c.DestinationSubnets {
 		err := destinationSubnet.initializeWarpQuorum()
 		if err != nil {
 			return fmt.Errorf("failed to initialize Warp quorum for destination subnet %s: %v", destinationSubnet.SubnetID, err)
 		}
-		c.DestinationSubnets[i] = destinationSubnet
 	}
 
 	return nil
