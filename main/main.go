@@ -49,8 +49,8 @@ func main() {
 	}
 	// Initialize the Warp Quorum values by fetching via RPC
 	// We do this here so that BuildConfig doesn't need to make RPC calls
-	if err = cfg.InitializeWarpQuorum(); err != nil {
-		panic(fmt.Errorf("couldn't initialize warp quorum: %w", err))
+	if err = cfg.InitializeWarpQuorums(); err != nil {
+		panic(fmt.Errorf("couldn't initialize warp quorums: %w", err))
 	}
 
 	logLevel, err := logging.ToLevel(cfg.LogLevel)

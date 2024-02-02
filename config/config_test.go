@@ -536,7 +536,7 @@ func TestGetWarpQuorum(t *testing.T) {
 				client.EXPECT().ChainConfig(gomock.Any()).Return(&testCase.chainConfig, nil).Times(testCase.getChainConfigCalls),
 			)
 
-			quorum, err := getWarpQuorum(testCase.blockchainID, testCase.subnetID, client)
+			quorum, err := getWarpQuorum(testCase.subnetID, testCase.blockchainID, client)
 			require.Equal(t, testCase.expectedError, err)
 			require.Equal(t, testCase.expectedQuorum, quorum)
 		})

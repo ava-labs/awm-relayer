@@ -6,7 +6,7 @@ package relayer
 import (
 	"bytes"
 	"context"
-	"fmt"
+	"errors"
 	"math/big"
 	"time"
 
@@ -42,8 +42,9 @@ var (
 	codec        = msg.Codec
 	coreEthCodec = coreEthMsg.Codec
 	// Errors
-	errNotEnoughSignatures = fmt.Errorf("failed to collect a threshold of signatures")
-	errFailedToGetAggSig   = fmt.Errorf("failed to get aggregate signature from node endpoint")
+	errNotEnoughSignatures   = errors.New("failed to collect a threshold of signatures")
+	errFailedToGetAggSig     = errors.New("failed to get aggregate signature from node endpoint")
+	errFailedToGetWarpQuorum = errors.New("failed to get warp quorum")
 )
 
 // messageRelayers are created for each warp message to be relayed.
@@ -61,13 +62,21 @@ func newMessageRelayer(
 	relayer *Relayer,
 	warpMessage *avalancheWarp.UnsignedMessage,
 	destinationBlockchainID ids.ID,
-) *messageRelayer {
+) (*messageRelayer, error) {
+	quorum, ok := relayer.globalConfig.GetWarpQuorum(destinationBlockchainID)
+	if !ok {
+		relayer.logger.Error(
+			"Failed to get warp quorum",
+			zap.String("destinationBlockchainID", destinationBlockchainID.String()),
+		)
+		return nil, errFailedToGetWarpQuorum
+	}
 	return &messageRelayer{
 		relayer:                 relayer,
 		warpMessage:             warpMessage,
 		destinationBlockchainID: destinationBlockchainID,
-		warpQuorum:              relayer.globalConfig.GetWarpQuorum()[destinationBlockchainID],
-	}
+		warpQuorum:              quorum,
+	}, nil
 }
 
 func (r *messageRelayer) relayMessage(unsignedMessage *avalancheWarp.UnsignedMessage, requestID uint32, messageManager messages.MessageManager, useAppRequestNetwork bool) error {

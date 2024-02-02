@@ -429,7 +429,7 @@ func (r *Relayer) RelayMessage(warpLogInfo *vmtypes.WarpLogInfo, storeProcessedH
 	}
 
 	// Create and run the message relayer to attempt to deliver the message to the destination chain
-	messageRelayer := newMessageRelayer(r, unsignedMessage, destinationBlockchainID)
+	messageRelayer, err := newMessageRelayer(r, unsignedMessage, destinationBlockchainID)
 	if err != nil {
 		r.logger.Error(
 			"Failed to create message relayer",

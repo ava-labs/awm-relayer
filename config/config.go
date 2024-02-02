@@ -76,6 +76,9 @@ type DestinationSubnet struct {
 	EncryptConnection bool   `mapstructure:"encrypt-connection" json:"encrypt-connection"`
 	RPCEndpoint       string `mapstructure:"rpc-endpoint" json:"rpc-endpoint"`
 	AccountPrivateKey string `mapstructure:"account-private-key" json:"account-private-key"`
+
+	// Fetched from the chain after startup
+	warpQuorum WarpQuorum
 }
 
 type WarpQuorum struct {
@@ -97,9 +100,6 @@ type Config struct {
 	// convenience fields to access the source subnet and chain IDs after initialization
 	sourceSubnetIDs     []ids.ID
 	sourceBlockchainIDs []ids.ID
-
-	// convenience field to store the Warp quorum figures for each subnet
-	warpQuorum map[ids.ID]WarpQuorum
 }
 
 func SetDefaultConfigValues(v *viper.Viper) {
@@ -370,36 +370,16 @@ func getWarpQuorum(
 	return WarpQuorum{}, fmt.Errorf("failed to find warp config for blockchain %s", blockchainID)
 }
 
-func (c *Config) InitializeWarpQuorum() error {
-	c.warpQuorum = make(map[ids.ID]WarpQuorum)
-
+func (c *Config) InitializeWarpQuorums() error {
 	// Fetch the Warp quorum values for each destination subnet.
-	for _, destinationSubnet := range c.DestinationSubnets {
-		blockchainID, err := ids.FromString(destinationSubnet.BlockchainID)
+	for i, destinationSubnet := range c.DestinationSubnets {
+		err := destinationSubnet.initializeWarpQuorum()
 		if err != nil {
-			return fmt.Errorf("invalid blockchainID in configuration. error: %v", err)
+			return fmt.Errorf("failed to initialize Warp quorum for destination subnet %s: %v", destinationSubnet.SubnetID, err)
 		}
-		subnetID, err := ids.FromString(destinationSubnet.SubnetID)
-		if err != nil {
-			return fmt.Errorf("invalid subnetID in configuration. error: %v", err)
-		}
-		if _, ok := c.warpQuorum[blockchainID]; ok {
-			// We already fetched the quorum for this subnet
-			continue
-		}
-
-		client, err := ethclient.Dial(destinationSubnet.GetNodeRPCEndpoint())
-		if err != nil {
-			return fmt.Errorf("failed to dial destination blockchain %s: %v", blockchainID, err)
-		}
-		defer client.Close()
-		quorum, err := getWarpQuorum(subnetID, blockchainID, client)
-		if err != nil {
-			return err
-		}
-
-		c.warpQuorum[blockchainID] = quorum
+		c.DestinationSubnets[i] = destinationSubnet
 	}
+
 	return nil
 }
 
@@ -485,6 +465,30 @@ func (s *DestinationSubnet) Validate() error {
 		return fmt.Errorf("unsupported VM type for source subnet: %s", s.VM)
 	}
 
+	return nil
+}
+
+func (s *DestinationSubnet) initializeWarpQuorum() error {
+	blockchainID, err := ids.FromString(s.BlockchainID)
+	if err != nil {
+		return fmt.Errorf("invalid blockchainID in configuration. error: %v", err)
+	}
+	subnetID, err := ids.FromString(s.SubnetID)
+	if err != nil {
+		return fmt.Errorf("invalid subnetID in configuration. error: %v", err)
+	}
+
+	client, err := ethclient.Dial(s.GetNodeRPCEndpoint())
+	if err != nil {
+		return fmt.Errorf("failed to dial destination blockchain %s: %v", blockchainID, err)
+	}
+	defer client.Close()
+	quorum, err := getWarpQuorum(subnetID, blockchainID, client)
+	if err != nil {
+		return err
+	}
+
+	s.warpQuorum = quorum
 	return nil
 }
 
@@ -591,6 +595,11 @@ func (c *Config) GetSourceIDs() ([]ids.ID, []ids.ID) {
 	return c.sourceSubnetIDs, c.sourceBlockchainIDs
 }
 
-func (c *Config) GetWarpQuorum() map[ids.ID]WarpQuorum {
-	return c.warpQuorum
+func (c *Config) GetWarpQuorum(blockchainID ids.ID) (WarpQuorum, bool) {
+	for _, s := range c.DestinationSubnets {
+		if blockchainID.String() == s.BlockchainID {
+			return s.warpQuorum, true
+		}
+	}
+	return WarpQuorum{}, false
 }
