@@ -63,6 +63,7 @@ type Relayer struct {
 	messageCreator           message.Creator
 	catchUpResultChan        chan bool
 	healthStatus             *atomic.Bool
+	globalConfig             config.Config
 }
 
 func NewRelayer(
@@ -76,7 +77,7 @@ func NewRelayer(
 	destinationClients map[ids.ID]vms.DestinationClient,
 	messageCreator message.Creator,
 	relayerHealth *atomic.Bool,
-	shouldProcessMissedBlocks bool,
+	cfg config.Config,
 ) (*Relayer, error) {
 	sub := vms.NewSubscriber(logger, sourceSubnetInfo)
 
@@ -162,6 +163,7 @@ func NewRelayer(
 		messageCreator:           messageCreator,
 		catchUpResultChan:        catchUpResultChan,
 		healthStatus:             relayerHealth,
+		globalConfig:             cfg,
 	}
 
 	// Open the subscription. We must do this before processing any missed messages, otherwise we may miss an incoming message
@@ -175,7 +177,7 @@ func NewRelayer(
 		return nil, err
 	}
 
-	if shouldProcessMissedBlocks {
+	if r.globalConfig.ProcessMissedBlocks {
 		height, err := r.calculateStartingBlockHeight(sourceSubnetInfo.StartBlockHeight)
 		if err != nil {
 			logger.Error(
@@ -207,7 +209,7 @@ func NewRelayer(
 // Listens to the Subscriber logs channel to process them.
 // On subscriber error, attempts to reconnect and errors if unable.
 // Exits if context is cancelled by another goroutine.
-func (r *Relayer) ProcessLogs(ctx context.Context, cfg config.Config) error {
+func (r *Relayer) ProcessLogs(ctx context.Context) error {
 	doneCatchingUp := false
 	for {
 		select {
@@ -236,7 +238,7 @@ func (r *Relayer) ProcessLogs(ctx context.Context, cfg config.Config) error {
 			// This is because during the catch-up process, we cannot guarantee the order
 			// of live messages relative to catch-up messages, whereas we know that catch-up
 			// messages will always be ordered relative to each other.
-			err := r.RelayMessage(&txLog, doneCatchingUp || txLog.IsCatchUpMessage, cfg)
+			err := r.RelayMessage(&txLog, doneCatchingUp || txLog.IsCatchUpMessage)
 			if err != nil {
 				r.logger.Error(
 					"Error relaying message",
@@ -374,7 +376,7 @@ func (r *Relayer) ReconnectToSubscriber() error {
 }
 
 // RelayMessage relays a single warp message to the destination chain. Warp message relay requests from the same origin chain are processed serially
-func (r *Relayer) RelayMessage(warpLogInfo *vmtypes.WarpLogInfo, storeProcessedHeight bool, cfg config.Config) error {
+func (r *Relayer) RelayMessage(warpLogInfo *vmtypes.WarpLogInfo, storeProcessedHeight bool) error {
 	r.logger.Info(
 		"Relaying message",
 		zap.String("blockchainID", r.sourceBlockchainID.String()),
@@ -427,7 +429,7 @@ func (r *Relayer) RelayMessage(warpLogInfo *vmtypes.WarpLogInfo, storeProcessedH
 	}
 
 	// Create and run the message relayer to attempt to deliver the message to the destination chain
-	messageRelayer := newMessageRelayer(r, unsignedMessage, destinationBlockchainID, cfg)
+	messageRelayer := newMessageRelayer(r, unsignedMessage, destinationBlockchainID)
 	if err != nil {
 		r.logger.Error(
 			"Failed to create message relayer",

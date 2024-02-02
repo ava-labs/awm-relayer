@@ -61,13 +61,12 @@ func newMessageRelayer(
 	relayer *Relayer,
 	warpMessage *avalancheWarp.UnsignedMessage,
 	destinationBlockchainID ids.ID,
-	cfg config.Config,
 ) *messageRelayer {
 	return &messageRelayer{
 		relayer:                 relayer,
 		warpMessage:             warpMessage,
 		destinationBlockchainID: destinationBlockchainID,
-		warpQuorum:              cfg.GetWarpQuorum()[destinationBlockchainID],
+		warpQuorum:              relayer.globalConfig.GetWarpQuorum()[destinationBlockchainID],
 	}
 }
 

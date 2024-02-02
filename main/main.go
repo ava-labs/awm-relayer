@@ -258,7 +258,7 @@ func runRelayer(
 		destinationClients,
 		messageCreator,
 		relayerHealth,
-		cfg.ProcessMissedBlocks,
+		cfg,
 	)
 	if err != nil {
 		return fmt.Errorf("Failed to create relayer instance: %w", err)
@@ -275,7 +275,7 @@ func runRelayer(
 			zap.String("blockchainID", sourceSubnetInfo.BlockchainID),
 			zap.String("warpMessageBytes", hex.EncodeToString(warpMessage.UnsignedMsgBytes)),
 		)
-		err := relayer.RelayMessage(warpMessage, false, cfg)
+		err := relayer.RelayMessage(warpMessage, false)
 		if err != nil {
 			logger.Error(
 				"Failed to relay manual Warp message. Skipping.",
@@ -293,7 +293,7 @@ func runRelayer(
 
 	// Wait for logs from the subscribed node
 	// Will only return on error or context cancellation
-	return relayer.ProcessLogs(ctx, cfg)
+	return relayer.ProcessLogs(ctx)
 }
 
 func startMetricsServer(logger logging.Logger, gatherer prometheus.Gatherer, port uint32) {
