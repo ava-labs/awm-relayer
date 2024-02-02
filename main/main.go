@@ -40,25 +40,22 @@ func main() {
 	fs := config.BuildFlagSet()
 	v, err := config.BuildViper(fs, os.Args[1:])
 	if err != nil {
-		fmt.Printf("couldn't configure flags: %s\n", err)
-		os.Exit(1)
+		panic(fmt.Errorf("couldn't configure flags: %w", err))
 	}
 
 	cfg, optionOverwritten, err := config.BuildConfig(v)
 	if err != nil {
-		fmt.Printf("couldn't build config: %s\n", err)
-		os.Exit(1)
+		panic(fmt.Errorf("couldn't build config: %w", err))
 	}
 	// Initialize the Warp Quorum values by fetching via RPC
 	// We do this here so that BuildConfig doesn't need to make RPC calls
 	if err = cfg.InitializeWarpQuorum(); err != nil {
-		fmt.Printf("couldn't initialize warp quorum: %s\n", err)
-		os.Exit(1)
+		panic(fmt.Errorf("couldn't initialize warp quorum: %w", err))
 	}
 
 	logLevel, err := logging.ToLevel(cfg.LogLevel)
 	if err != nil {
-		fmt.Printf("error with log level: %v", err)
+		panic(fmt.Errorf("error with log level: %w", err))
 	}
 
 	logger := logging.NewLogger(
@@ -88,7 +85,7 @@ func main() {
 			"Failed to create destination clients",
 			zap.Error(err),
 		)
-		return
+		panic(err)
 	}
 
 	// Initialize metrics gathered through prometheus
@@ -96,7 +93,7 @@ func main() {
 	if err != nil {
 		logger.Fatal("Failed to set up prometheus metrics",
 			zap.Error(err))
-		return
+		panic(err)
 	}
 
 	// Initialize the global app request network
@@ -115,7 +112,7 @@ func main() {
 			"Failed to create app request network",
 			zap.Error(err),
 		)
-		return
+		panic(err)
 	}
 
 	// Each goroutine will have an atomic bool that it can set to false if it ever disconnects from its subscription.
@@ -159,7 +156,7 @@ func main() {
 			"Failed to create message creator",
 			zap.Error(err),
 		)
-		return
+		panic(err)
 	}
 
 	// Initialize the database
@@ -169,7 +166,7 @@ func main() {
 			"Failed to create database",
 			zap.Error(err),
 		)
-		return
+		panic(err)
 	}
 
 	manualWarpMessages := make(map[ids.ID][]*vmtypes.WarpLogInfo)
@@ -192,7 +189,7 @@ func main() {
 				"Invalid subnetID in configuration",
 				zap.Error(err),
 			)
-			return
+			panic(err)
 		}
 		subnetInfo := s
 
