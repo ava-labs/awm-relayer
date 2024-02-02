@@ -373,32 +373,7 @@ func getWarpQuorum(
 func (c *Config) InitializeWarpQuorum() error {
 	c.warpQuorum = make(map[ids.ID]WarpQuorum)
 
-	// Fetch the Warp quorum values for each source subnet
-	for _, sourceSubnet := range c.SourceSubnets {
-		blockchainID, err := ids.FromString(sourceSubnet.BlockchainID)
-		if err != nil {
-			return fmt.Errorf("invalid blockchainID in configuration. error: %v", err)
-		}
-		subnetID, err := ids.FromString(sourceSubnet.SubnetID)
-		if err != nil {
-			return fmt.Errorf("invalid subnetID in configuration. error: %v", err)
-		}
-
-		client, err := ethclient.Dial(sourceSubnet.GetNodeRPCEndpoint())
-		if err != nil {
-			return fmt.Errorf("failed to dial source subnet %s: %v", subnetID, err)
-		}
-		defer client.Close()
-		quorum, err := getWarpQuorum(subnetID, blockchainID, client)
-		if err != nil {
-			return err
-		}
-
-		c.warpQuorum[blockchainID] = quorum
-	}
-
 	// Fetch the Warp quorum values for each destination subnet.
-	// We do this to properly handle Warp messages originating from the primary network
 	for _, destinationSubnet := range c.DestinationSubnets {
 		blockchainID, err := ids.FromString(destinationSubnet.BlockchainID)
 		if err != nil {
