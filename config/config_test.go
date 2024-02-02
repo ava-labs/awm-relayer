@@ -451,7 +451,7 @@ func TestGetWarpQuorum(t *testing.T) {
 			chainConfig: params.ChainConfigWithUpgradesJSON{
 				ChainConfig: params.ChainConfig{
 					GenesisPrecompiles: params.Precompiles{
-						"warpConfig": &warp.Config{
+						warpConfigKey: &warp.Config{
 							QuorumNumerator: 0,
 						},
 					},
@@ -471,7 +471,7 @@ func TestGetWarpQuorum(t *testing.T) {
 			chainConfig: params.ChainConfigWithUpgradesJSON{
 				ChainConfig: params.ChainConfig{
 					GenesisPrecompiles: params.Precompiles{
-						"warpConfig": &warp.Config{
+						warpConfigKey: &warp.Config{
 							QuorumNumerator: 50,
 						},
 					},

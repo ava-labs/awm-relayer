@@ -27,6 +27,7 @@ const (
 	relayerPrivateKeyBytes      = 32
 	accountPrivateKeyEnvVarName = "ACCOUNT_PRIVATE_KEY"
 	cChainIdentifierString      = "C"
+	warpConfigKey               = "warpConfig"
 )
 
 type MessageProtocolConfig struct {
@@ -359,7 +360,7 @@ func getWarpQuorum(
 	}
 
 	// If we didn't find the Warp config in the upgrade precompile list, check the genesis config
-	warpConfig, ok := chainConfig.GenesisPrecompiles["warpConfig"].(*warp.Config)
+	warpConfig, ok := chainConfig.GenesisPrecompiles[warpConfigKey].(*warp.Config)
 	if ok {
 		return WarpQuorum{
 			QuorumNumerator:   calculateQuorumNumerator(warpConfig.QuorumNumerator),
