@@ -306,7 +306,7 @@ func (m *ManualWarpMessage) Validate() error {
 }
 
 // If the numerator in the Warp config is 0, use the default value
-func setQuorumNumerator(cfgNumerator uint64) uint64 {
+func calculateQuorumNumerator(cfgNumerator uint64) uint64 {
 	if cfgNumerator == 0 {
 		return warp.WarpDefaultQuorumNumerator
 	}
@@ -352,7 +352,7 @@ func getWarpQuorum(
 	}
 	if warpConfig != nil {
 		return WarpQuorum{
-			QuorumNumerator:   setQuorumNumerator(warpConfig.QuorumNumerator),
+			QuorumNumerator:   calculateQuorumNumerator(warpConfig.QuorumNumerator),
 			QuorumDenominator: warp.WarpQuorumDenominator,
 		}, nil
 	}
@@ -361,7 +361,7 @@ func getWarpQuorum(
 	warpConfig, ok := chainConfig.GenesisPrecompiles["warpConfig"].(*warp.Config)
 	if ok {
 		return WarpQuorum{
-			QuorumNumerator:   setQuorumNumerator(warpConfig.QuorumNumerator),
+			QuorumNumerator:   calculateQuorumNumerator(warpConfig.QuorumNumerator),
 			QuorumDenominator: warp.WarpQuorumDenominator,
 		}, nil
 	}
