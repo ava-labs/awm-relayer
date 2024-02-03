@@ -59,24 +59,8 @@ var (
 )
 
 func TestShouldSendMessage(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	logger := logging.NoLog{}
 	destinationBlockchainID, err := ids.FromString(destinationBlockchainIDString)
 	require.NoError(t, err)
-
-	mockClient := mock_vms.NewMockDestinationClient(ctrl)
-	destinationClients := map[ids.ID]vms.DestinationClient{
-		destinationBlockchainID: mockClient,
-	}
-
-	messageManager, err := NewMessageManager(
-		logger,
-		messageProtocolAddress,
-		messageProtocolConfig,
-		destinationClients,
-	)
-	require.NoError(t, err)
-
 	validMessageBytes, err := teleportermessenger.PackTeleporterMessage(validTeleporterMessage)
 	require.NoError(t, err)
 
@@ -181,6 +165,21 @@ func TestShouldSendMessage(t *testing.T) {
 	}
 	for _, test := range testCases {
 		t.Run(test.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			logger := logging.NoLog{}
+
+			mockClient := mock_vms.NewMockDestinationClient(ctrl)
+			destinationClients := map[ids.ID]vms.DestinationClient{
+				destinationBlockchainID: mockClient,
+			}
+
+			messageManager, err := NewMessageManager(
+				logger,
+				messageProtocolAddress,
+				messageProtocolConfig,
+				destinationClients,
+			)
+			require.NoError(t, err)
 			ethClient := mock_evm.NewMockClient(ctrl)
 			mockClient.EXPECT().Client().Return(ethClient).Times(test.clientTimes)
 			mockClient.EXPECT().SenderAddress().Return(test.senderAddressResult).Times(test.senderAddressTimes)
