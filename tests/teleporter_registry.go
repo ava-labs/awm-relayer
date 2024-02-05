@@ -13,6 +13,7 @@ import (
 	"github.com/ava-labs/subnet-evm/core/types"
 	"github.com/ava-labs/teleporter/tests/interfaces"
 	"github.com/ava-labs/teleporter/tests/utils"
+	teleporterTestUtils "github.com/ava-labs/teleporter/tests/utils"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
@@ -58,15 +59,15 @@ func TeleporterRegistry(network interfaces.LocalNetwork) {
 	// Set up the nodes to accept the off-chain message
 	//
 	// Create chain config file with off chain message for each chain
-	unsignedMessage, warpEnabledChainConfigC := utils.InitChainConfig(networkID, cChainInfo, newProtocolAddress)
-	_, warpEnabledChainConfigA := utils.InitChainConfig(networkID, subnetAInfo, newProtocolAddress)
-	_, warpEnabledChainConfigB := utils.InitChainConfig(networkID, subnetBInfo, newProtocolAddress)
+	unsignedMessage, warpEnabledChainConfigC := utils.InitOffChainMessageChainConfig(networkID, cChainInfo, newProtocolAddress, 2)
+	_, warpEnabledChainConfigA := teleporterTestUtils.InitOffChainMessageChainConfig(networkID, subnetAInfo, newProtocolAddress, 2)
+	_, warpEnabledChainConfigB := teleporterTestUtils.InitOffChainMessageChainConfig(networkID, subnetBInfo, newProtocolAddress, 2)
 
 	// Create chain config with off chain messages
 	chainConfigs := make(map[string]string)
-	utils.SetChainConfig(chainConfigs, cChainInfo, warpEnabledChainConfigC)
-	utils.SetChainConfig(chainConfigs, subnetBInfo, warpEnabledChainConfigB)
-	utils.SetChainConfig(chainConfigs, subnetAInfo, warpEnabledChainConfigA)
+	teleporterTestUtils.SetChainConfig(chainConfigs, cChainInfo, warpEnabledChainConfigC)
+	teleporterTestUtils.SetChainConfig(chainConfigs, subnetBInfo, warpEnabledChainConfigB)
+	teleporterTestUtils.SetChainConfig(chainConfigs, subnetAInfo, warpEnabledChainConfigA)
 
 	// Restart nodes with new chain config
 	nodeNames := network.GetAllNodeNames()

@@ -25,7 +25,6 @@ import (
 	msg "github.com/ava-labs/subnet-evm/plugin/evm/message"
 	"github.com/ava-labs/subnet-evm/precompile/contracts/warp"
 	warpBackend "github.com/ava-labs/subnet-evm/warp"
-
 	"go.uber.org/zap"
 )
 
