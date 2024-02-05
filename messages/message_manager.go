@@ -53,7 +53,6 @@ func NewMessageManager(
 	case config.OFF_CHAIN_REGISTRY:
 		return offchainregistry.NewMessageManager(
 			logger,
-			messageProtocolAddress,
 			messageProtocolConfig,
 			destinationClients,
 		)

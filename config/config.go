@@ -197,6 +197,9 @@ func BuildConfig(v *viper.Viper) (Config, bool, error) {
 	return cfg, optionOverwritten, nil
 }
 
+// Validates the configuration
+// Does not modify the public fields as derived from the configuration passed to the application,
+// but does initialize private fields available through getters
 func (c *Config) Validate() error {
 	if len(c.SourceSubnets) == 0 {
 		return errors.New("relayer not configured to relay from any subnets. A list of source subnets must be provided in the configuration file")
@@ -278,6 +281,9 @@ func (m *ManualWarpMessage) GetDestinationAddress() common.Address {
 	return m.destinationAddress
 }
 
+// Validates the manual Warp message configuration.
+// Does not modify the public fields as derived from the configuration passed to the application,
+// but does initialize private fields available through getters
 func (m *ManualWarpMessage) Validate() error {
 	unsignedMsg, err := hex.DecodeString(utils.SanitizeHexString(m.UnsignedMessageBytes))
 	if err != nil {
@@ -388,6 +394,8 @@ func (s *SourceSubnet) GetSupportedDestinations() set.Set[ids.ID] {
 }
 
 // Validates the source subnet configuration, including verifying that the supported destinations are present in destinationBlockchainIDs
+// Does not modify the public fields as derived from the configuration passed to the application,
+// but does initialize private fields available through getters
 func (s *SourceSubnet) Validate(destinationBlockchainIDs *set.Set[string]) error {
 	if _, err := ids.FromString(s.SubnetID); err != nil {
 		return fmt.Errorf("invalid subnetID in source subnet configuration. Provided ID: %s", s.SubnetID)
@@ -440,6 +448,7 @@ func (s *SourceSubnet) Validate(destinationBlockchainIDs *set.Set[string]) error
 	return nil
 }
 
+// Validatees the destination subnet configuration
 func (s *DestinationSubnet) Validate() error {
 	if _, err := ids.FromString(s.SubnetID); err != nil {
 		return fmt.Errorf("invalid subnetID in source subnet configuration. Provided ID: %s", s.SubnetID)

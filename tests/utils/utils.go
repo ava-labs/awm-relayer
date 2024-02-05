@@ -17,7 +17,6 @@ import (
 	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/awm-relayer/config"
 	offchainregistry "github.com/ava-labs/awm-relayer/messages/off-chain-registry"
-	"github.com/ava-labs/awm-relayer/peers"
 	"github.com/ava-labs/teleporter/tests/interfaces"
 	"github.com/ava-labs/teleporter/tests/utils"
 	teleporterTestUtils "github.com/ava-labs/teleporter/tests/utils"
@@ -28,6 +27,7 @@ import (
 )
 
 var (
+	// Write the test database to /tmp since the data is not needed after the test
 	storageLocation = fmt.Sprintf("%s/.awm-relayer-storage", os.TempDir())
 )
 
@@ -143,8 +143,9 @@ func CreateDefaultRelayerConfig(
 	}
 
 	return config.Config{
-		LogLevel:            logging.Info.LowerString(),
-		NetworkID:           peers.LocalNetworkID,
+		LogLevel: logging.Info.LowerString(),
+		// TODO: There's currently a bug in ANR v1.7.4-rc.0 that specifies the network ID as 0. We should change this back to constants.DefaultNetworkID once fixed.
+		NetworkID:           0,
 		PChainAPIURL:        subnetsInfo[0].NodeURIs[0],
 		EncryptConnection:   false,
 		StorageLocation:     RelayerStorageLocation(),
