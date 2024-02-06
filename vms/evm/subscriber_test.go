@@ -2,7 +2,6 @@ package evm
 
 import (
 	"math/big"
-	"os"
 	"testing"
 
 	"github.com/ava-labs/avalanchego/utils/logging"
@@ -11,8 +10,7 @@ import (
 	"github.com/ava-labs/subnet-evm/core/types"
 	"github.com/ava-labs/subnet-evm/ethclient"
 	"github.com/ava-labs/subnet-evm/interfaces"
-	"github.com/ava-labs/subnet-evm/precompile/contracts/warp"
-	"github.com/ethereum/go-ethereum/common"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 )
 
@@ -27,14 +25,7 @@ func makeSubscriberWithMockEthClient(t *testing.T) (*subscriber, *mock_ethclient
 		RPCEndpoint:       "https://subnets.avax.network/mysubnet/rpc",
 	}
 
-	logger := logging.NewLogger(
-		"awm-relayer-test",
-		logging.NewWrappedCore(
-			logging.Info,
-			os.Stdout,
-			logging.JSON.ConsoleEncoder(),
-		),
-	)
+	logger := logging.NoLog{}
 
 	mockEthClient := mock_ethclient.NewMockClient(gomock.NewController(t))
 	subscriber := NewSubscriber(logger, sourceSubnet)
@@ -45,28 +36,39 @@ func makeSubscriberWithMockEthClient(t *testing.T) (*subscriber, *mock_ethclient
 
 func TestProcessFromHeight(t *testing.T) {
 	testCases := []struct {
+		name   string
 		latest int64
 		input  int64
 	}{
 		{
+			name:   "zero to max blocks",
 			latest: 200,
 			input:  0,
 		},
 		{
+			name:   "max blocks",
 			latest: 1000,
 			input:  800,
 		},
 		{
+			name:   "greater than max blocks",
 			latest: 1000,
 			input:  700,
 		},
 		{
+			name:   "many rounds greater than max blocks",
 			latest: 19642,
 			input:  751,
 		},
 		{
+			name:   "latest is less than max blocks",
 			latest: 96,
 			input:  41,
+		},
+		{
+			name:   "invalid starting block number",
+			latest: 50,
+			input:  51,
 		},
 	}
 
@@ -77,18 +79,12 @@ func TestProcessFromHeight(t *testing.T) {
 	) {
 		mock.EXPECT().FilterLogs(
 			gomock.Any(),
-			interfaces.FilterQuery{
-				Topics: [][]common.Hash{
-					{warp.WarpABI.Events["SendWarpMessage"].ID},
-					{},
-					{},
-				},
-				Addresses: []common.Address{
-					warp.ContractAddress,
-				},
+			gomock.Eq(interfaces.FilterQuery{
+				Topics:    warpFilterQuery.Topics,
+				Addresses: warpFilterQuery.Addresses,
 				FromBlock: big.NewInt(fromBlock),
 				ToBlock:   big.NewInt(toBlock),
-			},
+			}),
 		).Return([]types.Log{}, nil).Times(1)
 	}
 
@@ -102,23 +98,27 @@ func TestProcessFromHeight(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		subscriberUnderTest, mockEthClient := makeSubscriberWithMockEthClient(t)
+		t.Run(tc.name, func(t *testing.T) {
+			subscriberUnderTest, mockEthClient := makeSubscriberWithMockEthClient(t)
 
-		mockEthClient.
-			EXPECT().
-			BlockNumber(gomock.Any()).
-			Return(uint64(tc.latest), nil).
-			Times(1)
+			mockEthClient.
+				EXPECT().
+				BlockNumber(gomock.Any()).
+				Return(uint64(tc.latest), nil).
+				Times(1)
 
-		for i := tc.input; i <= tc.latest; i += MaxBlocksPerRequest {
-			expectFilterLogs(
-				mockEthClient,
-				i,
-				min(i+MaxBlocksPerRequest-1, tc.latest),
-			)
-		}
-		done := make(chan bool, 1)
-		subscriberUnderTest.ProcessFromHeight(big.NewInt(tc.input), done)
-		close(done)
+			for i := tc.input; i <= tc.latest; i += MaxBlocksPerRequest {
+				expectFilterLogs(
+					mockEthClient,
+					i,
+					min(i+MaxBlocksPerRequest-1, tc.latest),
+				)
+			}
+			done := make(chan bool, 1)
+			subscriberUnderTest.ProcessFromHeight(big.NewInt(tc.input), done)
+			result := <-done
+			require.True(t, result)
+			close(done)
+		})
 	}
 }
