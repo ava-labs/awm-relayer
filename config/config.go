@@ -31,6 +31,21 @@ type MessageProtocolConfig struct {
 	Settings      map[string]interface{} `mapstructure:"settings" json:"settings"`
 }
 
+type ManualWarpMessage struct {
+	UnsignedMessageBytes    string `mapstructure:"unsigned-message-bytes" json:"unsigned-message-bytes"`
+	SourceBlockchainID      string `mapstructure:"source-blockchain-id" json:"source-blockchain-id"`
+	DestinationBlockchainID string `mapstructure:"destination-blockchain-id" json:"destination-blockchain-id"`
+	SourceAddress           string `mapstructure:"source-address" json:"source-address"`
+	DestinationAddress      string `mapstructure:"destination-address" json:"destination-address"`
+
+	// convenience fields to access the values after initialization
+	unsignedMessageBytes    []byte
+	sourceBlockchainID      ids.ID
+	destinationBlockchainID ids.ID
+	sourceAddress           common.Address
+	destinationAddress      common.Address
+}
+
 type SourceSubnet struct {
 	SubnetID              string                           `mapstructure:"subnet-id" json:"subnet-id"`
 	BlockchainID          string                           `mapstructure:"blockchain-id" json:"blockchain-id"`
@@ -68,6 +83,7 @@ type Config struct {
 	SourceSubnets       []SourceSubnet      `mapstructure:"source-subnets" json:"source-subnets"`
 	DestinationSubnets  []DestinationSubnet `mapstructure:"destination-subnets" json:"destination-subnets"`
 	ProcessMissedBlocks bool                `mapstructure:"process-missed-blocks" json:"process-missed-blocks"`
+	ManualWarpMessages  []ManualWarpMessage `mapstructure:"manual-warp-messages" json:"manual-warp-messages"`
 
 	// convenience fields to access the source subnet and chain IDs after initialization
 	sourceSubnetIDs     []ids.ID
@@ -110,6 +126,9 @@ func BuildConfig(v *viper.Viper) (Config, bool, error) {
 	cfg.EncryptConnection = v.GetBool(EncryptConnectionKey)
 	cfg.StorageLocation = v.GetString(StorageLocationKey)
 	cfg.ProcessMissedBlocks = v.GetBool(ProcessMissedBlocksKey)
+	if err := v.UnmarshalKey(ManualWarpMessagesKey, &cfg.ManualWarpMessages); err != nil {
+		return Config{}, false, fmt.Errorf("failed to unmarshal manual warp messages: %v", err)
+	}
 	if err := v.UnmarshalKey(DestinationSubnetsKey, &cfg.DestinationSubnets); err != nil {
 		return Config{}, false, fmt.Errorf("failed to unmarshal destination subnets: %v", err)
 	}
@@ -161,6 +180,9 @@ func BuildConfig(v *viper.Viper) (Config, bool, error) {
 	return cfg, optionOverwritten, nil
 }
 
+// Validates the configuration
+// Does not modify the public fields as derived from the configuration passed to the application,
+// but does initialize private fields available through getters
 func (c *Config) Validate() error {
 	if len(c.SourceSubnets) == 0 {
 		return fmt.Errorf("relayer not configured to relay from any subnets. A list of source subnets must be provided in the configuration file")
@@ -219,6 +241,62 @@ func (c *Config) Validate() error {
 	c.sourceSubnetIDs = sourceSubnetIDs
 	c.sourceBlockchainIDs = sourceBlockchainIDs
 
+	// Validate the manual warp messages
+	for i, msg := range c.ManualWarpMessages {
+		if err := msg.Validate(); err != nil {
+			return fmt.Errorf("invalid manual warp message at index %d: %v", i, err)
+		}
+		c.ManualWarpMessages[i] = msg
+	}
+
+	return nil
+}
+
+func (m *ManualWarpMessage) GetUnsignedMessageBytes() []byte {
+	return m.unsignedMessageBytes
+}
+func (m *ManualWarpMessage) GetSourceBlockchainID() ids.ID {
+	return m.sourceBlockchainID
+}
+func (m *ManualWarpMessage) GetSourceAddress() common.Address {
+	return m.sourceAddress
+}
+func (m *ManualWarpMessage) GetDestinationBlockchainID() ids.ID {
+	return m.destinationBlockchainID
+}
+func (m *ManualWarpMessage) GetDestinationAddress() common.Address {
+	return m.destinationAddress
+}
+
+// Validates the manual Warp message configuration.
+// Does not modify the public fields as derived from the configuration passed to the application,
+// but does initialize private fields available through getters
+func (m *ManualWarpMessage) Validate() error {
+	unsignedMsg, err := hex.DecodeString(utils.SanitizeHexString(m.UnsignedMessageBytes))
+	if err != nil {
+		return err
+	}
+	sourceBlockchainID, err := ids.FromString(m.SourceBlockchainID)
+	if err != nil {
+		return err
+	}
+	sourceAddress, err := hex.DecodeString(utils.SanitizeHexString(m.SourceAddress))
+	if err != nil {
+		return err
+	}
+	destinationBlockchainID, err := ids.FromString(m.DestinationBlockchainID)
+	if err != nil {
+		return err
+	}
+	destinationAddress, err := hex.DecodeString(utils.SanitizeHexString(m.DestinationAddress))
+	if err != nil {
+		return err
+	}
+	m.unsignedMessageBytes = unsignedMsg
+	m.sourceBlockchainID = sourceBlockchainID
+	m.sourceAddress = common.BytesToAddress(sourceAddress)
+	m.destinationBlockchainID = destinationBlockchainID
+	m.destinationAddress = common.BytesToAddress(destinationAddress)
 	return nil
 }
 
@@ -227,6 +305,8 @@ func (s *SourceSubnet) GetSupportedDestinations() set.Set[ids.ID] {
 }
 
 // Validates the source subnet configuration, including verifying that the supported destinations are present in destinationBlockchainIDs
+// Does not modify the public fields as derived from the configuration passed to the application,
+// but does initialize private fields available through getters
 func (s *SourceSubnet) Validate(destinationBlockchainIDs *set.Set[string]) error {
 	if _, err := ids.FromString(s.SubnetID); err != nil {
 		return fmt.Errorf("invalid subnetID in source subnet configuration. Provided ID: %s", s.SubnetID)
@@ -279,6 +359,7 @@ func (s *SourceSubnet) Validate(destinationBlockchainIDs *set.Set[string]) error
 	return nil
 }
 
+// Validatees the destination subnet configuration
 func (s *DestinationSubnet) Validate() error {
 	if _, err := ids.FromString(s.SubnetID); err != nil {
 		return fmt.Errorf("invalid subnetID in source subnet configuration. Provided ID: %s", s.SubnetID)

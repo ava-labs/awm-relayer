@@ -4,7 +4,10 @@
 package evm
 
 import (
+	"errors"
+
 	"github.com/ava-labs/avalanchego/utils/logging"
+	avalancheWarp "github.com/ava-labs/avalanchego/vms/platformvm/warp"
 	warpPayload "github.com/ava-labs/avalanchego/vms/platformvm/warp/payload"
 	"github.com/ava-labs/awm-relayer/config"
 	"github.com/ava-labs/awm-relayer/vms/vmtypes"
@@ -22,14 +25,27 @@ func NewContractMessage(logger logging.Logger, subnetInfo config.SourceSubnet) *
 	}
 }
 
+// Unpacks an AddressedCall payload from an unsigned Warp message.
+// unsignedMsgBytes may be either the raw UnsignedMessage bytes or the ABI encoded bytes as emitted by the Warp precompile
 func (m *contractMessage) UnpackWarpMessage(unsignedMsgBytes []byte) (*vmtypes.WarpMessageInfo, error) {
+	// This function may be called with raw UnsignedMessage bytes or with ABI encoded bytes as emitted by the Warp precompile
+	// The latter case is the steady state behavior, so check that first. The former only occurs on startup.
 	unsignedMsg, err := warp.UnpackSendWarpEventDataToMessage(unsignedMsgBytes)
 	if err != nil {
-		m.logger.Error(
-			"Failed parsing unsigned message",
+		m.logger.Debug(
+			"Failed parsing unsigned message as log. Attempting to parse as standalone message",
 			zap.Error(err),
 		)
-		return nil, err
+		var standaloneErr error
+		unsignedMsg, standaloneErr = avalancheWarp.ParseUnsignedMessage(unsignedMsgBytes)
+		if standaloneErr != nil {
+			err = errors.Join(err, standaloneErr)
+			m.logger.Error(
+				"Failed parsing unsigned message as either log or standalone message",
+				zap.Error(err),
+			)
+			return nil, err
+		}
 	}
 
 	warpPayload, err := warpPayload.ParseAddressedCall(unsignedMsg.Payload)

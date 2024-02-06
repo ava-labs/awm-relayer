@@ -50,6 +50,27 @@ The relayer is configured via a JSON file, the path to which is passed in via th
 `"storage-location": string`
 - The path to the directory in which the relayer will store its state. Defaults to `./awm-relayer-storage`.
 
+`"process-missed-blocks": boolean`
+- Whether or not to process missed blocks on startup. Defaults to `false`.
+
+`"manual-warp-messages": []ManualWarpMessage`
+- The list of Warp messages to relay on startup, independent of the catch-up mechanism or normal operation. Each `ManualWarpMessage` has the following configuration:
+   
+   `"unsigned-message-bytes": string`
+    - The hex-encoded bytes of the unsigned Warp message to relay.
+  
+    `"source-blockchain-id": string`
+    - cb58-encoded Blockchain ID of the source subnet.
+  
+    `"destination-blockchain-id": string`
+    - cb58-encoded Blockchain ID of the destination subnet.
+  
+    `"source-address": string`
+    - The address of the source account that sent the Warp message.
+  
+    `"destination-address": string`
+    - The address of the destination account that will receive the Warp message.
+  
 `"source-subnets": []SourceSubnets`
 - The list of source subnets to support. Each `SourceSubnet` has the following configuration:
 

@@ -61,6 +61,9 @@ var _ = ginkgo.AfterSuite(func() {
 })
 
 var _ = ginkgo.Describe("[AWM Relayer Integration Tests", func() {
+	ginkgo.It("Manually Provided Message", func() {
+		ManualMessage(localNetworkInstance)
+	})
 	ginkgo.It("Basic Relay", func() {
 		BasicRelay(localNetworkInstance)
 	})
