@@ -117,7 +117,6 @@ func (m *messageManager) ShouldSendMessage(unsignedMessage *warp.UnsignedMessage
 		if strings.Contains(err.Error(), revertVersionNotFoundString) {
 			return true, nil
 		}
-
 		m.logger.Error(
 			"Failed to get address from version",
 			zap.Error(err),
@@ -139,7 +138,7 @@ func (m *messageManager) ShouldSendMessage(unsignedMessage *warp.UnsignedMessage
 		if strings.Contains(err.Error(), revertAddressNotFoundString) {
 			return true, nil
 		}
-		m.logger.Info(
+		m.logger.Error(
 			"Failed to get version from address",
 			zap.Error(err),
 		)
