@@ -2,6 +2,23 @@
 
 Reference relayer implementation for cross-chain Avalanche Warp Message delivery.
 
+## Requirements
+### System Requirements
+- Ubuntu 22.04 or later
+  - Tested on x86_64/amd64 architecture. 
+- MacOS 14.3 or later
+  - Tested on arm64 architecture (Apple silicon).
+
+### API Requirements
+- AWM Relayer requires access to Avalanche API nodes for the P-Chain as well as any connected subnets. The API nodes must have the following methods enabled:
+  - Each csubnet API node must have enabled:
+    - eth API (RPC and WS)
+  - The P-Chain API node must have enabled:
+    - info.peers
+    - platform.getHeight
+    - platform.validatedBy
+    - platform.getValidatorsAt OR platform.getCurrentValidators
+
 ## Usage
 
 ### Building
