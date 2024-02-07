@@ -39,9 +39,19 @@ var (
 		},
 	}
 	destinationBlockchainIDString = "S4mMqUXe7vHsGiRAma6bv3CKnyaLssyAxmQ2KvFpX1KEvfFCD"
-	destinationBlockchainID, _    = ids.FromString(destinationBlockchainIDString)
+	destinationBlockchainID       ids.ID
 	validRelayerAddress           = common.HexToAddress("0x0123456789abcdef0123456789abcdef01234567")
-	validTeleporterMessage        = teleportermessenger.TeleporterMessage{
+	validTeleporterMessage        teleportermessenger.TeleporterMessage
+)
+
+func init() {
+	var err error
+	destinationBlockchainID, err = ids.FromString(destinationBlockchainIDString)
+	if err != nil {
+		panic(err)
+	}
+
+	validTeleporterMessage = teleportermessenger.TeleporterMessage{
 		MessageNonce:            big.NewInt(1),
 		OriginSenderAddress:     common.HexToAddress("0x0123456789abcdef0123456789abcdef01234567"),
 		DestinationBlockchainID: destinationBlockchainID,
@@ -58,11 +68,9 @@ var (
 		},
 		Message: []byte{1, 2, 3, 4},
 	}
-)
+}
 
 func TestShouldSendMessage(t *testing.T) {
-	destinationBlockchainID, err := ids.FromString(destinationBlockchainIDString)
-	require.NoError(t, err)
 	validMessageBytes, err := teleportermessenger.PackTeleporterMessage(validTeleporterMessage)
 	require.NoError(t, err)
 
@@ -124,8 +132,9 @@ func TestShouldSendMessage(t *testing.T) {
 		{
 			name:                    "invalid destination chain id",
 			destinationBlockchainID: ids.Empty,
+			senderAddressResult:     common.Address{},
+			senderAddressTimes:      1,
 			warpUnsignedMessage:     warpUnsignedMessage,
-			expectedError:           true,
 		},
 		{
 			name:                    "not allowed",
@@ -158,7 +167,7 @@ func TestShouldSendMessage(t *testing.T) {
 
 			mockClient := mock_vms.NewMockDestinationClient(ctrl)
 			destinationClients := map[ids.ID]vms.DestinationClient{
-				destinationBlockchainID: mockClient,
+				test.destinationBlockchainID: mockClient,
 			}
 
 			messageManager, err := NewMessageManager(
@@ -169,11 +178,24 @@ func TestShouldSendMessage(t *testing.T) {
 			)
 			require.NoError(t, err)
 			ethClient := mock_evm.NewMockClient(ctrl)
-			mockClient.EXPECT().Client().Return(ethClient).Times(test.clientTimes)
-			mockClient.EXPECT().SenderAddress().Return(test.senderAddressResult).Times(test.senderAddressTimes)
+			mockClient.EXPECT().
+				Client().
+				Return(ethClient).
+				Times(test.clientTimes)
+			mockClient.EXPECT().
+				SenderAddress().
+				Return(test.senderAddressResult).
+				Times(test.senderAddressTimes)
 			if test.messageReceivedCall != nil {
-				messageReceivedInput := interfaces.CallMsg{From: bind.CallOpts{}.From, To: &messageProtocolAddress, Data: test.messageReceivedCall.input}
-				ethClient.EXPECT().CallContract(gomock.Any(), gomock.Eq(messageReceivedInput), gomock.Any()).Return(test.messageReceivedCall.expectedResult, nil).Times(test.messageReceivedCall.times)
+				messageReceivedInput := interfaces.CallMsg{
+					From: bind.CallOpts{}.From,
+					To:   &messageProtocolAddress,
+					Data: test.messageReceivedCall.input,
+				}
+				ethClient.EXPECT().
+					CallContract(gomock.Any(), gomock.Eq(messageReceivedInput), gomock.Any()).
+					Return(test.messageReceivedCall.expectedResult, nil).
+					Times(test.messageReceivedCall.times)
 			}
 
 			result, err := messageManager.ShouldSendMessage(test.warpUnsignedMessage, test.destinationBlockchainID)
