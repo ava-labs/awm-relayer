@@ -25,7 +25,6 @@ var (
 const (
 	addProtocolVersionGasLimit  uint64 = 500_000
 	revertVersionNotFoundString        = "TeleporterRegistry: version not found"
-	revertAddressNotFoundString        = "TeleporterRegistry: protocol address not found"
 )
 
 type messageManager struct {
@@ -65,7 +64,8 @@ func NewMessageManager(
 	}, nil
 }
 
-// ShouldSendMessage returns false if the version/protocol address tuple is already registered in the TeleporterRegistry contract.
+// ShouldSendMessage returns false if any contract is already registered as the specified version in the TeleporterRegistry contract.
+// This is because a single contract address can be registered to multiple versions, but each version may only map to a single contract address.
 func (m *messageManager) ShouldSendMessage(unsignedMessage *warp.UnsignedMessage, destinationBlockchainID ids.ID) (bool, error) {
 	addressedPayload, err := warpPayload.ParseAddressedCall(unsignedMessage.Payload)
 	if err != nil {
@@ -102,7 +102,7 @@ func (m *messageManager) ShouldSendMessage(unsignedMessage *warp.UnsignedMessage
 		panic(fmt.Sprintf("Destination client for chain %s is not an Ethereum client", destinationClient.DestinationBlockchainID().String()))
 	}
 
-	// Check if the version/protocol address tuple is already registered in the TeleporterRegistry contract.
+	// Check if the version is already registered in the TeleporterRegistry contract.
 	registry, err := teleporterregistry.NewTeleporterRegistryCaller(m.registryAddress, client)
 	if err != nil {
 		m.logger.Error(
@@ -113,7 +113,6 @@ func (m *messageManager) ShouldSendMessage(unsignedMessage *warp.UnsignedMessage
 	}
 	address, err := registry.GetAddressFromVersion(&bind.CallOpts{}, entry.Version)
 	if err != nil {
-		// Check if execution reverted due to the version not being found
 		if strings.Contains(err.Error(), revertVersionNotFoundString) {
 			return true, nil
 		}
@@ -123,37 +122,13 @@ func (m *messageManager) ShouldSendMessage(unsignedMessage *warp.UnsignedMessage
 		)
 		return false, err
 	}
-	if address == entry.ProtocolAddress {
-		m.logger.Info(
-			"Version/protocol address tuple is already registered in the TeleporterRegistry contract",
-			zap.String("version", entry.Version.String()),
-			zap.String("protocolAddress", entry.ProtocolAddress.String()),
-		)
-		return false, nil
-	}
 
-	version, err := registry.GetVersionFromAddress(&bind.CallOpts{}, entry.ProtocolAddress)
-	if err != nil {
-		// Check if execution reverted due to the address not being found
-		if strings.Contains(err.Error(), revertAddressNotFoundString) {
-			return true, nil
-		}
-		m.logger.Error(
-			"Failed to get version from address",
-			zap.Error(err),
-		)
-		return false, err
-	}
-	if version.Cmp(entry.Version) == 0 {
-		m.logger.Info(
-			"Version/protocol address tuple is already registered in the TeleporterRegistry contract",
-			zap.String("version", entry.Version.String()),
-			zap.String("protocolAddress", entry.ProtocolAddress.String()),
-		)
-		return false, nil
-	}
-
-	return true, nil
+	m.logger.Info(
+		"Version is already registered in the TeleporterRegistry contract",
+		zap.String("version", entry.Version.String()),
+		zap.String("registeredAddress", address.String()),
+	)
+	return false, nil
 }
 
 func (m *messageManager) SendMessage(signedMessage *warp.Message, destinationBlockchainID ids.ID) error {
