@@ -53,6 +53,7 @@ var _ = ginkgo.BeforeSuite(func() {
 		true,
 	)
 	log.Info("Deployed Teleporter contracts")
+	localNetworkInstance.DeployTeleporterRegistryContracts(teleporterContractAddress, fundedKey)
 	log.Info("Set up ginkgo before suite")
 })
 
@@ -66,5 +67,8 @@ var _ = ginkgo.Describe("[AWM Relayer Integration Tests", func() {
 	})
 	ginkgo.It("Basic Relay", func() {
 		BasicRelay(localNetworkInstance)
+	})
+	ginkgo.It("Teleporter Registry", func() {
+		TeleporterRegistry(localNetworkInstance)
 	})
 })

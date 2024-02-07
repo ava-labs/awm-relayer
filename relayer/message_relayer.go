@@ -21,7 +21,6 @@ import (
 	"github.com/ava-labs/awm-relayer/messages"
 	"github.com/ava-labs/awm-relayer/peers"
 	"github.com/ava-labs/awm-relayer/utils"
-	"github.com/ava-labs/awm-relayer/vms/vmtypes"
 	coreEthMsg "github.com/ava-labs/coreth/plugin/evm/message"
 	msg "github.com/ava-labs/subnet-evm/plugin/evm/message"
 	"github.com/ava-labs/subnet-evm/precompile/contracts/warp"
@@ -68,8 +67,8 @@ func newMessageRelayer(
 	}
 }
 
-func (r *messageRelayer) relayMessage(warpMessageInfo *vmtypes.WarpMessageInfo, requestID uint32, messageManager messages.MessageManager, useAppRequestNetwork bool) error {
-	shouldSend, err := messageManager.ShouldSendMessage(warpMessageInfo, r.destinationBlockchainID)
+func (r *messageRelayer) relayMessage(unsignedMessage *avalancheWarp.UnsignedMessage, requestID uint32, messageManager messages.MessageManager, useAppRequestNetwork bool) error {
+	shouldSend, err := messageManager.ShouldSendMessage(unsignedMessage, r.destinationBlockchainID)
 	if err != nil {
 		r.relayer.logger.Error(
 			"Failed to check if message should be sent",
@@ -113,7 +112,7 @@ func (r *messageRelayer) relayMessage(warpMessageInfo *vmtypes.WarpMessageInfo, 
 	// create signed message latency (ms)
 	r.setCreateSignedMessageLatencyMS(float64(time.Since(startCreateSignedMessageTime).Milliseconds()))
 
-	err = messageManager.SendMessage(signedMessage, warpMessageInfo.WarpPayload, r.destinationBlockchainID)
+	err = messageManager.SendMessage(signedMessage, r.destinationBlockchainID)
 	if err != nil {
 		r.relayer.logger.Error(
 			"Failed to send warp message",

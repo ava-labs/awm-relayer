@@ -11,9 +11,9 @@ import (
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/avalanchego/vms/platformvm/warp"
+	warpPayload "github.com/ava-labs/avalanchego/vms/platformvm/warp/payload"
 	"github.com/ava-labs/awm-relayer/config"
 	"github.com/ava-labs/awm-relayer/vms"
-	"github.com/ava-labs/awm-relayer/vms/vmtypes"
 	"github.com/ava-labs/subnet-evm/accounts/abi/bind"
 	"github.com/ava-labs/subnet-evm/ethclient"
 	teleportermessenger "github.com/ava-labs/teleporter/abi-bindings/go/Teleporter/TeleporterMessenger"
@@ -89,30 +89,30 @@ func isAllowedRelayer(allowedRelayers []common.Address, eoa common.Address) bool
 	return false
 }
 
-func (m *messageManager) GetDestinationBlockchainID(warpMessageInfo *vmtypes.WarpMessageInfo) (ids.ID, error) {
-	teleporterMessage, err := m.parseTeleporterMessage(warpMessageInfo.WarpUnsignedMessage.ID(), warpMessageInfo.WarpPayload)
+func (m *messageManager) GetDestinationBlockchainID(unsignedMessage *warp.UnsignedMessage) (ids.ID, error) {
+	teleporterMessage, err := m.parseTeleporterMessage(unsignedMessage)
 	if err != nil {
 		m.logger.Error(
 			"Failed get teleporter message.",
-			zap.String("warpMessageID", warpMessageInfo.WarpUnsignedMessage.ID().String()),
+			zap.String("warpMessageID", unsignedMessage.ID().String()),
 		)
 		return ids.ID{}, err
 	}
 
 	// Cache the message so it can be reused in SendMessage
-	m.teleporterMessageCache.Put(warpMessageInfo.WarpUnsignedMessage.ID(), teleporterMessage)
+	m.teleporterMessageCache.Put(unsignedMessage.ID(), teleporterMessage)
 
 	return teleporterMessage.DestinationBlockchainID, nil
 }
 
 // ShouldSendMessage returns true if the message should be sent to the destination chain
-func (m *messageManager) ShouldSendMessage(warpMessageInfo *vmtypes.WarpMessageInfo, destinationBlockchainID ids.ID) (bool, error) {
-	teleporterMessage, err := m.parseTeleporterMessage(warpMessageInfo.WarpUnsignedMessage.ID(), warpMessageInfo.WarpPayload)
+func (m *messageManager) ShouldSendMessage(unsignedMessage *warp.UnsignedMessage, destinationBlockchainID ids.ID) (bool, error) {
+	teleporterMessage, err := m.parseTeleporterMessage(unsignedMessage)
 	if err != nil {
 		m.logger.Error(
 			"Failed get teleporter message.",
 			zap.String("destinationBlockchainID", destinationBlockchainID.String()),
-			zap.String("warpMessageID", warpMessageInfo.WarpUnsignedMessage.ID().String()),
+			zap.String("warpMessageID", unsignedMessage.ID().String()),
 			zap.Error(err),
 		)
 		return false, err
@@ -126,7 +126,7 @@ func (m *messageManager) ShouldSendMessage(warpMessageInfo *vmtypes.WarpMessageI
 
 	teleporterMessageID, err := teleporterUtils.CalculateMessageID(
 		m.protocolAddress,
-		warpMessageInfo.WarpUnsignedMessage.SourceChainID,
+		unsignedMessage.SourceChainID,
 		destinationBlockchainID,
 		teleporterMessage.MessageNonce,
 	)
@@ -139,7 +139,7 @@ func (m *messageManager) ShouldSendMessage(warpMessageInfo *vmtypes.WarpMessageI
 		m.logger.Info(
 			"Relayer EOA not allowed to deliver this message.",
 			zap.String("destinationBlockchainID", destinationBlockchainID.String()),
-			zap.String("warpMessageID", warpMessageInfo.WarpUnsignedMessage.ID().String()),
+			zap.String("warpMessageID", unsignedMessage.ID().String()),
 			zap.String("teleporterMessageID", teleporterMessageID.String()),
 		)
 		return false, nil
@@ -152,7 +152,7 @@ func (m *messageManager) ShouldSendMessage(warpMessageInfo *vmtypes.WarpMessageI
 		m.logger.Error(
 			"Failed to check if message has been delivered to destination chain.",
 			zap.String("destinationBlockchainID", destinationBlockchainID.String()),
-			zap.String("warpMessageID", warpMessageInfo.WarpUnsignedMessage.ID().String()),
+			zap.String("warpMessageID", unsignedMessage.ID().String()),
 			zap.String("teleporterMessageID", teleporterMessageID.String()),
 			zap.Error(err),
 		)
@@ -168,14 +168,14 @@ func (m *messageManager) ShouldSendMessage(warpMessageInfo *vmtypes.WarpMessageI
 	}
 
 	// Cache the message so it can be reused in SendMessage
-	m.teleporterMessageCache.Put(warpMessageInfo.WarpUnsignedMessage.ID(), teleporterMessage)
+	m.teleporterMessageCache.Put(unsignedMessage.ID(), teleporterMessage)
 	return true, nil
 }
 
 // SendMessage extracts the gasLimit and packs the call data to call the receiveCrossChainMessage method of the Teleporter contract,
 // and dispatches transaction construction and broadcast to the destination client
-func (m *messageManager) SendMessage(signedMessage *warp.Message, parsedVmPayload []byte, destinationBlockchainID ids.ID) error {
-	teleporterMessage, err := m.parseTeleporterMessage(signedMessage.ID(), parsedVmPayload)
+func (m *messageManager) SendMessage(signedMessage *warp.Message, destinationBlockchainID ids.ID) error {
+	teleporterMessage, err := m.parseTeleporterMessage(&signedMessage.UnsignedMessage)
 	if err != nil {
 		m.logger.Error(
 			"Failed get teleporter message.",
@@ -261,21 +261,28 @@ func (m *messageManager) SendMessage(signedMessage *warp.Message, parsedVmPayloa
 
 // parseTeleporterMessage returns the Warp message's corresponding Teleporter message from the cache if it exists.
 // Otherwise parses the Warp message payload.
-func (m *messageManager) parseTeleporterMessage(warpMessageID ids.ID, warpPayload []byte) (*teleportermessenger.TeleporterMessage, error) {
+func (m *messageManager) parseTeleporterMessage(unsignedMessage *warp.UnsignedMessage) (*teleportermessenger.TeleporterMessage, error) {
 	// Check if the message has already been parsed
-	teleporterMessage, ok := m.teleporterMessageCache.Get(warpMessageID)
+	teleporterMessage, ok := m.teleporterMessageCache.Get(unsignedMessage.ID())
 	if !ok {
 		// If not, parse the message
 		m.logger.Debug(
 			"Teleporter message to send not in cache. Extracting from signed warp message.",
-			zap.String("warpMessageID", warpMessageID.String()),
+			zap.String("warpMessageID", unsignedMessage.ID().String()),
 		)
-		var err error
-		teleporterMessage, err = teleportermessenger.UnpackTeleporterMessage(warpPayload)
+		addressedPayload, err := warpPayload.ParseAddressedCall(unsignedMessage.Payload)
+		if err != nil {
+			m.logger.Error(
+				"Failed parsing addressed payload",
+				zap.Error(err),
+			)
+			return nil, err
+		}
+		teleporterMessage, err = teleportermessenger.UnpackTeleporterMessage(addressedPayload.Payload)
 		if err != nil {
 			m.logger.Error(
 				"Failed unpacking teleporter message.",
-				zap.String("warpMessageID", warpMessageID.String()),
+				zap.String("warpMessageID", unsignedMessage.ID().String()),
 			)
 			return nil, err
 		}
