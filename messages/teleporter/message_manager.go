@@ -6,7 +6,6 @@ package teleporter
 import (
 	"encoding/json"
 	"fmt"
-	"math/big"
 
 	"github.com/ava-labs/avalanchego/cache"
 	"github.com/ava-labs/avalanchego/ids"
@@ -19,6 +18,7 @@ import (
 	"github.com/ava-labs/subnet-evm/ethclient"
 	teleportermessenger "github.com/ava-labs/teleporter/abi-bindings/go/Teleporter/TeleporterMessenger"
 	gasUtils "github.com/ava-labs/teleporter/utils/gas-utils"
+	teleporterUtils "github.com/ava-labs/teleporter/utils/teleporter-utils"
 	"github.com/ethereum/go-ethereum/common"
 	"go.uber.org/zap"
 )
@@ -124,10 +124,14 @@ func (m *messageManager) ShouldSendMessage(unsignedMessage *warp.UnsignedMessage
 		return false, fmt.Errorf("relayer not configured to deliver to destination. destinationBlockchainID=%s", destinationBlockchainID.String())
 	}
 
-	teleporterMessenger := m.getTeleporterMessenger(destinationClient)
-	teleporterMessageID, err := m.calculateMessageID(teleporterMessenger, unsignedMessage.SourceChainID, destinationBlockchainID, teleporterMessage.MessageNonce)
+	teleporterMessageID, err := teleporterUtils.CalculateMessageID(
+		m.protocolAddress,
+		unsignedMessage.SourceChainID,
+		destinationBlockchainID,
+		teleporterMessage.MessageNonce,
+	)
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("failed to calculate Teleporter message ID: %w", err)
 	}
 
 	senderAddress := destinationClient.SenderAddress()
@@ -142,6 +146,7 @@ func (m *messageManager) ShouldSendMessage(unsignedMessage *warp.UnsignedMessage
 	}
 
 	// Check if the message has already been delivered to the destination chain
+	teleporterMessenger := m.getTeleporterMessenger(destinationClient)
 	delivered, err := teleporterMessenger.MessageReceived(&bind.CallOpts{}, teleporterMessageID)
 	if err != nil {
 		m.logger.Error(
@@ -186,10 +191,14 @@ func (m *messageManager) SendMessage(signedMessage *warp.Message, destinationBlo
 		return fmt.Errorf("relayer not configured to deliver to destination. DestinationBlockchainID=%s", destinationBlockchainID)
 	}
 
-	teleporterMessenger := m.getTeleporterMessenger(destinationClient)
-	teleporterMessageID, err := m.calculateMessageID(teleporterMessenger, signedMessage.SourceChainID, destinationBlockchainID, teleporterMessage.MessageNonce)
+	teleporterMessageID, err := teleporterUtils.CalculateMessageID(
+		m.protocolAddress,
+		signedMessage.SourceChainID,
+		destinationBlockchainID,
+		teleporterMessage.MessageNonce,
+	)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to calculate Teleporter message ID: %w", err)
 	}
 
 	m.logger.Info(
@@ -296,19 +305,4 @@ func (m *messageManager) getTeleporterMessenger(destinationClient vms.Destinatio
 		panic("Failed to get teleporter messenger contract")
 	}
 	return teleporterMessenger
-}
-
-func (m *messageManager) calculateMessageID(teleporter *teleportermessenger.TeleporterMessenger, sourceBlockchainID ids.ID, destinationBlockchainID ids.ID, messageNonce *big.Int) (ids.ID, error) {
-	messageID, err := teleporter.CalculateMessageID(&bind.CallOpts{}, sourceBlockchainID, destinationBlockchainID, messageNonce)
-	if err != nil {
-		m.logger.Error(
-			"Failed to calculate message ID",
-			zap.String("sourceBlockchainID", sourceBlockchainID.String()),
-			zap.String("destinationBlockchainID", destinationBlockchainID.String()),
-			zap.Error(err),
-		)
-		return ids.Empty, err
-	}
-
-	return messageID, nil
 }

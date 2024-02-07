@@ -16,7 +16,7 @@ Build the relayer by running the script:
 
 Build a Docker image by running the script:
 ```
-./scripts/build-local-image.sh
+./scripts/build_local_image.sh
 ```
 
 ### Running
