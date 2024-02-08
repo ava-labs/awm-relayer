@@ -1,6 +1,7 @@
 module github.com/ava-labs/awm-relayer
 
-go 1.20
+// Patch version for go is set in versions.sh
+go 1.21
 
 require (
 	github.com/ava-labs/avalanche-network-runner v1.7.4-rc.0

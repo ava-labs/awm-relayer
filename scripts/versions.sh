@@ -3,7 +3,7 @@
 # See the file LICENSE for licensing terms.
 
 # The go version for this project is set from a combination of major.minor from go.mod and the patch version set here.
-GO_PATCH_VERSION=12
+GO_PATCH_VERSION=7
 
 RELAYER_PATH=$(
   cd "$(dirname "${BASH_SOURCE[0]}")"
@@ -23,3 +23,6 @@ export GO_VERSION=${GO_VERSION:-$(getDepVersion go).$GO_PATCH_VERSION}
 AVALANCHEGO_VERSION=${AVALANCHEGO_VERSION:-$(getDepVersion github.com/ava-labs/avalanchego)}
 GINKGO_VERSION=${GINKGO_VERSION:-$(getDepVersion github.com/onsi/ginkgo/v2)}
 SUBNET_EVM_VERSION=${SUBNET_EVM_VERSION:-$(getDepVersion github.com/ava-labs/subnet-evm)}
+
+# Set golangci-lint version
+GOLANGCI_LINT_VERSION=${GOLANGCI_LINT_VERSION:-'v1.55'}
