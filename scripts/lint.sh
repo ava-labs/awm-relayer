@@ -11,4 +11,7 @@ RELAYER_PATH=$(
     cd .. && pwd
 )
 
+source $RELAYER_PATH/scripts/versions.sh
+
+go install -v github.com/golangci/golangci-lint/cmd/golangci-lint@${GOLANGCI_LINT_VERSION}
 golangci-lint run --config=$RELAYER_PATH/.golangci.yml ./... --timeout 5m
