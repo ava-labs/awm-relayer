@@ -13,9 +13,14 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/awm-relayer/utils"
+	mock_ethclient "github.com/ava-labs/awm-relayer/vms/evm/mocks"
+	"github.com/ava-labs/subnet-evm/params"
+	"github.com/ava-labs/subnet-evm/precompile/contracts/warp"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 )
 
 var (
@@ -29,7 +34,7 @@ var (
 		NetworkID:         1337,
 		PChainAPIURL:      "http://test.avax.network",
 		EncryptConnection: false,
-		SourceSubnets: []SourceSubnet{
+		SourceSubnets: []*SourceSubnet{
 			{
 				APINodeHost:       "http://test.avax.network",
 				APINodePort:       0,
@@ -44,7 +49,7 @@ var (
 				},
 			},
 		},
-		DestinationSubnets: []DestinationSubnet{
+		DestinationSubnets: []*DestinationSubnet{
 			{
 				APINodeHost:       "http://test.avax.network",
 				APINodePort:       0,
@@ -335,10 +340,10 @@ func TestGetRelayerAccountPrivateKey_set_pk_with_subnet_env(t *testing.T) {
 		baseConfig: testValidConfig,
 		configModifier: func(c Config) Config {
 			// Add a second destination subnet. This PK should NOT be overwritten
-			newSubnet := c.DestinationSubnets[0]
+			newSubnet := *c.DestinationSubnets[0]
 			newSubnet.BlockchainID = testBlockchainID2
 			newSubnet.AccountPrivateKey = testPk1
-			c.DestinationSubnets = append(c.DestinationSubnets, newSubnet)
+			c.DestinationSubnets = append(c.DestinationSubnets, &newSubnet)
 			return c
 		},
 		envSetter: func() {
@@ -367,10 +372,10 @@ func TestGetRelayerAccountPrivateKey_set_pk_with_global_env(t *testing.T) {
 		baseConfig: testValidConfig,
 		configModifier: func(c Config) Config {
 			// Add a second destination subnet. This PK SHOULD be overwritten
-			newSubnet := c.DestinationSubnets[0]
+			newSubnet := *c.DestinationSubnets[0]
 			newSubnet.BlockchainID = testBlockchainID2
 			newSubnet.AccountPrivateKey = testPk1
-			c.DestinationSubnets = append(c.DestinationSubnets, newSubnet)
+			c.DestinationSubnets = append(c.DestinationSubnets, &newSubnet)
 			return c
 		},
 		envSetter: func() {
@@ -410,4 +415,130 @@ func TestGetRelayerAccountInfoSkipChainConfigCheckCompatible(t *testing.T) {
 
 	require.NoError(t, err)
 	require.Equal(t, expectedAddress, address.String())
+}
+
+func TestGetWarpQuorum(t *testing.T) {
+	blockchainID, err := ids.FromString("p433wpuXyJiDhyazPYyZMJeaoPSW76CBZ2x7wrVPLgvokotXz")
+	require.NoError(t, err)
+	subnetID, err := ids.FromString("2PsShLjrFFwR51DMcAh8pyuwzLn1Ym3zRhuXLTmLCR1STk2mL6")
+	require.NoError(t, err)
+
+	testCases := []struct {
+		name                string
+		blockchainID        ids.ID
+		subnetID            ids.ID
+		chainConfig         params.ChainConfigWithUpgradesJSON
+		getChainConfigCalls int
+		expectedError       error
+		expectedQuorum      WarpQuorum
+	}{
+		{
+			name:                "primary network",
+			blockchainID:        blockchainID,
+			subnetID:            ids.Empty,
+			getChainConfigCalls: 0,
+			expectedError:       nil,
+			expectedQuorum: WarpQuorum{
+				QuorumNumerator:   warp.WarpDefaultQuorumNumerator,
+				QuorumDenominator: warp.WarpQuorumDenominator,
+			},
+		},
+		{
+			name:                "subnet genesis precompile",
+			blockchainID:        blockchainID,
+			subnetID:            subnetID,
+			getChainConfigCalls: 1,
+			chainConfig: params.ChainConfigWithUpgradesJSON{
+				ChainConfig: params.ChainConfig{
+					GenesisPrecompiles: params.Precompiles{
+						warpConfigKey: &warp.Config{
+							QuorumNumerator: 0,
+						},
+					},
+				},
+			},
+			expectedError: nil,
+			expectedQuorum: WarpQuorum{
+				QuorumNumerator:   warp.WarpDefaultQuorumNumerator,
+				QuorumDenominator: warp.WarpQuorumDenominator,
+			},
+		},
+		{
+			name:                "subnet genesis precompile non-default",
+			blockchainID:        blockchainID,
+			subnetID:            subnetID,
+			getChainConfigCalls: 1,
+			chainConfig: params.ChainConfigWithUpgradesJSON{
+				ChainConfig: params.ChainConfig{
+					GenesisPrecompiles: params.Precompiles{
+						warpConfigKey: &warp.Config{
+							QuorumNumerator: 50,
+						},
+					},
+				},
+			},
+			expectedError: nil,
+			expectedQuorum: WarpQuorum{
+				QuorumNumerator:   50,
+				QuorumDenominator: warp.WarpQuorumDenominator,
+			},
+		},
+		{
+			name:                "subnet upgrade precompile",
+			blockchainID:        blockchainID,
+			subnetID:            subnetID,
+			getChainConfigCalls: 1,
+			chainConfig: params.ChainConfigWithUpgradesJSON{
+				UpgradeConfig: params.UpgradeConfig{
+					PrecompileUpgrades: []params.PrecompileUpgrade{
+						{
+							Config: &warp.Config{
+								QuorumNumerator: 0,
+							},
+						},
+					},
+				},
+			},
+			expectedError: nil,
+			expectedQuorum: WarpQuorum{
+				QuorumNumerator:   warp.WarpDefaultQuorumNumerator,
+				QuorumDenominator: warp.WarpQuorumDenominator,
+			},
+		},
+		{
+			name:                "subnet upgrade precompile non-default",
+			blockchainID:        blockchainID,
+			subnetID:            subnetID,
+			getChainConfigCalls: 1,
+			chainConfig: params.ChainConfigWithUpgradesJSON{
+				UpgradeConfig: params.UpgradeConfig{
+					PrecompileUpgrades: []params.PrecompileUpgrade{
+						{
+							Config: &warp.Config{
+								QuorumNumerator: 50,
+							},
+						},
+					},
+				},
+			},
+			expectedError: nil,
+			expectedQuorum: WarpQuorum{
+				QuorumNumerator:   50,
+				QuorumDenominator: warp.WarpQuorumDenominator,
+			},
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			client := mock_ethclient.NewMockClient(gomock.NewController(t))
+			gomock.InOrder(
+				client.EXPECT().ChainConfig(gomock.Any()).Return(&testCase.chainConfig, nil).Times(testCase.getChainConfigCalls),
+			)
+
+			quorum, err := getWarpQuorum(testCase.subnetID, testCase.blockchainID, client)
+			require.Equal(t, testCase.expectedError, err)
+			require.Equal(t, testCase.expectedQuorum, quorum)
+		})
+	}
 }

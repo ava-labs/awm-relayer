@@ -63,6 +63,7 @@ type Relayer struct {
 	messageCreator           message.Creator
 	catchUpResultChan        chan bool
 	healthStatus             *atomic.Bool
+	globalConfig             config.Config
 }
 
 func NewRelayer(
@@ -75,8 +76,8 @@ func NewRelayer(
 	responseChan chan message.InboundMessage,
 	destinationClients map[ids.ID]vms.DestinationClient,
 	messageCreator message.Creator,
-	shouldProcessMissedBlocks bool,
 	relayerHealth *atomic.Bool,
+	cfg config.Config,
 ) (*Relayer, error) {
 	sub := vms.NewSubscriber(logger, sourceSubnetInfo)
 
@@ -162,6 +163,7 @@ func NewRelayer(
 		messageCreator:           messageCreator,
 		catchUpResultChan:        catchUpResultChan,
 		healthStatus:             relayerHealth,
+		globalConfig:             cfg,
 	}
 
 	// Open the subscription. We must do this before processing any missed messages, otherwise we may miss an incoming message
@@ -175,7 +177,7 @@ func NewRelayer(
 		return nil, err
 	}
 
-	if shouldProcessMissedBlocks {
+	if r.globalConfig.ProcessMissedBlocks {
 		height, err := r.calculateStartingBlockHeight(sourceSubnetInfo.StartBlockHeight)
 		if err != nil {
 			logger.Error(
@@ -380,7 +382,7 @@ func (r *Relayer) RelayMessage(warpLogInfo *vmtypes.WarpLogInfo, storeProcessedH
 		zap.String("blockchainID", r.sourceBlockchainID.String()),
 	)
 	// Unpack the VM message bytes into a Warp message
-	warpMessageInfo, err := r.contractMessage.UnpackWarpMessage(warpLogInfo.UnsignedMsgBytes)
+	unsignedMessage, err := r.contractMessage.UnpackWarpMessage(warpLogInfo.UnsignedMsgBytes)
 	if err != nil {
 		r.logger.Error(
 			"Failed to unpack sender message",
@@ -392,7 +394,7 @@ func (r *Relayer) RelayMessage(warpLogInfo *vmtypes.WarpLogInfo, storeProcessedH
 	r.logger.Info(
 		"Unpacked warp message",
 		zap.String("blockchainID", r.sourceBlockchainID.String()),
-		zap.String("warpMessageID", warpMessageInfo.WarpUnsignedMessage.ID().String()),
+		zap.String("warpMessageID", unsignedMessage.ID().String()),
 	)
 
 	// Check that the warp message is from a support message protocol contract address.
@@ -407,7 +409,7 @@ func (r *Relayer) RelayMessage(warpLogInfo *vmtypes.WarpLogInfo, storeProcessedH
 		return nil
 	}
 
-	destinationBlockchainID, err := messageManager.GetDestinationBlockchainID(warpMessageInfo)
+	destinationBlockchainID, err := messageManager.GetDestinationBlockchainID(unsignedMessage)
 	if err != nil {
 		r.logger.Error(
 			"Failed to get destination chain ID",
@@ -427,7 +429,7 @@ func (r *Relayer) RelayMessage(warpLogInfo *vmtypes.WarpLogInfo, storeProcessedH
 	}
 
 	// Create and run the message relayer to attempt to deliver the message to the destination chain
-	messageRelayer := newMessageRelayer(r, warpMessageInfo.WarpUnsignedMessage, destinationBlockchainID)
+	messageRelayer, err := newMessageRelayer(r, unsignedMessage, destinationBlockchainID)
 	if err != nil {
 		r.logger.Error(
 			"Failed to create message relayer",
@@ -439,12 +441,12 @@ func (r *Relayer) RelayMessage(warpLogInfo *vmtypes.WarpLogInfo, storeProcessedH
 	// Relay the message to the destination. Messages from a given source chain must be processed in serial in order to
 	// guarantee that the previous block (n-1) is fully processed by the relayer when processing a given log from block n.
 	// TODO: Add a config option to use the Warp API, instead of hardcoding to the app request network here
-	err = messageRelayer.relayMessage(warpMessageInfo, r.currentRequestID, messageManager, true)
+	err = messageRelayer.relayMessage(unsignedMessage, r.currentRequestID, messageManager, true)
 	if err != nil {
 		r.logger.Error(
 			"Failed to run message relayer",
 			zap.String("blockchainID", r.sourceBlockchainID.String()),
-			zap.String("warpMessageID", warpMessageInfo.WarpUnsignedMessage.ID().String()),
+			zap.String("warpMessageID", unsignedMessage.ID().String()),
 			zap.Error(err),
 		)
 		return err

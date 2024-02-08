@@ -6,7 +6,7 @@ package relayer
 import (
 	"bytes"
 	"context"
-	"fmt"
+	"errors"
 	"math/big"
 	"time"
 
@@ -18,13 +18,12 @@ import (
 	"github.com/ava-labs/avalanchego/utils/crypto/bls"
 	"github.com/ava-labs/avalanchego/utils/set"
 	avalancheWarp "github.com/ava-labs/avalanchego/vms/platformvm/warp"
+	"github.com/ava-labs/awm-relayer/config"
 	"github.com/ava-labs/awm-relayer/messages"
 	"github.com/ava-labs/awm-relayer/peers"
 	"github.com/ava-labs/awm-relayer/utils"
-	"github.com/ava-labs/awm-relayer/vms/vmtypes"
 	coreEthMsg "github.com/ava-labs/coreth/plugin/evm/message"
 	msg "github.com/ava-labs/subnet-evm/plugin/evm/message"
-	"github.com/ava-labs/subnet-evm/precompile/contracts/warp"
 	warpBackend "github.com/ava-labs/subnet-evm/warp"
 	"go.uber.org/zap"
 )
@@ -42,8 +41,8 @@ var (
 	codec        = msg.Codec
 	coreEthCodec = coreEthMsg.Codec
 	// Errors
-	errNotEnoughSignatures = fmt.Errorf("failed to collect a threshold of signatures")
-	errFailedToGetAggSig   = fmt.Errorf("failed to get aggregate signature from node endpoint")
+	errNotEnoughSignatures = errors.New("failed to collect a threshold of signatures")
+	errFailedToGetAggSig   = errors.New("failed to get aggregate signature from node endpoint")
 )
 
 // messageRelayers are created for each warp message to be relayed.
@@ -54,22 +53,33 @@ type messageRelayer struct {
 	relayer                 *Relayer
 	warpMessage             *avalancheWarp.UnsignedMessage
 	destinationBlockchainID ids.ID
+	warpQuorum              config.WarpQuorum
 }
 
 func newMessageRelayer(
 	relayer *Relayer,
 	warpMessage *avalancheWarp.UnsignedMessage,
 	destinationBlockchainID ids.ID,
-) *messageRelayer {
+) (*messageRelayer, error) {
+	quorum, err := relayer.globalConfig.GetWarpQuorum(destinationBlockchainID)
+	if err != nil {
+		relayer.logger.Error(
+			"Failed to get warp quorum",
+			zap.Error(err),
+			zap.String("destinationBlockchainID", destinationBlockchainID.String()),
+		)
+		return nil, err
+	}
 	return &messageRelayer{
 		relayer:                 relayer,
 		warpMessage:             warpMessage,
 		destinationBlockchainID: destinationBlockchainID,
-	}
+		warpQuorum:              quorum,
+	}, nil
 }
 
-func (r *messageRelayer) relayMessage(warpMessageInfo *vmtypes.WarpMessageInfo, requestID uint32, messageManager messages.MessageManager, useAppRequestNetwork bool) error {
-	shouldSend, err := messageManager.ShouldSendMessage(warpMessageInfo, r.destinationBlockchainID)
+func (r *messageRelayer) relayMessage(unsignedMessage *avalancheWarp.UnsignedMessage, requestID uint32, messageManager messages.MessageManager, useAppRequestNetwork bool) error {
+	shouldSend, err := messageManager.ShouldSendMessage(unsignedMessage, r.destinationBlockchainID)
 	if err != nil {
 		r.relayer.logger.Error(
 			"Failed to check if message should be sent",
@@ -113,7 +123,7 @@ func (r *messageRelayer) relayMessage(warpMessageInfo *vmtypes.WarpMessageInfo, 
 	// create signed message latency (ms)
 	r.setCreateSignedMessageLatencyMS(float64(time.Since(startCreateSignedMessageTime).Milliseconds()))
 
-	err = messageManager.SendMessage(signedMessage, warpMessageInfo.WarpPayload, r.destinationBlockchainID)
+	err = messageManager.SendMessage(signedMessage, r.destinationBlockchainID)
 	if err != nil {
 		r.relayer.logger.Error(
 			"Failed to send warp message",
@@ -168,7 +178,7 @@ func (r *messageRelayer) createSignedMessage() (*avalancheWarp.Message, error) {
 		signedWarpMessageBytes, err = warpClient.GetMessageAggregateSignature(
 			context.Background(),
 			r.warpMessage.ID(),
-			warp.WarpDefaultQuorumNumerator,
+			r.warpQuorum.QuorumNumerator,
 			signingSubnetID.String(),
 		)
 		if err == nil {
@@ -396,7 +406,12 @@ func (r *messageRelayer) createSignedMessageAppRequest(requestID uint32) (*avala
 					}
 
 					// As soon as the signatures exceed the stake weight threshold we try to aggregate and send the transaction.
-					if utils.CheckStakeWeightExceedsThreshold(accumulatedSignatureWeight, totalValidatorWeight, warp.WarpDefaultQuorumNumerator, warp.WarpQuorumDenominator) {
+					if utils.CheckStakeWeightExceedsThreshold(
+						accumulatedSignatureWeight,
+						totalValidatorWeight,
+						r.warpQuorum.QuorumNumerator,
+						r.warpQuorum.QuorumDenominator,
+					) {
 						aggSig, vdrBitSet, err := r.aggregateSignatures(signatureMap)
 						if err != nil {
 							r.relayer.logger.Error(

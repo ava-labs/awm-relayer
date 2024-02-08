@@ -61,7 +61,7 @@ func ManualMessage(network interfaces.LocalNetwork) {
 		fundedAddress,
 		relayerKey,
 	)
-	relayerConfig.ManualWarpMessages = []config.ManualWarpMessage{
+	relayerConfig.ManualWarpMessages = []*config.ManualWarpMessage{
 		{
 			UnsignedMessageBytes:    hex.EncodeToString(msg1.Bytes()),
 			SourceBlockchainID:      subnetAInfo.BlockchainID.String(),

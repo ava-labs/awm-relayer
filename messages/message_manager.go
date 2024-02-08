@@ -12,9 +12,9 @@ import (
 	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/avalanchego/vms/platformvm/warp"
 	"github.com/ava-labs/awm-relayer/config"
+	offchainregistry "github.com/ava-labs/awm-relayer/messages/off-chain-registry"
 	"github.com/ava-labs/awm-relayer/messages/teleporter"
 	"github.com/ava-labs/awm-relayer/vms"
-	"github.com/ava-labs/awm-relayer/vms/vmtypes"
 	"github.com/ethereum/go-ethereum/common"
 )
 
@@ -23,12 +23,14 @@ import (
 type MessageManager interface {
 	// ShouldSendMessage returns true if the message should be sent to the destination chain
 	// If an error is returned, the boolean should be ignored by the caller.
-	ShouldSendMessage(warpMessageInfo *vmtypes.WarpMessageInfo, destinationBlockchainID ids.ID) (bool, error)
+	ShouldSendMessage(unsignedMessage *warp.UnsignedMessage, destinationBlockchainID ids.ID) (bool, error)
+
 	// SendMessage sends the signed message to the destination chain. The payload parsed according to
 	// the VM rules is also passed in, since MessageManager does not assume any particular VM
-	SendMessage(signedMessage *warp.Message, parsedVmPayload []byte, destinationBlockchainID ids.ID) error
+	SendMessage(signedMessage *warp.Message, destinationBlockchainID ids.ID) error
+
 	// GetDestinationBlockchainID returns the destination chain ID of the destination chain for the given message
-	GetDestinationBlockchainID(warpMessageInfo *vmtypes.WarpMessageInfo) (ids.ID, error)
+	GetDestinationBlockchainID(unsignedMessage *warp.UnsignedMessage) (ids.ID, error)
 }
 
 // NewMessageManager constructs a MessageManager for a particular message protocol, defined by the message protocol address and config
@@ -45,6 +47,12 @@ func NewMessageManager(
 		return teleporter.NewMessageManager(
 			logger,
 			messageProtocolAddress,
+			messageProtocolConfig,
+			destinationClients,
+		)
+	case config.OFF_CHAIN_REGISTRY:
+		return offchainregistry.NewMessageManager(
+			logger,
 			messageProtocolConfig,
 			destinationClients,
 		)

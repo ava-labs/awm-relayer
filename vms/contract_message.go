@@ -5,14 +5,14 @@ package vms
 
 import (
 	"github.com/ava-labs/avalanchego/utils/logging"
+	"github.com/ava-labs/avalanchego/vms/platformvm/warp"
 	"github.com/ava-labs/awm-relayer/config"
 	"github.com/ava-labs/awm-relayer/vms/evm"
-	"github.com/ava-labs/awm-relayer/vms/vmtypes"
 )
 
 type ContractMessage interface {
 	// UnpackWarpMessage unpacks the warp message from the VM
-	UnpackWarpMessage(unsignedMsgBytes []byte) (*vmtypes.WarpMessageInfo, error)
+	UnpackWarpMessage(unsignedMsgBytes []byte) (*warp.UnsignedMessage, error)
 }
 
 func NewContractMessage(logger logging.Logger, subnetInfo config.SourceSubnet) ContractMessage {

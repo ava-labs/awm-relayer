@@ -4,8 +4,10 @@
 package config
 
 import (
+	"context"
 	"crypto/ecdsa"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"net/url"
 	"os"
@@ -15,6 +17,8 @@ import (
 	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/avalanchego/utils/set"
 	"github.com/ava-labs/awm-relayer/utils"
+	"github.com/ava-labs/subnet-evm/ethclient"
+	"github.com/ava-labs/subnet-evm/precompile/contracts/warp"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/spf13/viper"
@@ -24,6 +28,11 @@ const (
 	relayerPrivateKeyBytes      = 32
 	accountPrivateKeyEnvVarName = "ACCOUNT_PRIVATE_KEY"
 	cChainIdentifierString      = "C"
+	warpConfigKey               = "warpConfig"
+)
+
+var (
+	errFailedToGetWarpQuorum = errors.New("failed to get warp quorum")
 )
 
 type MessageProtocolConfig struct {
@@ -72,18 +81,26 @@ type DestinationSubnet struct {
 	EncryptConnection bool   `mapstructure:"encrypt-connection" json:"encrypt-connection"`
 	RPCEndpoint       string `mapstructure:"rpc-endpoint" json:"rpc-endpoint"`
 	AccountPrivateKey string `mapstructure:"account-private-key" json:"account-private-key"`
+
+	// Fetched from the chain after startup
+	warpQuorum WarpQuorum
+}
+
+type WarpQuorum struct {
+	QuorumNumerator   uint64
+	QuorumDenominator uint64
 }
 
 type Config struct {
-	LogLevel            string              `mapstructure:"log-level" json:"log-level"`
-	NetworkID           uint32              `mapstructure:"network-id" json:"network-id"`
-	PChainAPIURL        string              `mapstructure:"p-chain-api-url" json:"p-chain-api-url"`
-	EncryptConnection   bool                `mapstructure:"encrypt-connection" json:"encrypt-connection"`
-	StorageLocation     string              `mapstructure:"storage-location" json:"storage-location"`
-	SourceSubnets       []SourceSubnet      `mapstructure:"source-subnets" json:"source-subnets"`
-	DestinationSubnets  []DestinationSubnet `mapstructure:"destination-subnets" json:"destination-subnets"`
-	ProcessMissedBlocks bool                `mapstructure:"process-missed-blocks" json:"process-missed-blocks"`
-	ManualWarpMessages  []ManualWarpMessage `mapstructure:"manual-warp-messages" json:"manual-warp-messages"`
+	LogLevel            string               `mapstructure:"log-level" json:"log-level"`
+	NetworkID           uint32               `mapstructure:"network-id" json:"network-id"`
+	PChainAPIURL        string               `mapstructure:"p-chain-api-url" json:"p-chain-api-url"`
+	EncryptConnection   bool                 `mapstructure:"encrypt-connection" json:"encrypt-connection"`
+	StorageLocation     string               `mapstructure:"storage-location" json:"storage-location"`
+	SourceSubnets       []*SourceSubnet      `mapstructure:"source-subnets" json:"source-subnets"`
+	DestinationSubnets  []*DestinationSubnet `mapstructure:"destination-subnets" json:"destination-subnets"`
+	ProcessMissedBlocks bool                 `mapstructure:"process-missed-blocks" json:"process-missed-blocks"`
+	ManualWarpMessages  []*ManualWarpMessage `mapstructure:"manual-warp-messages" json:"manual-warp-messages"`
 
 	// convenience fields to access the source subnet and chain IDs after initialization
 	sourceSubnetIDs     []ids.ID
@@ -127,13 +144,13 @@ func BuildConfig(v *viper.Viper) (Config, bool, error) {
 	cfg.StorageLocation = v.GetString(StorageLocationKey)
 	cfg.ProcessMissedBlocks = v.GetBool(ProcessMissedBlocksKey)
 	if err := v.UnmarshalKey(ManualWarpMessagesKey, &cfg.ManualWarpMessages); err != nil {
-		return Config{}, false, fmt.Errorf("failed to unmarshal manual warp messages: %v", err)
+		return Config{}, false, fmt.Errorf("failed to unmarshal manual warp messages: %w", err)
 	}
 	if err := v.UnmarshalKey(DestinationSubnetsKey, &cfg.DestinationSubnets); err != nil {
-		return Config{}, false, fmt.Errorf("failed to unmarshal destination subnets: %v", err)
+		return Config{}, false, fmt.Errorf("failed to unmarshal destination subnets: %w", err)
 	}
 	if err := v.UnmarshalKey(SourceSubnetsKey, &cfg.SourceSubnets); err != nil {
-		return Config{}, false, fmt.Errorf("failed to unmarshal source subnets: %v", err)
+		return Config{}, false, fmt.Errorf("failed to unmarshal source subnets: %w", err)
 	}
 
 	// Explicitly overwrite the configured account private key
@@ -161,7 +178,7 @@ func BuildConfig(v *viper.Viper) (Config, bool, error) {
 	}
 
 	if err = cfg.Validate(); err != nil {
-		return Config{}, false, fmt.Errorf("failed to validate configuration: %v", err)
+		return Config{}, false, fmt.Errorf("failed to validate configuration: %w", err)
 	}
 
 	var protocol string
@@ -185,10 +202,10 @@ func BuildConfig(v *viper.Viper) (Config, bool, error) {
 // but does initialize private fields available through getters
 func (c *Config) Validate() error {
 	if len(c.SourceSubnets) == 0 {
-		return fmt.Errorf("relayer not configured to relay from any subnets. A list of source subnets must be provided in the configuration file")
+		return errors.New("relayer not configured to relay from any subnets. A list of source subnets must be provided in the configuration file")
 	}
 	if len(c.DestinationSubnets) == 0 {
-		return fmt.Errorf("relayer not configured to relay to any subnets. A list of destination subnets must be provided in the configuration file")
+		return errors.New("relayer not configured to relay to any subnets. A list of destination subnets must be provided in the configuration file")
 	}
 	if _, err := url.ParseRequestURI(c.PChainAPIURL); err != nil {
 		return err
@@ -201,7 +218,7 @@ func (c *Config) Validate() error {
 			return err
 		}
 		if destinationChains.Contains(s.BlockchainID) {
-			return fmt.Errorf("configured destination subnets must have unique chain IDs")
+			return errors.New("configured destination subnets must have unique chain IDs")
 		}
 		destinationChains.Add(s.BlockchainID)
 	}
@@ -210,32 +227,29 @@ func (c *Config) Validate() error {
 	sourceBlockchains := set.NewSet[string](len(c.SourceSubnets))
 	var sourceSubnetIDs []ids.ID
 	var sourceBlockchainIDs []ids.ID
-	for i, s := range c.SourceSubnets {
+	for _, s := range c.SourceSubnets {
 		// Validate configuration
 		if err := s.Validate(&destinationChains); err != nil {
 			return err
 		}
 		// Verify uniqueness
 		if sourceBlockchains.Contains(s.BlockchainID) {
-			return fmt.Errorf("configured source subnets must have unique chain IDs")
+			return errors.New("configured source subnets must have unique chain IDs")
 		}
 		sourceBlockchains.Add(s.BlockchainID)
 
 		// Save IDs for future use
 		subnetID, err := ids.FromString(s.SubnetID)
 		if err != nil {
-			return fmt.Errorf("invalid subnetID in configuration. error: %v", err)
+			return fmt.Errorf("invalid subnetID in configuration. error: %w", err)
 		}
 		sourceSubnetIDs = append(sourceSubnetIDs, subnetID)
 
 		blockchainID, err := ids.FromString(s.BlockchainID)
 		if err != nil {
-			return fmt.Errorf("invalid subnetID in configuration. error: %v", err)
+			return fmt.Errorf("invalid subnetID in configuration. error: %w", err)
 		}
 		sourceBlockchainIDs = append(sourceBlockchainIDs, blockchainID)
-
-		// Write back to the config
-		c.SourceSubnets[i] = s
 	}
 
 	c.sourceSubnetIDs = sourceSubnetIDs
@@ -244,9 +258,8 @@ func (c *Config) Validate() error {
 	// Validate the manual warp messages
 	for i, msg := range c.ManualWarpMessages {
 		if err := msg.Validate(); err != nil {
-			return fmt.Errorf("invalid manual warp message at index %d: %v", i, err)
+			return fmt.Errorf("invalid manual warp message at index %d: %w", i, err)
 		}
-		c.ManualWarpMessages[i] = msg
 	}
 
 	return nil
@@ -300,6 +313,82 @@ func (m *ManualWarpMessage) Validate() error {
 	return nil
 }
 
+// If the numerator in the Warp config is 0, use the default value
+func calculateQuorumNumerator(cfgNumerator uint64) uint64 {
+	if cfgNumerator == 0 {
+		return warp.WarpDefaultQuorumNumerator
+	}
+	return cfgNumerator
+}
+
+// Helper to retrieve the Warp Quorum from the chain config.
+// Differentiates between subnet-evm and coreth RPC internally
+func getWarpQuorum(
+	subnetID ids.ID,
+	blockchainID ids.ID,
+	client ethclient.Client,
+) (WarpQuorum, error) {
+	if subnetID == constants.PrimaryNetworkID {
+		return WarpQuorum{
+			QuorumNumerator:   warp.WarpDefaultQuorumNumerator,
+			QuorumDenominator: warp.WarpQuorumDenominator,
+		}, nil
+	}
+
+	// Fetch the subnet's chain config
+	chainConfig, err := client.ChainConfig(context.Background())
+	if err != nil {
+		return WarpQuorum{}, fmt.Errorf("failed to fetch chain config for blockchain %s: %w", blockchainID, err)
+	}
+
+	// First, check the list of precompile upgrades to get the most up to date Warp config
+	// We only need to consider the most recent Warp config, since the QuorumNumerator is used
+	// at signature verification time on the receiving chain, regardless of the Warp config at the
+	// time of the message's creation
+	var warpConfig *warp.Config
+	for _, precompile := range chainConfig.UpgradeConfig.PrecompileUpgrades {
+		cfg, ok := precompile.Config.(*warp.Config)
+		if !ok {
+			continue
+		}
+		if warpConfig == nil {
+			warpConfig = cfg
+			continue
+		}
+		if *cfg.Timestamp() > *warpConfig.Timestamp() {
+			warpConfig = cfg
+		}
+	}
+	if warpConfig != nil {
+		return WarpQuorum{
+			QuorumNumerator:   calculateQuorumNumerator(warpConfig.QuorumNumerator),
+			QuorumDenominator: warp.WarpQuorumDenominator,
+		}, nil
+	}
+
+	// If we didn't find the Warp config in the upgrade precompile list, check the genesis config
+	warpConfig, ok := chainConfig.GenesisPrecompiles[warpConfigKey].(*warp.Config)
+	if ok {
+		return WarpQuorum{
+			QuorumNumerator:   calculateQuorumNumerator(warpConfig.QuorumNumerator),
+			QuorumDenominator: warp.WarpQuorumDenominator,
+		}, nil
+	}
+	return WarpQuorum{}, fmt.Errorf("failed to find warp config for blockchain %s", blockchainID)
+}
+
+func (c *Config) InitializeWarpQuorums() error {
+	// Fetch the Warp quorum values for each destination subnet.
+	for _, destinationSubnet := range c.DestinationSubnets {
+		err := destinationSubnet.initializeWarpQuorum()
+		if err != nil {
+			return fmt.Errorf("failed to initialize Warp quorum for destination subnet %s: %w", destinationSubnet.SubnetID, err)
+		}
+	}
+
+	return nil
+}
+
 func (s *SourceSubnet) GetSupportedDestinations() set.Set[ids.ID] {
 	return s.supportedDestinations
 }
@@ -315,10 +404,10 @@ func (s *SourceSubnet) Validate(destinationBlockchainIDs *set.Set[string]) error
 		return fmt.Errorf("invalid blockchainID in source subnet configuration. Provided ID: %s", s.BlockchainID)
 	}
 	if _, err := url.ParseRequestURI(s.GetNodeWSEndpoint()); err != nil {
-		return fmt.Errorf("invalid relayer subscribe URL in source subnet configuration: %v", err)
+		return fmt.Errorf("invalid relayer subscribe URL in source subnet configuration: %w", err)
 	}
 	if _, err := url.ParseRequestURI(s.GetNodeRPCEndpoint()); err != nil {
-		return fmt.Errorf("invalid relayer RPC URL in source subnet configuration: %v", err)
+		return fmt.Errorf("invalid relayer RPC URL in source subnet configuration: %w", err)
 	}
 
 	// Validate the VM specific settings
@@ -330,7 +419,7 @@ func (s *SourceSubnet) Validate(destinationBlockchainIDs *set.Set[string]) error
 			}
 		}
 	default:
-		return fmt.Errorf("unsupported VM type for source subnet: %v", s.VM)
+		return fmt.Errorf("unsupported VM type for source subnet: %s", s.VM)
 	}
 
 	// Validate message settings correspond to a supported message protocol
@@ -346,7 +435,7 @@ func (s *SourceSubnet) Validate(destinationBlockchainIDs *set.Set[string]) error
 	for _, blockchainIDStr := range s.SupportedDestinations {
 		blockchainID, err := ids.FromString(blockchainIDStr)
 		if err != nil {
-			return fmt.Errorf("invalid blockchainID in configuration. error: %v", err)
+			return fmt.Errorf("invalid blockchainID in configuration. error: %w", err)
 		}
 		if !destinationBlockchainIDs.Contains(blockchainIDStr) {
 			return fmt.Errorf("configured source subnet %s has a supported destination blockchain ID %s that is not configured as a destination blockchain",
@@ -368,15 +457,15 @@ func (s *DestinationSubnet) Validate() error {
 		return fmt.Errorf("invalid blockchainID in source subnet configuration. Provided ID: %s", s.BlockchainID)
 	}
 	if _, err := url.ParseRequestURI(s.GetNodeRPCEndpoint()); err != nil {
-		return fmt.Errorf("invalid relayer broadcast URL: %v", err)
+		return fmt.Errorf("invalid relayer broadcast URL: %w", err)
 	}
 
 	if len(s.AccountPrivateKey) != relayerPrivateKeyBytes*2 {
-		return fmt.Errorf("invalid account private key hex string")
+		return errors.New("invalid account private key hex string")
 	}
 
 	if _, err := hex.DecodeString(s.AccountPrivateKey); err != nil {
-		return fmt.Errorf("invalid account private key hex string: %v", err)
+		return fmt.Errorf("invalid account private key hex string: %w", err)
 	}
 
 	// Validate the VM specific settings
@@ -385,6 +474,30 @@ func (s *DestinationSubnet) Validate() error {
 		return fmt.Errorf("unsupported VM type for source subnet: %s", s.VM)
 	}
 
+	return nil
+}
+
+func (s *DestinationSubnet) initializeWarpQuorum() error {
+	blockchainID, err := ids.FromString(s.BlockchainID)
+	if err != nil {
+		return fmt.Errorf("invalid blockchainID in configuration. error: %w", err)
+	}
+	subnetID, err := ids.FromString(s.SubnetID)
+	if err != nil {
+		return fmt.Errorf("invalid subnetID in configuration. error: %w", err)
+	}
+
+	client, err := ethclient.Dial(s.GetNodeRPCEndpoint())
+	if err != nil {
+		return fmt.Errorf("failed to dial destination blockchain %s: %w", blockchainID, err)
+	}
+	defer client.Close()
+	quorum, err := getWarpQuorum(subnetID, blockchainID, client)
+	if err != nil {
+		return fmt.Errorf("failed to fetch warp quorum for subnet %s: %w", subnetID, err)
+	}
+
+	s.warpQuorum = quorum
 	return nil
 }
 
@@ -489,4 +602,13 @@ func (s *DestinationSubnet) GetRelayerAccountInfo() (*ecdsa.PrivateKey, common.A
 // GetSourceIDs returns the Subnet and Chain IDs of all subnets configured as a source
 func (c *Config) GetSourceIDs() ([]ids.ID, []ids.ID) {
 	return c.sourceSubnetIDs, c.sourceBlockchainIDs
+}
+
+func (c *Config) GetWarpQuorum(blockchainID ids.ID) (WarpQuorum, error) {
+	for _, s := range c.DestinationSubnets {
+		if blockchainID.String() == s.BlockchainID {
+			return s.warpQuorum, nil
+		}
+	}
+	return WarpQuorum{}, errFailedToGetWarpQuorum
 }
