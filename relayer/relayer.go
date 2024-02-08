@@ -63,6 +63,7 @@ type Relayer struct {
 	messageCreator           message.Creator
 	catchUpResultChan        chan bool
 	healthStatus             *atomic.Bool
+	globalConfig             config.Config
 }
 
 func NewRelayer(
@@ -75,8 +76,8 @@ func NewRelayer(
 	responseChan chan message.InboundMessage,
 	destinationClients map[ids.ID]vms.DestinationClient,
 	messageCreator message.Creator,
-	shouldProcessMissedBlocks bool,
 	relayerHealth *atomic.Bool,
+	cfg config.Config,
 ) (*Relayer, error) {
 	sub := vms.NewSubscriber(logger, sourceSubnetInfo)
 
@@ -162,6 +163,7 @@ func NewRelayer(
 		messageCreator:           messageCreator,
 		catchUpResultChan:        catchUpResultChan,
 		healthStatus:             relayerHealth,
+		globalConfig:             cfg,
 	}
 
 	// Open the subscription. We must do this before processing any missed messages, otherwise we may miss an incoming message
@@ -175,7 +177,7 @@ func NewRelayer(
 		return nil, err
 	}
 
-	if shouldProcessMissedBlocks {
+	if r.globalConfig.ProcessMissedBlocks {
 		height, err := r.calculateStartingBlockHeight(sourceSubnetInfo.StartBlockHeight)
 		if err != nil {
 			logger.Error(
@@ -427,7 +429,7 @@ func (r *Relayer) RelayMessage(warpLogInfo *vmtypes.WarpLogInfo, storeProcessedH
 	}
 
 	// Create and run the message relayer to attempt to deliver the message to the destination chain
-	messageRelayer := newMessageRelayer(r, unsignedMessage, destinationBlockchainID)
+	messageRelayer, err := newMessageRelayer(r, unsignedMessage, destinationBlockchainID)
 	if err != nil {
 		r.logger.Error(
 			"Failed to create message relayer",

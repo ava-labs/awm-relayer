@@ -64,7 +64,7 @@ func CreateDestinationClients(logger logging.Logger, relayerConfig config.Config
 			continue
 		}
 
-		destinationClient, err := NewDestinationClient(logger, subnetInfo)
+		destinationClient, err := NewDestinationClient(logger, *subnetInfo)
 		if err != nil {
 			logger.Error(
 				"Could not create destination client",

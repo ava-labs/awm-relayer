@@ -40,19 +40,22 @@ func main() {
 	fs := config.BuildFlagSet()
 	v, err := config.BuildViper(fs, os.Args[1:])
 	if err != nil {
-		fmt.Printf("couldn't configure flags: %s\n", err)
-		os.Exit(1)
+		panic(fmt.Errorf("couldn't configure flags: %w", err))
 	}
 
 	cfg, optionOverwritten, err := config.BuildConfig(v)
 	if err != nil {
-		fmt.Printf("couldn't build config: %s\n", err)
-		os.Exit(1)
+		panic(fmt.Errorf("couldn't build config: %w", err))
+	}
+	// Initialize the Warp Quorum values by fetching via RPC
+	// We do this here so that BuildConfig doesn't need to make RPC calls
+	if err = cfg.InitializeWarpQuorums(); err != nil {
+		panic(fmt.Errorf("couldn't initialize warp quorums: %w", err))
 	}
 
 	logLevel, err := logging.ToLevel(cfg.LogLevel)
 	if err != nil {
-		fmt.Printf("error with log level: %v", err)
+		panic(fmt.Errorf("error with log level: %w", err))
 	}
 
 	logger := logging.NewLogger(
@@ -82,13 +85,13 @@ func main() {
 			"Failed to create destination clients",
 			zap.Error(err),
 		)
-		return
+		panic(err)
 	}
 
 	// Initialize metrics gathered through prometheus
-	gatherer, registerer, err := initMetrics()
+	gatherer, registerer, err := initializeMetrics()
 	if err != nil {
-		logger.Fatal("failed to set up prometheus metrics",
+		logger.Fatal("Failed to set up prometheus metrics",
 			zap.Error(err))
 		panic(err)
 	}
@@ -109,7 +112,7 @@ func main() {
 			"Failed to create app request network",
 			zap.Error(err),
 		)
-		return
+		panic(err)
 	}
 
 	// Each goroutine will have an atomic bool that it can set to false if it ever disconnects from its subscription.
@@ -144,7 +147,14 @@ func main() {
 
 	startMetricsServer(logger, gatherer, defaultMetricsPort)
 
-	metrics := relayer.NewMessageRelayerMetrics(registerer)
+	metrics, err := relayer.NewMessageRelayerMetrics(registerer)
+	if err != nil {
+		logger.Error(
+			"Failed to create message relayer metrics",
+			zap.Error(err),
+		)
+		panic(err)
+	}
 
 	// Initialize message creator passed down to relayers for creating app requests.
 	messageCreator, err := message.NewCreator(logger, registerer, "message_creator", constants.DefaultNetworkCompressionType, constants.DefaultNetworkMaximumInboundTimeout)
@@ -153,7 +163,7 @@ func main() {
 			"Failed to create message creator",
 			zap.Error(err),
 		)
-		return
+		panic(err)
 	}
 
 	// Initialize the database
@@ -163,7 +173,7 @@ func main() {
 			"Failed to create database",
 			zap.Error(err),
 		)
-		return
+		panic(err)
 	}
 
 	manualWarpMessages := make(map[ids.ID][]*vmtypes.WarpLogInfo)
@@ -186,7 +196,7 @@ func main() {
 				"Invalid subnetID in configuration",
 				zap.Error(err),
 			)
-			return
+			panic(err)
 		}
 		subnetInfo := s
 
@@ -201,15 +211,15 @@ func main() {
 				logger,
 				metrics,
 				db,
-				subnetInfo,
+				*subnetInfo,
 				pChainClient,
 				network,
 				responseChans[blockchainID],
 				destinationClients,
 				messageCreator,
-				cfg.ProcessMissedBlocks,
 				health,
 				manualWarpMessages[blockchainID],
+				cfg,
 			)
 		})
 	}
@@ -232,9 +242,9 @@ func runRelayer(
 	responseChan chan message.InboundMessage,
 	destinationClients map[ids.ID]vms.DestinationClient,
 	messageCreator message.Creator,
-	shouldProcessMissedBlocks bool,
 	relayerHealth *atomic.Bool,
 	manualWarpMessages []*vmtypes.WarpLogInfo,
+	cfg config.Config,
 ) error {
 	logger.Info(
 		"Creating relayer",
@@ -251,8 +261,8 @@ func runRelayer(
 		responseChan,
 		destinationClients,
 		messageCreator,
-		shouldProcessMissedBlocks,
 		relayerHealth,
+		cfg,
 	)
 	if err != nil {
 		return fmt.Errorf("Failed to create relayer instance: %w", err)
@@ -296,17 +306,11 @@ func startMetricsServer(logger logging.Logger, gatherer prometheus.Gatherer, por
 	go func() {
 		logger.Info("starting metrics server...",
 			zap.Uint32("port", port))
-		err := http.ListenAndServe(fmt.Sprintf(":%d", port), nil)
-		if err != nil {
-			logger.Fatal("metrics server exited",
-				zap.Error(err),
-				zap.Uint32("port", port))
-			panic(err)
-		}
+		log.Fatalln(http.ListenAndServe(fmt.Sprintf(":%d", port), nil))
 	}()
 }
 
-func initMetrics() (prometheus.Gatherer, prometheus.Registerer, error) {
+func initializeMetrics() (prometheus.Gatherer, prometheus.Registerer, error) {
 	gatherer := metrics.NewMultiGatherer()
 	registry := prometheus.NewRegistry()
 	if err := gatherer.Register("app", registry); err != nil {
