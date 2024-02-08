@@ -24,7 +24,7 @@ builds:
     ignore:
       - goos: linux
         goarch: arm64
-      - good: darwin
+      - goos: darwin
         goarch: amd64
 release:
   # Repo in which the release will be created.
