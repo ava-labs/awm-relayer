@@ -1,47 +1,14 @@
-# Copyright (C) 2023, Ava Labs, Inc. All rights reserved.
+# Copyright (C) 2024, Ava Labs, Inc. All rights reserved.
 # See the file LICENSE for licensing terms.
 
-name: Prod - release Docker image
+name: Release
 
 on:
-  release:
-    types: [published]
+  push:
+    tags:
+      - "*"
+
 jobs:
-  push_to_registry:
-    name: Push Docker image to Docker Hub
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check out the repo
-        uses: actions/checkout@v4
-
-      # Needed for multi-platform builds
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-
-      # Needed for multi-platform builds
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Log in to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
-      
-      - name: Set Go version
-        run: |
-          source ./scripts/versions.sh
-          echo GO_VERSION=$GO_VERSION >> $GITHUB_ENV
-
-      - name: Build and Push to Docker Hub
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          build-args: GO_VERSION=${{ env.GO_VERSION }}
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: avaplatform/awm-relayer:${{ github.event.release.tag_name }}, avaplatform/awm-relayer:latest
-  
   release:
     runs-on: ubuntu-20.04
     steps:
@@ -79,7 +46,7 @@ jobs:
         with:
           distribution: goreleaser
           version: latest
-          args: release --rm-dist
+          args: release --clean
           workdir: ./awm-relayer/
         env:
           # https://docs.github.com/en/actions/security-guides/automatic-token-authentication#about-the-github_token-secret

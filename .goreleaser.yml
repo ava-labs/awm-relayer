@@ -1,0 +1,34 @@
+# ref. https://goreleaser.com/customization/build/
+builds:
+  - id: awm-relayer
+    main: ./main/main.go
+    binary: awm-relayer
+    flags:
+      - -v
+    # windows is ignored by default, as the `goos` field by default only
+    # contains linux and darwin
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    env:
+      - CGO_ENABLED=1
+      - CGO_CFLAGS=-O -D__BLST_PORTABLE__ # Set the CGO flags to use the portable version of BLST
+    overrides:
+      - goos: darwin
+        goarch: arm64
+        env:
+          - CC=oa64-clang
+    ignore:
+      - goos: linux
+        goarch: arm64
+      - good: darwin
+        goarch: amd64
+release:
+  # Repo in which the release will be created.
+  # Default is extracted from the origin remote URL or empty if its private hosted.
+  github:
+    owner: ava-labs
+    name: awm-relayer
