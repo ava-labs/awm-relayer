@@ -34,6 +34,7 @@ dockers:
     build_flag_templates:
     - "--pull"
     - "--platform=linux/amd64"
+    - "--build-arg=GO_VERSION={{.Env.GO_VERSION}}"
   - image_templates:
     - 'avaplatform/awm-relayer:{{ .Tag }}-arm64'
     dockerfile: "{{ .Env.DOCKERFILE }}"
@@ -41,6 +42,7 @@ dockers:
     build_flag_templates:
     - "--pull"
     - "--platform=linux/arm64"
+    - "--build-arg=GO_VERSION={{.Env.GO_VERSION}}"
     goarch: arm64
 docker_manifests:
   - name_template: 'avaplatform/awm-relayer:{{ .Tag }}'
