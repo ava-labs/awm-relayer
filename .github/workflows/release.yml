@@ -43,7 +43,7 @@ jobs:
           MACOS_SDK_CHECKSUM: 3abd261ceb483c44295a6623fdffe5d44fc4ac2c872526576ec5ab5ad0f6e26c
       - name: Set Go version
         run: |
-          source ./scripts/versions.sh
+          source ./awm-relayer/scripts/versions.sh
           echo GO_VERSION=$GO_VERSION >> $GITHUB_ENV
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v2
