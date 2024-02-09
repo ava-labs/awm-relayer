@@ -41,7 +41,7 @@ dockers:
     use: buildx
     build_flag_templates:
     - "--pull"
-    - "--platform=darwim/arm64"
+    - "--platform=darwin/arm64"
     - "--build-arg=GO_VERSION={{.Env.GO_VERSION}}"
     goarch: arm64
 docker_manifests:
