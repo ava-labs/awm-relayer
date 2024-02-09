@@ -55,5 +55,5 @@ jobs:
         env:
           # https://docs.github.com/en/actions/security-guides/automatic-token-authentication#about-the-github_token-secret
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          DOCKERFILE: ./Dockerfile
+          DOCKERFILE: ./Dockerfile.release
           GO_VERSION: ${{ env.GO_VERSION }}
