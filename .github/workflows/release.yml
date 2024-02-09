@@ -17,10 +17,14 @@ jobs:
         with:
           fetch-depth: 0
           path: awm-relayer
+      - name: Set Go version
+        run: |
+          source ./awm-relayer/scripts/versions.sh
+          echo GO_VERSION=$GO_VERSION >> $GITHUB_ENV
       - name: Set up Go
         uses: actions/setup-go@v3
         with:
-          go-version: '~1.21.7'
+          go-version: ${{ env.GO_VERSION }}
       - name: Set up arm64 cross compiler
         run: |
           sudo apt-get -y update
@@ -41,10 +45,6 @@ jobs:
         env:
           MACOS_SDK_FNAME: MacOSX12.3.sdk.tar.xz
           MACOS_SDK_CHECKSUM: 3abd261ceb483c44295a6623fdffe5d44fc4ac2c872526576ec5ab5ad0f6e26c
-      - name: Set Go version
-        run: |
-          source ./awm-relayer/scripts/versions.sh
-          echo GO_VERSION=$GO_VERSION >> $GITHUB_ENV
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v2
         with:
