@@ -26,6 +26,27 @@ builds:
         goarch: arm64
       - goos: darwin
         goarch: amd64
+dockers:
+  - image_templates:
+    - 'avaplatform/awm-relayer:{{ .Tag }}-amd64'
+    dockerfile: "{{ .Env.DOCKERFILE }}"
+    use: buildx
+    build_flag_templates:
+    - "--pull"
+    - "--platform=linux/amd64"
+  - image_templates:
+    - 'avaplatform/awm-relayer:{{ .Tag }}-arm64'
+    dockerfile: "{{ .Env.DOCKERFILE }}"
+    use: buildx
+    build_flag_templates:
+    - "--pull"
+    - "--platform=linux/arm64"
+    goarch: arm64
+docker_manifests:
+  - name_template: 'avaplatform/awm-relayer:{{ .Tag }}'
+    image_templates:
+    - 'avaplatform/awm-relayer:{{ .Tag }}-amd64'
+    - 'avaplatform/awm-relayer:{{ .Tag }}-arm64'
 release:
   # Repo in which the release will be created.
   # Default is extracted from the origin remote URL or empty if its private hosted.
