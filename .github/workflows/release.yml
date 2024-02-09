@@ -16,10 +16,9 @@ jobs:
         uses: actions/checkout@v3
         with:
           fetch-depth: 0
-          path: awm-relayer
       - name: Set Go version
         run: |
-          source ./awm-relayer/scripts/versions.sh
+          source ./scripts/versions.sh
           echo GO_VERSION=$GO_VERSION >> $GITHUB_ENV
       - name: Set up Go
         uses: actions/setup-go@v3
@@ -51,7 +50,6 @@ jobs:
           distribution: goreleaser
           version: latest
           args: release --clean
-          workdir: ./awm-relayer/
         env:
           # https://docs.github.com/en/actions/security-guides/automatic-token-authentication#about-the-github_token-secret
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
