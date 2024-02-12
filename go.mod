@@ -5,10 +5,10 @@ go 1.21
 
 require (
 	github.com/ava-labs/avalanche-network-runner v1.7.4-rc.0
-	github.com/ava-labs/avalanchego v1.10.18
-	github.com/ava-labs/coreth v0.12.10-rc.5
-	github.com/ava-labs/subnet-evm v0.5.11
-	github.com/ava-labs/teleporter v0.1.1-0.20240202165242-b0a4a335676e
+	github.com/ava-labs/avalanchego v1.11.0-fuji
+	github.com/ava-labs/coreth v0.12.11-rc.3
+	github.com/ava-labs/subnet-evm v0.6.0-fuji
+	github.com/ava-labs/teleporter v0.1.1-0.20240209232641-d764aca50164
 	github.com/ethereum/go-ethereum v1.12.0
 	github.com/onsi/ginkgo/v2 v2.15.0
 	github.com/onsi/gomega v1.31.1
