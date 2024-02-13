@@ -14,6 +14,7 @@ import (
 	"testing"
 
 	"github.com/ava-labs/avalanchego/ids"
+	"github.com/ava-labs/avalanchego/utils/set"
 	"github.com/ava-labs/awm-relayer/utils"
 	mock_ethclient "github.com/ava-labs/awm-relayer/vms/evm/mocks"
 	"github.com/ava-labs/subnet-evm/params"
@@ -539,6 +540,79 @@ func TestGetWarpQuorum(t *testing.T) {
 			quorum, err := getWarpQuorum(testCase.subnetID, testCase.blockchainID, client)
 			require.Equal(t, testCase.expectedError, err)
 			require.Equal(t, testCase.expectedQuorum, quorum)
+		})
+	}
+}
+
+func TestValidateSourceSubnet(t *testing.T) {
+	validSourceCfg := SourceSubnet{
+		APINodeHost:           "http://test.avax.network",
+		APINodePort:           0,
+		BlockchainID:          testBlockchainID,
+		SubnetID:              testSubnetID,
+		VM:                    "evm",
+		EncryptConnection:     false,
+		SupportedDestinations: []string{testBlockchainID},
+		MessageContracts: map[string]MessageProtocolConfig{
+			testAddress: {
+				MessageFormat: TELEPORTER.String(),
+			},
+		},
+	}
+	testCases := []struct {
+		name                          string
+		sourceSubnet                  func() SourceSubnet
+		destinationBlockchainIDs      []string
+		expectError                   bool
+		expectedSupportedDestinations []string
+	}{
+		{
+			name:                          "valid source subnet; explicitly supported destination",
+			sourceSubnet:                  func() SourceSubnet { return validSourceCfg },
+			destinationBlockchainIDs:      []string{testBlockchainID},
+			expectError:                   false,
+			expectedSupportedDestinations: []string{testBlockchainID},
+		},
+		{
+			name: "valid source subnet; implicitly supported destination",
+			sourceSubnet: func() SourceSubnet {
+				cfg := validSourceCfg
+				cfg.SupportedDestinations = nil
+				return cfg
+			},
+			destinationBlockchainIDs:      []string{testBlockchainID},
+			expectError:                   false,
+			expectedSupportedDestinations: []string{testBlockchainID},
+		},
+		{
+			name:                          "valid source subnet; partially supported destinations",
+			sourceSubnet:                  func() SourceSubnet { return validSourceCfg },
+			destinationBlockchainIDs:      []string{testBlockchainID, testBlockchainID2},
+			expectError:                   false,
+			expectedSupportedDestinations: []string{testBlockchainID},
+		},
+		{
+			name:                          "valid source subnet; unsupported destinations",
+			sourceSubnet:                  func() SourceSubnet { return validSourceCfg },
+			destinationBlockchainIDs:      []string{testBlockchainID2},
+			expectError:                   true,
+			expectedSupportedDestinations: []string{},
+		},
+	}
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			ids := set.NewSet[string](len(testCase.destinationBlockchainIDs))
+			for _, id := range testCase.destinationBlockchainIDs {
+				ids.Add(id)
+			}
+
+			sourceSubnet := testCase.sourceSubnet()
+			res := sourceSubnet.Validate(&ids)
+			if testCase.expectError {
+				require.Error(t, res)
+			} else {
+				require.NoError(t, res)
+			}
 		})
 	}
 }

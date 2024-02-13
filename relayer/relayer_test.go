@@ -12,7 +12,6 @@ import (
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/avalanchego/utils/set"
-	"github.com/ava-labs/awm-relayer/config"
 	"github.com/ava-labs/awm-relayer/database"
 	mock_database "github.com/ava-labs/awm-relayer/database/mocks"
 	"github.com/stretchr/testify/require"
@@ -57,28 +56,13 @@ func TestCheckSupportedDestination(t *testing.T) {
 				supportedDestinations: set.Set[ids.ID]{
 					id1: {},
 				},
-				globalConfig: config.Config{
-					DestinationSubnets: []*config.DestinationSubnet{
-						{
-							BlockchainID: id1.String(),
-						},
-					},
-				},
 			},
 			destinationBlockchainID: id1,
 			expectedResult:          true,
 		},
 		{
-			name: "implicitly supported destination",
-			relayer: Relayer{
-				globalConfig: config.Config{
-					DestinationSubnets: []*config.DestinationSubnet{
-						{
-							BlockchainID: id1.String(),
-						},
-					},
-				},
-			},
+			name:                    "implicitly supported destination",
+			relayer:                 Relayer{},
 			destinationBlockchainID: id1,
 			expectedResult:          true,
 		},
@@ -87,13 +71,6 @@ func TestCheckSupportedDestination(t *testing.T) {
 			relayer: Relayer{
 				supportedDestinations: set.Set[ids.ID]{
 					id1: {},
-				},
-				globalConfig: config.Config{
-					DestinationSubnets: []*config.DestinationSubnet{
-						{
-							BlockchainID: id1.String(),
-						},
-					},
 				},
 			},
 			destinationBlockchainID: id2,
