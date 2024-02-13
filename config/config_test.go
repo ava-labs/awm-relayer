@@ -601,17 +601,23 @@ func TestValidateSourceSubnet(t *testing.T) {
 	}
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
-			ids := set.NewSet[string](len(testCase.destinationBlockchainIDs))
+			blockchainIDs := set.NewSet[string](len(testCase.destinationBlockchainIDs))
 			for _, id := range testCase.destinationBlockchainIDs {
-				ids.Add(id)
+				blockchainIDs.Add(id)
 			}
 
 			sourceSubnet := testCase.sourceSubnet()
-			res := sourceSubnet.Validate(&ids)
+			res := sourceSubnet.Validate(&blockchainIDs)
 			if testCase.expectError {
 				require.Error(t, res)
 			} else {
 				require.NoError(t, res)
+			}
+			// check the supported destinations
+			for _, idStr := range testCase.expectedSupportedDestinations {
+				id, err := ids.FromString(idStr)
+				require.NoError(t, err)
+				require.True(t, sourceSubnet.supportedDestinations.Contains(id))
 			}
 		})
 	}
