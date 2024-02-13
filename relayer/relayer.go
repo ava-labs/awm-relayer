@@ -99,22 +99,11 @@ func NewRelayer(
 		return nil, err
 	}
 
-	var filteredDestinationClients map[ids.ID]vms.DestinationClient
-	supportedDestinationsBlockchainIDs := sourceSubnetInfo.GetSupportedDestinations()
-	if len(supportedDestinationsBlockchainIDs) > 0 {
-		filteredDestinationClients := make(map[ids.ID]vms.DestinationClient)
-		for id := range supportedDestinationsBlockchainIDs {
-			filteredDestinationClients[id] = destinationClients[id]
-		}
-	} else {
-		filteredDestinationClients = destinationClients
-	}
-
 	// Create message managers for each supported message protocol
 	messageManagers := make(map[common.Address]messages.MessageManager)
 	for addressStr, config := range sourceSubnetInfo.MessageContracts {
 		address := common.HexToAddress(addressStr)
-		messageManager, err := messages.NewMessageManager(logger, address, config, filteredDestinationClients)
+		messageManager, err := messages.NewMessageManager(logger, address, config, destinationClients)
 		if err != nil {
 			logger.Error(
 				"Failed to create message manager",
@@ -157,7 +146,7 @@ func NewRelayer(
 		logger:                   logger,
 		metrics:                  metrics,
 		db:                       db,
-		supportedDestinations:    supportedDestinationsBlockchainIDs,
+		supportedDestinations:    sourceSubnetInfo.GetSupportedDestinations(),
 		rpcEndpoint:              rpcEndpoint,
 		apiNodeURI:               uri,
 		messageCreator:           messageCreator,
