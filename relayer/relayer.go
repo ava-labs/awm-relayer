@@ -464,9 +464,8 @@ func (r *Relayer) RelayMessage(warpLogInfo *vmtypes.WarpLogInfo, storeProcessedH
 }
 
 // Returns whether destinationBlockchainID is a supported destination.
-// If supportedDestinations is empty, then all destination chain IDs are supported.
 func (r *Relayer) CheckSupportedDestination(destinationBlockchainID ids.ID) bool {
-	return len(r.supportedDestinations) == 0 || r.supportedDestinations.Contains(destinationBlockchainID)
+	return r.supportedDestinations.Contains(destinationBlockchainID)
 }
 
 // Get the latest processed block height from the database.

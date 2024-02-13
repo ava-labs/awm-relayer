@@ -61,12 +61,6 @@ func TestCheckSupportedDestination(t *testing.T) {
 			expectedResult:          true,
 		},
 		{
-			name:                    "implicitly supported destination",
-			relayer:                 Relayer{},
-			destinationBlockchainID: id1,
-			expectedResult:          true,
-		},
-		{
 			name: "unsupported destination",
 			relayer: Relayer{
 				supportedDestinations: set.Set[ids.ID]{
