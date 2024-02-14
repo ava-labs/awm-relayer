@@ -3,13 +3,16 @@
 Reference relayer implementation for cross-chain Avalanche Warp Message delivery.
 
 ## Requirements
+
 ### System Requirements
+
 - Ubuntu 22.04 or later
-  - Tested on x86_64/amd64 architecture. 
+  - Tested on x86_64/amd64 architecture.
 - MacOS 14.3 or later
   - Tested on arm64 architecture (Apple silicon).
 
 ### API Requirements
+
 - AWM Relayer requires access to Avalanche API nodes for the P-Chain as well as any connected subnets. The API nodes must have the following methods enabled:
   - Each subnet API node must have enabled:
     - eth API (RPC and WS)
@@ -32,6 +35,7 @@ Build the relayer by running the script:
 ```
 
 Build a Docker image by running the script:
+
 ```
 ./scripts/build_local_image.sh
 ```
@@ -48,13 +52,16 @@ The relayer binary accepts a path to a JSON configuration file as the sole argum
 
 The relayer is configured via a JSON file, the path to which is passed in via the `--config-file` command line argument. The following configuration options are available:
 
-`"log-level": "debug" | "info" | "warn" | "error" | "fatal" | "panic"` 
+`"log-level": "debug" | "info" | "warn" | "error" | "fatal" | "panic"`
+
 - The log level for the relayer. Defaults to `info`.
 
 `"network-id": unsigned integer`
+
 - The ID of the Avalanche network to which the relayer will connect. Defaults to `1` (Mainnet).
 
 `"p-chain-api-url": string`
+
 - The URL of the Avalanche P-Chain API node to which the relayer will connect. This API node needs to have the following methods enabled:
   - info.peers
   - platform.getHeight
@@ -62,94 +69,124 @@ The relayer is configured via a JSON file, the path to which is passed in via th
   - platform.getValidatorsAt
 
 `"encrypt-connection": boolean`
+
 - Whether or not to encrypt the connection to the P-Chain API node. Defaults to `true`.
 
 `"storage-location": string`
+
 - The path to the directory in which the relayer will store its state. Defaults to `./awm-relayer-storage`.
 
 `"process-missed-blocks": boolean`
+
 - Whether or not to process missed blocks on startup. Defaults to `false`.
 
 `"manual-warp-messages": []ManualWarpMessage`
+
 - The list of Warp messages to relay on startup, independent of the catch-up mechanism or normal operation. Each `ManualWarpMessage` has the following configuration:
-   
-   `"unsigned-message-bytes": string`
-    - The hex-encoded bytes of the unsigned Warp message to relay.
-  
-    `"source-blockchain-id": string`
-    - cb58-encoded Blockchain ID of the source subnet.
-  
-    `"destination-blockchain-id": string`
-    - cb58-encoded Blockchain ID of the destination subnet.
-  
-    `"source-address": string`
-    - The address of the source account that sent the Warp message.
-  
-    `"destination-address": string`
-    - The address of the destination account that will receive the Warp message.
-  
+
+  `"unsigned-message-bytes": string`
+
+  - The hex-encoded bytes of the unsigned Warp message to relay.
+
+  `"source-blockchain-id": string`
+
+  - cb58-encoded Blockchain ID of the source subnet.
+
+  `"destination-blockchain-id": string`
+
+  - cb58-encoded Blockchain ID of the destination subnet.
+
+  `"source-address": string`
+
+  - The address of the source account that sent the Warp message.
+
+  `"destination-address": string`
+
+  - The address of the destination account that will receive the Warp message.
+
 `"source-subnets": []SourceSubnets`
+
 - The list of source subnets to support. Each `SourceSubnet` has the following configuration:
 
-  `"subnet-id": string` 
+  `"subnet-id": string`
+
   - cb58-encoded Subnet ID
 
-  `"blockchain-id": string` 
+  `"blockchain-id": string`
+
   - cb58-encoded Blockchain ID
 
-  `"vm": string` 
+  `"vm": string`
+
   - The VM type of the source subnet.
 
-  `"api-node-host": string` 
+  `"api-node-host": string`
+
   - The host of the source subnet's API node.
 
-  `"api-node-port": unsigned integer` 
+  `"api-node-port": unsigned integer`
+
   - The port of the source subnet's API node.
 
-  `"encrypt-connection": boolean` 
+  `"encrypt-connection": boolean`
+
   - Whether or not to encrypt the connection to the source subnet's API node.
 
-  `"rpc-endpoint": string` 
+  `"rpc-endpoint": string`
+
   - The RPC endpoint of the source subnet's API node. Used in favor of `api-node-host`, `api-node-port`, and `encrypt-connection` when constructing the endpoint
 
-  `"ws-endpoint": string` 
+  `"ws-endpoint": string`
+
   - The WebSocket endpoint of the source subnet's API node. Used in favor of `api-node-host`, `api-node-port`, and `encrypt-connection` when constructing the endpoint
 
-  `"message-contracts": map[string]MessageProtocolConfig` 
+  `"message-contracts": map[string]MessageProtocolConfig`
+
   - Map of contract addresses to the config options of the protocol at that address. Each `MessageProtocolConfig` consists of a unique `message-format` name, and the raw JSON `settings`
 
-  `"supported-destinations": []string` 
+  `"supported-destinations": []string`
+
   - List of destination subnet IDs that the source subnet supports. If empty, then all destinations are supported.
 
   `"start-block-height": unsigned integer`
+
   - The block height at which to back-process transactions from the source subnet. If the database already contains a later block height for the source subnet, then that will be used instead. Must be non-zero.
 
 `"destination-subnets": []DestinationSubnets`
+
 - The list of destination subnets to support. Each `DestinationSubnet` has the following configuration:
 
   `"subnet-id": string`
+
   - cb58-encoded Subnet ID
 
-  `"blockchain-id": string` 
+  `"blockchain-id": string`
+
   - cb58-encoded Blockchain ID
 
-  `"vm": string` 
+  `"vm": string`
+
   - The VM type of the source subnet.
 
-  `"api-node-host": string` 
+  `"api-node-host": string`
+
   - The host of the source subnet's API node.
 
-  `"api-node-port": unsigned integer` 
+  `"api-node-port": unsigned integer`
+
   - The port of the source subnet's API node.
 
-  `"encrypt-connection": boolean` 
+  `"encrypt-connection": boolean`
+
   - Whether or not to encrypt the connection to the source subnet's API node.
 
-  `"rpc-endpoint": string` 
+  `"rpc-endpoint": string`
+
   - The RPC endpoint of the destination subnet's API node. Used in favor of `api-node-host`, `api-node-port`, and `encrypt-connection` when constructing the endpoint
 
-  `"account-private-key": string` 
-  - The hex-encoded private key to use for signing transactions on the destination subnet. May be provided by the environment variable `ACCOUNT_PRIVATE_KEY`. Each `destination-subnet` may use a separate private key by appending the blockchain ID to the private key environment variable name, e.g. `ACCOUNT_PRIVATE_KEY_11111111111111111111111111111111LpoYY` 
+  `"account-private-key": string`
+
+  - The hex-encoded private key to use for signing transactions on the destination subnet. May be provided by the environment variable `ACCOUNT_PRIVATE_KEY`. Each `destination-subnet` may use a separate private key by appending the blockchain ID to the private key environment variable name, e.g. `ACCOUNT_PRIVATE_KEY_11111111111111111111111111111111LpoYY`
 
 ## Architecture
 
@@ -158,14 +195,14 @@ The relayer is configured via a JSON file, the path to which is passed in via th
 The relayer consists of the following components:
 
 - At the global level:
-    - *P2P app network*: issues signature `AppRequests`
-    - *P-Chain client*: gets the validators for a subnet
-    - *JSON database*: stores latest processed block for each source subnet
+  - _P2P app network_: issues signature `AppRequests`
+  - _P-Chain client_: gets the validators for a subnet
+  - _JSON database_: stores latest processed block for each source subnet
 - Per Source subnet
-    - *Subscriber*: listens for logs pertaining to cross-chain message transactions
-    - *Source RPC client*: queries for missed blocks on startup
+  - _Subscriber_: listens for logs pertaining to cross-chain message transactions
+  - _Source RPC client_: queries for missed blocks on startup
 - Per Destination subnet
-    - *Destination RPC client*: broadcasts transactions to the destination
+  - _Destination RPC client_: broadcasts transactions to the destination
 
 ### Data flow
 
@@ -190,15 +227,23 @@ If your temporary directory is not writable, the unit tests may fail with messag
 E2E tests are ran as part of CI, but can also be ran locally with the `--local` flag. To run the E2E tests locally, you'll need to install Gingko following the intructions [here](https://onsi.github.io/ginkgo/#installing-ginkgo)
 
 Next, provide the path to the `subnet-evm` repository and the path to a writeable data directory (this example uses `~/subnet-evm` and `~/tmp/e2e-test`) to use for the tests:
+
 ```bash
 ./scripts/e2e_test.sh --local --subnet-evm ~/subnet-evm --data-dir ~/tmp/e2e-test
 ```
 
+To run a specific E2E test, specify the environment variable `GINKGO_FOCUS`, which will then look for [test descriptions](./tests/e2e_test.go#L68) that match the provided input. For example, to run the `Basic Relay` test:
+
+```bash
+GINKGO_FOCUS="Basic" ./scripts/e2e_test.sh --local --subnet-evm ~/subnet-evm --data-dir ~/tmp/e2e-test
+```
+
 The E2E tests use the `TeleporterMessenger` contract deployment transaction specified in the following files:
+
 - `tests/utils/UniversalTeleporterDeployerAddress.txt`
 - `tests/utils/UniversalTeleporterDeployerTransaction.txt`
 - `tests/utils/UniversalTeleporterMessagerContractAddress.txt`
-To update the version of Teleporter used by the E2E tests, update these values with the latest contract deployment information. For more information on how to deploy the Teleporter contract, see the [Teleporter documentation](https://github.com/ava-labs/teleporter/tree/main/utils/contract-deployment).
+  To update the version of Teleporter used by the E2E tests, update these values with the latest contract deployment information. For more information on how to deploy the Teleporter contract, see the [Teleporter documentation](https://github.com/ava-labs/teleporter/tree/main/utils/contract-deployment).
 
 ### Generate Mocks
 
