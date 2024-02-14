@@ -432,6 +432,18 @@ func (s *SourceSubnet) Validate(destinationBlockchainIDs *set.Set[string]) error
 
 	// Validate and store the allowed destinations for future use
 	s.supportedDestinations = set.Set[ids.ID]{}
+
+	// If the list of supported destinations is empty, populate with all of the configured destinations
+	if len(s.SupportedDestinations) == 0 {
+		for _, blockchainIDStr := range destinationBlockchainIDs.List() {
+			blockchainID, err := ids.FromString(blockchainIDStr)
+			if err != nil {
+				return fmt.Errorf("invalid blockchainID in configuration. error: %w", err)
+			}
+			s.supportedDestinations.Add(blockchainID)
+		}
+	}
+
 	for _, blockchainIDStr := range s.SupportedDestinations {
 		blockchainID, err := ids.FromString(blockchainIDStr)
 		if err != nil {
