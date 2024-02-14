@@ -65,8 +65,8 @@ func newMessageRelayer(
 	if err != nil {
 		relayer.logger.Error(
 			"Failed to get warp quorum from config. Relayer may not be configured to deliver to the destination chain.",
-			zap.Error(err),
 			zap.String("destinationBlockchainID", destinationBlockchainID.String()),
+			zap.Error(err),
 		)
 		return nil, err
 	}

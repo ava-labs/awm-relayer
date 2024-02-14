@@ -442,6 +442,7 @@ func (s *SourceSubnet) Validate(destinationBlockchainIDs *set.Set[string]) error
 			}
 			s.supportedDestinations.Add(blockchainID)
 		}
+		return nil
 	}
 
 	for _, blockchainIDStr := range s.SupportedDestinations {
