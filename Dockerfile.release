@@ -1,3 +1,0 @@
-FROM debian:11-slim
-COPY awm-relayer /usr/bin/awm-relayer
-ENTRYPOINT [ "/usr/bin/awm-relayer" ]
