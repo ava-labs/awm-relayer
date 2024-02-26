@@ -3,6 +3,7 @@
 	"name": "Avalanche Warp Messaging Relayer DevContainer",
 
 	"image": "avaplatform/awm-relayer:latest",
-
-	"runArgs": ["--network=host"]
+	"runArgs": ["--network=host"],
+	
+	"remoteUser": "root"
 }
