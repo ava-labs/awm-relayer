@@ -3,7 +3,11 @@
 {
 	"name": "Avalanche-DevContainer",
 
-	"image": "avaplatform/awm-relayer:latest",
+	"build": {
+		"dockerfile": "../Dockerfile",
+		"args": { "GO_VERSION": "latest" }
+	},
+
 	"runArgs": ["--network=host"],
 
 	// Uncomment to connect as root instead. More info: https://aka.ms/dev-containers-non-root.
