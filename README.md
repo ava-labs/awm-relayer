@@ -2,6 +2,44 @@
 
 Reference relayer implementation for cross-chain Avalanche Warp Message delivery.
 
+## Installation
+
+### Download Prebuilt Binaries
+
+Prebuilt binaries are available for download from the [releases page](https://github.com/ava-labs/awm-relayer/releases).
+
+The following commands demonstrate how to download and install the v0.2.13 release of the relayer on MacOS. The exact commands will vary by platform.
+
+```bash
+# Download the release tarball and checksums
+curl -w '%{http_code}' -sL -o ~/Downloads/awm-relayer_0.2.13_darwin_arm64.tar.gz https://github.com/ava-labs/awm-relayer/releases/download/v0.2.13/awm-relayer_0.2.13_darwin_arm64.tar.gz
+curl -w '%{http_code}' -sL -o ~/Downloads/awm-relayer_0.2.13_checksums.txt https://github.com/ava-labs/awm-relayer/releases/download/v0.2.13/awm-relayer_0.2.13_checksums.txt
+
+# (Optional) Verify the checksums
+cd ~/Downloads
+# Confirm that the following two commands output the same checksum
+grep "awm-relayer_0.2.13_darwin_arm64.tar.gz" "awm-relayer_0.2.13_checksums.txt" 2>/dev/null
+shasum -a 256 "awm-relayer_0.2.13_darwin_arm64.tar.gz" 2>/dev/null
+
+# Extract the tarball and install the relayer binary
+tar -xzf awm-relayer_0.2.13_darwin_arm64.tar.gz
+sudo install awm-relayer /usr/local/bin
+```
+
+*Note:* If downloading the binaries through a browser on MacOS, the browser may mark the binary as quarantined since it has not been verified through the App Store. To remove the quarantine, run the following command:
+
+```bash
+xattr -d com.apple.quarantine /usr/local/bin/awm-relayer
+```
+
+### Download Docker Image
+
+The published Docker image can be pulled from `avaplatform/awm-relayer:latest` on Dockerhub.
+
+### Build from Source
+
+See the [Building](#building) section for instructions on how to build the relayer from source.
+
 ## Requirements
 
 ### System Requirements
