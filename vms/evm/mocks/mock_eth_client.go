@@ -5,6 +5,7 @@
 //
 //	mockgen -source=destination_client.go -destination=./mocks/mock_eth_client.go -package=mocks
 //
+
 // Package mocks is a generated GoMock package.
 package mocks
 
@@ -163,6 +164,21 @@ func (m *MockClient) BlockNumber(arg0 context.Context) (uint64, error) {
 func (mr *MockClientMockRecorder) BlockNumber(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlockNumber", reflect.TypeOf((*MockClient)(nil).BlockNumber), arg0)
+}
+
+// BlockReceipts mocks base method.
+func (m *MockClient) BlockReceipts(arg0 context.Context, arg1 rpc.BlockNumberOrHash) ([]*types.Receipt, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BlockReceipts", arg0, arg1)
+	ret0, _ := ret[0].([]*types.Receipt)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// BlockReceipts indicates an expected call of BlockReceipts.
+func (mr *MockClientMockRecorder) BlockReceipts(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlockReceipts", reflect.TypeOf((*MockClient)(nil).BlockReceipts), arg0, arg1)
 }
 
 // CallContract mocks base method.

@@ -14,6 +14,7 @@ import (
 	"os/exec"
 	"strings"
 
+	anrConstants "github.com/ava-labs/avalanche-network-runner/utils/constants"
 	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/awm-relayer/config"
 	offchainregistry "github.com/ava-labs/awm-relayer/messages/off-chain-registry"
@@ -143,9 +144,8 @@ func CreateDefaultRelayerConfig(
 	}
 
 	return config.Config{
-		LogLevel: logging.Info.LowerString(),
-		// TODO: There's currently a bug in ANR v1.7.4-rc.0 that specifies the network ID as 0. We should change this back to constants.DefaultNetworkID once fixed.
-		NetworkID:           0,
+		LogLevel:            logging.Info.LowerString(),
+		NetworkID:           anrConstants.DefaultNetworkID,
 		PChainAPIURL:        subnetsInfo[0].NodeURIs[0],
 		EncryptConnection:   false,
 		StorageLocation:     RelayerStorageLocation(),
