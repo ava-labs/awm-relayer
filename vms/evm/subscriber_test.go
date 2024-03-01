@@ -16,13 +16,10 @@ import (
 
 func makeSubscriberWithMockEthClient(t *testing.T) (*subscriber, *mock_ethclient.MockClient) {
 	sourceSubnet := config.SourceSubnet{
-		SubnetID:          "2TGBXcnwx5PqiXWiqxAKUaNSqDguXNh1mxnp82jui68hxJSZAx",
-		BlockchainID:      "S4mMqUXe7vHsGiRAma6bv3CKnyaLssyAxmQ2KvFpX1KEvfFCD",
-		VM:                config.EVM.String(),
-		APINodeHost:       "127.0.0.1",
-		APINodePort:       9650,
-		EncryptConnection: false,
-		RPCEndpoint:       "https://subnets.avax.network/mysubnet/rpc",
+		SubnetID:     "2TGBXcnwx5PqiXWiqxAKUaNSqDguXNh1mxnp82jui68hxJSZAx",
+		BlockchainID: "S4mMqUXe7vHsGiRAma6bv3CKnyaLssyAxmQ2KvFpX1KEvfFCD",
+		VM:           config.EVM.String(),
+		RPCEndpoint:  "https://subnets.avax.network/mysubnet/rpc",
 	}
 
 	logger := logging.NoLog{}

@@ -30,17 +30,16 @@ var (
 	testBlockchainID2 string = "291etJW5EpagFY94v1JraFy8vLFYXcCnWKJ6Yz9vrjfPjCF4QL"
 	testAddress       string = "0xd81545385803bCD83bd59f58Ba2d2c0562387F83"
 	testValidConfig          = Config{
-		LogLevel:          "info",
-		PChainAPIURL:      "http://test.avax.network",
-		EncryptConnection: false,
+		LogLevel:     "info",
+		PChainAPIURL: "http://test.avax.network",
+		InfoAPIURL:   "http://test.avax.network",
 		SourceSubnets: []*SourceSubnet{
 			{
-				APINodeHost:       "http://test.avax.network",
-				APINodePort:       0,
-				BlockchainID:      testBlockchainID,
-				SubnetID:          testSubnetID,
-				VM:                "evm",
-				EncryptConnection: false,
+				RPCEndpoint:  fmt.Sprintf("http://test.avax.network/ext/bc/%s/rpc", testBlockchainID),
+				WSEndpoint:   fmt.Sprintf("ws://test.avax.network/ext/bc/%s/ws", testBlockchainID),
+				BlockchainID: testBlockchainID,
+				SubnetID:     testSubnetID,
+				VM:           "evm",
 				MessageContracts: map[string]MessageProtocolConfig{
 					testAddress: {
 						MessageFormat: TELEPORTER.String(),
@@ -50,12 +49,10 @@ var (
 		},
 		DestinationSubnets: []*DestinationSubnet{
 			{
-				APINodeHost:       "http://test.avax.network",
-				APINodePort:       0,
+				RPCEndpoint:       fmt.Sprintf("http://test.avax.network/ext/bc/%s/rpc", testBlockchainID),
 				BlockchainID:      testBlockchainID,
 				SubnetID:          testSubnetID,
 				VM:                "evm",
-				EncryptConnection: false,
 				AccountPrivateKey: "0x56289e99c94b6912bfc12adc093c9b51124f0dc54ac7a766b2bc5ccf558d8027",
 			},
 		},
@@ -393,12 +390,11 @@ func TestGetWarpQuorum(t *testing.T) {
 
 func TestValidateSourceSubnet(t *testing.T) {
 	validSourceCfg := SourceSubnet{
-		APINodeHost:           "http://test.avax.network",
-		APINodePort:           0,
 		BlockchainID:          testBlockchainID,
+		RPCEndpoint:           fmt.Sprintf("http://test.avax.network/ext/bc/%s/rpc", testBlockchainID),
+		WSEndpoint:            fmt.Sprintf("ws://test.avax.network/ext/bc/%s/ws", testBlockchainID),
 		SubnetID:              testSubnetID,
 		VM:                    "evm",
-		EncryptConnection:     false,
 		SupportedDestinations: []string{testBlockchainID},
 		MessageContracts: map[string]MessageProtocolConfig{
 			testAddress: {

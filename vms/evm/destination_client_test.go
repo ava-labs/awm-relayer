@@ -21,9 +21,6 @@ var destinationSubnet = config.DestinationSubnet{
 	SubnetID:          "2TGBXcnwx5PqiXWiqxAKUaNSqDguXNh1mxnp82jui68hxJSZAx",
 	BlockchainID:      "S4mMqUXe7vHsGiRAma6bv3CKnyaLssyAxmQ2KvFpX1KEvfFCD",
 	VM:                config.EVM.String(),
-	APINodeHost:       "127.0.0.1",
-	APINodePort:       9650,
-	EncryptConnection: false,
 	RPCEndpoint:       "https://subnets.avax.network/mysubnet/rpc",
 	AccountPrivateKey: "56289e99c94b6912bfc12adc093c9b51124f0dc54ac7a766b2bc5ccf558d8027",
 }

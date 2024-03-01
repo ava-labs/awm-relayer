@@ -14,7 +14,6 @@ import (
 	"os/exec"
 	"strings"
 
-	anrConstants "github.com/ava-labs/avalanche-network-runner/utils/constants"
 	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/awm-relayer/config"
 	offchainregistry "github.com/ava-labs/awm-relayer/messages/off-chain-registry"
@@ -102,12 +101,12 @@ func CreateDefaultRelayerConfig(
 		Expect(err).Should(BeNil())
 
 		sources[i] = &config.SourceSubnet{
-			SubnetID:          subnetInfo.SubnetID.String(),
-			BlockchainID:      subnetInfo.BlockchainID.String(),
-			VM:                config.EVM.String(),
-			EncryptConnection: false,
-			APINodeHost:       host,
-			APINodePort:       port,
+			SubnetID:     subnetInfo.SubnetID.String(),
+			BlockchainID: subnetInfo.BlockchainID.String(),
+			VM:           config.EVM.String(),
+			RPCEndpoint:  fmt.Sprintf("http://%s:%d/ext/bc/%s/rpc", host, port, subnetInfo.BlockchainID.String()),
+			WSEndpoint:   fmt.Sprintf("ws://%s:%d/ext/bc/%s/ws", host, port, subnetInfo.BlockchainID.String()),
+
 			MessageContracts: map[string]config.MessageProtocolConfig{
 				teleporterContractAddress.Hex(): {
 					MessageFormat: config.TELEPORTER.String(),
@@ -128,9 +127,7 @@ func CreateDefaultRelayerConfig(
 			SubnetID:          subnetInfo.SubnetID.String(),
 			BlockchainID:      subnetInfo.BlockchainID.String(),
 			VM:                config.EVM.String(),
-			EncryptConnection: false,
-			APINodeHost:       host,
-			APINodePort:       port,
+			RPCEndpoint:       fmt.Sprintf("http://%s:%d/ext/bc/%s/rpc", host, port, subnetInfo.BlockchainID.String()),
 			AccountPrivateKey: hex.EncodeToString(relayerKey.D.Bytes()),
 		}
 
@@ -145,9 +142,8 @@ func CreateDefaultRelayerConfig(
 
 	return config.Config{
 		LogLevel:            logging.Info.LowerString(),
-		NetworkID:           anrConstants.DefaultNetworkID,
 		PChainAPIURL:        subnetsInfo[0].NodeURIs[0],
-		EncryptConnection:   false,
+		InfoAPIURL:          subnetsInfo[0].NodeURIs[0],
 		StorageLocation:     RelayerStorageLocation(),
 		ProcessMissedBlocks: false,
 		SourceSubnets:       sources,
