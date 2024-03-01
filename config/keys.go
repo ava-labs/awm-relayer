@@ -8,6 +8,7 @@ const (
 	ConfigFileKey          = "config-file"
 	LogLevelKey            = "log-level"
 	PChainAPIURLKey        = "p-chain-api-url"
+	InfoAPIURLKey          = "info-api-url"
 	SourceSubnetsKey       = "source-subnets"
 	DestinationSubnetsKey  = "destination-subnets"
 	EncryptConnectionKey   = "encrypt-connection"

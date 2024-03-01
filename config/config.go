@@ -94,6 +94,7 @@ type WarpQuorum struct {
 type Config struct {
 	LogLevel            string               `mapstructure:"log-level" json:"log-level"`
 	PChainAPIURL        string               `mapstructure:"p-chain-api-url" json:"p-chain-api-url"`
+	InfoAPIURL          string               `mapstructure:"info-api-url" json:"info-api-url"`
 	EncryptConnection   bool                 `mapstructure:"encrypt-connection" json:"encrypt-connection"`
 	StorageLocation     string               `mapstructure:"storage-location" json:"storage-location"`
 	SourceSubnets       []*SourceSubnet      `mapstructure:"source-subnets" json:"source-subnets"`
@@ -137,6 +138,7 @@ func BuildConfig(v *viper.Viper) (Config, bool, error) {
 
 	cfg.LogLevel = v.GetString(LogLevelKey)
 	cfg.PChainAPIURL = v.GetString(PChainAPIURLKey)
+	cfg.InfoAPIURL = v.GetString(InfoAPIURLKey)
 	cfg.EncryptConnection = v.GetBool(EncryptConnectionKey)
 	cfg.StorageLocation = v.GetString(StorageLocationKey)
 	cfg.ProcessMissedBlocks = v.GetBool(ProcessMissedBlocksKey)
@@ -185,11 +187,17 @@ func BuildConfig(v *viper.Viper) (Config, bool, error) {
 		protocol = "http"
 	}
 
-	pChainapiUrl, err := utils.ConvertProtocol(cfg.PChainAPIURL, protocol)
+	pChainApiUrl, err := utils.ConvertProtocol(cfg.PChainAPIURL, protocol)
 	if err != nil {
 		return Config{}, false, err
 	}
-	cfg.PChainAPIURL = pChainapiUrl
+	cfg.PChainAPIURL = pChainApiUrl
+
+	infoApiUrl, err := utils.ConvertProtocol(cfg.InfoAPIURL, protocol)
+	if err != nil {
+		return Config{}, false, err
+	}
+	cfg.InfoAPIURL = infoApiUrl
 
 	return cfg, optionOverwritten, nil
 }
@@ -205,6 +213,9 @@ func (c *Config) Validate() error {
 		return errors.New("relayer not configured to relay to any subnets. A list of destination subnets must be provided in the configuration file")
 	}
 	if _, err := url.ParseRequestURI(c.PChainAPIURL); err != nil {
+		return err
+	}
+	if _, err := url.ParseRequestURI(c.InfoAPIURL); err != nil {
 		return err
 	}
 
