@@ -106,7 +106,7 @@ func main() {
 	if logLevel <= logging.Debug {
 		networkLogLevel = logLevel
 	}
-	network, responseChans, err := peers.NewNetwork(networkLogLevel, registerer, cfg.NetworkID, sourceSubnetIDs, sourceBlockchainIDs, cfg.PChainAPIURL)
+	network, responseChans, err := peers.NewNetwork(networkLogLevel, registerer, sourceSubnetIDs, sourceBlockchainIDs, cfg.PChainAPIURL)
 	if err != nil {
 		logger.Error(
 			"Failed to create app request network",

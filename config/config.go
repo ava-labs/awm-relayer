@@ -93,7 +93,6 @@ type WarpQuorum struct {
 
 type Config struct {
 	LogLevel            string               `mapstructure:"log-level" json:"log-level"`
-	NetworkID           uint32               `mapstructure:"network-id" json:"network-id"`
 	PChainAPIURL        string               `mapstructure:"p-chain-api-url" json:"p-chain-api-url"`
 	EncryptConnection   bool                 `mapstructure:"encrypt-connection" json:"encrypt-connection"`
 	StorageLocation     string               `mapstructure:"storage-location" json:"storage-location"`
@@ -109,7 +108,6 @@ type Config struct {
 
 func SetDefaultConfigValues(v *viper.Viper) {
 	v.SetDefault(LogLevelKey, logging.Info.String())
-	v.SetDefault(NetworkIDKey, constants.MainnetID)
 	v.SetDefault(EncryptConnectionKey, true)
 	v.SetDefault(StorageLocationKey, "./.awm-relayer-storage")
 	v.SetDefault(ProcessMissedBlocksKey, true)
@@ -138,7 +136,6 @@ func BuildConfig(v *viper.Viper) (Config, bool, error) {
 	)
 
 	cfg.LogLevel = v.GetString(LogLevelKey)
-	cfg.NetworkID = v.GetUint32(NetworkIDKey)
 	cfg.PChainAPIURL = v.GetString(PChainAPIURLKey)
 	cfg.EncryptConnection = v.GetBool(EncryptConnectionKey)
 	cfg.StorageLocation = v.GetString(StorageLocationKey)

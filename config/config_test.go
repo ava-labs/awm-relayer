@@ -32,7 +32,6 @@ var (
 	primarySubnetID   string = "11111111111111111111111111111111LpoYY"
 	testValidConfig          = Config{
 		LogLevel:          "info",
-		NetworkID:         1337,
 		PChainAPIURL:      "http://test.avax.network",
 		EncryptConnection: false,
 		SourceSubnets: []*SourceSubnet{

@@ -43,7 +43,6 @@ type AppRequestNetwork struct {
 func NewNetwork(
 	logLevel logging.Level,
 	registerer prometheus.Registerer,
-	networkID uint32,
 	subnetIDs []ids.ID,
 	blockchainIDs []ids.ID,
 	APINodeURL string,
@@ -57,9 +56,13 @@ func NewNetwork(
 		),
 	)
 
+	// Create the info client
+	infoClient := info.NewClient(APINodeURL)
+	networkID, err := infoClient.GetNetworkID(context.Background())
+
 	if networkID != constants.MainnetID &&
 		networkID != constants.FujiID &&
-		len(APINodeURL) == 0 {
+		APINodeURL == "" {
 		return nil, nil, fmt.Errorf("must provide an API URL for local networks")
 	}
 
@@ -97,13 +100,8 @@ func NewNetwork(
 
 	// We need to initially connect to some nodes in the network before peer
 	// gossip will enable connecting to all the remaining nodes in the network.
-	var (
-		beaconIPs, beaconIDs []string
-		infoClient           info.Client
-	)
+	var beaconIPs, beaconIDs []string
 
-	// Create the info client
-	infoClient = info.NewClient(APINodeURL)
 	peers, err := infoClient.Peers(context.Background())
 	if err != nil {
 		logger.Error(

@@ -7,7 +7,6 @@ package config
 const (
 	ConfigFileKey          = "config-file"
 	LogLevelKey            = "log-level"
-	NetworkIDKey           = "network-id"
 	PChainAPIURLKey        = "p-chain-api-url"
 	SourceSubnetsKey       = "source-subnets"
 	DestinationSubnetsKey  = "destination-subnets"
