@@ -90,25 +90,22 @@ The relayer binary accepts a path to a JSON configuration file as the sole argum
 
 The relayer is configured via a JSON file, the path to which is passed in via the `--config-file` command line argument. The following configuration options are available:
 
-`"log-level": "debug" | "info" | "warn" | "error" | "fatal" | "panic"`
+`"log-level": "verbo" | "debug" | "info" | "warn" | "error" | "fatal" | "panic"`
 
 - The log level for the relayer. Defaults to `info`.
-
-`"network-id": unsigned integer`
-
-- The ID of the Avalanche network to which the relayer will connect. Defaults to `1` (Mainnet).
 
 `"p-chain-api-url": string`
 
 - The URL of the Avalanche P-Chain API node to which the relayer will connect. This API node needs to have the following methods enabled:
-  - info.peers
   - platform.getHeight
   - platform.validatedBy
   - platform.getValidatorsAt
 
-`"encrypt-connection": boolean`
+`"info-api-url": string`
 
-- Whether or not to encrypt the connection to the P-Chain API node. Defaults to `true`.
+- The URL of the Avalanche Info API node to which the relayer will connect. This API node needs to have the following methods enabled:
+  - info.peers
+  - info.getNetworkID
 
 `"storage-location": string`
 
@@ -148,39 +145,27 @@ The relayer is configured via a JSON file, the path to which is passed in via th
 
   `"subnet-id": string`
 
-  - cb58-encoded Subnet ID
+  - cb58-encoded Subnet ID.
 
   `"blockchain-id": string`
 
-  - cb58-encoded Blockchain ID
+  - cb58-encoded Blockchain ID.
 
   `"vm": string`
 
   - The VM type of the source subnet.
 
-  `"api-node-host": string`
-
-  - The host of the source subnet's API node.
-
-  `"api-node-port": unsigned integer`
-
-  - The port of the source subnet's API node.
-
-  `"encrypt-connection": boolean`
-
-  - Whether or not to encrypt the connection to the source subnet's API node.
-
   `"rpc-endpoint": string`
 
-  - The RPC endpoint of the source subnet's API node. Used in favor of `api-node-host`, `api-node-port`, and `encrypt-connection` when constructing the endpoint
+  - The RPC endpoint of the source subnet's API node.
 
   `"ws-endpoint": string`
 
-  - The WebSocket endpoint of the source subnet's API node. Used in favor of `api-node-host`, `api-node-port`, and `encrypt-connection` when constructing the endpoint
+  - The WebSocket endpoint of the source subnet's API node.
 
   `"message-contracts": map[string]MessageProtocolConfig`
 
-  - Map of contract addresses to the config options of the protocol at that address. Each `MessageProtocolConfig` consists of a unique `message-format` name, and the raw JSON `settings`
+  - Map of contract addresses to the config options of the protocol at that address. Each `MessageProtocolConfig` consists of a unique `message-format` name, and the raw JSON `settings`.
 
   `"supported-destinations": []string`
 
@@ -196,31 +181,19 @@ The relayer is configured via a JSON file, the path to which is passed in via th
 
   `"subnet-id": string`
 
-  - cb58-encoded Subnet ID
+  - cb58-encoded Subnet ID.
 
   `"blockchain-id": string`
 
-  - cb58-encoded Blockchain ID
+  - cb58-encoded Blockchain ID.
 
   `"vm": string`
 
   - The VM type of the source subnet.
 
-  `"api-node-host": string`
-
-  - The host of the source subnet's API node.
-
-  `"api-node-port": unsigned integer`
-
-  - The port of the source subnet's API node.
-
-  `"encrypt-connection": boolean`
-
-  - Whether or not to encrypt the connection to the source subnet's API node.
-
   `"rpc-endpoint": string`
 
-  - The RPC endpoint of the destination subnet's API node. Used in favor of `api-node-host`, `api-node-port`, and `encrypt-connection` when constructing the endpoint
+  - The RPC endpoint of the destination subnet's API node.
 
   `"account-private-key": string`
 
