@@ -493,27 +493,6 @@ func (s *DestinationSubnet) initializeWarpQuorum() error {
 	return nil
 }
 
-func constructURL(protocol string, host string, port uint32, encrypt bool, blockchainIDStr string, subnetIDStr string) string {
-	var protocolPathMap = map[string]string{
-		"http": "rpc",
-		"ws":   "ws",
-	}
-	path := protocolPathMap[protocol]
-
-	if encrypt {
-		protocol = protocol + "s"
-	}
-	portStr := ""
-	if port != 0 {
-		portStr = fmt.Sprintf(":%d", port)
-	}
-	subnetID, _ := ids.FromString(subnetIDStr) // already validated in Validate()
-	if subnetID == constants.PrimaryNetworkID {
-		blockchainIDStr = cChainIdentifierString
-	}
-	return fmt.Sprintf("%s://%s%s/ext/bc/%s/%s", protocol, host, portStr, blockchainIDStr, path)
-}
-
 // Get the private key and derive the wallet address from a relayer's configured private key for a given destination subnet.
 func (s *DestinationSubnet) GetRelayerAccountInfo() (*ecdsa.PrivateKey, common.Address, error) {
 	pk, err := crypto.HexToECDSA(s.AccountPrivateKey)
