@@ -59,6 +59,13 @@ func NewNetwork(
 	// Create the info client
 	infoClient := info.NewClient(InfoAPINodeURL)
 	networkID, err := infoClient.GetNetworkID(context.Background())
+	if err != nil {
+		logger.Error(
+			"Failed to get network ID",
+			zap.Error(err),
+		)
+		return nil, nil, err
+	}
 
 	if networkID != constants.MainnetID &&
 		networkID != constants.FujiID &&
