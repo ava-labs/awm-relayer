@@ -74,8 +74,8 @@ func NewSubscriber(logger logging.Logger, subnetInfo config.SourceSubnet) *subsc
 	logs := make(chan vmtypes.WarpLogInfo, maxClientSubscriptionBuffer)
 
 	return &subscriber{
-		nodeWSURL:    subnetInfo.GetNodeWSEndpoint(),
-		nodeRPCURL:   subnetInfo.GetNodeRPCEndpoint(),
+		nodeWSURL:    subnetInfo.WSEndpoint,
+		nodeRPCURL:   subnetInfo.RPCEndpoint,
 		blockchainID: blockchainID,
 		logger:       logger,
 		logsChan:     logs,

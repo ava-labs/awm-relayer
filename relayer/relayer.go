@@ -21,7 +21,6 @@ import (
 	"github.com/ava-labs/awm-relayer/database"
 	"github.com/ava-labs/awm-relayer/messages"
 	"github.com/ava-labs/awm-relayer/peers"
-	"github.com/ava-labs/awm-relayer/utils"
 	vms "github.com/ava-labs/awm-relayer/vms"
 	"github.com/ava-labs/awm-relayer/vms/vmtypes"
 	"github.com/ava-labs/coreth/ethclient"
@@ -59,7 +58,6 @@ type Relayer struct {
 	db                       database.RelayerDatabase
 	supportedDestinations    set.Set[ids.ID]
 	rpcEndpoint              string
-	apiNodeURI               string
 	messageCreator           message.Creator
 	catchUpResultChan        chan bool
 	healthStatus             *atomic.Bool
@@ -114,9 +112,6 @@ func NewRelayer(
 		messageManagers[address] = messageManager
 	}
 
-	rpcEndpoint := sourceSubnetInfo.GetNodeRPCEndpoint()
-	uri := utils.StripFromString(rpcEndpoint, "/ext")
-
 	// Marks when the relayer has finished the catch-up process on startup.
 	// Until that time, we do not know the order in which messages are processed,
 	// since the catch-up process occurs concurrently with normal message processing
@@ -147,8 +142,7 @@ func NewRelayer(
 		metrics:                  metrics,
 		db:                       db,
 		supportedDestinations:    sourceSubnetInfo.GetSupportedDestinations(),
-		rpcEndpoint:              rpcEndpoint,
-		apiNodeURI:               uri,
+		rpcEndpoint:              sourceSubnetInfo.RPCEndpoint,
 		messageCreator:           messageCreator,
 		catchUpResultChan:        catchUpResultChan,
 		healthStatus:             relayerHealth,

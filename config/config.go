@@ -59,9 +59,6 @@ type SourceSubnet struct {
 	SubnetID              string                           `mapstructure:"subnet-id" json:"subnet-id"`
 	BlockchainID          string                           `mapstructure:"blockchain-id" json:"blockchain-id"`
 	VM                    string                           `mapstructure:"vm" json:"vm"`
-	APINodeHost           string                           `mapstructure:"api-node-host" json:"api-node-host"`
-	APINodePort           uint32                           `mapstructure:"api-node-port" json:"api-node-port"`
-	EncryptConnection     bool                             `mapstructure:"encrypt-connection" json:"encrypt-connection"`
 	RPCEndpoint           string                           `mapstructure:"rpc-endpoint" json:"rpc-endpoint"`
 	WSEndpoint            string                           `mapstructure:"ws-endpoint" json:"ws-endpoint"`
 	MessageContracts      map[string]MessageProtocolConfig `mapstructure:"message-contracts" json:"message-contracts"`
@@ -76,9 +73,6 @@ type DestinationSubnet struct {
 	SubnetID          string `mapstructure:"subnet-id" json:"subnet-id"`
 	BlockchainID      string `mapstructure:"blockchain-id" json:"blockchain-id"`
 	VM                string `mapstructure:"vm" json:"vm"`
-	APINodeHost       string `mapstructure:"api-node-host" json:"api-node-host"`
-	APINodePort       uint32 `mapstructure:"api-node-port" json:"api-node-port"`
-	EncryptConnection bool   `mapstructure:"encrypt-connection" json:"encrypt-connection"`
 	RPCEndpoint       string `mapstructure:"rpc-endpoint" json:"rpc-endpoint"`
 	AccountPrivateKey string `mapstructure:"account-private-key" json:"account-private-key"`
 
@@ -95,7 +89,6 @@ type Config struct {
 	LogLevel            string               `mapstructure:"log-level" json:"log-level"`
 	PChainAPIURL        string               `mapstructure:"p-chain-api-url" json:"p-chain-api-url"`
 	InfoAPIURL          string               `mapstructure:"info-api-url" json:"info-api-url"`
-	EncryptConnection   bool                 `mapstructure:"encrypt-connection" json:"encrypt-connection"`
 	StorageLocation     string               `mapstructure:"storage-location" json:"storage-location"`
 	SourceSubnets       []*SourceSubnet      `mapstructure:"source-subnets" json:"source-subnets"`
 	DestinationSubnets  []*DestinationSubnet `mapstructure:"destination-subnets" json:"destination-subnets"`
@@ -109,7 +102,6 @@ type Config struct {
 
 func SetDefaultConfigValues(v *viper.Viper) {
 	v.SetDefault(LogLevelKey, logging.Info.String())
-	v.SetDefault(EncryptConnectionKey, true)
 	v.SetDefault(StorageLocationKey, "./.awm-relayer-storage")
 	v.SetDefault(ProcessMissedBlocksKey, true)
 }
@@ -139,7 +131,6 @@ func BuildConfig(v *viper.Viper) (Config, bool, error) {
 	cfg.LogLevel = v.GetString(LogLevelKey)
 	cfg.PChainAPIURL = v.GetString(PChainAPIURLKey)
 	cfg.InfoAPIURL = v.GetString(InfoAPIURLKey)
-	cfg.EncryptConnection = v.GetBool(EncryptConnectionKey)
 	cfg.StorageLocation = v.GetString(StorageLocationKey)
 	cfg.ProcessMissedBlocks = v.GetBool(ProcessMissedBlocksKey)
 	if err := v.UnmarshalKey(ManualWarpMessagesKey, &cfg.ManualWarpMessages); err != nil {
@@ -179,25 +170,6 @@ func BuildConfig(v *viper.Viper) (Config, bool, error) {
 	if err = cfg.Validate(); err != nil {
 		return Config{}, false, fmt.Errorf("failed to validate configuration: %w", err)
 	}
-
-	var protocol string
-	if cfg.EncryptConnection {
-		protocol = "https"
-	} else {
-		protocol = "http"
-	}
-
-	pChainApiUrl, err := utils.ConvertProtocol(cfg.PChainAPIURL, protocol)
-	if err != nil {
-		return Config{}, false, err
-	}
-	cfg.PChainAPIURL = pChainApiUrl
-
-	infoApiUrl, err := utils.ConvertProtocol(cfg.InfoAPIURL, protocol)
-	if err != nil {
-		return Config{}, false, err
-	}
-	cfg.InfoAPIURL = infoApiUrl
 
 	return cfg, optionOverwritten, nil
 }
@@ -411,10 +383,10 @@ func (s *SourceSubnet) Validate(destinationBlockchainIDs *set.Set[string]) error
 	if _, err := ids.FromString(s.BlockchainID); err != nil {
 		return fmt.Errorf("invalid blockchainID in source subnet configuration. Provided ID: %s", s.BlockchainID)
 	}
-	if _, err := url.ParseRequestURI(s.GetNodeWSEndpoint()); err != nil {
+	if _, err := url.ParseRequestURI(s.WSEndpoint); err != nil {
 		return fmt.Errorf("invalid relayer subscribe URL in source subnet configuration: %w", err)
 	}
-	if _, err := url.ParseRequestURI(s.GetNodeRPCEndpoint()); err != nil {
+	if _, err := url.ParseRequestURI(s.RPCEndpoint); err != nil {
 		return fmt.Errorf("invalid relayer RPC URL in source subnet configuration: %w", err)
 	}
 
@@ -476,7 +448,7 @@ func (s *DestinationSubnet) Validate() error {
 	if _, err := ids.FromString(s.BlockchainID); err != nil {
 		return fmt.Errorf("invalid blockchainID in source subnet configuration. Provided ID: %s", s.BlockchainID)
 	}
-	if _, err := url.ParseRequestURI(s.GetNodeRPCEndpoint()); err != nil {
+	if _, err := url.ParseRequestURI(s.RPCEndpoint); err != nil {
 		return fmt.Errorf("invalid relayer broadcast URL: %w", err)
 	}
 
@@ -507,7 +479,7 @@ func (s *DestinationSubnet) initializeWarpQuorum() error {
 		return fmt.Errorf("invalid subnetID in configuration. error: %w", err)
 	}
 
-	client, err := ethclient.Dial(s.GetNodeRPCEndpoint())
+	client, err := ethclient.Dial(s.RPCEndpoint)
 	if err != nil {
 		return fmt.Errorf("failed to dial destination blockchain %s: %w", blockchainID, err)
 	}
@@ -540,69 +512,6 @@ func constructURL(protocol string, host string, port uint32, encrypt bool, block
 		blockchainIDStr = cChainIdentifierString
 	}
 	return fmt.Sprintf("%s://%s%s/ext/bc/%s/%s", protocol, host, portStr, blockchainIDStr, path)
-}
-
-// Constructs an RPC endpoint for the subnet.
-// If the RPCEndpoint field is set in the configuration, returns that directly.
-// Otherwise, constructs the endpoint from the APINodeHost, APINodePort, and EncryptConnection fields,
-// following the /ext/bc/{blockchainID}/rpc format.
-func (s *DestinationSubnet) GetNodeRPCEndpoint() string {
-	if s.RPCEndpoint != "" {
-		return s.RPCEndpoint
-	}
-
-	// Save this result for future use
-	s.RPCEndpoint = constructURL(
-		"http",
-		s.APINodeHost,
-		s.APINodePort,
-		s.EncryptConnection,
-		s.BlockchainID,
-		s.SubnetID,
-	)
-	return s.RPCEndpoint
-}
-
-// Constructs an RPC endpoint for the subnet.
-// If the RPCEndpoint field is set in the configuration, returns that directly.
-// Otherwise, constructs the endpoint from the APINodeHost, APINodePort, and EncryptConnection fields,
-// following the /ext/bc/{blockchainID}/rpc format.
-func (s *SourceSubnet) GetNodeRPCEndpoint() string {
-	if s.RPCEndpoint != "" {
-		return s.RPCEndpoint
-	}
-
-	// Save this result for future use
-	s.RPCEndpoint = constructURL(
-		"http",
-		s.APINodeHost,
-		s.APINodePort,
-		s.EncryptConnection,
-		s.BlockchainID,
-		s.SubnetID,
-	)
-	return s.RPCEndpoint
-}
-
-// Constructs a WS endpoint for the subnet.
-// If the WSEndpoint field is set in the configuration, returns that directly.
-// Otherwise, constructs the endpoint from the APINodeHost, APINodePort, and EncryptConnection fields,
-// following the /ext/bc/{blockchainID}/ws format.
-func (s *SourceSubnet) GetNodeWSEndpoint() string {
-	if s.WSEndpoint != "" {
-		return s.WSEndpoint
-	}
-
-	// Save this result for future use
-	s.WSEndpoint = constructURL(
-		"ws",
-		s.APINodeHost,
-		s.APINodePort,
-		s.EncryptConnection,
-		s.BlockchainID,
-		s.SubnetID,
-	)
-	return s.WSEndpoint
 }
 
 // Get the private key and derive the wallet address from a relayer's configured private key for a given destination subnet.

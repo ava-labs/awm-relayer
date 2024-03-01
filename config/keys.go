@@ -11,7 +11,6 @@ const (
 	InfoAPIURLKey          = "info-api-url"
 	SourceSubnetsKey       = "source-subnets"
 	DestinationSubnetsKey  = "destination-subnets"
-	EncryptConnectionKey   = "encrypt-connection"
 	AccountPrivateKeyKey   = "account-private-key"
 	StorageLocationKey     = "storage-location"
 	ProcessMissedBlocksKey = "process-missed-blocks"

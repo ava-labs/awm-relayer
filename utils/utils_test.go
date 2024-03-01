@@ -10,65 +10,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestConvertProtocol(t *testing.T) {
-	testCases := []struct {
-		name          string
-		urlString     string
-		protocol      string
-		expectedUrl   string
-		expectedError bool
-	}{
-		{
-			name:          "valid http to https",
-			urlString:     "http://www.hello.com",
-			protocol:      "https",
-			expectedUrl:   "https://www.hello.com",
-			expectedError: false,
-		},
-		{
-			name:          "valid https to http",
-			urlString:     "https://www.hello.com",
-			protocol:      "http",
-			expectedUrl:   "http://www.hello.com",
-			expectedError: false,
-		},
-		{
-			name:          "valid http to http",
-			urlString:     "http://www.hello.com",
-			protocol:      "http",
-			expectedUrl:   "http://www.hello.com",
-			expectedError: false,
-		},
-		{
-			name:          "valid https to https",
-			urlString:     "https://www.hello.com",
-			protocol:      "https",
-			expectedUrl:   "https://www.hello.com",
-			expectedError: false,
-		},
-		{
-			name:          "invalid protocol",
-			urlString:     "http://www.hello.com",
-			protocol:      "\n",
-			expectedUrl:   "",
-			expectedError: true,
-		},
-	}
-
-	for _, testCase := range testCases {
-		t.Run(testCase.name, func(t *testing.T) {
-			actualUrl, err := ConvertProtocol(testCase.urlString, testCase.protocol)
-
-			if testCase.expectedError {
-				require.Error(t, err)
-			} else {
-				require.NoError(t, err)
-				require.Equal(t, testCase.expectedUrl, actualUrl)
-			}
-		})
-	}
-}
-
 func TestSanitizeHexString(t *testing.T) {
 	testCases := []struct {
 		name           string
