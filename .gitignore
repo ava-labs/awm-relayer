@@ -3,6 +3,8 @@ __debug_bin
 
 .vscode*
 
+relayer-config.json
+
 # Ginkgo test outputs
 main.log
 server.log
