@@ -2,8 +2,10 @@
 {
 	"name": "Avalanche Warp Messaging Relayer DevContainer",
 
-	"image": "avaplatform/awm-relayer:latest",
+	"image": "golang:latest",
 	"runArgs": ["--network=host"],
 	
-	"remoteUser": "root"
+	"remoteUser": "root",
+
+	"postCreateCommand": "scripts/build.sh"
 }
