@@ -1,6 +1,6 @@
 // For format details, see https://aka.ms/devcontainer.json.
 {
-	"name": "Avalanche Warp Messaging Relayer DevContainer",
+	"name": "AWM Relayer DevContainer",
 
 	"image": "golang:latest",
 	"runArgs": ["--network=host"],

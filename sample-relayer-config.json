@@ -1,9 +1,6 @@
 {
-  "network-id": 5,
+  "info-api-url": "https://api.avax-test.network",
   "p-chain-api-url": "https://api.avax-test.network",
-  "encrypt-connection": true,
-  "process-missed-blocks": false,
-  "log-level": "info",
   "source-subnets": [
     {
       "subnet-id": "11111111111111111111111111111111LpoYY",
@@ -11,7 +8,6 @@
       "vm": "evm",
       "rpc-endpoint": "https://api.avax-test.network/ext/bc/C/rpc",
       "ws-endpoint": "wss://api.avax-test.network/ext/bc/C/ws",
-      "encrypt-connection": true,
       "message-contracts": {
         "0x1CEfA23287eB4aa3012AEB8A0cdF240919a2C237": {
           "message-format": "teleporter",
@@ -28,7 +24,6 @@
       "blockchain-id": "2D8RG4UpSXbPbvPCAWppNJyqTG2i2CAXSkTgmTBBvs7GKNZjsY",
       "vm":"evm",
       "rpc-endpoint": "https://subnets.avax.network/dispatch/testnet/rpc",
-      "encrypt-connection": true,
       "account-private-key": "0x7493..."
     }
   ]
