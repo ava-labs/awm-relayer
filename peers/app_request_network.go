@@ -16,7 +16,6 @@ import (
 	"github.com/ava-labs/avalanchego/message"
 	"github.com/ava-labs/avalanchego/network"
 	"github.com/ava-labs/avalanchego/snow/validators"
-	"github.com/ava-labs/avalanchego/utils/constants"
 	"github.com/ava-labs/avalanchego/utils/ips"
 	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/avalanchego/utils/set"
@@ -56,6 +55,11 @@ func NewNetwork(
 		),
 	)
 
+	if InfoAPINodeURL == "" {
+		logger.Error("No InfoAPI node URL provided")
+		return nil, nil, fmt.Errorf("must provide an Inffo API URL")
+	}
+
 	// Create the info client
 	infoClient := info.NewClient(InfoAPINodeURL)
 	networkID, err := infoClient.GetNetworkID(context.Background())
@@ -65,12 +69,6 @@ func NewNetwork(
 			zap.Error(err),
 		)
 		return nil, nil, err
-	}
-
-	if networkID != constants.MainnetID &&
-		networkID != constants.FujiID &&
-		InfoAPINodeURL == "" {
-		return nil, nil, fmt.Errorf("must provide an API URL for local networks")
 	}
 
 	// Create the test network for AppRequests
