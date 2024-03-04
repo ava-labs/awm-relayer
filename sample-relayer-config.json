@@ -5,6 +5,7 @@
     {
       "subnet-id": "11111111111111111111111111111111LpoYY",
       "blockchain-id": "yH8D7ThNJkxmtkuv2jgBa4P1Rn3Qpr4pPr7QYNfcdoS6k6HWp",
+      "start-block-height": ...,
       "vm": "evm",
       "rpc-endpoint": "https://api.avax-test.network/ext/bc/C/rpc",
       "ws-endpoint": "wss://api.avax-test.network/ext/bc/C/ws",
