@@ -244,7 +244,7 @@ func (n *AppRequestNetwork) ConnectPeers(nodeIDs set.Set[ids.NodeID]) (set.Set[i
 		} else if nodeIDs.Contains(apiNodeID) {
 			if apiNodeIP, err := n.infoClient.GetNodeIP(context.Background()); err != nil {
 				n.logger.Error(
-					"Failed to get api Node IP",
+					"Failed to get API Node IP",
 					zap.Error(err),
 				)
 				retErr = fmt.Errorf("failed to get api Node IP: %v", err)
