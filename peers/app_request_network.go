@@ -202,6 +202,40 @@ func (n *AppRequestNetwork) ConnectPeers(nodeIDs set.Set[ids.NodeID]) (set.Set[i
 	// through connectedPeers for already tracked peers, just iterate through the full list,
 	// re-adding connections to already tracked peers.
 
+	// add api node in case it is a validator
+	apiNodeID, _, err := n.infoClient.GetNodeID(context.Background())
+	if err != nil {
+		n.logger.Error(
+			"Failed to get api Node ID",
+			zap.Error(err),
+		)
+		return nil, err
+	}
+	if nodeIDs.Contains(apiNodeID) {
+		apiNodeIP, err := n.infoClient.GetNodeIP(context.Background())
+		if err != nil {
+			n.logger.Error(
+				"Failed to get api Node IP",
+				zap.Error(err),
+			)
+			return nil, err
+		}
+		ipPort, err := ips.ToIPPort(apiNodeIP)
+		if err != nil {
+			n.logger.Error(
+				"Failed to parse api Node IP",
+				zap.String("nodeIP", apiNodeIP),
+				zap.Error(err),
+			)
+			return nil, err
+		}
+		trackedNodes.Add(apiNodeID)
+		n.Network.ManuallyTrack(apiNodeID, ipPort)
+		if nodeIDs.Len() == 1 {
+			return nodeIDs, nil
+		}
+	}
+
 	// Get the list of peers
 	peers, err := n.infoClient.Peers(context.Background())
 	if err != nil {
