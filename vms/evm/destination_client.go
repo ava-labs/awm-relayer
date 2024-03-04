@@ -48,9 +48,9 @@ type destinationClient struct {
 	logger                  logging.Logger
 }
 
-func NewDestinationClient(logger logging.Logger, subnetInfo config.DestinationSubnet) (*destinationClient, error) {
+func NewDestinationClient(logger logging.Logger, subnetInfo config.DestinationBlockchain) (*destinationClient, error) {
 	// Dial the destination RPC endpoint
-	client, err := ethclient.Dial(subnetInfo.GetNodeRPCEndpoint())
+	client, err := ethclient.Dial(subnetInfo.RPCEndpoint)
 	if err != nil {
 		logger.Error(
 			"Failed to dial rpc endpoint",

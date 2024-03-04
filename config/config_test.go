@@ -29,20 +29,17 @@ var (
 	testBlockchainID  string = "S4mMqUXe7vHsGiRAma6bv3CKnyaLssyAxmQ2KvFpX1KEvfFCD"
 	testBlockchainID2 string = "291etJW5EpagFY94v1JraFy8vLFYXcCnWKJ6Yz9vrjfPjCF4QL"
 	testAddress       string = "0xd81545385803bCD83bd59f58Ba2d2c0562387F83"
-	primarySubnetID   string = "11111111111111111111111111111111LpoYY"
 	testValidConfig          = Config{
-		LogLevel:          "info",
-		NetworkID:         1337,
-		PChainAPIURL:      "http://test.avax.network",
-		EncryptConnection: false,
-		SourceSubnets: []*SourceSubnet{
+		LogLevel:     "info",
+		PChainAPIURL: "http://test.avax.network",
+		InfoAPIURL:   "http://test.avax.network",
+		SourceBlockchains: []*SourceBlockchain{
 			{
-				APINodeHost:       "http://test.avax.network",
-				APINodePort:       0,
-				BlockchainID:      testBlockchainID,
-				SubnetID:          testSubnetID,
-				VM:                "evm",
-				EncryptConnection: false,
+				RPCEndpoint:  fmt.Sprintf("http://test.avax.network/ext/bc/%s/rpc", testBlockchainID),
+				WSEndpoint:   fmt.Sprintf("ws://test.avax.network/ext/bc/%s/ws", testBlockchainID),
+				BlockchainID: testBlockchainID,
+				SubnetID:     testSubnetID,
+				VM:           "evm",
 				MessageContracts: map[string]MessageProtocolConfig{
 					testAddress: {
 						MessageFormat: TELEPORTER.String(),
@@ -50,14 +47,12 @@ var (
 				},
 			},
 		},
-		DestinationSubnets: []*DestinationSubnet{
+		DestinationBlockchains: []*DestinationBlockchain{
 			{
-				APINodeHost:       "http://test.avax.network",
-				APINodePort:       0,
+				RPCEndpoint:       fmt.Sprintf("http://test.avax.network/ext/bc/%s/rpc", testBlockchainID),
 				BlockchainID:      testBlockchainID,
 				SubnetID:          testSubnetID,
 				VM:                "evm",
-				EncryptConnection: false,
 				AccountPrivateKey: "0x56289e99c94b6912bfc12adc093c9b51124f0dc54ac7a766b2bc5ccf558d8027",
 			},
 		},
@@ -65,157 +60,6 @@ var (
 	testPk1 string = "0xabc89e99c94b6912bfc12adc093c9b51124f0dc54ac7a766b2bc5ccf558d8abc"
 	testPk2 string = "0x12389e99c94b6912bfc12adc093c9b51124f0dc54ac7a766b2bc5ccf558d8123"
 )
-
-func TestGetDestinationRPCEndpoint(t *testing.T) {
-	testCases := []struct {
-		name           string
-		s              DestinationSubnet
-		expectedResult string
-	}{
-		{
-			name: "No encrypt connection",
-			s: DestinationSubnet{
-				EncryptConnection: false,
-				APINodeHost:       "127.0.0.1",
-				APINodePort:       9650,
-				BlockchainID:      testBlockchainID,
-				SubnetID:          testSubnetID,
-			},
-			expectedResult: fmt.Sprintf("http://127.0.0.1:9650/ext/bc/%s/rpc", testBlockchainID),
-		},
-		{
-			name: "Encrypt connection",
-			s: DestinationSubnet{
-				EncryptConnection: true,
-				APINodeHost:       "127.0.0.1",
-				APINodePort:       9650,
-				BlockchainID:      testBlockchainID,
-				SubnetID:          testSubnetID,
-			},
-			expectedResult: fmt.Sprintf("https://127.0.0.1:9650/ext/bc/%s/rpc", testBlockchainID),
-		},
-		{
-			name: "No port",
-			s: DestinationSubnet{
-				EncryptConnection: false,
-				APINodeHost:       "api.avax.network",
-				APINodePort:       0,
-				BlockchainID:      testBlockchainID,
-				SubnetID:          testSubnetID,
-			},
-			expectedResult: fmt.Sprintf("http://api.avax.network/ext/bc/%s/rpc", testBlockchainID),
-		},
-		{
-			name: "Primary subnet",
-			s: DestinationSubnet{
-				EncryptConnection: false,
-				APINodeHost:       "127.0.0.1",
-				APINodePort:       9650,
-				BlockchainID:      testBlockchainID,
-				SubnetID:          primarySubnetID,
-			},
-			expectedResult: "http://127.0.0.1:9650/ext/bc/C/rpc",
-		},
-		{
-			name: "Override with set rpc endpoint",
-			s: DestinationSubnet{
-				EncryptConnection: false,
-				APINodeHost:       "127.0.0.1",
-				APINodePort:       9650,
-				BlockchainID:      testBlockchainID,
-				SubnetID:          testSubnetID,
-				RPCEndpoint:       "https://subnets.avax.network/mysubnet/rpc", // overrides all other settings used to construct the endpoint
-			},
-			expectedResult: "https://subnets.avax.network/mysubnet/rpc",
-		},
-	}
-
-	for _, testCase := range testCases {
-		t.Run(testCase.name, func(t *testing.T) {
-			res := testCase.s.GetNodeRPCEndpoint()
-			require.Equal(t, testCase.expectedResult, res)
-		})
-	}
-}
-
-func TestGetSourceSubnetEndpoints(t *testing.T) {
-	testCases := []struct {
-		name              string
-		s                 SourceSubnet
-		expectedWsResult  string
-		expectedRpcResult string
-	}{
-		{
-			name: "No encrypt connection",
-			s: SourceSubnet{
-				EncryptConnection: false,
-				APINodeHost:       "127.0.0.1",
-				APINodePort:       9650,
-				BlockchainID:      testBlockchainID,
-				SubnetID:          testSubnetID,
-			},
-			expectedWsResult:  fmt.Sprintf("ws://127.0.0.1:9650/ext/bc/%s/ws", testBlockchainID),
-			expectedRpcResult: fmt.Sprintf("http://127.0.0.1:9650/ext/bc/%s/rpc", testBlockchainID),
-		},
-		{
-			name: "Encrypt connection",
-			s: SourceSubnet{
-				EncryptConnection: true,
-				APINodeHost:       "127.0.0.1",
-				APINodePort:       9650,
-				BlockchainID:      testBlockchainID,
-				SubnetID:          testSubnetID,
-			},
-			expectedWsResult:  fmt.Sprintf("wss://127.0.0.1:9650/ext/bc/%s/ws", testBlockchainID),
-			expectedRpcResult: fmt.Sprintf("https://127.0.0.1:9650/ext/bc/%s/rpc", testBlockchainID),
-		},
-		{
-			name: "No port",
-			s: SourceSubnet{
-				EncryptConnection: false,
-				APINodeHost:       "api.avax.network",
-				APINodePort:       0,
-				BlockchainID:      testBlockchainID,
-				SubnetID:          testSubnetID,
-			},
-			expectedWsResult:  fmt.Sprintf("ws://api.avax.network/ext/bc/%s/ws", testBlockchainID),
-			expectedRpcResult: fmt.Sprintf("http://api.avax.network/ext/bc/%s/rpc", testBlockchainID),
-		},
-		{
-			name: "Primary subnet",
-			s: SourceSubnet{
-				EncryptConnection: false,
-				APINodeHost:       "127.0.0.1",
-				APINodePort:       9650,
-				BlockchainID:      testBlockchainID,
-				SubnetID:          primarySubnetID,
-			},
-			expectedWsResult:  "ws://127.0.0.1:9650/ext/bc/C/ws",
-			expectedRpcResult: "http://127.0.0.1:9650/ext/bc/C/rpc",
-		},
-		{
-			name: "Override with set endpoints",
-			s: SourceSubnet{
-				EncryptConnection: false,
-				APINodeHost:       "127.0.0.1",
-				APINodePort:       9650,
-				BlockchainID:      testBlockchainID,
-				SubnetID:          testSubnetID,
-				WSEndpoint:        "wss://subnets.avax.network/mysubnet/ws",    // overrides all other settings used to construct the endpoint
-				RPCEndpoint:       "https://subnets.avax.network/mysubnet/rpc", // overrides all other settings used to construct the endpoint
-			},
-			expectedWsResult:  "wss://subnets.avax.network/mysubnet/ws",
-			expectedRpcResult: "https://subnets.avax.network/mysubnet/rpc",
-		},
-	}
-
-	for _, testCase := range testCases {
-		t.Run(testCase.name, func(t *testing.T) {
-			require.Equal(t, testCase.expectedWsResult, testCase.s.GetNodeWSEndpoint())
-			require.Equal(t, testCase.expectedRpcResult, testCase.s.GetNodeRPCEndpoint())
-		})
-	}
-}
 
 func TestGetRelayerAccountInfo(t *testing.T) {
 	type retStruct struct {
@@ -226,12 +70,12 @@ func TestGetRelayerAccountInfo(t *testing.T) {
 
 	testCases := []struct {
 		name           string
-		s              DestinationSubnet
+		s              DestinationBlockchain
 		expectedResult retStruct
 	}{
 		{
 			name: "valid",
-			s: DestinationSubnet{
+			s: DestinationBlockchain{
 				AccountPrivateKey: "56289e99c94b6912bfc12adc093c9b51124f0dc54ac7a766b2bc5ccf558d8027",
 			},
 			expectedResult: retStruct{
@@ -244,7 +88,7 @@ func TestGetRelayerAccountInfo(t *testing.T) {
 		},
 		{
 			name: "invalid 0x prefix",
-			s: DestinationSubnet{
+			s: DestinationBlockchain{
 				AccountPrivateKey: "0x56289e99c94b6912bfc12adc093c9b51124f0dc54ac7a766b2bc5ccf558d8027",
 			},
 			expectedResult: retStruct{
@@ -257,7 +101,7 @@ func TestGetRelayerAccountInfo(t *testing.T) {
 		},
 		{
 			name: "invalid private key",
-			s: DestinationSubnet{
+			s: DestinationBlockchain{
 				AccountPrivateKey: "invalid56289e99c94b6912bfc12adc093c9b51124f0dc54ac7a766b2bc5ccf558d8027",
 			},
 			expectedResult: retStruct{
@@ -324,9 +168,9 @@ func TestGetRelayerAccountPrivateKey_set_pk_in_config(t *testing.T) {
 		expectedOverwritten: false,
 		resultVerifier: func(c Config) bool {
 			// All destination subnets should have the default private key
-			for i, subnet := range c.DestinationSubnets {
-				if subnet.AccountPrivateKey != utils.SanitizeHexString(testValidConfig.DestinationSubnets[i].AccountPrivateKey) {
-					fmt.Printf("expected: %s, got: %s\n", utils.SanitizeHexString(testValidConfig.DestinationSubnets[i].AccountPrivateKey), subnet.AccountPrivateKey)
+			for i, subnet := range c.DestinationBlockchains {
+				if subnet.AccountPrivateKey != utils.SanitizeHexString(testValidConfig.DestinationBlockchains[i].AccountPrivateKey) {
+					fmt.Printf("expected: %s, got: %s\n", utils.SanitizeHexString(testValidConfig.DestinationBlockchains[i].AccountPrivateKey), subnet.AccountPrivateKey)
 					return false
 				}
 			}
@@ -341,26 +185,26 @@ func TestGetRelayerAccountPrivateKey_set_pk_with_subnet_env(t *testing.T) {
 		baseConfig: testValidConfig,
 		configModifier: func(c Config) Config {
 			// Add a second destination subnet. This PK should NOT be overwritten
-			newSubnet := *c.DestinationSubnets[0]
+			newSubnet := *c.DestinationBlockchains[0]
 			newSubnet.BlockchainID = testBlockchainID2
 			newSubnet.AccountPrivateKey = testPk1
-			c.DestinationSubnets = append(c.DestinationSubnets, &newSubnet)
+			c.DestinationBlockchains = append(c.DestinationBlockchains, &newSubnet)
 			return c
 		},
 		envSetter: func() {
 			// Overwrite the PK for the first subnet using an env var
-			varName := fmt.Sprintf("%s_%s", accountPrivateKeyEnvVarName, testValidConfig.DestinationSubnets[0].BlockchainID)
+			varName := fmt.Sprintf("%s_%s", accountPrivateKeyEnvVarName, testValidConfig.DestinationBlockchains[0].BlockchainID)
 			t.Setenv(varName, testPk2)
 		},
 		expectedOverwritten: true,
 		resultVerifier: func(c Config) bool {
 			// All destination subnets should have testPk1
-			if c.DestinationSubnets[0].AccountPrivateKey != utils.SanitizeHexString(testPk2) {
-				fmt.Printf("expected: %s, got: %s\n", utils.SanitizeHexString(testPk2), c.DestinationSubnets[0].AccountPrivateKey)
+			if c.DestinationBlockchains[0].AccountPrivateKey != utils.SanitizeHexString(testPk2) {
+				fmt.Printf("expected: %s, got: %s\n", utils.SanitizeHexString(testPk2), c.DestinationBlockchains[0].AccountPrivateKey)
 				return false
 			}
-			if c.DestinationSubnets[1].AccountPrivateKey != utils.SanitizeHexString(testPk1) {
-				fmt.Printf("expected: %s, got: %s\n", utils.SanitizeHexString(testPk1), c.DestinationSubnets[1].AccountPrivateKey)
+			if c.DestinationBlockchains[1].AccountPrivateKey != utils.SanitizeHexString(testPk1) {
+				fmt.Printf("expected: %s, got: %s\n", utils.SanitizeHexString(testPk1), c.DestinationBlockchains[1].AccountPrivateKey)
 				return false
 			}
 			return true
@@ -373,10 +217,10 @@ func TestGetRelayerAccountPrivateKey_set_pk_with_global_env(t *testing.T) {
 		baseConfig: testValidConfig,
 		configModifier: func(c Config) Config {
 			// Add a second destination subnet. This PK SHOULD be overwritten
-			newSubnet := *c.DestinationSubnets[0]
+			newSubnet := *c.DestinationBlockchains[0]
 			newSubnet.BlockchainID = testBlockchainID2
 			newSubnet.AccountPrivateKey = testPk1
-			c.DestinationSubnets = append(c.DestinationSubnets, &newSubnet)
+			c.DestinationBlockchains = append(c.DestinationBlockchains, &newSubnet)
 			return c
 		},
 		envSetter: func() {
@@ -386,7 +230,7 @@ func TestGetRelayerAccountPrivateKey_set_pk_with_global_env(t *testing.T) {
 		expectedOverwritten: true,
 		resultVerifier: func(c Config) bool {
 			// All destination subnets should have testPk2
-			for _, subnet := range c.DestinationSubnets {
+			for _, subnet := range c.DestinationBlockchains {
 				if subnet.AccountPrivateKey != utils.SanitizeHexString(testPk2) {
 					fmt.Printf("expected: %s, got: %s\n", utils.SanitizeHexString(testPk2), subnet.AccountPrivateKey)
 					return false
@@ -409,7 +253,7 @@ func TestGetRelayerAccountInfoSkipChainConfigCheckCompatible(t *testing.T) {
 	accountPrivateKey := "56289e99c94b6912bfc12adc093c9b51124f0dc54ac7a766b2bc5ccf558d8027"
 	expectedAddress := "0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC"
 
-	info := DestinationSubnet{
+	info := DestinationBlockchain{
 		AccountPrivateKey: accountPrivateKey,
 	}
 	_, address, err := info.GetRelayerAccountInfo()
@@ -544,14 +388,13 @@ func TestGetWarpQuorum(t *testing.T) {
 	}
 }
 
-func TestValidateSourceSubnet(t *testing.T) {
-	validSourceCfg := SourceSubnet{
-		APINodeHost:           "http://test.avax.network",
-		APINodePort:           0,
+func TestValidateSourceBlockchain(t *testing.T) {
+	validSourceCfg := SourceBlockchain{
 		BlockchainID:          testBlockchainID,
+		RPCEndpoint:           fmt.Sprintf("http://test.avax.network/ext/bc/%s/rpc", testBlockchainID),
+		WSEndpoint:            fmt.Sprintf("ws://test.avax.network/ext/bc/%s/ws", testBlockchainID),
 		SubnetID:              testSubnetID,
 		VM:                    "evm",
-		EncryptConnection:     false,
 		SupportedDestinations: []string{testBlockchainID},
 		MessageContracts: map[string]MessageProtocolConfig{
 			testAddress: {
@@ -561,21 +404,21 @@ func TestValidateSourceSubnet(t *testing.T) {
 	}
 	testCases := []struct {
 		name                          string
-		sourceSubnet                  func() SourceSubnet
+		sourceSubnet                  func() SourceBlockchain
 		destinationBlockchainIDs      []string
 		expectError                   bool
 		expectedSupportedDestinations []string
 	}{
 		{
 			name:                          "valid source subnet; explicitly supported destination",
-			sourceSubnet:                  func() SourceSubnet { return validSourceCfg },
+			sourceSubnet:                  func() SourceBlockchain { return validSourceCfg },
 			destinationBlockchainIDs:      []string{testBlockchainID},
 			expectError:                   false,
 			expectedSupportedDestinations: []string{testBlockchainID},
 		},
 		{
 			name: "valid source subnet; implicitly supported destination",
-			sourceSubnet: func() SourceSubnet {
+			sourceSubnet: func() SourceBlockchain {
 				cfg := validSourceCfg
 				cfg.SupportedDestinations = nil
 				return cfg
@@ -586,14 +429,14 @@ func TestValidateSourceSubnet(t *testing.T) {
 		},
 		{
 			name:                          "valid source subnet; partially supported destinations",
-			sourceSubnet:                  func() SourceSubnet { return validSourceCfg },
+			sourceSubnet:                  func() SourceBlockchain { return validSourceCfg },
 			destinationBlockchainIDs:      []string{testBlockchainID, testBlockchainID2},
 			expectError:                   false,
 			expectedSupportedDestinations: []string{testBlockchainID},
 		},
 		{
 			name:                          "valid source subnet; unsupported destinations",
-			sourceSubnet:                  func() SourceSubnet { return validSourceCfg },
+			sourceSubnet:                  func() SourceBlockchain { return validSourceCfg },
 			destinationBlockchainIDs:      []string{testBlockchainID2},
 			expectError:                   true,
 			expectedSupportedDestinations: []string{},

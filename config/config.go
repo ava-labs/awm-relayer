@@ -55,13 +55,10 @@ type ManualWarpMessage struct {
 	destinationAddress      common.Address
 }
 
-type SourceSubnet struct {
+type SourceBlockchain struct {
 	SubnetID              string                           `mapstructure:"subnet-id" json:"subnet-id"`
 	BlockchainID          string                           `mapstructure:"blockchain-id" json:"blockchain-id"`
 	VM                    string                           `mapstructure:"vm" json:"vm"`
-	APINodeHost           string                           `mapstructure:"api-node-host" json:"api-node-host"`
-	APINodePort           uint32                           `mapstructure:"api-node-port" json:"api-node-port"`
-	EncryptConnection     bool                             `mapstructure:"encrypt-connection" json:"encrypt-connection"`
 	RPCEndpoint           string                           `mapstructure:"rpc-endpoint" json:"rpc-endpoint"`
 	WSEndpoint            string                           `mapstructure:"ws-endpoint" json:"ws-endpoint"`
 	MessageContracts      map[string]MessageProtocolConfig `mapstructure:"message-contracts" json:"message-contracts"`
@@ -72,13 +69,10 @@ type SourceSubnet struct {
 	supportedDestinations set.Set[ids.ID]
 }
 
-type DestinationSubnet struct {
+type DestinationBlockchain struct {
 	SubnetID          string `mapstructure:"subnet-id" json:"subnet-id"`
 	BlockchainID      string `mapstructure:"blockchain-id" json:"blockchain-id"`
 	VM                string `mapstructure:"vm" json:"vm"`
-	APINodeHost       string `mapstructure:"api-node-host" json:"api-node-host"`
-	APINodePort       uint32 `mapstructure:"api-node-port" json:"api-node-port"`
-	EncryptConnection bool   `mapstructure:"encrypt-connection" json:"encrypt-connection"`
 	RPCEndpoint       string `mapstructure:"rpc-endpoint" json:"rpc-endpoint"`
 	AccountPrivateKey string `mapstructure:"account-private-key" json:"account-private-key"`
 
@@ -92,15 +86,14 @@ type WarpQuorum struct {
 }
 
 type Config struct {
-	LogLevel            string               `mapstructure:"log-level" json:"log-level"`
-	NetworkID           uint32               `mapstructure:"network-id" json:"network-id"`
-	PChainAPIURL        string               `mapstructure:"p-chain-api-url" json:"p-chain-api-url"`
-	EncryptConnection   bool                 `mapstructure:"encrypt-connection" json:"encrypt-connection"`
-	StorageLocation     string               `mapstructure:"storage-location" json:"storage-location"`
-	SourceSubnets       []*SourceSubnet      `mapstructure:"source-subnets" json:"source-subnets"`
-	DestinationSubnets  []*DestinationSubnet `mapstructure:"destination-subnets" json:"destination-subnets"`
-	ProcessMissedBlocks bool                 `mapstructure:"process-missed-blocks" json:"process-missed-blocks"`
-	ManualWarpMessages  []*ManualWarpMessage `mapstructure:"manual-warp-messages" json:"manual-warp-messages"`
+	LogLevel               string                   `mapstructure:"log-level" json:"log-level"`
+	PChainAPIURL           string                   `mapstructure:"p-chain-api-url" json:"p-chain-api-url"`
+	InfoAPIURL             string                   `mapstructure:"info-api-url" json:"info-api-url"`
+	StorageLocation        string                   `mapstructure:"storage-location" json:"storage-location"`
+	SourceBlockchains      []*SourceBlockchain      `mapstructure:"source-blockchains" json:"source-blockchains"`
+	DestinationBlockchains []*DestinationBlockchain `mapstructure:"destination-blockchains" json:"destination-blockchains"`
+	ProcessMissedBlocks    bool                     `mapstructure:"process-missed-blocks" json:"process-missed-blocks"`
+	ManualWarpMessages     []*ManualWarpMessage     `mapstructure:"manual-warp-messages" json:"manual-warp-messages"`
 
 	// convenience fields to access the source subnet and chain IDs after initialization
 	sourceSubnetIDs     []ids.ID
@@ -109,8 +102,6 @@ type Config struct {
 
 func SetDefaultConfigValues(v *viper.Viper) {
 	v.SetDefault(LogLevelKey, logging.Info.String())
-	v.SetDefault(NetworkIDKey, constants.MainnetID)
-	v.SetDefault(EncryptConnectionKey, true)
 	v.SetDefault(StorageLocationKey, "./.awm-relayer-storage")
 	v.SetDefault(ProcessMissedBlocksKey, true)
 }
@@ -138,18 +129,17 @@ func BuildConfig(v *viper.Viper) (Config, bool, error) {
 	)
 
 	cfg.LogLevel = v.GetString(LogLevelKey)
-	cfg.NetworkID = v.GetUint32(NetworkIDKey)
 	cfg.PChainAPIURL = v.GetString(PChainAPIURLKey)
-	cfg.EncryptConnection = v.GetBool(EncryptConnectionKey)
+	cfg.InfoAPIURL = v.GetString(InfoAPIURLKey)
 	cfg.StorageLocation = v.GetString(StorageLocationKey)
 	cfg.ProcessMissedBlocks = v.GetBool(ProcessMissedBlocksKey)
 	if err := v.UnmarshalKey(ManualWarpMessagesKey, &cfg.ManualWarpMessages); err != nil {
 		return Config{}, false, fmt.Errorf("failed to unmarshal manual warp messages: %w", err)
 	}
-	if err := v.UnmarshalKey(DestinationSubnetsKey, &cfg.DestinationSubnets); err != nil {
+	if err := v.UnmarshalKey(DestinationBlockchainsKey, &cfg.DestinationBlockchains); err != nil {
 		return Config{}, false, fmt.Errorf("failed to unmarshal destination subnets: %w", err)
 	}
-	if err := v.UnmarshalKey(SourceSubnetsKey, &cfg.SourceSubnets); err != nil {
+	if err := v.UnmarshalKey(SourceBlockchainsKey, &cfg.SourceBlockchains); err != nil {
 		return Config{}, false, fmt.Errorf("failed to unmarshal source subnets: %w", err)
 	}
 
@@ -160,19 +150,19 @@ func BuildConfig(v *viper.Viper) (Config, bool, error) {
 	accountPrivateKey := v.GetString(AccountPrivateKeyKey)
 	if accountPrivateKey != "" {
 		optionOverwritten = true
-		for i := range cfg.DestinationSubnets {
-			cfg.DestinationSubnets[i].AccountPrivateKey = utils.SanitizeHexString(accountPrivateKey)
+		for i := range cfg.DestinationBlockchains {
+			cfg.DestinationBlockchains[i].AccountPrivateKey = utils.SanitizeHexString(accountPrivateKey)
 		}
 	} else {
 		// Otherwise, check for private keys suffixed with the chain ID and set it for that subnet
 		// Since the key is dynamic, this is only possible through environment variables
-		for i, subnet := range cfg.DestinationSubnets {
+		for i, subnet := range cfg.DestinationBlockchains {
 			subnetAccountPrivateKey := os.Getenv(fmt.Sprintf("%s_%s", accountPrivateKeyEnvVarName, subnet.BlockchainID))
 			if subnetAccountPrivateKey != "" {
 				optionOverwritten = true
-				cfg.DestinationSubnets[i].AccountPrivateKey = utils.SanitizeHexString(subnetAccountPrivateKey)
+				cfg.DestinationBlockchains[i].AccountPrivateKey = utils.SanitizeHexString(subnetAccountPrivateKey)
 			} else {
-				cfg.DestinationSubnets[i].AccountPrivateKey = utils.SanitizeHexString(cfg.DestinationSubnets[i].AccountPrivateKey)
+				cfg.DestinationBlockchains[i].AccountPrivateKey = utils.SanitizeHexString(cfg.DestinationBlockchains[i].AccountPrivateKey)
 			}
 		}
 	}
@@ -181,19 +171,6 @@ func BuildConfig(v *viper.Viper) (Config, bool, error) {
 		return Config{}, false, fmt.Errorf("failed to validate configuration: %w", err)
 	}
 
-	var protocol string
-	if cfg.EncryptConnection {
-		protocol = "https"
-	} else {
-		protocol = "http"
-	}
-
-	pChainapiUrl, err := utils.ConvertProtocol(cfg.PChainAPIURL, protocol)
-	if err != nil {
-		return Config{}, false, err
-	}
-	cfg.PChainAPIURL = pChainapiUrl
-
 	return cfg, optionOverwritten, nil
 }
 
@@ -201,19 +178,22 @@ func BuildConfig(v *viper.Viper) (Config, bool, error) {
 // Does not modify the public fields as derived from the configuration passed to the application,
 // but does initialize private fields available through getters
 func (c *Config) Validate() error {
-	if len(c.SourceSubnets) == 0 {
+	if len(c.SourceBlockchains) == 0 {
 		return errors.New("relayer not configured to relay from any subnets. A list of source subnets must be provided in the configuration file")
 	}
-	if len(c.DestinationSubnets) == 0 {
+	if len(c.DestinationBlockchains) == 0 {
 		return errors.New("relayer not configured to relay to any subnets. A list of destination subnets must be provided in the configuration file")
 	}
 	if _, err := url.ParseRequestURI(c.PChainAPIURL); err != nil {
 		return err
 	}
+	if _, err := url.ParseRequestURI(c.InfoAPIURL); err != nil {
+		return err
+	}
 
 	// Validate the destination chains
-	destinationChains := set.NewSet[string](len(c.DestinationSubnets))
-	for _, s := range c.DestinationSubnets {
+	destinationChains := set.NewSet[string](len(c.DestinationBlockchains))
+	for _, s := range c.DestinationBlockchains {
 		if err := s.Validate(); err != nil {
 			return err
 		}
@@ -224,10 +204,10 @@ func (c *Config) Validate() error {
 	}
 
 	// Validate the source chains and store the source subnet and chain IDs for future use
-	sourceBlockchains := set.NewSet[string](len(c.SourceSubnets))
+	sourceBlockchains := set.NewSet[string](len(c.SourceBlockchains))
 	var sourceSubnetIDs []ids.ID
 	var sourceBlockchainIDs []ids.ID
-	for _, s := range c.SourceSubnets {
+	for _, s := range c.SourceBlockchains {
 		// Validate configuration
 		if err := s.Validate(&destinationChains); err != nil {
 			return err
@@ -379,7 +359,7 @@ func getWarpQuorum(
 
 func (c *Config) InitializeWarpQuorums() error {
 	// Fetch the Warp quorum values for each destination subnet.
-	for _, destinationSubnet := range c.DestinationSubnets {
+	for _, destinationSubnet := range c.DestinationBlockchains {
 		err := destinationSubnet.initializeWarpQuorum()
 		if err != nil {
 			return fmt.Errorf("failed to initialize Warp quorum for destination subnet %s: %w", destinationSubnet.SubnetID, err)
@@ -389,24 +369,24 @@ func (c *Config) InitializeWarpQuorums() error {
 	return nil
 }
 
-func (s *SourceSubnet) GetSupportedDestinations() set.Set[ids.ID] {
+func (s *SourceBlockchain) GetSupportedDestinations() set.Set[ids.ID] {
 	return s.supportedDestinations
 }
 
 // Validates the source subnet configuration, including verifying that the supported destinations are present in destinationBlockchainIDs
 // Does not modify the public fields as derived from the configuration passed to the application,
 // but does initialize private fields available through getters
-func (s *SourceSubnet) Validate(destinationBlockchainIDs *set.Set[string]) error {
+func (s *SourceBlockchain) Validate(destinationBlockchainIDs *set.Set[string]) error {
 	if _, err := ids.FromString(s.SubnetID); err != nil {
 		return fmt.Errorf("invalid subnetID in source subnet configuration. Provided ID: %s", s.SubnetID)
 	}
 	if _, err := ids.FromString(s.BlockchainID); err != nil {
 		return fmt.Errorf("invalid blockchainID in source subnet configuration. Provided ID: %s", s.BlockchainID)
 	}
-	if _, err := url.ParseRequestURI(s.GetNodeWSEndpoint()); err != nil {
+	if _, err := url.ParseRequestURI(s.WSEndpoint); err != nil {
 		return fmt.Errorf("invalid relayer subscribe URL in source subnet configuration: %w", err)
 	}
-	if _, err := url.ParseRequestURI(s.GetNodeRPCEndpoint()); err != nil {
+	if _, err := url.ParseRequestURI(s.RPCEndpoint); err != nil {
 		return fmt.Errorf("invalid relayer RPC URL in source subnet configuration: %w", err)
 	}
 
@@ -461,14 +441,14 @@ func (s *SourceSubnet) Validate(destinationBlockchainIDs *set.Set[string]) error
 }
 
 // Validatees the destination subnet configuration
-func (s *DestinationSubnet) Validate() error {
+func (s *DestinationBlockchain) Validate() error {
 	if _, err := ids.FromString(s.SubnetID); err != nil {
 		return fmt.Errorf("invalid subnetID in source subnet configuration. Provided ID: %s", s.SubnetID)
 	}
 	if _, err := ids.FromString(s.BlockchainID); err != nil {
 		return fmt.Errorf("invalid blockchainID in source subnet configuration. Provided ID: %s", s.BlockchainID)
 	}
-	if _, err := url.ParseRequestURI(s.GetNodeRPCEndpoint()); err != nil {
+	if _, err := url.ParseRequestURI(s.RPCEndpoint); err != nil {
 		return fmt.Errorf("invalid relayer broadcast URL: %w", err)
 	}
 
@@ -489,7 +469,7 @@ func (s *DestinationSubnet) Validate() error {
 	return nil
 }
 
-func (s *DestinationSubnet) initializeWarpQuorum() error {
+func (s *DestinationBlockchain) initializeWarpQuorum() error {
 	blockchainID, err := ids.FromString(s.BlockchainID)
 	if err != nil {
 		return fmt.Errorf("invalid blockchainID in configuration. error: %w", err)
@@ -499,7 +479,7 @@ func (s *DestinationSubnet) initializeWarpQuorum() error {
 		return fmt.Errorf("invalid subnetID in configuration. error: %w", err)
 	}
 
-	client, err := ethclient.Dial(s.GetNodeRPCEndpoint())
+	client, err := ethclient.Dial(s.RPCEndpoint)
 	if err != nil {
 		return fmt.Errorf("failed to dial destination blockchain %s: %w", blockchainID, err)
 	}
@@ -513,92 +493,8 @@ func (s *DestinationSubnet) initializeWarpQuorum() error {
 	return nil
 }
 
-func constructURL(protocol string, host string, port uint32, encrypt bool, blockchainIDStr string, subnetIDStr string) string {
-	var protocolPathMap = map[string]string{
-		"http": "rpc",
-		"ws":   "ws",
-	}
-	path := protocolPathMap[protocol]
-
-	if encrypt {
-		protocol = protocol + "s"
-	}
-	portStr := ""
-	if port != 0 {
-		portStr = fmt.Sprintf(":%d", port)
-	}
-	subnetID, _ := ids.FromString(subnetIDStr) // already validated in Validate()
-	if subnetID == constants.PrimaryNetworkID {
-		blockchainIDStr = cChainIdentifierString
-	}
-	return fmt.Sprintf("%s://%s%s/ext/bc/%s/%s", protocol, host, portStr, blockchainIDStr, path)
-}
-
-// Constructs an RPC endpoint for the subnet.
-// If the RPCEndpoint field is set in the configuration, returns that directly.
-// Otherwise, constructs the endpoint from the APINodeHost, APINodePort, and EncryptConnection fields,
-// following the /ext/bc/{blockchainID}/rpc format.
-func (s *DestinationSubnet) GetNodeRPCEndpoint() string {
-	if s.RPCEndpoint != "" {
-		return s.RPCEndpoint
-	}
-
-	// Save this result for future use
-	s.RPCEndpoint = constructURL(
-		"http",
-		s.APINodeHost,
-		s.APINodePort,
-		s.EncryptConnection,
-		s.BlockchainID,
-		s.SubnetID,
-	)
-	return s.RPCEndpoint
-}
-
-// Constructs an RPC endpoint for the subnet.
-// If the RPCEndpoint field is set in the configuration, returns that directly.
-// Otherwise, constructs the endpoint from the APINodeHost, APINodePort, and EncryptConnection fields,
-// following the /ext/bc/{blockchainID}/rpc format.
-func (s *SourceSubnet) GetNodeRPCEndpoint() string {
-	if s.RPCEndpoint != "" {
-		return s.RPCEndpoint
-	}
-
-	// Save this result for future use
-	s.RPCEndpoint = constructURL(
-		"http",
-		s.APINodeHost,
-		s.APINodePort,
-		s.EncryptConnection,
-		s.BlockchainID,
-		s.SubnetID,
-	)
-	return s.RPCEndpoint
-}
-
-// Constructs a WS endpoint for the subnet.
-// If the WSEndpoint field is set in the configuration, returns that directly.
-// Otherwise, constructs the endpoint from the APINodeHost, APINodePort, and EncryptConnection fields,
-// following the /ext/bc/{blockchainID}/ws format.
-func (s *SourceSubnet) GetNodeWSEndpoint() string {
-	if s.WSEndpoint != "" {
-		return s.WSEndpoint
-	}
-
-	// Save this result for future use
-	s.WSEndpoint = constructURL(
-		"ws",
-		s.APINodeHost,
-		s.APINodePort,
-		s.EncryptConnection,
-		s.BlockchainID,
-		s.SubnetID,
-	)
-	return s.WSEndpoint
-}
-
 // Get the private key and derive the wallet address from a relayer's configured private key for a given destination subnet.
-func (s *DestinationSubnet) GetRelayerAccountInfo() (*ecdsa.PrivateKey, common.Address, error) {
+func (s *DestinationBlockchain) GetRelayerAccountInfo() (*ecdsa.PrivateKey, common.Address, error) {
 	pk, err := crypto.HexToECDSA(s.AccountPrivateKey)
 	if err != nil {
 		return nil, common.Address{}, err
@@ -617,7 +513,7 @@ func (c *Config) GetSourceIDs() ([]ids.ID, []ids.ID) {
 }
 
 func (c *Config) GetWarpQuorum(blockchainID ids.ID) (WarpQuorum, error) {
-	for _, s := range c.DestinationSubnets {
+	for _, s := range c.DestinationBlockchains {
 		if blockchainID.String() == s.BlockchainID {
 			return s.warpQuorum, nil
 		}

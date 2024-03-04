@@ -5,9 +5,7 @@ package utils
 
 import (
 	"errors"
-	"fmt"
 	"math/big"
-	"net/url"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -62,23 +60,6 @@ func BigToHashSafe(in *big.Int) (common.Hash, error) {
 	}
 
 	return common.BytesToHash(bytes), nil
-}
-
-func ConvertProtocol(URLString, protocol string) (string, error) {
-	var (
-		u   *url.URL
-		err error
-	)
-	if u, err = url.ParseRequestURI(URLString); err != nil {
-		return "", fmt.Errorf("invalid url")
-	}
-
-	u.Scheme = protocol
-	if _, err = url.ParseRequestURI(u.String()); err != nil {
-		return "", fmt.Errorf("invalid protocol")
-	}
-
-	return u.String(), nil
 }
 
 // SanitizeHexString removes the "0x" prefix from a hex string if it exists.
