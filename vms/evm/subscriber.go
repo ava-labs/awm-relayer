@@ -61,7 +61,7 @@ type subscriber struct {
 }
 
 // NewSubscriber returns a subscriber
-func NewSubscriber(logger logging.Logger, subnetInfo config.SourceSubnet) *subscriber {
+func NewSubscriber(logger logging.Logger, subnetInfo config.SourceBlockchain) *subscriber {
 	blockchainID, err := ids.FromString(subnetInfo.BlockchainID)
 	if err != nil {
 		logger.Error(
@@ -74,8 +74,8 @@ func NewSubscriber(logger logging.Logger, subnetInfo config.SourceSubnet) *subsc
 	logs := make(chan vmtypes.WarpLogInfo, maxClientSubscriptionBuffer)
 
 	return &subscriber{
-		nodeWSURL:    subnetInfo.GetNodeWSEndpoint(),
-		nodeRPCURL:   subnetInfo.GetNodeRPCEndpoint(),
+		nodeWSURL:    subnetInfo.WSEndpoint,
+		nodeRPCURL:   subnetInfo.RPCEndpoint,
 		blockchainID: blockchainID,
 		logger:       logger,
 		logsChan:     logs,

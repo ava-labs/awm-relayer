@@ -163,7 +163,7 @@ func BasicRelay(network interfaces.LocalNetwork) {
 	// StartBlockHeight to the block height of the *third* message, we expect the relayer to skip
 	// the first two messages on startup, but process the third.
 	modifiedRelayerConfig := relayerConfig
-	modifiedRelayerConfig.SourceSubnets[0].StartBlockHeight = currHeight
+	modifiedRelayerConfig.SourceBlockchains[0].StartBlockHeight = currHeight
 	modifiedRelayerConfig.ProcessMissedBlocks = true
 	relayerConfigPath = writeRelayerConfig(modifiedRelayerConfig)
 

@@ -16,7 +16,6 @@ import (
 	"github.com/ava-labs/avalanchego/message"
 	"github.com/ava-labs/avalanchego/network"
 	"github.com/ava-labs/avalanchego/snow/validators"
-	"github.com/ava-labs/avalanchego/utils/constants"
 	"github.com/ava-labs/avalanchego/utils/ips"
 	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/avalanchego/utils/set"
@@ -43,10 +42,9 @@ type AppRequestNetwork struct {
 func NewNetwork(
 	logLevel logging.Level,
 	registerer prometheus.Registerer,
-	networkID uint32,
 	subnetIDs []ids.ID,
 	blockchainIDs []ids.ID,
-	APINodeURL string,
+	infoAPINodeURL string,
 ) (*AppRequestNetwork, map[ids.ID]chan message.InboundMessage, error) {
 	logger := logging.NewLogger(
 		"awm-relayer-p2p",
@@ -57,10 +55,20 @@ func NewNetwork(
 		),
 	)
 
-	if networkID != constants.MainnetID &&
-		networkID != constants.FujiID &&
-		len(APINodeURL) == 0 {
-		return nil, nil, fmt.Errorf("must provide an API URL for local networks")
+	if infoAPINodeURL == "" {
+		logger.Error("No InfoAPI node URL provided")
+		return nil, nil, fmt.Errorf("must provide an Inffo API URL")
+	}
+
+	// Create the info client
+	infoClient := info.NewClient(infoAPINodeURL)
+	networkID, err := infoClient.GetNetworkID(context.Background())
+	if err != nil {
+		logger.Error(
+			"Failed to get network ID",
+			zap.Error(err),
+		)
+		return nil, nil, err
 	}
 
 	// Create the test network for AppRequests
@@ -97,13 +105,8 @@ func NewNetwork(
 
 	// We need to initially connect to some nodes in the network before peer
 	// gossip will enable connecting to all the remaining nodes in the network.
-	var (
-		beaconIPs, beaconIDs []string
-		infoClient           info.Client
-	)
+	var beaconIPs, beaconIDs []string
 
-	// Create the info client
-	infoClient = info.NewClient(APINodeURL)
 	peers, err := infoClient.Peers(context.Background())
 	if err != nil {
 		logger.Error(

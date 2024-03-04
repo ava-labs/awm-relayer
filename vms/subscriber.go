@@ -37,7 +37,7 @@ type Subscriber interface {
 }
 
 // NewSubscriber returns a concrete Subscriber according to the VM specified by [subnetInfo]
-func NewSubscriber(logger logging.Logger, subnetInfo config.SourceSubnet) Subscriber {
+func NewSubscriber(logger logging.Logger, subnetInfo config.SourceBlockchain) Subscriber {
 	switch config.ParseVM(subnetInfo.VM) {
 	case config.EVM:
 		return evm.NewSubscriber(logger, subnetInfo)
