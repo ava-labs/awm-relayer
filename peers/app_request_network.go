@@ -250,7 +250,7 @@ func (n *AppRequestNetwork) ConnectPeers(nodeIDs set.Set[ids.NodeID]) (set.Set[i
 				retErr = fmt.Errorf("failed to get api Node IP: %v", err)
 			} else if ipPort, err := ips.ToIPPort(apiNodeIP); err != nil {
 				n.logger.Error(
-					"Failed to parse api Node IP",
+					"Failed to parse API Node IP",
 					zap.String("nodeIP", apiNodeIP),
 					zap.Error(err),
 				)
