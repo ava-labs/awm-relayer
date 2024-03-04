@@ -44,7 +44,7 @@ func NewNetwork(
 	registerer prometheus.Registerer,
 	subnetIDs []ids.ID,
 	blockchainIDs []ids.ID,
-	InfoAPINodeURL string,
+	infoAPINodeURL string,
 ) (*AppRequestNetwork, map[ids.ID]chan message.InboundMessage, error) {
 	logger := logging.NewLogger(
 		"awm-relayer-p2p",
@@ -55,13 +55,13 @@ func NewNetwork(
 		),
 	)
 
-	if InfoAPINodeURL == "" {
+	if infoAPINodeURL == "" {
 		logger.Error("No InfoAPI node URL provided")
 		return nil, nil, fmt.Errorf("must provide an Inffo API URL")
 	}
 
 	// Create the info client
-	infoClient := info.NewClient(InfoAPINodeURL)
+	infoClient := info.NewClient(infoAPINodeURL)
 	networkID, err := infoClient.GetNetworkID(context.Background())
 	if err != nil {
 		logger.Error(
