@@ -254,7 +254,7 @@ func (n *AppRequestNetwork) ConnectPeers(nodeIDs set.Set[ids.NodeID]) (set.Set[i
 					zap.String("nodeIP", apiNodeIP),
 					zap.Error(err),
 				)
-				retErr = fmt.Errorf("failed to parse api Node IP: %v", err)
+				retErr = fmt.Errorf("failed to parse API Node IP: %v", err)
 			} else {
 				trackedNodes.Add(apiNodeID)
 				n.Network.ManuallyTrack(apiNodeID, ipPort)
