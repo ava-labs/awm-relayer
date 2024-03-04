@@ -237,7 +237,7 @@ func (n *AppRequestNetwork) ConnectPeers(nodeIDs set.Set[ids.NodeID]) (set.Set[i
 		// attempt adding api node in case it is a validator
 		if apiNodeID, _, err := n.infoClient.GetNodeID(context.Background()); err != nil {
 			n.logger.Error(
-				"Failed to get api Node ID",
+				"Failed to get API Node ID",
 				zap.Error(err),
 			)
 			retErr = fmt.Errorf("failed to get api Node ID: %v", err)
