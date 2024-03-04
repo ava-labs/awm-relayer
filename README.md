@@ -169,7 +169,7 @@ The relayer is configured via a JSON file, the path to which is passed in via th
 
   `"supported-destinations": []string`
 
-  - List of destination subnet IDs that the source subnet supports. If empty, then all destinations are supported.
+  - List of destination blockchain IDs that the source blockchain supports. If empty, then all destinations are supported.
 
   `"start-block-height": unsigned integer`
 
