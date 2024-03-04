@@ -139,9 +139,9 @@ The relayer is configured via a JSON file, the path to which is passed in via th
 
   - The address of the destination account that will receive the Warp message.
 
-`"source-subnets": []SourceSubnets`
+`"source-blockchains": []SourceBlockchains`
 
-- The list of source subnets to support. Each `SourceSubnet` has the following configuration:
+- The list of source subnets to support. Each `SourceBlockchain` has the following configuration:
 
   `"subnet-id": string`
 
@@ -175,9 +175,9 @@ The relayer is configured via a JSON file, the path to which is passed in via th
 
   - The block height at which to back-process transactions from the source subnet. If the database already contains a later block height for the source subnet, then that will be used instead. Must be non-zero.
 
-`"destination-subnets": []DestinationSubnets`
+`"destination-blockchains": []DestinationBlockchains`
 
-- The list of destination subnets to support. Each `DestinationSubnet` has the following configuration:
+- The list of destination subnets to support. Each `DestinationBlockchain` has the following configuration:
 
   `"subnet-id": string`
 

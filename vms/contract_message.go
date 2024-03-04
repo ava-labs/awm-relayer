@@ -15,7 +15,7 @@ type ContractMessage interface {
 	UnpackWarpMessage(unsignedMsgBytes []byte) (*warp.UnsignedMessage, error)
 }
 
-func NewContractMessage(logger logging.Logger, subnetInfo config.SourceSubnet) ContractMessage {
+func NewContractMessage(logger logging.Logger, subnetInfo config.SourceBlockchain) ContractMessage {
 	switch config.ParseVM(subnetInfo.VM) {
 	case config.EVM:
 		return evm.NewContractMessage(logger, subnetInfo)

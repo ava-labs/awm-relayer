@@ -17,7 +17,7 @@ import (
 	"go.uber.org/mock/gomock"
 )
 
-var destinationSubnet = config.DestinationSubnet{
+var destinationSubnet = config.DestinationBlockchain{
 	SubnetID:          "2TGBXcnwx5PqiXWiqxAKUaNSqDguXNh1mxnp82jui68hxJSZAx",
 	BlockchainID:      "S4mMqUXe7vHsGiRAma6bv3CKnyaLssyAxmQ2KvFpX1KEvfFCD",
 	VM:                config.EVM.String(),

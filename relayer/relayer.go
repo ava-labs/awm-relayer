@@ -68,7 +68,7 @@ func NewRelayer(
 	logger logging.Logger,
 	metrics *MessageRelayerMetrics,
 	db database.RelayerDatabase,
-	sourceSubnetInfo config.SourceSubnet,
+	sourceSubnetInfo config.SourceBlockchain,
 	pChainClient platformvm.Client,
 	network *peers.AppRequestNetwork,
 	responseChan chan message.InboundMessage,

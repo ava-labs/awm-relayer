@@ -94,13 +94,13 @@ func CreateDefaultRelayerConfig(
 		"Setting up relayer config",
 	)
 	// Construct the config values for each subnet
-	sources := make([]*config.SourceSubnet, len(subnetsInfo))
-	destinations := make([]*config.DestinationSubnet, len(subnetsInfo))
+	sources := make([]*config.SourceBlockchain, len(subnetsInfo))
+	destinations := make([]*config.DestinationBlockchain, len(subnetsInfo))
 	for i, subnetInfo := range subnetsInfo {
 		host, port, err := teleporterTestUtils.GetURIHostAndPort(subnetInfo.NodeURIs[0])
 		Expect(err).Should(BeNil())
 
-		sources[i] = &config.SourceSubnet{
+		sources[i] = &config.SourceBlockchain{
 			SubnetID:     subnetInfo.SubnetID.String(),
 			BlockchainID: subnetInfo.BlockchainID.String(),
 			VM:           config.EVM.String(),
@@ -123,7 +123,7 @@ func CreateDefaultRelayerConfig(
 			},
 		}
 
-		destinations[i] = &config.DestinationSubnet{
+		destinations[i] = &config.DestinationBlockchain{
 			SubnetID:          subnetInfo.SubnetID.String(),
 			BlockchainID:      subnetInfo.BlockchainID.String(),
 			VM:                config.EVM.String(),
@@ -141,13 +141,13 @@ func CreateDefaultRelayerConfig(
 	}
 
 	return config.Config{
-		LogLevel:            logging.Info.LowerString(),
-		PChainAPIURL:        subnetsInfo[0].NodeURIs[0],
-		InfoAPIURL:          subnetsInfo[0].NodeURIs[0],
-		StorageLocation:     RelayerStorageLocation(),
-		ProcessMissedBlocks: false,
-		SourceSubnets:       sources,
-		DestinationSubnets:  destinations,
+		LogLevel:               logging.Info.LowerString(),
+		PChainAPIURL:           subnetsInfo[0].NodeURIs[0],
+		InfoAPIURL:             subnetsInfo[0].NodeURIs[0],
+		StorageLocation:        RelayerStorageLocation(),
+		ProcessMissedBlocks:    false,
+		SourceBlockchains:      sources,
+		DestinationBlockchains: destinations,
 	}
 }
 
