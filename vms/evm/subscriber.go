@@ -61,7 +61,7 @@ type subscriber struct {
 }
 
 // NewSubscriber returns a subscriber
-func NewSubscriber(logger logging.Logger, subnetInfo config.SourceSubnet) *subscriber {
+func NewSubscriber(logger logging.Logger, subnetInfo config.SourceBlockchain) *subscriber {
 	blockchainID, err := ids.FromString(subnetInfo.BlockchainID)
 	if err != nil {
 		logger.Error(

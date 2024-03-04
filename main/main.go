@@ -189,7 +189,7 @@ func main() {
 
 	// Create relayers for each of the subnets configured as a source
 	errGroup, ctx := errgroup.WithContext(context.Background())
-	for _, s := range cfg.SourceSubnets {
+	for _, s := range cfg.SourceBlockchains {
 		blockchainID, err := ids.FromString(s.BlockchainID)
 		if err != nil {
 			logger.Error(
@@ -236,7 +236,7 @@ func runRelayer(
 	logger logging.Logger,
 	metrics *relayer.MessageRelayerMetrics,
 	db database.RelayerDatabase,
-	sourceSubnetInfo config.SourceSubnet,
+	sourceSubnetInfo config.SourceBlockchain,
 	pChainClient platformvm.Client,
 	network *peers.AppRequestNetwork,
 	responseChan chan message.InboundMessage,

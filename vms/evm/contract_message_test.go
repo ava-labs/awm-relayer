@@ -51,7 +51,7 @@ func TestUnpack(t *testing.T) {
 			logging.JSON.ConsoleEncoder(),
 		),
 	)
-	m := NewContractMessage(logger, config.SourceSubnet{})
+	m := NewContractMessage(logger, config.SourceBlockchain{})
 
 	testCases := []struct {
 		name        string
