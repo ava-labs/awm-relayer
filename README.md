@@ -60,6 +60,8 @@ See the [Building](#building) section for instructions on how to build the relay
     - platform.validatedBy
     - platform.getValidatorsAt OR platform.getCurrentValidators
 
+The Fuji and Mainnet [public API nodes](https://docs.avax.network/tooling/rpc-providers) provided by Avalanche have these methods enabled, and are suitable for use with the relayer.
+
 ## Usage
 
 ### Building
