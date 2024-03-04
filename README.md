@@ -59,6 +59,9 @@ See the [Building](#building) section for instructions on how to build the relay
     - platform.getHeight
     - platform.validatedBy
     - platform.getValidatorsAt OR platform.getCurrentValidators
+  - If the P-Chain API node is also a subnet validator, it must have enabled:
+    - info.getNodeID
+    - info.getNodeIP
 
 ## Usage
 
