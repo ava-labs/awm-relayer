@@ -9,7 +9,7 @@
       "rpc-endpoint": "https://api.avax-test.network/ext/bc/C/rpc",
       "ws-endpoint": "wss://api.avax-test.network/ext/bc/C/ws",
       "message-contracts": {
-        "0xF7cBd95f1355f0d8d659864b92e2e9fbfaB786f7": {
+        "0x253b2784c75e510dD0fF1da844684a1aC0aa5fcf": {
           "message-format": "teleporter",
           "settings": {
             "reward-address": "0x5072..."
