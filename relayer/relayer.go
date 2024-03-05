@@ -176,9 +176,14 @@ func NewRelayer(
 
 	if r.globalConfig.ProcessMissedBlocks {
 		latestProcessedBlock, err := r.getLatestProcessedBlockHeight()
-		// If we found a latest processed block, process from there.
+		// If we found a latest processed block, process any missed blocks.
 		if err == nil {
-			go sub.ProcessFromHeight(big.NewInt(0).SetUint64(latestProcessedBlock), r.catchUpResultChan)
+			startBlock := latestProcessedBlock
+			// Start from the greater of StartBlockHeight and latestProcessedBlock
+			if sourceSubnetInfo.StartBlockHeight > latestProcessedBlock {
+				startBlock = sourceSubnetInfo.StartBlockHeight
+			}
+			go sub.ProcessFromHeight(big.NewInt(0).SetUint64(startBlock), r.catchUpResultChan)
 			return &r, nil
 		}
 		// This error case is okay. It will happen on the first startup if ProcessHistoricalBlocks is false.
