@@ -41,8 +41,9 @@ var (
 	codec        = msg.Codec
 	coreEthCodec = coreEthMsg.Codec
 	// Errors
-	errNotEnoughSignatures = errors.New("failed to collect a threshold of signatures")
-	errFailedToGetAggSig   = errors.New("failed to get aggregate signature from node endpoint")
+	errNotEnoughSignatures     = errors.New("failed to collect a threshold of signatures")
+	errFailedToGetAggSig       = errors.New("failed to get aggregate signature from node endpoint")
+	errNotEnoughConnectedStake = errors.New("failed to connect to a threshold of stake")
 )
 
 // messageRelayers are created for each warp message to be relayed.
@@ -265,9 +266,8 @@ func (r *messageRelayer) createSignedMessageAppRequest(requestID uint32) (*avala
 			zap.Uint64("connectedWeight", connectedWeight),
 			zap.Uint64("totalValidatorWeight", totalValidatorWeight),
 			zap.Any("warpQuorum", r.warpQuorum),
-			zap.Error(err),
 		)
-		return nil, err
+		return nil, errNotEnoughConnectedStake
 	}
 
 	// Construct the request
