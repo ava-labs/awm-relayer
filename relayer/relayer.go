@@ -170,7 +170,7 @@ func NewRelayer(
 		go sub.ProcessFromHeight(big.NewInt(0).SetUint64(height), r.catchUpResultChan)
 	} else {
 		r.logger.Info(
-			"processed-missed-blocks set to false, starting process from chain head",
+			"processed-missed-blocks set to false, starting processing from chain head",
 			zap.String("blockchainID", r.sourceBlockchainID.String()),
 		)
 		_, err = r.setProcessedBlockHeightToLatest()
