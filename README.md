@@ -1,4 +1,4 @@
-# awm-relayer
+# AWM Relayer
 
 Reference relayer implementation for cross-chain Avalanche Warp Message delivery.
 
@@ -225,7 +225,7 @@ The relayer consists of the following components:
 ### Data flow
 
 <div align="center">
-  <img src="resources/relayer-diagram.png?raw=true">
+  <img src="resources/relayer-diagram.png?raw=true"></img>
 </div>
 
 ## Testing
