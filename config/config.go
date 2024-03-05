@@ -101,6 +101,7 @@ type Config struct {
 func SetDefaultConfigValues(v *viper.Viper) {
 	v.SetDefault(LogLevelKey, logging.Info.String())
 	v.SetDefault(StorageLocationKey, "./.awm-relayer-storage")
+	v.SetDefault(ProcessMissedBlocksKey, false)
 }
 
 // BuildConfig constructs the relayer config using Viper.
