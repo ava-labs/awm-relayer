@@ -132,6 +132,7 @@ func BuildConfig(v *viper.Viper) (Config, bool, error) {
 	cfg.InfoAPIURL = v.GetString(InfoAPIURLKey)
 	cfg.StorageLocation = v.GetString(StorageLocationKey)
 	cfg.ProcessMissedBlocks = v.GetBool(ProcessMissedBlocksKey)
+	cfg.ProcessHistoricalBlocks = v.GetBool(ProcessHistoricalBlocksKey)
 	if err := v.UnmarshalKey(ManualWarpMessagesKey, &cfg.ManualWarpMessages); err != nil {
 		return Config{}, false, fmt.Errorf("failed to unmarshal manual warp messages: %w", err)
 	}
