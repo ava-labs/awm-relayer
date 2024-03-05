@@ -41,8 +41,9 @@ var (
 	codec        = msg.Codec
 	coreEthCodec = coreEthMsg.Codec
 	// Errors
-	errNotEnoughSignatures = errors.New("failed to collect a threshold of signatures")
-	errFailedToGetAggSig   = errors.New("failed to get aggregate signature from node endpoint")
+	errNotEnoughSignatures     = errors.New("failed to collect a threshold of signatures")
+	errFailedToGetAggSig       = errors.New("failed to get aggregate signature from node endpoint")
+	errNotEnoughConnectedStake = errors.New("failed to connect to a threshold of stake")
 )
 
 // messageRelayers are created for each warp message to be relayed.
@@ -247,16 +248,26 @@ func (r *messageRelayer) createSignedMessageAppRequest(requestID uint32) (*avala
 	for node := range nodeValidatorIndexMap {
 		nodeIDs.Add(node)
 	}
+	connectedNodes := r.relayer.network.ConnectPeers(nodeIDs)
 
-	// TODO: We may still be able to proceed with signature aggregation even if we fail to connect to some peers.
-	// 		 We should check if the connected set represents sufficient stake, and continue if so.
-	_, err = r.relayer.network.ConnectPeers(nodeIDs)
-	if err != nil {
+	// Check if we've connected to a stake threshold of nodes
+	connectedWeight := uint64(0)
+	for node := range connectedNodes {
+		connectedWeight += validatorSet[nodeValidatorIndexMap[node]].Weight
+	}
+	if !utils.CheckStakeWeightExceedsThreshold(
+		big.NewInt(0).SetUint64(connectedWeight),
+		totalValidatorWeight,
+		r.warpQuorum.QuorumNumerator,
+		r.warpQuorum.QuorumDenominator,
+	) {
 		r.relayer.logger.Error(
-			"Failed to connect to peers",
-			zap.Error(err),
+			"Failed to connect to a threshold of stake",
+			zap.Uint64("connectedWeight", connectedWeight),
+			zap.Uint64("totalValidatorWeight", totalValidatorWeight),
+			zap.Any("warpQuorum", r.warpQuorum),
 		)
-		return nil, err
+		return nil, errNotEnoughConnectedStake
 	}
 
 	// Construct the request
