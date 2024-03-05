@@ -231,8 +231,35 @@ func (n *AppRequestNetwork) ConnectPeers(nodeIDs set.Set[ids.NodeID]) (set.Set[i
 			trackedNodes.Add(peer.ID)
 			n.Network.ManuallyTrack(peer.ID, ipPort)
 			if len(trackedNodes) == nodeIDs.Len() {
-				break
+				return trackedNodes, retErr
 			}
+		}
+	}
+
+	// attempt adding api node in case it is a validator
+	if apiNodeID, _, err := n.infoClient.GetNodeID(context.Background()); err != nil {
+		n.logger.Error(
+			"Failed to get API Node ID",
+			zap.Error(err),
+		)
+		retErr = fmt.Errorf("failed to get api Node ID: %v", err)
+	} else if nodeIDs.Contains(apiNodeID) {
+		if apiNodeIP, err := n.infoClient.GetNodeIP(context.Background()); err != nil {
+			n.logger.Error(
+				"Failed to get API Node IP",
+				zap.Error(err),
+			)
+			retErr = fmt.Errorf("failed to get api Node IP: %v", err)
+		} else if ipPort, err := ips.ToIPPort(apiNodeIP); err != nil {
+			n.logger.Error(
+				"Failed to parse API Node IP",
+				zap.String("nodeIP", apiNodeIP),
+				zap.Error(err),
+			)
+			retErr = fmt.Errorf("failed to parse API Node IP: %v", err)
+		} else {
+			trackedNodes.Add(apiNodeID)
+			n.Network.ManuallyTrack(apiNodeID, ipPort)
 		}
 	}
 
