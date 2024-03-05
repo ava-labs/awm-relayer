@@ -1,0 +1,15 @@
+// For format details, see https://aka.ms/devcontainer.json.
+{
+	"name": "AWM Relayer DevContainer",
+
+	"image": "golang:latest",
+	"runArgs": ["--network=host"],
+	
+	"remoteUser": "root",
+
+	"remoteEnv": {
+		"PATH": "${containerEnv:PATH}:${containerWorkspaceFolder}/build"
+	},
+
+	"postCreateCommand": "scripts/build.sh"
+}
