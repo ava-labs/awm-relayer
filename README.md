@@ -63,6 +63,11 @@ See the [Building](#building) section for instructions on how to build the relay
     - platform.getHeight
     - platform.validatedBy
     - platform.getValidatorsAt OR platform.getCurrentValidators
+  - If the P-Chain API node is also a subnet validator, it must have enabled:
+    - info.getNodeID
+    - info.getNodeIP
+
+The Fuji and Mainnet [public API nodes](https://docs.avax.network/tooling/rpc-providers) provided by Avalanche have these methods enabled, and are suitable for use with the relayer.
 
 ## Usage
 
@@ -143,9 +148,9 @@ The relayer is configured via a JSON file, the path to which is passed in via th
 
   - The address of the destination account that will receive the Warp message.
 
-`"source-subnets": []SourceSubnets`
+`"source-blockchains": []SourceBlockchains`
 
-- The list of source subnets to support. Each `SourceSubnet` has the following configuration:
+- The list of source subnets to support. Each `SourceBlockchain` has the following configuration:
 
   `"subnet-id": string`
 
@@ -173,15 +178,15 @@ The relayer is configured via a JSON file, the path to which is passed in via th
 
   `"supported-destinations": []string`
 
-  - List of destination subnet IDs that the source subnet supports. If empty, then all destinations are supported.
+  - List of destination blockchain IDs that the source blockchain supports. If empty, then all destinations are supported.
 
   `"start-block-height": unsigned integer`
 
   - The block height at which to back-process transactions from the source subnet. If the database already contains a later block height for the source subnet, then that will be used instead. Must be non-zero.
 
-`"destination-subnets": []DestinationSubnets`
+`"destination-blockchains": []DestinationBlockchains`
 
-- The list of destination subnets to support. Each `DestinationSubnet` has the following configuration:
+- The list of destination subnets to support. Each `DestinationBlockchain` has the following configuration:
 
   `"subnet-id": string`
 

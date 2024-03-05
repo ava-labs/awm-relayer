@@ -17,7 +17,7 @@ type contractMessage struct {
 	logger logging.Logger
 }
 
-func NewContractMessage(logger logging.Logger, subnetInfo config.SourceSubnet) *contractMessage {
+func NewContractMessage(logger logging.Logger, subnetInfo config.SourceBlockchain) *contractMessage {
 	return &contractMessage{
 		logger: logger,
 	}

@@ -16,7 +16,6 @@ import (
 	"github.com/ava-labs/avalanchego/message"
 	"github.com/ava-labs/avalanchego/network"
 	"github.com/ava-labs/avalanchego/snow/validators"
-	"github.com/ava-labs/avalanchego/utils/constants"
 	"github.com/ava-labs/avalanchego/utils/ips"
 	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/avalanchego/utils/set"
@@ -45,7 +44,7 @@ func NewNetwork(
 	registerer prometheus.Registerer,
 	subnetIDs []ids.ID,
 	blockchainIDs []ids.ID,
-	InfoAPINodeURL string,
+	infoAPINodeURL string,
 ) (*AppRequestNetwork, map[ids.ID]chan message.InboundMessage, error) {
 	logger := logging.NewLogger(
 		"awm-relayer-p2p",
@@ -56,8 +55,13 @@ func NewNetwork(
 		),
 	)
 
+	if infoAPINodeURL == "" {
+		logger.Error("No InfoAPI node URL provided")
+		return nil, nil, fmt.Errorf("must provide an Inffo API URL")
+	}
+
 	// Create the info client
-	infoClient := info.NewClient(InfoAPINodeURL)
+	infoClient := info.NewClient(infoAPINodeURL)
 	networkID, err := infoClient.GetNetworkID(context.Background())
 	if err != nil {
 		logger.Error(
@@ -65,12 +69,6 @@ func NewNetwork(
 			zap.Error(err),
 		)
 		return nil, nil, err
-	}
-
-	if networkID != constants.MainnetID &&
-		networkID != constants.FujiID &&
-		InfoAPINodeURL == "" {
-		return nil, nil, fmt.Errorf("must provide an API URL for local networks")
 	}
 
 	// Create the test network for AppRequests
@@ -233,8 +231,35 @@ func (n *AppRequestNetwork) ConnectPeers(nodeIDs set.Set[ids.NodeID]) (set.Set[i
 			trackedNodes.Add(peer.ID)
 			n.Network.ManuallyTrack(peer.ID, ipPort)
 			if len(trackedNodes) == nodeIDs.Len() {
-				break
+				return trackedNodes, retErr
 			}
+		}
+	}
+
+	// attempt adding api node in case it is a validator
+	if apiNodeID, _, err := n.infoClient.GetNodeID(context.Background()); err != nil {
+		n.logger.Error(
+			"Failed to get API Node ID",
+			zap.Error(err),
+		)
+		retErr = fmt.Errorf("failed to get api Node ID: %v", err)
+	} else if nodeIDs.Contains(apiNodeID) {
+		if apiNodeIP, err := n.infoClient.GetNodeIP(context.Background()); err != nil {
+			n.logger.Error(
+				"Failed to get API Node IP",
+				zap.Error(err),
+			)
+			retErr = fmt.Errorf("failed to get api Node IP: %v", err)
+		} else if ipPort, err := ips.ToIPPort(apiNodeIP); err != nil {
+			n.logger.Error(
+				"Failed to parse API Node IP",
+				zap.String("nodeIP", apiNodeIP),
+				zap.Error(err),
+			)
+			retErr = fmt.Errorf("failed to parse API Node IP: %v", err)
+		} else {
+			trackedNodes.Add(apiNodeID)
+			n.Network.ManuallyTrack(apiNodeID, ipPort)
 		}
 	}
 

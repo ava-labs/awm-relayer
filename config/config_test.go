@@ -33,7 +33,7 @@ var (
 		LogLevel:     "info",
 		PChainAPIURL: "http://test.avax.network",
 		InfoAPIURL:   "http://test.avax.network",
-		SourceSubnets: []*SourceSubnet{
+		SourceBlockchains: []*SourceBlockchain{
 			{
 				RPCEndpoint:  fmt.Sprintf("http://test.avax.network/ext/bc/%s/rpc", testBlockchainID),
 				WSEndpoint:   fmt.Sprintf("ws://test.avax.network/ext/bc/%s/ws", testBlockchainID),
@@ -47,7 +47,7 @@ var (
 				},
 			},
 		},
-		DestinationSubnets: []*DestinationSubnet{
+		DestinationBlockchains: []*DestinationBlockchain{
 			{
 				RPCEndpoint:       fmt.Sprintf("http://test.avax.network/ext/bc/%s/rpc", testBlockchainID),
 				BlockchainID:      testBlockchainID,
@@ -70,12 +70,12 @@ func TestGetRelayerAccountInfo(t *testing.T) {
 
 	testCases := []struct {
 		name           string
-		s              DestinationSubnet
+		s              DestinationBlockchain
 		expectedResult retStruct
 	}{
 		{
 			name: "valid",
-			s: DestinationSubnet{
+			s: DestinationBlockchain{
 				AccountPrivateKey: "56289e99c94b6912bfc12adc093c9b51124f0dc54ac7a766b2bc5ccf558d8027",
 			},
 			expectedResult: retStruct{
@@ -88,7 +88,7 @@ func TestGetRelayerAccountInfo(t *testing.T) {
 		},
 		{
 			name: "invalid 0x prefix",
-			s: DestinationSubnet{
+			s: DestinationBlockchain{
 				AccountPrivateKey: "0x56289e99c94b6912bfc12adc093c9b51124f0dc54ac7a766b2bc5ccf558d8027",
 			},
 			expectedResult: retStruct{
@@ -101,7 +101,7 @@ func TestGetRelayerAccountInfo(t *testing.T) {
 		},
 		{
 			name: "invalid private key",
-			s: DestinationSubnet{
+			s: DestinationBlockchain{
 				AccountPrivateKey: "invalid56289e99c94b6912bfc12adc093c9b51124f0dc54ac7a766b2bc5ccf558d8027",
 			},
 			expectedResult: retStruct{
@@ -168,9 +168,9 @@ func TestGetRelayerAccountPrivateKey_set_pk_in_config(t *testing.T) {
 		expectedOverwritten: false,
 		resultVerifier: func(c Config) bool {
 			// All destination subnets should have the default private key
-			for i, subnet := range c.DestinationSubnets {
-				if subnet.AccountPrivateKey != utils.SanitizeHexString(testValidConfig.DestinationSubnets[i].AccountPrivateKey) {
-					fmt.Printf("expected: %s, got: %s\n", utils.SanitizeHexString(testValidConfig.DestinationSubnets[i].AccountPrivateKey), subnet.AccountPrivateKey)
+			for i, subnet := range c.DestinationBlockchains {
+				if subnet.AccountPrivateKey != utils.SanitizeHexString(testValidConfig.DestinationBlockchains[i].AccountPrivateKey) {
+					fmt.Printf("expected: %s, got: %s\n", utils.SanitizeHexString(testValidConfig.DestinationBlockchains[i].AccountPrivateKey), subnet.AccountPrivateKey)
 					return false
 				}
 			}
@@ -185,26 +185,26 @@ func TestGetRelayerAccountPrivateKey_set_pk_with_subnet_env(t *testing.T) {
 		baseConfig: testValidConfig,
 		configModifier: func(c Config) Config {
 			// Add a second destination subnet. This PK should NOT be overwritten
-			newSubnet := *c.DestinationSubnets[0]
+			newSubnet := *c.DestinationBlockchains[0]
 			newSubnet.BlockchainID = testBlockchainID2
 			newSubnet.AccountPrivateKey = testPk1
-			c.DestinationSubnets = append(c.DestinationSubnets, &newSubnet)
+			c.DestinationBlockchains = append(c.DestinationBlockchains, &newSubnet)
 			return c
 		},
 		envSetter: func() {
 			// Overwrite the PK for the first subnet using an env var
-			varName := fmt.Sprintf("%s_%s", accountPrivateKeyEnvVarName, testValidConfig.DestinationSubnets[0].BlockchainID)
+			varName := fmt.Sprintf("%s_%s", accountPrivateKeyEnvVarName, testValidConfig.DestinationBlockchains[0].BlockchainID)
 			t.Setenv(varName, testPk2)
 		},
 		expectedOverwritten: true,
 		resultVerifier: func(c Config) bool {
 			// All destination subnets should have testPk1
-			if c.DestinationSubnets[0].AccountPrivateKey != utils.SanitizeHexString(testPk2) {
-				fmt.Printf("expected: %s, got: %s\n", utils.SanitizeHexString(testPk2), c.DestinationSubnets[0].AccountPrivateKey)
+			if c.DestinationBlockchains[0].AccountPrivateKey != utils.SanitizeHexString(testPk2) {
+				fmt.Printf("expected: %s, got: %s\n", utils.SanitizeHexString(testPk2), c.DestinationBlockchains[0].AccountPrivateKey)
 				return false
 			}
-			if c.DestinationSubnets[1].AccountPrivateKey != utils.SanitizeHexString(testPk1) {
-				fmt.Printf("expected: %s, got: %s\n", utils.SanitizeHexString(testPk1), c.DestinationSubnets[1].AccountPrivateKey)
+			if c.DestinationBlockchains[1].AccountPrivateKey != utils.SanitizeHexString(testPk1) {
+				fmt.Printf("expected: %s, got: %s\n", utils.SanitizeHexString(testPk1), c.DestinationBlockchains[1].AccountPrivateKey)
 				return false
 			}
 			return true
@@ -217,10 +217,10 @@ func TestGetRelayerAccountPrivateKey_set_pk_with_global_env(t *testing.T) {
 		baseConfig: testValidConfig,
 		configModifier: func(c Config) Config {
 			// Add a second destination subnet. This PK SHOULD be overwritten
-			newSubnet := *c.DestinationSubnets[0]
+			newSubnet := *c.DestinationBlockchains[0]
 			newSubnet.BlockchainID = testBlockchainID2
 			newSubnet.AccountPrivateKey = testPk1
-			c.DestinationSubnets = append(c.DestinationSubnets, &newSubnet)
+			c.DestinationBlockchains = append(c.DestinationBlockchains, &newSubnet)
 			return c
 		},
 		envSetter: func() {
@@ -230,7 +230,7 @@ func TestGetRelayerAccountPrivateKey_set_pk_with_global_env(t *testing.T) {
 		expectedOverwritten: true,
 		resultVerifier: func(c Config) bool {
 			// All destination subnets should have testPk2
-			for _, subnet := range c.DestinationSubnets {
+			for _, subnet := range c.DestinationBlockchains {
 				if subnet.AccountPrivateKey != utils.SanitizeHexString(testPk2) {
 					fmt.Printf("expected: %s, got: %s\n", utils.SanitizeHexString(testPk2), subnet.AccountPrivateKey)
 					return false
@@ -253,7 +253,7 @@ func TestGetRelayerAccountInfoSkipChainConfigCheckCompatible(t *testing.T) {
 	accountPrivateKey := "56289e99c94b6912bfc12adc093c9b51124f0dc54ac7a766b2bc5ccf558d8027"
 	expectedAddress := "0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC"
 
-	info := DestinationSubnet{
+	info := DestinationBlockchain{
 		AccountPrivateKey: accountPrivateKey,
 	}
 	_, address, err := info.GetRelayerAccountInfo()
@@ -388,8 +388,8 @@ func TestGetWarpQuorum(t *testing.T) {
 	}
 }
 
-func TestValidateSourceSubnet(t *testing.T) {
-	validSourceCfg := SourceSubnet{
+func TestValidateSourceBlockchain(t *testing.T) {
+	validSourceCfg := SourceBlockchain{
 		BlockchainID:          testBlockchainID,
 		RPCEndpoint:           fmt.Sprintf("http://test.avax.network/ext/bc/%s/rpc", testBlockchainID),
 		WSEndpoint:            fmt.Sprintf("ws://test.avax.network/ext/bc/%s/ws", testBlockchainID),
@@ -404,21 +404,21 @@ func TestValidateSourceSubnet(t *testing.T) {
 	}
 	testCases := []struct {
 		name                          string
-		sourceSubnet                  func() SourceSubnet
+		sourceSubnet                  func() SourceBlockchain
 		destinationBlockchainIDs      []string
 		expectError                   bool
 		expectedSupportedDestinations []string
 	}{
 		{
 			name:                          "valid source subnet; explicitly supported destination",
-			sourceSubnet:                  func() SourceSubnet { return validSourceCfg },
+			sourceSubnet:                  func() SourceBlockchain { return validSourceCfg },
 			destinationBlockchainIDs:      []string{testBlockchainID},
 			expectError:                   false,
 			expectedSupportedDestinations: []string{testBlockchainID},
 		},
 		{
 			name: "valid source subnet; implicitly supported destination",
-			sourceSubnet: func() SourceSubnet {
+			sourceSubnet: func() SourceBlockchain {
 				cfg := validSourceCfg
 				cfg.SupportedDestinations = nil
 				return cfg
@@ -429,14 +429,14 @@ func TestValidateSourceSubnet(t *testing.T) {
 		},
 		{
 			name:                          "valid source subnet; partially supported destinations",
-			sourceSubnet:                  func() SourceSubnet { return validSourceCfg },
+			sourceSubnet:                  func() SourceBlockchain { return validSourceCfg },
 			destinationBlockchainIDs:      []string{testBlockchainID, testBlockchainID2},
 			expectError:                   false,
 			expectedSupportedDestinations: []string{testBlockchainID},
 		},
 		{
 			name:                          "valid source subnet; unsupported destinations",
-			sourceSubnet:                  func() SourceSubnet { return validSourceCfg },
+			sourceSubnet:                  func() SourceBlockchain { return validSourceCfg },
 			destinationBlockchainIDs:      []string{testBlockchainID2},
 			expectError:                   true,
 			expectedSupportedDestinations: []string{},
