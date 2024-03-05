@@ -183,21 +183,15 @@ func NewNetwork(
 }
 
 // ConnectPeers connects the network to peers with the given nodeIDs.
-// On success, returns the provided set of nodeIDs and a nil error.
-// On failure, returns the set of nodeIDs that successfully connected and an error.
-func (n *AppRequestNetwork) ConnectPeers(nodeIDs set.Set[ids.NodeID]) (set.Set[ids.NodeID], error) {
+// Returns the set of nodeIDs that were successfully connected to.
+func (n *AppRequestNetwork) ConnectPeers(nodeIDs set.Set[ids.NodeID]) set.Set[ids.NodeID] {
 	n.lock.Lock()
 	defer n.lock.Unlock()
-
-	var (
-		retErr       error
-		trackedNodes set.Set[ids.NodeID]
-	)
 
 	// First, check if we are already connected to all the peers
 	connectedPeers := n.Network.PeerInfo(nodeIDs.List())
 	if len(connectedPeers) == nodeIDs.Len() {
-		return nodeIDs, nil
+		return nodeIDs
 	}
 
 	// If we are not connected to all the peers already, then we have to iterate
@@ -212,10 +206,11 @@ func (n *AppRequestNetwork) ConnectPeers(nodeIDs set.Set[ids.NodeID]) (set.Set[i
 			"Failed to get peers",
 			zap.Error(err),
 		)
-		return nil, err
+		return nil
 	}
 
 	// Attempt to connect to each peer
+	var trackedNodes set.Set[ids.NodeID]
 	for _, peer := range peers {
 		if nodeIDs.Contains(peer.ID) {
 			ipPort, err := ips.ToIPPort(peer.PublicIP)
@@ -225,43 +220,40 @@ func (n *AppRequestNetwork) ConnectPeers(nodeIDs set.Set[ids.NodeID]) (set.Set[i
 					zap.String("beaconIP", peer.PublicIP),
 					zap.Error(err),
 				)
-				retErr = fmt.Errorf("failed to connect to peers: %v", err)
 				continue
 			}
 			trackedNodes.Add(peer.ID)
 			n.Network.ManuallyTrack(peer.ID, ipPort)
 			if len(trackedNodes) == nodeIDs.Len() {
-				return trackedNodes, retErr
+				return trackedNodes
 			}
 		}
 	}
 
-	// attempt adding api node in case it is a validator
+	// If the Info API node is in nodeIDs, it will not be reflected in the call to info.Peers.
+	// In this case, we need to manually track the API node.
 	if apiNodeID, _, err := n.infoClient.GetNodeID(context.Background()); err != nil {
 		n.logger.Error(
 			"Failed to get API Node ID",
 			zap.Error(err),
 		)
-		retErr = fmt.Errorf("failed to get api Node ID: %v", err)
 	} else if nodeIDs.Contains(apiNodeID) {
 		if apiNodeIP, err := n.infoClient.GetNodeIP(context.Background()); err != nil {
 			n.logger.Error(
 				"Failed to get API Node IP",
 				zap.Error(err),
 			)
-			retErr = fmt.Errorf("failed to get api Node IP: %v", err)
 		} else if ipPort, err := ips.ToIPPort(apiNodeIP); err != nil {
 			n.logger.Error(
 				"Failed to parse API Node IP",
 				zap.String("nodeIP", apiNodeIP),
 				zap.Error(err),
 			)
-			retErr = fmt.Errorf("failed to parse API Node IP: %v", err)
 		} else {
 			trackedNodes.Add(apiNodeID)
 			n.Network.ManuallyTrack(apiNodeID, ipPort)
 		}
 	}
 
-	return trackedNodes, retErr
+	return trackedNodes
 }
