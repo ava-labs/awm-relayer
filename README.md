@@ -126,7 +126,7 @@ The relayer is configured via a JSON file, the path to which is passed in via th
 
 `"process-missed-blocks": boolean`
 
-- Whether or not to process missed blocks on startup. Defaults to `false`.
+- Whether or not to process missed blocks after restarting. Defaults to `true`. If set to false, the relayer will start processing blocks from the chain head.
 
 `"manual-warp-messages": []ManualWarpMessage`
 
@@ -184,7 +184,7 @@ The relayer is configured via a JSON file, the path to which is passed in via th
 
   - List of destination blockchain IDs that the source blockchain supports. If empty, then all destinations are supported.
 
-  `"start-block-height": unsigned integer`
+  `"process-historical-blocks-from-height": unsigned integer`
 
   - The block height at which to back-process transactions from the source subnet. If the database already contains a later block height for the source subnet, then that will be used instead. Must be non-zero.
 
