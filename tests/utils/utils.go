@@ -139,13 +139,13 @@ func CreateDefaultRelayerConfig(
 	}
 
 	return config.Config{
-		LogLevel:                logging.Info.LowerString(),
-		PChainAPIURL:            subnetsInfo[0].NodeURIs[0],
-		InfoAPIURL:              subnetsInfo[0].NodeURIs[0],
-		StorageLocation:         RelayerStorageLocation(),
-		ProcessMissedBlocks:     false,
-		SourceBlockchains:       sources,
-		DestinationBlockchains:  destinations,
+		LogLevel:               logging.Info.LowerString(),
+		PChainAPIURL:           subnetsInfo[0].NodeURIs[0],
+		InfoAPIURL:             subnetsInfo[0].NodeURIs[0],
+		StorageLocation:        RelayerStorageLocation(),
+		ProcessMissedBlocks:    false,
+		SourceBlockchains:      sources,
+		DestinationBlockchains: destinations,
 	}
 }
 

@@ -29,9 +29,6 @@ import (
 	"go.uber.org/zap"
 )
 
-// Errors
-var ErrNoStartBlock = errors.New("database does not contain latest processed block data and startBlockHeight is unset.")
-
 const (
 	maxSubscribeAttempts = 10
 	// TODO attempt to resubscribe in perpetuity once we are able to process missed blocks and
@@ -167,10 +164,11 @@ func NewRelayer(
 			)
 			return nil, err
 		}
-		// If we found a latest processed block, process any missed blocks.
+		// Process historical blocks in a separate goroutine so that the main processing loop can
+		// start processing new blocks as soon as possible. Otherwise, it's possible for
+		// ProcessFromHeight to overload the message queue and cause a deadlock.
 		go sub.ProcessFromHeight(big.NewInt(0).SetUint64(height), r.catchUpResultChan)
 	} else {
-		// If we aren't processing missed blocks, set the latest block to chain head and start from there.
 		_, err = r.setProcessedBlockHeightToLatest()
 		if err != nil {
 			logger.Error(
