@@ -26,10 +26,8 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var (
-	// Write the test database to /tmp since the data is not needed after the test
-	storageLocation = fmt.Sprintf("%s/.awm-relayer-storage", os.TempDir())
-)
+// Write the test database to /tmp since the data is not needed after the test
+var storageLocation = fmt.Sprintf("%s/.awm-relayer-storage", os.TempDir())
 
 func BuildAndRunRelayerExecutable(ctx context.Context, relayerConfigPath string) context.CancelFunc {
 	// Build the awm-relayer binary
@@ -141,13 +139,14 @@ func CreateDefaultRelayerConfig(
 	}
 
 	return config.Config{
-		LogLevel:               logging.Info.LowerString(),
-		PChainAPIURL:           subnetsInfo[0].NodeURIs[0],
-		InfoAPIURL:             subnetsInfo[0].NodeURIs[0],
-		StorageLocation:        RelayerStorageLocation(),
-		ProcessMissedBlocks:    false,
-		SourceBlockchains:      sources,
-		DestinationBlockchains: destinations,
+		LogLevel:                logging.Info.LowerString(),
+		PChainAPIURL:            subnetsInfo[0].NodeURIs[0],
+		InfoAPIURL:              subnetsInfo[0].NodeURIs[0],
+		StorageLocation:         RelayerStorageLocation(),
+		ProcessHistoricalBlocks: false,
+		ProcessMissedBlocks:     false,
+		SourceBlockchains:       sources,
+		DestinationBlockchains:  destinations,
 	}
 }
 
