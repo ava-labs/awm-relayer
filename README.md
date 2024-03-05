@@ -2,7 +2,7 @@
 
 Reference relayer implementation for cross-chain Avalanche Warp Message delivery.
 
-AWM Relayer listens for Warp message events on a set of source blockchains, and constructs transactions to relay the Warp message to the intended destination blockchain. It does so by querying the source blockchain validator nodes for their BLS signature on the Warp message, combining the individual BLS signatures into a single aggregate BLS signature, and packaging it into a transaction according to the destination blockchain VM Warp message verification rules.
+AWM Relayer listens for Warp message events on a set of source blockchains, and constructs transactions to relay the Warp message to the intended destination blockchain. The relayer does so by querying the source blockchain validator nodes for their BLS signatures on the Warp message, combining the individual BLS signatures into a single aggregate BLS signature, and packaging the aggregate BLS signature into a transaction according to the destination blockchain VM Warp message verification rules.
 
 ## Installation
 
