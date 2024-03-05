@@ -254,7 +254,12 @@ func (r *messageRelayer) createSignedMessageAppRequest(requestID uint32) (*avala
 	for node := range connectedNodes {
 		connectedWeight += validatorSet[nodeValidatorIndexMap[node]].Weight
 	}
-	if connectedWeight/totalValidatorWeight < r.warpQuorum.QuorumNumerator/r.warpQuorum.QuorumDenominator {
+	if !utils.CheckStakeWeightExceedsThreshold(
+		big.NewInt(0).SetUint64(connectedWeight),
+		totalValidatorWeight,
+		r.warpQuorum.QuorumNumerator,
+		r.warpQuorum.QuorumDenominator,
+	) {
 		r.relayer.logger.Error(
 			"Failed to connect to a threshold of stake",
 			zap.Uint64("connectedWeight", connectedWeight),
