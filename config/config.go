@@ -54,14 +54,14 @@ type ManualWarpMessage struct {
 }
 
 type SourceBlockchain struct {
-	SubnetID              string                           `mapstructure:"subnet-id" json:"subnet-id"`
-	BlockchainID          string                           `mapstructure:"blockchain-id" json:"blockchain-id"`
-	VM                    string                           `mapstructure:"vm" json:"vm"`
-	RPCEndpoint           string                           `mapstructure:"rpc-endpoint" json:"rpc-endpoint"`
-	WSEndpoint            string                           `mapstructure:"ws-endpoint" json:"ws-endpoint"`
-	MessageContracts      map[string]MessageProtocolConfig `mapstructure:"message-contracts" json:"message-contracts"`
-	SupportedDestinations []string                         `mapstructure:"supported-destinations" json:"supported-destinations"`
-	StartBlockHeight      uint64                           `mapstructure:"process-historical-blocks-from-height" json:"process-historical-blocks-from-height"`
+	SubnetID                          string                           `mapstructure:"subnet-id" json:"subnet-id"`
+	BlockchainID                      string                           `mapstructure:"blockchain-id" json:"blockchain-id"`
+	VM                                string                           `mapstructure:"vm" json:"vm"`
+	RPCEndpoint                       string                           `mapstructure:"rpc-endpoint" json:"rpc-endpoint"`
+	WSEndpoint                        string                           `mapstructure:"ws-endpoint" json:"ws-endpoint"`
+	MessageContracts                  map[string]MessageProtocolConfig `mapstructure:"message-contracts" json:"message-contracts"`
+	SupportedDestinations             []string                         `mapstructure:"supported-destinations" json:"supported-destinations"`
+	ProcessHistoricalBlocksFromHeight uint64                           `mapstructure:"process-historical-blocks-from-height" json:"process-historical-blocks-from-height"`
 
 	// convenience field to access the supported destinations after initialization
 	supportedDestinations set.Set[ids.ID]

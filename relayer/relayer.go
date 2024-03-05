@@ -156,7 +156,7 @@ func NewRelayer(
 	}
 
 	if r.globalConfig.ProcessMissedBlocks {
-		height, err := r.calculateStartingBlockHeight(sourceSubnetInfo.StartBlockHeight)
+		height, err := r.calculateStartingBlockHeight(sourceSubnetInfo.ProcessHistoricalBlocksFromHeight)
 		if err != nil {
 			logger.Error(
 				"Failed to calculate starting block height on startup",
@@ -169,6 +169,10 @@ func NewRelayer(
 		// ProcessFromHeight to overload the message queue and cause a deadlock.
 		go sub.ProcessFromHeight(big.NewInt(0).SetUint64(height), r.catchUpResultChan)
 	} else {
+		r.logger.Info(
+			"processed-missed-blocks set to false, starting process from chain head",
+			zap.String("blockchainID", r.sourceBlockchainID.String()),
+		)
 		_, err = r.setProcessedBlockHeightToLatest()
 		if err != nil {
 			logger.Error(
@@ -254,26 +258,30 @@ func (r *Relayer) ProcessLogs(ctx context.Context) error {
 	}
 }
 
-// Determines the height to process from. There are two cases:
+// Determines the height to process from. There are three cases:
 // 1) The database contains the latest processed block data for the chain
-//   - In this case, we return the maximum of the latest processed block and the configured start block height
+//   - In this case, we return the maximum of the latest processed block and the configured processHistoricalBlocksFromHeight
 //
 // 2) The database has been configured for the chain, but does not contain the latest processed block data
-//   - In this case, we return the configured start block height
-func (r *Relayer) calculateStartingBlockHeight(startBlockHeight uint64) (uint64, error) {
+//   - In this case, we return the configured processHistoricalBlocksFromHeight
+//
+// 3) The database does not contain the any information for the chain.
+//   - In this case, we return the configured processHistoricalBlocksFromHeight if it is set, otherwise
+//     we return the chain head.
+func (r *Relayer) calculateStartingBlockHeight(processHistoricalBlocksFromHeight uint64) (uint64, error) {
 	latestProcessedBlock, err := r.getLatestProcessedBlockHeight()
 	if errors.Is(err, database.ErrChainNotFound) || errors.Is(err, database.ErrKeyNotFound) {
 		// The database does not contain the latest processed block data for the chain,
-		// so use the configured process-historical-blocks-from-height instead
+		// use the configured process-historical-blocks-from-height instead.
 		// If process-historical-blocks-from-height was not configured, start from the chain head.
-		if startBlockHeight == 0 {
+		if processHistoricalBlocksFromHeight == 0 {
 			r.logger.Info(
 				"process-historical-blocks-from-height not set, starting process from chain head",
 				zap.String("blockchainID", r.sourceBlockchainID.String()),
 			)
 			return r.setProcessedBlockHeightToLatest()
 		}
-		return startBlockHeight, nil
+		return processHistoricalBlocksFromHeight, nil
 	} else if err != nil {
 		// Otherwise, we've encountered an unknown database error
 		r.logger.Error(
@@ -286,7 +294,7 @@ func (r *Relayer) calculateStartingBlockHeight(startBlockHeight uint64) (uint64,
 
 	// If the database does contain the latest processed block data for the chain,
 	// use the max of the latest processed block and the configured start block height (if it was provided)
-	if latestProcessedBlock > startBlockHeight {
+	if latestProcessedBlock > processHistoricalBlocksFromHeight {
 		r.logger.Info(
 			"Processing historical blocks from the latest processed block in the DB",
 			zap.String("blockchainID", r.sourceBlockchainID.String()),
@@ -298,11 +306,12 @@ func (r *Relayer) calculateStartingBlockHeight(startBlockHeight uint64) (uint64,
 	r.logger.Info(
 		"Processing historical blocks from the configured start block height",
 		zap.String("blockchainID", r.sourceBlockchainID.String()),
-		zap.Uint64("startBlockHeight", startBlockHeight),
+		zap.Uint64("processHistoricalBlocksFromHeight", processHistoricalBlocksFromHeight),
 	)
-	return startBlockHeight, nil
+	return processHistoricalBlocksFromHeight, nil
 }
 
+// Gets the height of the chain head, writes it to the database, then returns it.
 func (r *Relayer) setProcessedBlockHeightToLatest() (uint64, error) {
 	ethClient, err := ethclient.Dial(r.rpcEndpoint)
 	if err != nil {
