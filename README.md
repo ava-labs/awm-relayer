@@ -1,4 +1,4 @@
-# awm-relayer
+# AWM Relayer
 
 Reference relayer implementation for cross-chain Avalanche Warp Message delivery.
 
