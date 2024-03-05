@@ -143,7 +143,6 @@ func CreateDefaultRelayerConfig(
 		PChainAPIURL:            subnetsInfo[0].NodeURIs[0],
 		InfoAPIURL:              subnetsInfo[0].NodeURIs[0],
 		StorageLocation:         RelayerStorageLocation(),
-		ProcessHistoricalBlocks: false,
 		ProcessMissedBlocks:     false,
 		SourceBlockchains:       sources,
 		DestinationBlockchains:  destinations,

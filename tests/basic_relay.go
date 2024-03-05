@@ -164,8 +164,7 @@ func BasicRelay(network interfaces.LocalNetwork) {
 	// the first two messages on startup, but process the third.
 	modifiedRelayerConfig := relayerConfig
 	modifiedRelayerConfig.SourceBlockchains[0].StartBlockHeight = currHeight
-	modifiedRelayerConfig.ProcessHistoricalBlocks = true
-	modifiedRelayerConfig.ProcessMissedBlocks = false
+	modifiedRelayerConfig.ProcessMissedBlocks = true
 	relayerConfigPath = writeRelayerConfig(modifiedRelayerConfig)
 
 	log.Info("Starting the relayer")
@@ -182,59 +181,6 @@ func BasicRelay(network interfaces.LocalNetwork) {
 	)
 	Expect(err).Should(BeNil())
 	delivered3, err := subnetBInfo.TeleporterMessenger.MessageReceived(
-		&bind.CallOpts{}, id3,
-	)
-	Expect(err).Should(BeNil())
-	Expect(delivered1).Should(BeFalse())
-	Expect(delivered2).Should(BeFalse())
-	Expect(delivered3).Should(BeTrue())
-
-	//
-	// The following in the same test as above, but with the values for processing blocks flipped
-	//
-
-	// Cancel the command and stop the relayer
-	relayerCleanup()
-
-	//
-	// Set StartBlockHeight in config
-	//
-	log.Info("Test Setting StartBlockHeight in config")
-
-	// Send three Teleporter messages from subnet A to subnet B
-	log.Info("Sending three Teleporter messages from subnet A to subnet B")
-	_, _, id1 = sendBasicTeleporterMessage(ctx, subnetAInfo, subnetBInfo, fundedKey, fundedAddress)
-	_, _, id2 = sendBasicTeleporterMessage(ctx, subnetAInfo, subnetBInfo, fundedKey, fundedAddress)
-	_, _, id3 = sendBasicTeleporterMessage(ctx, subnetAInfo, subnetBInfo, fundedKey, fundedAddress)
-
-	currHeight, err = subnetAInfo.RPCClient.BlockNumber(ctx)
-	Expect(err).Should(BeNil())
-	log.Info("Current block height", "height", currHeight)
-
-	// Configure the relayer such that it will only process the last of the three messages sent above.
-	// The relayer DB stores the height of the block *before* the first message, so by setting the
-	// StartBlockHeight to the block height of the *third* message, we expect the relayer to skip
-	// the first two messages on startup, but process the third.
-	modifiedRelayerConfig = relayerConfig
-	modifiedRelayerConfig.SourceBlockchains[0].StartBlockHeight = currHeight
-	modifiedRelayerConfig.ProcessHistoricalBlocks = false
-	modifiedRelayerConfig.ProcessMissedBlocks = true
-	relayerConfigPath = writeRelayerConfig(modifiedRelayerConfig)
-
-	log.Info("Starting the relayer")
-	relayerCleanup = testUtils.BuildAndRunRelayerExecutable(ctx, relayerConfigPath)
-	defer relayerCleanup()
-	log.Info("Waiting for a new block confirmation on subnet B")
-	<-newHeadsB
-	delivered1, err = subnetBInfo.TeleporterMessenger.MessageReceived(
-		&bind.CallOpts{}, id1,
-	)
-	Expect(err).Should(BeNil())
-	delivered2, err = subnetBInfo.TeleporterMessenger.MessageReceived(
-		&bind.CallOpts{}, id2,
-	)
-	Expect(err).Should(BeNil())
-	delivered3, err = subnetBInfo.TeleporterMessenger.MessageReceived(
 		&bind.CallOpts{}, id3,
 	)
 	Expect(err).Should(BeNil())

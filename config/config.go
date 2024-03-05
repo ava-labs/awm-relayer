@@ -61,7 +61,7 @@ type SourceBlockchain struct {
 	WSEndpoint            string                           `mapstructure:"ws-endpoint" json:"ws-endpoint"`
 	MessageContracts      map[string]MessageProtocolConfig `mapstructure:"message-contracts" json:"message-contracts"`
 	SupportedDestinations []string                         `mapstructure:"supported-destinations" json:"supported-destinations"`
-	StartBlockHeight      uint64                           `mapstructure:"start-block-height" json:"start-block-height"`
+	StartBlockHeight      uint64                           `mapstructure:"process-historical-blocks-from-height" json:"process-historical-blocks-from-height"`
 
 	// convenience field to access the supported destinations after initialization
 	supportedDestinations set.Set[ids.ID]
@@ -90,7 +90,6 @@ type Config struct {
 	StorageLocation         string                   `mapstructure:"storage-location" json:"storage-location"`
 	SourceBlockchains       []*SourceBlockchain      `mapstructure:"source-blockchains" json:"source-blockchains"`
 	DestinationBlockchains  []*DestinationBlockchain `mapstructure:"destination-blockchains" json:"destination-blockchains"`
-	ProcessHistoricalBlocks bool                     `mapstructure:"process-historical-blocks" json:"process-historical-blocks"`
 	ProcessMissedBlocks     bool                     `mapstructure:"process-missed-blocks" json:"process-missed-blocks"`
 	ManualWarpMessages      []*ManualWarpMessage     `mapstructure:"manual-warp-messages" json:"manual-warp-messages"`
 
@@ -132,7 +131,6 @@ func BuildConfig(v *viper.Viper) (Config, bool, error) {
 	cfg.InfoAPIURL = v.GetString(InfoAPIURLKey)
 	cfg.StorageLocation = v.GetString(StorageLocationKey)
 	cfg.ProcessMissedBlocks = v.GetBool(ProcessMissedBlocksKey)
-	cfg.ProcessHistoricalBlocks = v.GetBool(ProcessHistoricalBlocksKey)
 	if err := v.UnmarshalKey(ManualWarpMessagesKey, &cfg.ManualWarpMessages); err != nil {
 		return Config{}, false, fmt.Errorf("failed to unmarshal manual warp messages: %w", err)
 	}

@@ -158,7 +158,7 @@ func NewRelayer(
 		return nil, err
 	}
 
-	if r.globalConfig.ProcessHistoricalBlocks {
+	if r.globalConfig.ProcessMissedBlocks {
 		height, err := r.calculateStartingBlockHeight(sourceSubnetInfo.StartBlockHeight)
 		if err != nil {
 			logger.Error(
@@ -167,45 +167,21 @@ func NewRelayer(
 			)
 			return nil, err
 		}
-		// Process historical blocks in a separate goroutine so that the main processing loop can
-		// start processing new blocks as soon as possible. Otherwise, it's possible for
-		// ProcessFromHeight to overload the message queue and cause a deadlock.
-		go sub.ProcessFromHeight(big.NewInt(0).SetUint64(height), r.catchUpResultChan)
-		return &r, nil
-	}
-
-	if r.globalConfig.ProcessMissedBlocks {
-		latestProcessedBlock, err := r.getLatestProcessedBlockHeight()
 		// If we found a latest processed block, process any missed blocks.
-		if err == nil {
-			startBlock := latestProcessedBlock
-			// Start from the greater of StartBlockHeight and latestProcessedBlock
-			if sourceSubnetInfo.StartBlockHeight > latestProcessedBlock {
-				startBlock = sourceSubnetInfo.StartBlockHeight
-			}
-			go sub.ProcessFromHeight(big.NewInt(0).SetUint64(startBlock), r.catchUpResultChan)
-			return &r, nil
+		go sub.ProcessFromHeight(big.NewInt(0).SetUint64(height), r.catchUpResultChan)
+	} else {
+		// If we aren't processing missed blocks, set the latest block to chain head and start from there.
+		_, err = r.setProcessedBlockHeightToLatest()
+		if err != nil {
+			logger.Error(
+				"Failed to update latest processed block. Continuing to normal relaying operation",
+				zap.String("blockchainID", r.sourceBlockchainID.String()),
+				zap.Error(err),
+			)
+			return nil, err
 		}
-		// This error case is okay. It will happen on the first startup if ProcessHistoricalBlocks is false.
-		r.logger.Warn(
-			"failed to get latest block from database",
-			zap.String("blockchainID", r.sourceBlockchainID.String()),
-			zap.Error(err),
-		)
+		r.catchUpResultChan <- true
 	}
-
-	// If we aren't processing historical or missed blocks, or if we didn't find a latest block in the database,
-	// set the latest block to chain head and start from there.
-	err = r.setProcessedBlockHeightToLatest()
-	if err != nil {
-		logger.Error(
-			"Failed to update latest processed block. Continuing to normal relaying operation",
-			zap.String("blockchainID", r.sourceBlockchainID.String()),
-			zap.Error(err),
-		)
-		return nil, err
-	}
-	r.catchUpResultChan <- true
 
 	return &r, nil
 }
@@ -289,13 +265,15 @@ func (r *Relayer) ProcessLogs(ctx context.Context) error {
 func (r *Relayer) calculateStartingBlockHeight(startBlockHeight uint64) (uint64, error) {
 	latestProcessedBlock, err := r.getLatestProcessedBlockHeight()
 	if errors.Is(err, database.ErrChainNotFound) || errors.Is(err, database.ErrKeyNotFound) {
-		// The database does not contain the latest processed block data for the chain, so use the configured StartBlockHeight instead
+		// The database does not contain the latest processed block data for the chain,
+		// so use the configured process-historical-blocks-from-height instead
+		// If process-historical-blocks-from-height was not configured, start from the chain head.
 		if startBlockHeight == 0 {
-			r.logger.Warn(
-				"database does not contain latest processed block data and startBlockHeight is unset. Please provide a non-zero startBlockHeight in the configuration.",
+			r.logger.Info(
+				"process-historical-blocks-from-height not set, starting process from chain head",
 				zap.String("blockchainID", r.sourceBlockchainID.String()),
 			)
-			return 0, ErrNoStartBlock
+			return r.setProcessedBlockHeightToLatest()
 		}
 		return startBlockHeight, nil
 	} else if err != nil {
@@ -327,7 +305,7 @@ func (r *Relayer) calculateStartingBlockHeight(startBlockHeight uint64) (uint64,
 	return startBlockHeight, nil
 }
 
-func (r *Relayer) setProcessedBlockHeightToLatest() error {
+func (r *Relayer) setProcessedBlockHeightToLatest() (uint64, error) {
 	ethClient, err := ethclient.Dial(r.rpcEndpoint)
 	if err != nil {
 		r.logger.Error(
@@ -335,7 +313,7 @@ func (r *Relayer) setProcessedBlockHeightToLatest() error {
 			zap.String("blockchainID", r.sourceBlockchainID.String()),
 			zap.Error(err),
 		)
-		return err
+		return 0, err
 	}
 
 	latestBlock, err := ethClient.BlockNumber(context.Background())
@@ -345,7 +323,7 @@ func (r *Relayer) setProcessedBlockHeightToLatest() error {
 			zap.String("blockchainID", r.sourceBlockchainID.String()),
 			zap.Error(err),
 		)
-		return err
+		return 0, err
 	}
 
 	r.logger.Info(
@@ -361,9 +339,9 @@ func (r *Relayer) setProcessedBlockHeightToLatest() error {
 			zap.String("blockchainID", r.sourceBlockchainID.String()),
 			zap.Error(err),
 		)
-		return err
+		return 0, err
 	}
-	return nil
+	return latestBlock, nil
 }
 
 // Sets the relayer health status to false while attempting to reconnect.
