@@ -164,7 +164,7 @@ func BasicRelay(network interfaces.LocalNetwork) {
 	// the first two messages on startup, but process the third.
 	modifiedRelayerConfig := relayerConfig
 	modifiedRelayerConfig.SourceBlockchains[0].StartBlockHeight = currHeight
-	modifiedRelayerConfig.ProcessMissedBlocks = true
+	modifiedRelayerConfig.ProcessHistoricalBlocks = true
 	relayerConfigPath = writeRelayerConfig(modifiedRelayerConfig)
 
 	log.Info("Starting the relayer")
