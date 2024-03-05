@@ -61,11 +61,13 @@ See the [Building](#building) section for instructions on how to build the relay
   - Each subnet API node must have enabled:
     - eth API (RPC and WS)
   - The P-Chain API node must have enabled:
-    - info.peers
     - platform.getHeight
     - platform.validatedBy
     - platform.getValidatorsAt OR platform.getCurrentValidators
-  - If the P-Chain API node is also a subnet validator, it must have enabled:
+  - The Info API node must have enabled:
+    - info.peers
+    - info.getNetworkID
+  - If the Info API node is also a subnet validator, it must have enabled:
     - info.getNodeID
     - info.getNodeIP
 
@@ -110,7 +112,7 @@ The relayer is configured via a JSON file, the path to which is passed in via th
 - The URL of the Avalanche P-Chain API node to which the relayer will connect. This API node needs to have the following methods enabled:
   - platform.getHeight
   - platform.validatedBy
-  - platform.getValidatorsAt
+  - platform.getValidatorsAt OR platform.getCurrentValidators
 
 `"info-api-url": string`
 
@@ -118,13 +120,17 @@ The relayer is configured via a JSON file, the path to which is passed in via th
   - info.peers
   - info.getNetworkID
 
+- Additionally, if the Info API node is also a validator, it must have enabled:
+  - info.getNodeID
+  - info.getNodeIP
+
 `"storage-location": string`
 
 - The path to the directory in which the relayer will store its state. Defaults to `./awm-relayer-storage`.
 
 `"process-missed-blocks": boolean`
 
-- Whether or not to process missed blocks on startup. Defaults to `false`.
+- Whether or not to process missed blocks after restarting. Defaults to `true`. If set to false, the relayer will start processing blocks from the chain head.
 
 `"manual-warp-messages": []ManualWarpMessage`
 
@@ -182,7 +188,7 @@ The relayer is configured via a JSON file, the path to which is passed in via th
 
   - List of destination blockchain IDs that the source blockchain supports. If empty, then all destinations are supported.
 
-  `"start-block-height": unsigned integer`
+  `"process-historical-blocks-from-height": unsigned integer`
 
   - The block height at which to back-process transactions from the source subnet. If the database already contains a later block height for the source subnet, then that will be used instead. Must be non-zero.
 

@@ -26,10 +26,8 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var (
-	// Write the test database to /tmp since the data is not needed after the test
-	storageLocation = fmt.Sprintf("%s/.awm-relayer-storage", os.TempDir())
-)
+// Write the test database to /tmp since the data is not needed after the test
+var storageLocation = fmt.Sprintf("%s/.awm-relayer-storage", os.TempDir())
 
 func BuildAndRunRelayerExecutable(ctx context.Context, relayerConfigPath string) context.CancelFunc {
 	// Build the awm-relayer binary

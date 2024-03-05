@@ -35,7 +35,7 @@ import (
 // - Relaying from Subnet A to Subnet B
 // - Relaying from Subnet B to Subnet A
 // - Relaying an already delivered message
-// - Setting StartBlockHeight in config
+// - Setting ProcessHistoricalBlocksFromHeight in config
 func BasicRelay(network interfaces.LocalNetwork) {
 	subnetAInfo := network.GetPrimaryNetworkInfo()
 	subnetBInfo, _ := utils.GetTwoSubnets(network)
@@ -144,9 +144,9 @@ func BasicRelay(network interfaces.LocalNetwork) {
 	relayerCleanup()
 
 	//
-	// Set StartBlockHeight in config
+	// Set ProcessHistoricalBlocksFromHeight in config
 	//
-	log.Info("Test Setting StartBlockHeight in config")
+	log.Info("Test Setting ProcessHistoricalBlocksFromHeight in config")
 
 	// Send three Teleporter messages from subnet A to subnet B
 	log.Info("Sending three Teleporter messages from subnet A to subnet B")
@@ -160,10 +160,10 @@ func BasicRelay(network interfaces.LocalNetwork) {
 
 	// Configure the relayer such that it will only process the last of the three messages sent above.
 	// The relayer DB stores the height of the block *before* the first message, so by setting the
-	// StartBlockHeight to the block height of the *third* message, we expect the relayer to skip
+	// ProcessHistoricalBlocksFromHeight to the block height of the *third* message, we expect the relayer to skip
 	// the first two messages on startup, but process the third.
 	modifiedRelayerConfig := relayerConfig
-	modifiedRelayerConfig.SourceBlockchains[0].StartBlockHeight = currHeight
+	modifiedRelayerConfig.SourceBlockchains[0].ProcessHistoricalBlocksFromHeight = currHeight
 	modifiedRelayerConfig.ProcessMissedBlocks = true
 	relayerConfigPath = writeRelayerConfig(modifiedRelayerConfig)
 
