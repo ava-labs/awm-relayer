@@ -230,7 +230,8 @@ func (n *AppRequestNetwork) ConnectPeers(nodeIDs set.Set[ids.NodeID]) set.Set[id
 		}
 	}
 
-	// If we haven't yet connected to all peers, attempt to connect to the API node in case it is a validator
+	// If the Info API node is in nodeIDs, it will not be reflected in the call to info.Peers.
+	// In this case, we need to manually track the API node.
 	if apiNodeID, _, err := n.infoClient.GetNodeID(context.Background()); err != nil {
 		n.logger.Error(
 			"Failed to get API Node ID",
