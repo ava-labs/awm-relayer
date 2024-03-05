@@ -31,9 +31,7 @@ const (
 	warpConfigKey               = "warpConfig"
 )
 
-var (
-	errFailedToGetWarpQuorum = errors.New("failed to get warp quorum")
-)
+var errFailedToGetWarpQuorum = errors.New("failed to get warp quorum")
 
 type MessageProtocolConfig struct {
 	MessageFormat string                 `mapstructure:"message-format" json:"message-format"`
@@ -103,7 +101,6 @@ type Config struct {
 func SetDefaultConfigValues(v *viper.Viper) {
 	v.SetDefault(LogLevelKey, logging.Info.String())
 	v.SetDefault(StorageLocationKey, "./.awm-relayer-storage")
-	v.SetDefault(ProcessMissedBlocksKey, true)
 }
 
 // BuildConfig constructs the relayer config using Viper.
@@ -248,15 +245,19 @@ func (c *Config) Validate() error {
 func (m *ManualWarpMessage) GetUnsignedMessageBytes() []byte {
 	return m.unsignedMessageBytes
 }
+
 func (m *ManualWarpMessage) GetSourceBlockchainID() ids.ID {
 	return m.sourceBlockchainID
 }
+
 func (m *ManualWarpMessage) GetSourceAddress() common.Address {
 	return m.sourceAddress
 }
+
 func (m *ManualWarpMessage) GetDestinationBlockchainID() ids.ID {
 	return m.destinationBlockchainID
 }
+
 func (m *ManualWarpMessage) GetDestinationAddress() common.Address {
 	return m.destinationAddress
 }
