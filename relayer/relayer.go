@@ -29,10 +29,8 @@ import (
 	"go.uber.org/zap"
 )
 
-var (
-	// Errors
-	ErrNoStartBlock = errors.New("database does not contain latest processed block data and startBlockHeight is unset.")
-)
+// Errors
+var ErrNoStartBlock = errors.New("database does not contain latest processed block data and startBlockHeight is unset.")
 
 const (
 	maxSubscribeAttempts = 10
@@ -160,7 +158,7 @@ func NewRelayer(
 		return nil, err
 	}
 
-	if r.globalConfig.ProcessMissedBlocks {
+	if r.globalConfig.ProcessHistoricalBlocks {
 		height, err := r.calculateStartingBlockHeight(sourceSubnetInfo.StartBlockHeight)
 		if err != nil {
 			logger.Error(
@@ -173,18 +171,36 @@ func NewRelayer(
 		// start processing new blocks as soon as possible. Otherwise, it's possible for
 		// ProcessFromHeight to overload the message queue and cause a deadlock.
 		go sub.ProcessFromHeight(big.NewInt(0).SetUint64(height), r.catchUpResultChan)
-	} else {
-		err = r.setProcessedBlockHeightToLatest()
-		if err != nil {
-			logger.Error(
-				"Failed to update latest processed block. Continuing to normal relaying operation",
-				zap.String("blockchainID", r.sourceBlockchainID.String()),
-				zap.Error(err),
-			)
-			return nil, err
-		}
-		r.catchUpResultChan <- true
+		return &r, nil
 	}
+
+	if r.globalConfig.ProcessMissedBlocks {
+		latestProcessedBlock, err := r.getLatestProcessedBlockHeight()
+		// If we found a latest processed block, process from there.
+		if err == nil {
+			go sub.ProcessFromHeight(big.NewInt(0).SetUint64(latestProcessedBlock), r.catchUpResultChan)
+			return &r, nil
+		}
+		// This error case is okay. It will happen on the first startup if ProcessHistoricalBlocks is false.
+		r.logger.Warn(
+			"failed to get latest block from database",
+			zap.String("blockchainID", r.sourceBlockchainID.String()),
+			zap.Error(err),
+		)
+	}
+
+	// If we aren't processing historical or missed blocks, or if we didn't find a latest block in the database,
+	// set the latest block to chain head and start from there.
+	err = r.setProcessedBlockHeightToLatest()
+	if err != nil {
+		logger.Error(
+			"Failed to update latest processed block. Continuing to normal relaying operation",
+			zap.String("blockchainID", r.sourceBlockchainID.String()),
+			zap.Error(err),
+		)
+		return nil, err
+	}
+	r.catchUpResultChan <- true
 
 	return &r, nil
 }

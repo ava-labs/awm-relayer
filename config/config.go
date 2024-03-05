@@ -31,9 +31,7 @@ const (
 	warpConfigKey               = "warpConfig"
 )
 
-var (
-	errFailedToGetWarpQuorum = errors.New("failed to get warp quorum")
-)
+var errFailedToGetWarpQuorum = errors.New("failed to get warp quorum")
 
 type MessageProtocolConfig struct {
 	MessageFormat string                 `mapstructure:"message-format" json:"message-format"`
@@ -86,14 +84,15 @@ type WarpQuorum struct {
 }
 
 type Config struct {
-	LogLevel               string                   `mapstructure:"log-level" json:"log-level"`
-	PChainAPIURL           string                   `mapstructure:"p-chain-api-url" json:"p-chain-api-url"`
-	InfoAPIURL             string                   `mapstructure:"info-api-url" json:"info-api-url"`
-	StorageLocation        string                   `mapstructure:"storage-location" json:"storage-location"`
-	SourceBlockchains      []*SourceBlockchain      `mapstructure:"source-blockchains" json:"source-blockchains"`
-	DestinationBlockchains []*DestinationBlockchain `mapstructure:"destination-blockchains" json:"destination-blockchains"`
-	ProcessMissedBlocks    bool                     `mapstructure:"process-missed-blocks" json:"process-missed-blocks"`
-	ManualWarpMessages     []*ManualWarpMessage     `mapstructure:"manual-warp-messages" json:"manual-warp-messages"`
+	LogLevel                string                   `mapstructure:"log-level" json:"log-level"`
+	PChainAPIURL            string                   `mapstructure:"p-chain-api-url" json:"p-chain-api-url"`
+	InfoAPIURL              string                   `mapstructure:"info-api-url" json:"info-api-url"`
+	StorageLocation         string                   `mapstructure:"storage-location" json:"storage-location"`
+	SourceBlockchains       []*SourceBlockchain      `mapstructure:"source-blockchains" json:"source-blockchains"`
+	DestinationBlockchains  []*DestinationBlockchain `mapstructure:"destination-blockchains" json:"destination-blockchains"`
+	ProcessHistoricalBlocks bool                     `mapstructure:"process-historical-blocks" json:"process-historical-blocks"`
+	ProcessMissedBlocks     bool                     `mapstructure:"process-missed-blocks" json:"process-missed-blocks"`
+	ManualWarpMessages      []*ManualWarpMessage     `mapstructure:"manual-warp-messages" json:"manual-warp-messages"`
 
 	// convenience fields to access the source subnet and chain IDs after initialization
 	sourceSubnetIDs     []ids.ID
@@ -248,15 +247,19 @@ func (c *Config) Validate() error {
 func (m *ManualWarpMessage) GetUnsignedMessageBytes() []byte {
 	return m.unsignedMessageBytes
 }
+
 func (m *ManualWarpMessage) GetSourceBlockchainID() ids.ID {
 	return m.sourceBlockchainID
 }
+
 func (m *ManualWarpMessage) GetSourceAddress() common.Address {
 	return m.sourceAddress
 }
+
 func (m *ManualWarpMessage) GetDestinationBlockchainID() ids.ID {
 	return m.destinationBlockchainID
 }
+
 func (m *ManualWarpMessage) GetDestinationAddress() common.Address {
 	return m.destinationAddress
 }

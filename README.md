@@ -116,9 +116,13 @@ The relayer is configured via a JSON file, the path to which is passed in via th
 
 - The path to the directory in which the relayer will store its state. Defaults to `./awm-relayer-storage`.
 
+`"process-historical-blocks": boolean`
+
+- Whether or not to process missed blocks on first startup. Defaults to `false`. If set to true, `start-block-height` must also be set to a non-zero value.
+
 `"process-missed-blocks": boolean`
 
-- Whether or not to process missed blocks on startup. Defaults to `false`.
+- Whether or not to process missed blocks after restarting. Defaults to `true`.
 
 `"manual-warp-messages": []ManualWarpMessage`
 

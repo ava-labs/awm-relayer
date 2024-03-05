@@ -5,14 +5,15 @@ package config
 
 // Top-level configuration keys
 const (
-	ConfigFileKey             = "config-file"
-	LogLevelKey               = "log-level"
-	PChainAPIURLKey           = "p-chain-api-url"
-	InfoAPIURLKey             = "info-api-url"
-	SourceBlockchainsKey      = "source-blockchains"
-	DestinationBlockchainsKey = "destination-blockchains"
-	AccountPrivateKeyKey      = "account-private-key"
-	StorageLocationKey        = "storage-location"
-	ProcessMissedBlocksKey    = "process-missed-blocks"
-	ManualWarpMessagesKey     = "manual-warp-messages"
+	ConfigFileKey              = "config-file"
+	LogLevelKey                = "log-level"
+	PChainAPIURLKey            = "p-chain-api-url"
+	InfoAPIURLKey              = "info-api-url"
+	SourceBlockchainsKey       = "source-blockchains"
+	DestinationBlockchainsKey  = "destination-blockchains"
+	AccountPrivateKeyKey       = "account-private-key"
+	StorageLocationKey         = "storage-location"
+	ProcessHistoricalBlocksKey = "process-historical-blocks"
+	ProcessMissedBlocksKey     = "process-missed-blocks"
+	ManualWarpMessagesKey      = "manual-warp-messages"
 )
