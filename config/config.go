@@ -84,14 +84,14 @@ type WarpQuorum struct {
 }
 
 type Config struct {
-	LogLevel                string                   `mapstructure:"log-level" json:"log-level"`
-	PChainAPIURL            string                   `mapstructure:"p-chain-api-url" json:"p-chain-api-url"`
-	InfoAPIURL              string                   `mapstructure:"info-api-url" json:"info-api-url"`
-	StorageLocation         string                   `mapstructure:"storage-location" json:"storage-location"`
-	SourceBlockchains       []*SourceBlockchain      `mapstructure:"source-blockchains" json:"source-blockchains"`
-	DestinationBlockchains  []*DestinationBlockchain `mapstructure:"destination-blockchains" json:"destination-blockchains"`
-	ProcessMissedBlocks     bool                     `mapstructure:"process-missed-blocks" json:"process-missed-blocks"`
-	ManualWarpMessages      []*ManualWarpMessage     `mapstructure:"manual-warp-messages" json:"manual-warp-messages"`
+	LogLevel               string                   `mapstructure:"log-level" json:"log-level"`
+	PChainAPIURL           string                   `mapstructure:"p-chain-api-url" json:"p-chain-api-url"`
+	InfoAPIURL             string                   `mapstructure:"info-api-url" json:"info-api-url"`
+	StorageLocation        string                   `mapstructure:"storage-location" json:"storage-location"`
+	SourceBlockchains      []*SourceBlockchain      `mapstructure:"source-blockchains" json:"source-blockchains"`
+	DestinationBlockchains []*DestinationBlockchain `mapstructure:"destination-blockchains" json:"destination-blockchains"`
+	ProcessMissedBlocks    bool                     `mapstructure:"process-missed-blocks" json:"process-missed-blocks"`
+	ManualWarpMessages     []*ManualWarpMessage     `mapstructure:"manual-warp-messages" json:"manual-warp-messages"`
 
 	// convenience fields to access the source subnet and chain IDs after initialization
 	sourceSubnetIDs     []ids.ID
