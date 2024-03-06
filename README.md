@@ -40,7 +40,7 @@ xattr -d com.apple.quarantine /usr/local/bin/awm-relayer
 
 ### Download Docker Image
 
-The published Docker image can be pulled from `avaplatform/awm-relayer:latest` on Dockerhub.
+The published Docker image can be pulled from `avaplatform/awm-relayer:latest` on dockerhub.
 
 ### Build from Source
 
@@ -57,8 +57,8 @@ See the [Building](#building) section for instructions on how to build the relay
 
 ### API Requirements
 
-- AWM Relayer requires access to Avalanche API nodes for the P-Chain as well as any connected subnets. The API nodes must have the following methods enabled:
-  - Each subnet API node must have enabled:
+- AWM Relayer requires access to Avalanche API nodes for the P-Chain as well as any connected Subnets. The API nodes must have the following methods enabled:
+  - Each Subnet API node must have enabled:
     - eth API (RPC and WS)
   - The P-Chain API node must have enabled:
     - platform.getHeight
@@ -67,7 +67,7 @@ See the [Building](#building) section for instructions on how to build the relay
   - The Info API node must have enabled:
     - info.peers
     - info.getNetworkID
-  - If the Info API node is also a subnet validator, it must have enabled:
+  - If the Info API node is also a Subnet validator, it must have enabled:
     - info.getNodeID
     - info.getNodeIP
 
@@ -142,11 +142,11 @@ The relayer is configured via a JSON file, the path to which is passed in via th
 
   `"source-blockchain-id": string`
 
-  - cb58-encoded Blockchain ID of the source subnet.
+  - cb58-encoded Blockchain ID of the source Subnet.
 
   `"destination-blockchain-id": string`
 
-  - cb58-encoded Blockchain ID of the destination subnet.
+  - cb58-encoded Blockchain ID of the destination Subnet.
 
   `"source-address": string`
 
@@ -158,7 +158,7 @@ The relayer is configured via a JSON file, the path to which is passed in via th
 
 `"source-blockchains": []SourceBlockchains`
 
-- The list of source subnets to support. Each `SourceBlockchain` has the following configuration:
+- The list of source Subnets to support. Each `SourceBlockchain` has the following configuration:
 
   `"subnet-id": string`
 
@@ -170,15 +170,15 @@ The relayer is configured via a JSON file, the path to which is passed in via th
 
   `"vm": string`
 
-  - The VM type of the source subnet.
+  - The VM type of the source Subnet.
 
   `"rpc-endpoint": string`
 
-  - The RPC endpoint of the source subnet's API node.
+  - The RPC endpoint of the source Subnet's API node.
 
   `"ws-endpoint": string`
 
-  - The WebSocket endpoint of the source subnet's API node.
+  - The WebSocket endpoint of the source Subnet's API node.
 
   `"message-contracts": map[string]MessageProtocolConfig`
 
@@ -190,11 +190,11 @@ The relayer is configured via a JSON file, the path to which is passed in via th
 
   `"process-historical-blocks-from-height": unsigned integer`
 
-  - The block height at which to back-process transactions from the source subnet. If the database already contains a later block height for the source subnet, then that will be used instead. Must be non-zero.
+  - The block height at which to back-process transactions from the source Subnet. If the database already contains a later block height for the source Subnet, then that will be used instead. Must be non-zero.
 
 `"destination-blockchains": []DestinationBlockchains`
 
-- The list of destination subnets to support. Each `DestinationBlockchain` has the following configuration:
+- The list of destination Subnets to support. Each `DestinationBlockchain` has the following configuration:
 
   `"subnet-id": string`
 
@@ -206,15 +206,15 @@ The relayer is configured via a JSON file, the path to which is passed in via th
 
   `"vm": string`
 
-  - The VM type of the source subnet.
+  - The VM type of the source Subnet.
 
   `"rpc-endpoint": string`
 
-  - The RPC endpoint of the destination subnet's API node.
+  - The RPC endpoint of the destination Subnet's API node.
 
   `"account-private-key": string`
 
-  - The hex-encoded private key to use for signing transactions on the destination subnet. May be provided by the environment variable `ACCOUNT_PRIVATE_KEY`. Each `destination-subnet` may use a separate private key by appending the blockchain ID to the private key environment variable name, e.g. `ACCOUNT_PRIVATE_KEY_11111111111111111111111111111111LpoYY`
+  - The hex-encoded private key to use for signing transactions on the destination Subnet. May be provided by the environment variable `ACCOUNT_PRIVATE_KEY`. Each `destination-subnet` may use a separate private key by appending the blockchain ID to the private key environment variable name, for example `ACCOUNT_PRIVATE_KEY_11111111111111111111111111111111LpoYY`
 
 ## Architecture
 
@@ -224,15 +224,15 @@ The relayer consists of the following components:
 
 - At the global level:
   - _P2P app network_: issues signature `AppRequests`
-  - _P-Chain client_: gets the validators for a subnet
-  - _JSON database_: stores latest processed block for each source subnet
-- Per Source subnet
+  - _P-Chain client_: gets the validators for a Subnet
+  - _JSON database_: stores latest processed block for each source Subnet
+- Per Source Subnet
   - _Subscriber_: listens for logs pertaining to cross-chain message transactions
   - _Source RPC client_: queries for missed blocks on startup
-- Per Destination subnet
+- Per Destination Subnet
   - _Destination RPC client_: broadcasts transactions to the destination
 
-### Data flow
+### Data Flow
 
 <div align="center">
   <img src="resources/relayer-diagram.png?raw=true"></img>
@@ -240,7 +240,7 @@ The relayer consists of the following components:
 
 ## Testing
 
-### Unit tests
+### Unit Tests
 
 Unit tests can be ran locally by running the command in the root of the project:
 
@@ -248,11 +248,11 @@ Unit tests can be ran locally by running the command in the root of the project:
 ./scripts/test.sh
 ```
 
-If your temporary directory is not writable, the unit tests may fail with messages like `fork/exec /tmp/go-build2296620589/b247/config.test: permission denied`. To fix this, set the `TMPDIR` environment variable to something writable, eg `export TMPDIR=~/tmp`.
+If your temporary directory is not writable, the unit tests may fail with messages like `fork/exec /tmp/go-build2296620589/b247/config.test: permission denied`. To fix this, set the `TMPDIR` environment variable to something writable, for example `export TMPDIR=~/tmp`.
 
-### E2E tests
+### E2E Tests
 
-E2E tests are ran as part of CI, but can also be ran locally with the `--local` flag. To run the E2E tests locally, you'll need to install Gingko following the intructions [here](https://onsi.github.io/ginkgo/#installing-ginkgo)
+E2E tests are ran as part of CI, but can also be ran locally with the `--local` flag. To run the E2E tests locally, you'll need to install Gingko following the instructions [here](https://onsi.github.io/ginkgo/#installing-ginkgo)
 
 Next, provide the path to the `subnet-evm` repository and the path to a writeable data directory (this example uses `~/subnet-evm` and `~/tmp/e2e-test`) to use for the tests:
 
