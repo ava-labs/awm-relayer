@@ -32,7 +32,7 @@ tar -xzf awm-relayer_0.2.13_darwin_arm64.tar.gz
 sudo install awm-relayer /usr/local/bin
 ```
 
-*Note:* If downloading the binaries through a browser on MacOS, the browser may mark the binary as quarantined since it has not been verified through the App Store. To remove the quarantine, run the following command:
+_Note:_ If downloading the binaries through a browser on MacOS, the browser may mark the binary as quarantined since it has not been verified through the App Store. To remove the quarantine, run the following command:
 
 ```bash
 xattr -d com.apple.quarantine /usr/local/bin/awm-relayer
@@ -87,7 +87,7 @@ Build the relayer by running the script:
 
 Build a Docker image by running the script:
 
-```
+```bash
 ./scripts/build_local_image.sh
 ```
 
@@ -117,6 +117,7 @@ The relayer is configured via a JSON file, the path to which is passed in via th
 `"info-api-url": string`
 
 - The URL of the Avalanche Info API node to which the relayer will connect. This API node needs to have the following methods enabled:
+
   - info.peers
   - info.getNetworkID
 
@@ -223,14 +224,14 @@ The relayer is configured via a JSON file, the path to which is passed in via th
 The relayer consists of the following components:
 
 - At the global level:
-  - _P2P app network_: issues signature `AppRequests`
-  - _P-Chain client_: gets the validators for a Subnet
-  - _JSON database_: stores latest processed block for each source Subnet
+  - P2P app network: issues signature `AppRequests`
+  - P-Chain client: gets the validators for a Subnet
+  - JSON database: stores latest processed block for each source Subnet
 - Per Source Subnet
-  - _Subscriber_: listens for logs pertaining to cross-chain message transactions
-  - _Source RPC client_: queries for missed blocks on startup
+  - Subscriber: listens for logs pertaining to cross-chain message transactions
+  - Source RPC client: queries for missed blocks on startup
 - Per Destination Subnet
-  - _Destination RPC client_: broadcasts transactions to the destination
+  - Destination RPC client: broadcasts transactions to the destination
 
 ### Data Flow
 
