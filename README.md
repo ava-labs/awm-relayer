@@ -191,7 +191,7 @@ The relayer is configured via a JSON file, the path to which is passed in via th
 
   `"process-historical-blocks-from-height": unsigned integer`
 
-  - The block height at which to back-process transactions from the source Subnet. If the database already contains a later block height for the source Subnet, then that will be used instead. Must be non-zero.
+  - The block height at which to back-process transactions from the source Subnet. If the database already contains a later block height for the source Subnet, then that will be used instead. Must be non-zero. Will only be used if `process-missed-blocks` is set to `true`.
 
 `"destination-blockchains": []DestinationBlockchains`
 
