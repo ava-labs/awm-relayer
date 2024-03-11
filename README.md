@@ -75,7 +75,7 @@ The Fuji and Mainnet [public API nodes](https://docs.avax.network/tooling/rpc-pr
 
 ### Peer-to-Peer Connections
 
-- AWM Relayer gathers BLS signatures from the validators of the source Subnet via peer-to-peer AppRequest messages. Validator nodes need to be configured to accept incoming peer connections, otherwise the relayer will fail to gather Warp message signatures. For example, networking rules may need to be adjusted to allow traffic on the default Avalanchego P2P port (9651), or the public IP may need to be manually set in the [node configuration](https://docs.avax.network/nodes/configure/avalanchego-config-flags#public-ip).
+- The AWM relayer implementation gathers BLS signatures from the validators of the source Subnet via peer-to-peer `AppRequest` messages. Validator nodes need to be configured to accept incoming peer connections. Otherwise, the relayer will fail to gather Warp message signatures. For example, networking rules may need to be adjusted to allow traffic on the default AvalancheGo P2P port (9651), or the public IP may need to be manually set in the [node configuration](https://docs.avax.network/nodes/configure/avalanchego-config-flags#public-ip).
 
 ## Usage
 
