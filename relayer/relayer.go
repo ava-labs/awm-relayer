@@ -38,25 +38,24 @@ const (
 
 // Relayer handles all messages sent from a given source chain
 type Relayer struct {
-	Subscriber               vms.Subscriber
-	pChainClient             platformvm.Client
-	canonicalValidatorClient *CanonicalValidatorClient
-	currentRequestID         uint32
-	network                  *peers.AppRequestNetwork
-	sourceSubnetID           ids.ID
-	sourceBlockchainID       ids.ID
-	responseChan             chan message.InboundMessage
-	contractMessage          vms.ContractMessage
-	messageManagers          map[common.Address]messages.MessageManager
-	logger                   logging.Logger
-	metrics                  *MessageRelayerMetrics
-	db                       database.RelayerDatabase
-	supportedDestinations    set.Set[ids.ID]
-	rpcEndpoint              string
-	messageCreator           message.Creator
-	catchUpResultChan        chan bool
-	healthStatus             *atomic.Bool
-	globalConfig             config.Config
+	Subscriber            vms.Subscriber
+	pChainClient          platformvm.Client
+	currentRequestID      uint32
+	network               *peers.AppRequestNetwork
+	sourceSubnetID        ids.ID
+	sourceBlockchainID    ids.ID
+	responseChan          chan message.InboundMessage
+	contractMessage       vms.ContractMessage
+	messageManagers       map[common.Address]messages.MessageManager
+	logger                logging.Logger
+	metrics               *MessageRelayerMetrics
+	db                    database.RelayerDatabase
+	supportedDestinations set.Set[ids.ID]
+	rpcEndpoint           string
+	messageCreator        message.Creator
+	catchUpResultChan     chan bool
+	healthStatus          *atomic.Bool
+	globalConfig          config.Config
 }
 
 func NewRelayer(
@@ -123,25 +122,24 @@ func NewRelayer(
 		zap.String("blockchainIDHex", blockchainID.Hex()),
 	)
 	r := Relayer{
-		Subscriber:               sub,
-		pChainClient:             pChainClient,
-		canonicalValidatorClient: NewCanonicalValidatorClient(logger, pChainClient),
-		currentRequestID:         rand.Uint32(), // Initialize to a random value to mitigate requestID collision
-		network:                  network,
-		sourceSubnetID:           subnetID,
-		sourceBlockchainID:       blockchainID,
-		responseChan:             responseChan,
-		contractMessage:          vms.NewContractMessage(logger, sourceSubnetInfo),
-		messageManagers:          messageManagers,
-		logger:                   logger,
-		metrics:                  metrics,
-		db:                       db,
-		supportedDestinations:    sourceSubnetInfo.GetSupportedDestinations(),
-		rpcEndpoint:              sourceSubnetInfo.RPCEndpoint,
-		messageCreator:           messageCreator,
-		catchUpResultChan:        catchUpResultChan,
-		healthStatus:             relayerHealth,
-		globalConfig:             cfg,
+		Subscriber:            sub,
+		pChainClient:          pChainClient,
+		currentRequestID:      rand.Uint32(), // Initialize to a random value to mitigate requestID collision
+		network:               network,
+		sourceSubnetID:        subnetID,
+		sourceBlockchainID:    blockchainID,
+		responseChan:          responseChan,
+		contractMessage:       vms.NewContractMessage(logger, sourceSubnetInfo),
+		messageManagers:       messageManagers,
+		logger:                logger,
+		metrics:               metrics,
+		db:                    db,
+		supportedDestinations: sourceSubnetInfo.GetSupportedDestinations(),
+		rpcEndpoint:           sourceSubnetInfo.RPCEndpoint,
+		messageCreator:        messageCreator,
+		catchUpResultChan:     catchUpResultChan,
+		healthStatus:          relayerHealth,
+		globalConfig:          cfg,
 	}
 
 	// Open the subscription. We must do this before processing any missed messages, otherwise we may miss an incoming message

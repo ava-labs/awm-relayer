@@ -1,15 +1,17 @@
 // Copyright (C) 2023, Ava Labs, Inc. All rights reserved.
 // See the file LICENSE for licensing terms.
 
-package relayer
+package validators
 
 import (
 	"context"
 
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/snow/validators"
+	"github.com/ava-labs/avalanchego/utils/constants"
 	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/avalanchego/vms/platformvm"
+	avalancheWarp "github.com/ava-labs/avalanchego/vms/platformvm/warp"
 	"go.uber.org/zap"
 )
 
@@ -26,6 +28,55 @@ func NewCanonicalValidatorClient(logger logging.Logger, client platformvm.Client
 		client: client,
 		logger: logger,
 	}
+}
+
+func (v *CanonicalValidatorClient) GetCurrentCanonicalValidatorSet(sourceSubnetID ids.ID, destinationBlockchainID ids.ID) ([]*avalancheWarp.Validator, uint64, error) {
+	var (
+		signingSubnet ids.ID
+		err           error
+	)
+	if sourceSubnetID == constants.PrimaryNetworkID {
+		// If the message originates from the primary subnet, then we instead "self sign" the message using the validators of the destination subnet.
+		signingSubnet, err = v.GetSubnetID(context.Background(), destinationBlockchainID)
+		if err != nil {
+			v.logger.Error(
+				"Failed to get validating subnet for destination chain",
+				zap.String("destinationBlockchainID", destinationBlockchainID.String()),
+				zap.Error(err),
+			)
+			return nil, 0, err
+		}
+	} else {
+		// Otherwise, the source subnet signs the message.
+		signingSubnet = sourceSubnetID
+	}
+
+	height, err := v.GetCurrentHeight(context.Background())
+	if err != nil {
+		v.logger.Error(
+			"Failed to get P-Chain height",
+			zap.Error(err),
+		)
+		return nil, 0, err
+	}
+
+	// Get the current canonical validator set of the source subnet.
+	canonicalSubnetValidators, totalValidatorWeight, err := avalancheWarp.GetCanonicalValidatorSet(
+		context.Background(),
+		v,
+		height,
+		signingSubnet,
+	)
+	if err != nil {
+		v.logger.Error(
+			"Failed to get the canonical subnet validator set",
+			zap.String("subnetID", sourceSubnetID.String()),
+			zap.Error(err),
+		)
+		return nil, 0, err
+	}
+
+	return canonicalSubnetValidators, totalValidatorWeight, nil
 }
 
 func (v *CanonicalValidatorClient) GetMinimumHeight(ctx context.Context) (uint64, error) {

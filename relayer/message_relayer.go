@@ -22,6 +22,7 @@ import (
 	"github.com/ava-labs/awm-relayer/messages"
 	"github.com/ava-labs/awm-relayer/peers"
 	"github.com/ava-labs/awm-relayer/utils"
+	"github.com/ava-labs/awm-relayer/validators"
 	coreEthMsg "github.com/ava-labs/coreth/plugin/evm/message"
 	msg "github.com/ava-labs/subnet-evm/plugin/evm/message"
 	warpBackend "github.com/ava-labs/subnet-evm/warp"
@@ -221,7 +222,8 @@ func (r *messageRelayer) createSignedMessageAppRequest(requestID uint32) (*avala
 	r.relayer.logger.Info("Fetching aggregate signature from the source chain validators via AppRequest")
 
 	// Get the current canonical validator set of the source subnet.
-	validatorSet, totalValidatorWeight, err := r.getCurrentCanonicalValidatorSet()
+	canonicalValidatorClient := validators.NewCanonicalValidatorClient(r.relayer.logger, r.relayer.pChainClient)
+	validatorSet, totalValidatorWeight, err := canonicalValidatorClient.GetCurrentCanonicalValidatorSet(r.relayer.sourceSubnetID, r.destinationBlockchainID)
 	if err != nil {
 		r.relayer.logger.Error(
 			"Failed to get the canonical subnet validator set",
@@ -481,55 +483,6 @@ func (r *messageRelayer) createSignedMessageAppRequest(requestID uint32) (*avala
 		zap.String("destinationBlockchainID", r.destinationBlockchainID.String()),
 	)
 	return nil, errNotEnoughSignatures
-}
-
-func (r *messageRelayer) getCurrentCanonicalValidatorSet() ([]*avalancheWarp.Validator, uint64, error) {
-	var (
-		signingSubnet ids.ID
-		err           error
-	)
-	if r.relayer.sourceSubnetID == constants.PrimaryNetworkID {
-		// If the message originates from the primary subnet, then we instead "self sign" the message using the validators of the destination subnet.
-		signingSubnet, err = r.relayer.pChainClient.ValidatedBy(context.Background(), r.destinationBlockchainID)
-		if err != nil {
-			r.relayer.logger.Error(
-				"Failed to get validating subnet for destination chain",
-				zap.String("destinationBlockchainID", r.destinationBlockchainID.String()),
-				zap.Error(err),
-			)
-			return nil, 0, err
-		}
-	} else {
-		// Otherwise, the source subnet signs the message.
-		signingSubnet = r.relayer.sourceSubnetID
-	}
-
-	height, err := r.relayer.pChainClient.GetHeight(context.Background())
-	if err != nil {
-		r.relayer.logger.Error(
-			"Failed to get P-Chain height",
-			zap.Error(err),
-		)
-		return nil, 0, err
-	}
-
-	// Get the current canonical validator set of the source subnet.
-	canonicalSubnetValidators, totalValidatorWeight, err := avalancheWarp.GetCanonicalValidatorSet(
-		context.Background(),
-		r.relayer.canonicalValidatorClient,
-		height,
-		signingSubnet,
-	)
-	if err != nil {
-		r.relayer.logger.Error(
-			"Failed to get the canonical subnet validator set",
-			zap.String("subnetID", r.relayer.sourceSubnetID.String()),
-			zap.Error(err),
-		)
-		return nil, 0, err
-	}
-
-	return canonicalSubnetValidators, totalValidatorWeight, nil
 }
 
 // isValidSignatureResponse tries to generate a signature from the peer.AsyncResponse, then verifies the signature against the node's public key.
