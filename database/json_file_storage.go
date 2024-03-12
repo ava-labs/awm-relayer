@@ -12,7 +12,6 @@ import (
 
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/utils/logging"
-	"github.com/ava-labs/awm-relayer/config"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 )
@@ -35,7 +34,7 @@ type JSONFileStorage struct {
 }
 
 // NewJSONFileStorage creates a new JSONFileStorage instance
-func NewJSONFileStorage(logger logging.Logger, dir string, sourceBlockchains []*config.SourceBlockchain) (*JSONFileStorage, error) {
+func NewJSONFileStorage(logger logging.Logger, dir string, chainIDs []ids.ID) (*JSONFileStorage, error) {
 	storage := &JSONFileStorage{
 		dir:          filepath.Clean(dir),
 		mutexes:      make(map[ids.ID]*sync.RWMutex),
@@ -43,8 +42,7 @@ func NewJSONFileStorage(logger logging.Logger, dir string, sourceBlockchains []*
 		currentState: make(map[ids.ID]chainState),
 	}
 
-	for _, sourceBlockchain := range sourceBlockchains {
-		chainID := sourceBlockchain.GetBlockchainID()
+	for _, chainID := range chainIDs {
 		storage.currentState[chainID] = make(chainState)
 		storage.mutexes[chainID] = &sync.RWMutex{}
 	}
@@ -53,8 +51,7 @@ func NewJSONFileStorage(logger logging.Logger, dir string, sourceBlockchains []*
 	if err == nil {
 		// Directory already exists.
 		// Read the existing storage.
-		for _, sourceBlockchain := range sourceBlockchains {
-			chainID := sourceBlockchain.GetBlockchainID()
+		for _, chainID := range chainIDs {
 			currentState, fileExists, err := storage.getCurrentState(chainID)
 			if err != nil {
 				return nil, err

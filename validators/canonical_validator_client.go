@@ -30,7 +30,7 @@ func NewCanonicalValidatorClient(logger logging.Logger, client platformvm.Client
 	}
 }
 
-func (v *CanonicalValidatorClient) GetCurrentCanonicalValidatorSet(sourceSubnetID ids.ID, destinationBlockchainID ids.ID) ([]*avalancheWarp.Validator, uint64, error) {
+func (v *CanonicalValidatorClient) GetSigningSubnetValidatorSet(sourceSubnetID ids.ID, destinationBlockchainID ids.ID) ([]*avalancheWarp.Validator, uint64, error) {
 	var (
 		signingSubnet ids.ID
 		err           error
@@ -51,6 +51,10 @@ func (v *CanonicalValidatorClient) GetCurrentCanonicalValidatorSet(sourceSubnetI
 		signingSubnet = sourceSubnetID
 	}
 
+	return v.GetCurrentCanonicalValidatorSet(signingSubnet)
+}
+
+func (v *CanonicalValidatorClient) GetCurrentCanonicalValidatorSet(subnetID ids.ID) ([]*avalancheWarp.Validator, uint64, error) {
 	height, err := v.GetCurrentHeight(context.Background())
 	if err != nil {
 		v.logger.Error(
@@ -65,12 +69,12 @@ func (v *CanonicalValidatorClient) GetCurrentCanonicalValidatorSet(sourceSubnetI
 		context.Background(),
 		v,
 		height,
-		signingSubnet,
+		subnetID,
 	)
 	if err != nil {
 		v.logger.Error(
 			"Failed to get the canonical subnet validator set",
-			zap.String("subnetID", sourceSubnetID.String()),
+			zap.String("subnetID", subnetID.String()),
 			zap.Error(err),
 		)
 		return nil, 0, err

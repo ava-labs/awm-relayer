@@ -223,7 +223,7 @@ func (r *messageRelayer) createSignedMessageAppRequest(requestID uint32) (*avala
 
 	// Get the current canonical validator set of the source subnet.
 	canonicalValidatorClient := validators.NewCanonicalValidatorClient(r.relayer.logger, r.relayer.pChainClient)
-	validatorSet, totalValidatorWeight, err := canonicalValidatorClient.GetCurrentCanonicalValidatorSet(r.relayer.sourceSubnetID, r.destinationBlockchainID)
+	validatorSet, totalValidatorWeight, err := canonicalValidatorClient.GetSigningSubnetValidatorSet(r.relayer.sourceSubnetID, r.destinationBlockchainID)
 	if err != nil {
 		r.relayer.logger.Error(
 			"Failed to get the canonical subnet validator set",
