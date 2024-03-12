@@ -19,6 +19,7 @@ import (
 	"github.com/ava-labs/avalanchego/utils/ips"
 	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/avalanchego/utils/set"
+	"github.com/ava-labs/awm-relayer/config"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 )
@@ -42,9 +43,9 @@ type AppRequestNetwork struct {
 func NewNetwork(
 	logLevel logging.Level,
 	registerer prometheus.Registerer,
-	subnetIDs []ids.ID,
-	blockchainIDs []ids.ID,
+	sourceBlockchains []*config.SourceBlockchain,
 	infoAPINodeURL string,
+	pChainAPINodeURL string,
 ) (*AppRequestNetwork, map[ids.ID]chan message.InboundMessage, error) {
 	logger := logging.NewLogger(
 		"awm-relayer-p2p",
@@ -73,15 +74,15 @@ func NewNetwork(
 
 	// Create the test network for AppRequests
 	var trackedSubnets set.Set[ids.ID]
-	for _, subnetID := range subnetIDs {
-		trackedSubnets.Add(subnetID)
+	for _, sourceBlockchain := range sourceBlockchains {
+		trackedSubnets.Add(sourceBlockchain.GetSubnetID())
 	}
 
 	// Construct a response chan for each chain. Inbound messages will be routed to the proper channel in the handler
 	responseChans := make(map[ids.ID]chan message.InboundMessage)
-	for _, blockchainID := range blockchainIDs {
+	for _, sourceBlockchain := range sourceBlockchains {
 		responseChan := make(chan message.InboundMessage, InboundMessageChannelSize)
-		responseChans[blockchainID] = responseChan
+		responseChans[sourceBlockchain.GetBlockchainID()] = responseChan
 	}
 	responseChansLock := new(sync.RWMutex)
 

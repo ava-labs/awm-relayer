@@ -98,7 +98,6 @@ func main() {
 
 	// Initialize the global app request network
 	logger.Info("Initializing app request network")
-	sourceSubnetIDs, sourceBlockchainIDs := cfg.GetSourceIDs()
 
 	// The app request network generates P2P networking logs that are verbose at the info level.
 	// Unless the log level is debug or lower, set the network log level to error to avoid spamming the logs.
@@ -106,7 +105,7 @@ func main() {
 	if logLevel <= logging.Debug {
 		networkLogLevel = logLevel
 	}
-	network, responseChans, err := peers.NewNetwork(networkLogLevel, registerer, sourceSubnetIDs, sourceBlockchainIDs, cfg.InfoAPIURL)
+	network, responseChans, err := peers.NewNetwork(networkLogLevel, registerer, cfg.SourceBlockchains, cfg.InfoAPIURL, cfg.PChainAPIURL)
 	if err != nil {
 		logger.Error(
 			"Failed to create app request network",
@@ -167,7 +166,7 @@ func main() {
 	}
 
 	// Initialize the database
-	db, err := database.NewJSONFileStorage(logger, cfg.StorageLocation, sourceBlockchainIDs)
+	db, err := database.NewJSONFileStorage(logger, cfg.StorageLocation, cfg.SourceBlockchains)
 	if err != nil {
 		logger.Error(
 			"Failed to create database",
