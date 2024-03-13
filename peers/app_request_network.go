@@ -7,7 +7,6 @@ import (
 	"context"
 	"errors"
 	"math/big"
-	"math/rand"
 	"os"
 	"sync"
 	"time"
@@ -101,72 +100,6 @@ func NewNetwork(
 			zap.Error(err),
 		)
 		return nil, nil, err
-	}
-
-	// We need to initially connect to some nodes in the network before peer
-	// gossip will enable connecting to all the remaining nodes in the network.
-	var beaconIPs, beaconIDs []string
-
-	peers, err := infoClient.Peers(context.Background())
-	if err != nil {
-		logger.Error(
-			"Failed to get peers",
-			zap.Error(err),
-		)
-		return nil, nil, err
-	}
-
-	// Randomly select peers to connect to until we have numInitialTestPeers
-	indices := rand.Perm(len(peers))
-	for _, index := range indices {
-		// Do not attempt to connect to private peers
-		if len(peers[index].PublicIP) == 0 {
-			continue
-		}
-		beaconIPs = append(beaconIPs, peers[index].PublicIP)
-		beaconIDs = append(beaconIDs, peers[index].ID.String())
-		if len(beaconIDs) == numInitialTestPeers {
-			break
-		}
-	}
-	if len(beaconIPs) == 0 {
-		logger.Error(
-			"Failed to find any peers to connect to",
-			zap.Error(err),
-		)
-		return nil, nil, err
-	}
-	if len(beaconIPs) < numInitialTestPeers {
-		logger.Warn(
-			"Failed to find a full set of peers to connect to on startup",
-			zap.Int("connectedPeers", len(beaconIPs)),
-			zap.Int("expectedConnectedPeers", numInitialTestPeers),
-		)
-	}
-
-	for i, beaconIDStr := range beaconIDs {
-		beaconID, err := ids.NodeIDFromString(beaconIDStr)
-		if err != nil {
-			logger.Error(
-				"Failed to parse beaconID",
-				zap.String("beaconID", beaconIDStr),
-				zap.Error(err),
-			)
-			return nil, nil, err
-		}
-
-		beaconIPStr := beaconIPs[i]
-		ipPort, err := ips.ToIPPort(beaconIPStr)
-		if err != nil {
-			logger.Error(
-				"Failed to parse beaconIP",
-				zap.String("beaconIP", beaconIPStr),
-				zap.Error(err),
-			)
-			return nil, nil, err
-		}
-
-		testNetwork.ManuallyTrack(beaconID, ipPort)
 	}
 
 	arNetwork := &AppRequestNetwork{
