@@ -17,6 +17,7 @@ import (
 	"github.com/ava-labs/avalanchego/message"
 	"github.com/ava-labs/avalanchego/network"
 	snowVdrs "github.com/ava-labs/avalanchego/snow/validators"
+	"github.com/ava-labs/avalanchego/utils/constants"
 	"github.com/ava-labs/avalanchego/utils/ips"
 	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/avalanchego/utils/set"
@@ -180,25 +181,54 @@ func NewNetwork(
 	// Sufficient stake is determined by the Warp quora of the configured supported destinations,
 	// or if the subnet supports all destinations, by the quora of all configured destinations.
 	for _, sourceBlockchain := range cfg.SourceBlockchains {
-		connectedValidators, err := ConnectToCanonicalValidators(
-			arNetwork,
-			validators.NewCanonicalValidatorClient(logger, pChainClient),
-			sourceBlockchain.GetSubnetID(),
-		)
-		if err != nil {
-			logger.Error(
-				"Failed to connect to canonical validators",
-				zap.Error(err),
-			)
-			return nil, nil, err
-		}
-
+		// Get the list of destination chains that this source may relay to
 		var destinationBlockchainIDs []ids.ID
 		if supportedDsts := sourceBlockchain.GetSupportedDestinations(); supportedDsts.Len() > 0 {
 			destinationBlockchainIDs = supportedDsts.List()
 		} else {
 			for _, dst := range cfg.DestinationBlockchains {
 				destinationBlockchainIDs = append(destinationBlockchainIDs, dst.GetBlockchainID())
+			}
+		}
+
+		var connectedValidators *ConnectedCanonicalValidators
+		if sourceBlockchain.GetBlockchainID() == constants.PrimaryNetworkID {
+			// For the primary network, connect to the validators of the destination chains
+			for _, destinationBlockchainID := range destinationBlockchainIDs {
+				subnetID, err := pChainClient.ValidatedBy(context.Background(), destinationBlockchainID)
+				if err != nil {
+					logger.Error(
+						"Failed to get subnet ID",
+						zap.Error(err),
+					)
+					return nil, nil, err
+				}
+				connectedValidators, err = ConnectToCanonicalValidators(
+					arNetwork,
+					validators.NewCanonicalValidatorClient(logger, pChainClient),
+					subnetID,
+				)
+				if err != nil {
+					logger.Error(
+						"Failed to connect to canonical validators",
+						zap.Error(err),
+					)
+					return nil, nil, err
+				}
+			}
+		} else {
+			// Otherwise, connect to the validators of the source subnet
+			connectedValidators, err = ConnectToCanonicalValidators(
+				arNetwork,
+				validators.NewCanonicalValidatorClient(logger, pChainClient),
+				sourceBlockchain.GetSubnetID(),
+			)
+			if err != nil {
+				logger.Error(
+					"Failed to connect to canonical validators",
+					zap.Error(err),
+				)
+				return nil, nil, err
 			}
 		}
 
