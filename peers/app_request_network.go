@@ -226,7 +226,6 @@ func NewNetwork(
 				return nil, nil, errors.New("failed to connect to a threshold of stake")
 			}
 		}
-
 	}
 
 	go logger.RecoverAndPanic(func() {
