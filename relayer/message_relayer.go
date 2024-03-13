@@ -55,6 +55,7 @@ type messageRelayer struct {
 	relayer                 *Relayer
 	warpMessage             *avalancheWarp.UnsignedMessage
 	destinationBlockchainID ids.ID
+	signingSubnetID         ids.ID
 	warpQuorum              config.WarpQuorum
 }
 
@@ -72,10 +73,27 @@ func newMessageRelayer(
 		)
 		return nil, err
 	}
+	var signingSubnet ids.ID
+	if relayer.sourceSubnetID == constants.PrimaryNetworkID {
+		// If the message originates from the primary subnet, then we instead "self sign" the message using the validators of the destination subnet.
+		signingSubnet, err = relayer.pChainClient.ValidatedBy(context.Background(), destinationBlockchainID)
+		if err != nil {
+			relayer.logger.Error(
+				"Failed to get validating subnet for destination chain",
+				zap.String("destinationBlockchainID", destinationBlockchainID.String()),
+				zap.Error(err),
+			)
+			return nil, err
+		}
+	} else {
+		// Otherwise, the source subnet signs the message.
+		signingSubnet = relayer.sourceSubnetID
+	}
 	return &messageRelayer{
 		relayer:                 relayer,
 		warpMessage:             warpMessage,
 		destinationBlockchainID: destinationBlockchainID,
+		signingSubnetID:         signingSubnet,
 		warpQuorum:              quorum,
 	}, nil
 }
@@ -220,11 +238,10 @@ func (r *messageRelayer) createSignedMessage() (*avalancheWarp.Message, error) {
 // createSignedMessageAppRequest collects signatures from nodes by directly querying them via AppRequest, then aggregates the signatures, and constructs the signed warp message.
 func (r *messageRelayer) createSignedMessageAppRequest(requestID uint32) (*avalancheWarp.Message, error) {
 	r.relayer.logger.Info("Fetching aggregate signature from the source chain validators via AppRequest")
-
 	connectedValidators, err := peers.ConnectToCanonicalValidators(
 		r.relayer.network,
 		validators.NewCanonicalValidatorClient(r.relayer.logger, r.relayer.pChainClient),
-		r.relayer.sourceSubnetID,
+		r.signingSubnetID,
 	)
 	if err != nil {
 		r.relayer.logger.Error(

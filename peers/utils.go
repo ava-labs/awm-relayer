@@ -29,8 +29,7 @@ func ConnectToCanonicalValidators(
 	client *validators.CanonicalValidatorClient,
 	subnetID ids.ID,
 ) (*ConnectedCanonicalValidators, error) {
-	// TODO: put this into a helper and call from message relayer
-	// Get the current canonical validator set of the source subnet.
+	// Get the subnet's current canonical validator set
 	validatorSet, totalValidatorWeight, err := client.GetCurrentCanonicalValidatorSet(subnetID)
 	if err != nil {
 		return nil, err

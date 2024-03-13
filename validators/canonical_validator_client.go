@@ -8,7 +8,6 @@ import (
 
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/snow/validators"
-	"github.com/ava-labs/avalanchego/utils/constants"
 	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/avalanchego/vms/platformvm"
 	avalancheWarp "github.com/ava-labs/avalanchego/vms/platformvm/warp"
@@ -28,30 +27,6 @@ func NewCanonicalValidatorClient(logger logging.Logger, client platformvm.Client
 		client: client,
 		logger: logger,
 	}
-}
-
-func (v *CanonicalValidatorClient) GetSigningSubnetValidatorSet(sourceSubnetID ids.ID, destinationBlockchainID ids.ID) ([]*avalancheWarp.Validator, uint64, error) {
-	var (
-		signingSubnet ids.ID
-		err           error
-	)
-	if sourceSubnetID == constants.PrimaryNetworkID {
-		// If the message originates from the primary subnet, then we instead "self sign" the message using the validators of the destination subnet.
-		signingSubnet, err = v.GetSubnetID(context.Background(), destinationBlockchainID)
-		if err != nil {
-			v.logger.Error(
-				"Failed to get validating subnet for destination chain",
-				zap.String("destinationBlockchainID", destinationBlockchainID.String()),
-				zap.Error(err),
-			)
-			return nil, 0, err
-		}
-	} else {
-		// Otherwise, the source subnet signs the message.
-		signingSubnet = sourceSubnetID
-	}
-
-	return v.GetCurrentCanonicalValidatorSet(signingSubnet)
 }
 
 func (v *CanonicalValidatorClient) GetCurrentCanonicalValidatorSet(subnetID ids.ID) ([]*avalancheWarp.Validator, uint64, error) {
