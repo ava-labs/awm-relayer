@@ -175,18 +175,6 @@ func (r *messageRelayer) createSignedMessage() (*avalancheWarp.Message, error) {
 		)
 		return nil, err
 	}
-	signingSubnetID := r.relayer.sourceSubnetID
-	if r.relayer.sourceSubnetID == constants.PrimaryNetworkID {
-		signingSubnetID, err = r.relayer.pChainClient.ValidatedBy(context.Background(), r.destinationBlockchainID)
-		if err != nil {
-			r.relayer.logger.Error(
-				"failed to get validating subnet for destination chain",
-				zap.String("destinationBlockchainID", r.destinationBlockchainID.String()),
-				zap.Error(err),
-			)
-			return nil, err
-		}
-	}
 
 	var signedWarpMessageBytes []byte
 	for attempt := 1; attempt <= maxRelayerQueryAttempts; attempt++ {
@@ -195,13 +183,13 @@ func (r *messageRelayer) createSignedMessage() (*avalancheWarp.Message, error) {
 			zap.Int("attempt", attempt),
 			zap.String("sourceBlockchainID", r.relayer.sourceBlockchainID.String()),
 			zap.String("destinationBlockchainID", r.destinationBlockchainID.String()),
-			zap.String("signingSubnetID", signingSubnetID.String()),
+			zap.String("signingSubnetID", r.signingSubnetID.String()),
 		)
 		signedWarpMessageBytes, err = warpClient.GetMessageAggregateSignature(
 			context.Background(),
 			r.warpMessage.ID(),
 			r.warpQuorum.QuorumNumerator,
-			signingSubnetID.String(),
+			r.signingSubnetID.String(),
 		)
 		if err == nil {
 			warpMsg, err := avalancheWarp.ParseMessage(signedWarpMessageBytes)
@@ -230,7 +218,7 @@ func (r *messageRelayer) createSignedMessage() (*avalancheWarp.Message, error) {
 		zap.Int("attempts", maxRelayerQueryAttempts),
 		zap.String("sourceBlockchainID", r.relayer.sourceBlockchainID.String()),
 		zap.String("destinationBlockchainID", r.destinationBlockchainID.String()),
-		zap.String("signingSubnetID", signingSubnetID.String()),
+		zap.String("signingSubnetID", r.signingSubnetID.String()),
 	)
 	return nil, errFailedToGetAggSig
 }
