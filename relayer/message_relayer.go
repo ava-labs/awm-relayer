@@ -221,41 +221,17 @@ func (r *messageRelayer) createSignedMessage() (*avalancheWarp.Message, error) {
 func (r *messageRelayer) createSignedMessageAppRequest(requestID uint32) (*avalancheWarp.Message, error) {
 	r.relayer.logger.Info("Fetching aggregate signature from the source chain validators via AppRequest")
 
-	// Get the current canonical validator set of the source subnet.
-	canonicalValidatorClient := validators.NewCanonicalValidatorClient(r.relayer.logger, r.relayer.pChainClient)
-	validatorSet, totalValidatorWeight, err := canonicalValidatorClient.GetSigningSubnetValidatorSet(r.relayer.sourceSubnetID, r.destinationBlockchainID)
+	connectedWeight, totalValidatorWeight, validatorSet, nodeValidatorIndexMap, err := peers.ConnectToCanonicalValidators(
+		r.relayer.network,
+		validators.NewCanonicalValidatorClient(r.relayer.logger, r.relayer.pChainClient),
+		r.relayer.sourceSubnetID,
+	)
 	if err != nil {
 		r.relayer.logger.Error(
-			"Failed to get the canonical subnet validator set",
-			zap.String("subnetID", r.relayer.sourceSubnetID.String()),
+			"Failed to connect to canonical validators",
 			zap.Error(err),
 		)
 		return nil, err
-	}
-
-	// We make queries to node IDs, not unique validators as represented by a BLS pubkey, so we need this map to track
-	// responses from nodes and populate the signatureMap with the corresponding validator signature
-	// This maps node IDs to the index in the canonical validator set
-	nodeValidatorIndexMap := make(map[ids.NodeID]int)
-	for i, vdr := range validatorSet {
-		for _, node := range vdr.NodeIDs {
-			nodeValidatorIndexMap[node] = i
-		}
-	}
-
-	// Manually connect to all peers in the validator set
-	// If new peers are connected, AppRequests may fail while the handshake is in progress.
-	// In that case, AppRequests to those nodes will be retried in the next iteration of the retry loop.
-	nodeIDs := set.NewSet[ids.NodeID](len(nodeValidatorIndexMap))
-	for node := range nodeValidatorIndexMap {
-		nodeIDs.Add(node)
-	}
-	connectedNodes := r.relayer.network.ConnectPeers(nodeIDs)
-
-	// Check if we've connected to a stake threshold of nodes
-	connectedWeight := uint64(0)
-	for node := range connectedNodes {
-		connectedWeight += validatorSet[nodeValidatorIndexMap[node]].Weight
 	}
 	if !utils.CheckStakeWeightExceedsThreshold(
 		big.NewInt(0).SetUint64(connectedWeight),

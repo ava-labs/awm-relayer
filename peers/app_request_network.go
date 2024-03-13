@@ -180,43 +180,17 @@ func NewNetwork(
 	// Sufficient stake is determined by the Warp quora of the configured supported destinations,
 	// or if the subnet supports all destinations, by the quora of all configured destinations.
 	for _, sourceBlockchain := range cfg.SourceBlockchains {
-		// TODO: put this into a helper and call from message relayer
-		// Get the current canonical validator set of the source subnet.
-		subnetID := sourceBlockchain.GetSubnetID()
-		canonicalValidatorClient := validators.NewCanonicalValidatorClient(logger, pChainClient)
-		validatorSet, totalValidatorWeight, err := canonicalValidatorClient.GetCurrentCanonicalValidatorSet(subnetID)
+		connectedWeight, totalValidatorWeight, _, _, err := ConnectToCanonicalValidators(
+			arNetwork,
+			validators.NewCanonicalValidatorClient(logger, pChainClient),
+			sourceBlockchain.GetSubnetID(),
+		)
 		if err != nil {
 			logger.Error(
-				"Failed to get the canonical subnet validator set",
-				zap.String("subnetID", subnetID.String()),
+				"Failed to connect to canonical validators",
 				zap.Error(err),
 			)
 			return nil, nil, err
-		}
-
-		// We make queries to node IDs, not unique validators as represented by a BLS pubkey, so we need this map to track
-		// responses from nodes and populate the signatureMap with the corresponding validator signature
-		// This maps node IDs to the index in the canonical validator set
-		nodeValidatorIndexMap := make(map[ids.NodeID]int)
-		for i, vdr := range validatorSet {
-			for _, node := range vdr.NodeIDs {
-				nodeValidatorIndexMap[node] = i
-			}
-		}
-
-		// Manually connect to all peers in the validator set
-		// If new peers are connected, AppRequests may fail while the handshake is in progress.
-		// In that case, AppRequests to those nodes will be retried in the next iteration of the retry loop.
-		nodeIDs := set.NewSet[ids.NodeID](len(nodeValidatorIndexMap))
-		for node := range nodeValidatorIndexMap {
-			nodeIDs.Add(node)
-		}
-		connectedNodes := arNetwork.ConnectPeers(nodeIDs)
-
-		// Check if we've connected to a stake threshold of nodes
-		connectedWeight := uint64(0)
-		for node := range connectedNodes {
-			connectedWeight += validatorSet[nodeValidatorIndexMap[node]].Weight
 		}
 
 		var destinationBlockchainIDs []ids.ID
