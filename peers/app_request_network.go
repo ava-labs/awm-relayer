@@ -180,7 +180,7 @@ func NewNetwork(
 	// Sufficient stake is determined by the Warp quora of the configured supported destinations,
 	// or if the subnet supports all destinations, by the quora of all configured destinations.
 	for _, sourceBlockchain := range cfg.SourceBlockchains {
-		connectedWeight, totalValidatorWeight, _, _, err := ConnectToCanonicalValidators(
+		connectedValidators, err := ConnectToCanonicalValidators(
 			arNetwork,
 			validators.NewCanonicalValidatorClient(logger, pChainClient),
 			sourceBlockchain.GetSubnetID(),
@@ -212,15 +212,15 @@ func NewNetwork(
 				return nil, nil, err
 			}
 			if !utils.CheckStakeWeightExceedsThreshold(
-				big.NewInt(0).SetUint64(connectedWeight),
-				totalValidatorWeight,
+				big.NewInt(0).SetUint64(connectedValidators.ConnectedWeight),
+				connectedValidators.TotalValidatorWeight,
 				quorum.QuorumNumerator,
 				quorum.QuorumDenominator,
 			) {
 				logger.Error(
 					"Failed to connect to a threshold of stake",
-					zap.Uint64("connectedWeight", connectedWeight),
-					zap.Uint64("totalValidatorWeight", totalValidatorWeight),
+					zap.Uint64("connectedWeight", connectedValidators.ConnectedWeight),
+					zap.Uint64("totalValidatorWeight", connectedValidators.TotalValidatorWeight),
 					zap.Any("warpQuorum", quorum),
 				)
 				return nil, nil, errors.New("failed to connect to a threshold of stake")

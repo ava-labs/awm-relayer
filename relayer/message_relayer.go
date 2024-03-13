@@ -221,7 +221,7 @@ func (r *messageRelayer) createSignedMessage() (*avalancheWarp.Message, error) {
 func (r *messageRelayer) createSignedMessageAppRequest(requestID uint32) (*avalancheWarp.Message, error) {
 	r.relayer.logger.Info("Fetching aggregate signature from the source chain validators via AppRequest")
 
-	connectedWeight, totalValidatorWeight, validatorSet, nodeValidatorIndexMap, err := peers.ConnectToCanonicalValidators(
+	connectedValidators, err := peers.ConnectToCanonicalValidators(
 		r.relayer.network,
 		validators.NewCanonicalValidatorClient(r.relayer.logger, r.relayer.pChainClient),
 		r.relayer.sourceSubnetID,
@@ -234,15 +234,15 @@ func (r *messageRelayer) createSignedMessageAppRequest(requestID uint32) (*avala
 		return nil, err
 	}
 	if !utils.CheckStakeWeightExceedsThreshold(
-		big.NewInt(0).SetUint64(connectedWeight),
-		totalValidatorWeight,
+		big.NewInt(0).SetUint64(connectedValidators.ConnectedWeight),
+		connectedValidators.TotalValidatorWeight,
 		r.warpQuorum.QuorumNumerator,
 		r.warpQuorum.QuorumDenominator,
 	) {
 		r.relayer.logger.Error(
 			"Failed to connect to a threshold of stake",
-			zap.Uint64("connectedWeight", connectedWeight),
-			zap.Uint64("totalValidatorWeight", totalValidatorWeight),
+			zap.Uint64("connectedWeight", connectedValidators.ConnectedWeight),
+			zap.Uint64("totalValidatorWeight", connectedValidators.TotalValidatorWeight),
 			zap.Any("warpQuorum", r.warpQuorum),
 		)
 		return nil, errNotEnoughConnectedStake
@@ -287,18 +287,18 @@ func (r *messageRelayer) createSignedMessageAppRequest(requestID uint32) (*avala
 	signatureMap := make(map[int]blsSignatureBuf)
 
 	for attempt := 1; attempt <= maxRelayerQueryAttempts; attempt++ {
-		responsesExpected := len(validatorSet) - len(signatureMap)
+		responsesExpected := len(connectedValidators.ValidatorSet) - len(signatureMap)
 		r.relayer.logger.Debug(
 			"Relayer collecting signatures from peers.",
 			zap.Int("attempt", attempt),
 			zap.String("destinationBlockchainID", r.destinationBlockchainID.String()),
-			zap.Int("validatorSetSize", len(validatorSet)),
+			zap.Int("validatorSetSize", len(connectedValidators.ValidatorSet)),
 			zap.Int("signatureMapSize", len(signatureMap)),
 			zap.Int("responsesExpected", responsesExpected),
 		)
 
-		vdrSet := set.NewSet[ids.NodeID](len(validatorSet))
-		for i, vdr := range validatorSet {
+		vdrSet := set.NewSet[ids.NodeID](len(connectedValidators.ValidatorSet))
+		for i, vdr := range connectedValidators.ValidatorSet {
 			// If we already have the signature for this validator, do not query any of the composite nodes again
 			if _, ok := signatureMap[i]; ok {
 				continue
@@ -379,14 +379,14 @@ func (r *messageRelayer) createSignedMessageAppRequest(requestID uint32) (*avala
 						return nil, nil
 					}
 
-					validator := validatorSet[nodeValidatorIndexMap[nodeID]]
+					validator, vdrIndex := connectedValidators.GetValidator(nodeID)
 					signature, valid := r.isValidSignatureResponse(response, validator.PublicKey)
 					if valid {
 						r.relayer.logger.Debug(
 							"Got valid signature response",
 							zap.String("nodeID", nodeID.String()),
 						)
-						signatureMap[nodeValidatorIndexMap[nodeID]] = signature
+						signatureMap[vdrIndex] = signature
 						accumulatedSignatureWeight.Add(accumulatedSignatureWeight, new(big.Int).SetUint64(validator.Weight))
 					} else {
 						r.relayer.logger.Debug(
@@ -399,7 +399,7 @@ func (r *messageRelayer) createSignedMessageAppRequest(requestID uint32) (*avala
 					// As soon as the signatures exceed the stake weight threshold we try to aggregate and send the transaction.
 					if utils.CheckStakeWeightExceedsThreshold(
 						accumulatedSignatureWeight,
-						totalValidatorWeight,
+						connectedValidators.TotalValidatorWeight,
 						r.warpQuorum.QuorumNumerator,
 						r.warpQuorum.QuorumDenominator,
 					) {
