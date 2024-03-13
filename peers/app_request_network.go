@@ -32,8 +32,6 @@ import (
 const (
 	InboundMessageChannelSize = 1000
 	DefaultAppRequestTimeout  = time.Second * 2
-
-	numInitialTestPeers = 5
 )
 
 type AppRequestNetwork struct {
