@@ -226,8 +226,7 @@ func (r *messageRelayer) createSignedMessage() (*avalancheWarp.Message, error) {
 // createSignedMessageAppRequest collects signatures from nodes by directly querying them via AppRequest, then aggregates the signatures, and constructs the signed warp message.
 func (r *messageRelayer) createSignedMessageAppRequest(requestID uint32) (*avalancheWarp.Message, error) {
 	r.relayer.logger.Info("Fetching aggregate signature from the source chain validators via AppRequest")
-	connectedValidators, err := peers.ConnectToCanonicalValidators(
-		r.relayer.network,
+	connectedValidators, err := r.relayer.network.ConnectToCanonicalValidators(
 		validators.NewCanonicalValidatorClient(r.relayer.logger, r.relayer.pChainClient),
 		r.signingSubnetID,
 	)
