@@ -113,7 +113,7 @@ func NewNetwork(
 	// Sufficient stake is determined by the Warp quora of the configured supported destinations,
 	// or if the subnet supports all destinations, by the quora of all configured destinations.
 	for _, sourceBlockchain := range cfg.SourceBlockchains {
-		// Get the list of destination chains that this source may relay to
+		// Get the list of destination blockchains that this source may relay to
 		var destinationBlockchainIDs []ids.ID
 		if supportedDsts := sourceBlockchain.GetSupportedDestinations(); supportedDsts.Len() > 0 {
 			destinationBlockchainIDs = supportedDsts.List()
@@ -125,7 +125,7 @@ func NewNetwork(
 
 		var connectedValidators *ConnectedCanonicalValidators
 		if sourceBlockchain.GetBlockchainID() == constants.PrimaryNetworkID {
-			// For the primary network, connect to the validators of the destination chains
+			// For the primary network, connect to the validators of the destination blockchains
 			for _, destinationBlockchainID := range destinationBlockchainIDs {
 				subnetID, err := pChainClient.ValidatedBy(context.Background(), destinationBlockchainID)
 				if err != nil {
