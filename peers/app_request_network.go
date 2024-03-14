@@ -35,11 +35,12 @@ const (
 )
 
 type AppRequestNetwork struct {
-	Network    network.Network
-	Handler    *RelayerExternalHandler
-	infoClient info.Client
-	logger     logging.Logger
-	lock       *sync.Mutex
+	Network         network.Network
+	Handler         *RelayerExternalHandler
+	infoClient      info.Client
+	logger          logging.Logger
+	lock            *sync.Mutex
+	validatorClient *validators.CanonicalValidatorClient
 }
 
 // NewNetwork connects to a peers at the app request level.
@@ -100,19 +101,21 @@ func NewNetwork(
 		return nil, nil, err
 	}
 
+	validatorClient := validators.NewCanonicalValidatorClient(logger, pChainClient)
+
 	arNetwork := &AppRequestNetwork{
-		Network:    testNetwork,
-		Handler:    handler,
-		infoClient: infoClient,
-		logger:     logger,
-		lock:       new(sync.Mutex),
+		Network:         testNetwork,
+		Handler:         handler,
+		infoClient:      infoClient,
+		logger:          logger,
+		lock:            new(sync.Mutex),
+		validatorClient: validatorClient,
 	}
 
 	// Manually connect to the validators of each of the source subnets.
 	// We return an error if we are unable to connect to sufficient stake on any of the subnets.
 	// Sufficient stake is determined by the Warp quora of the configured supported destinations,
 	// or if the subnet supports all destinations, by the quora of all configured destinations.
-	validatorClient := validators.NewCanonicalValidatorClient(logger, pChainClient)
 	for _, sourceBlockchain := range cfg.SourceBlockchains {
 		// Get the list of destination blockchains that this source may relay to
 		// If supported destinations are not specified, use the configured destinations
@@ -138,10 +141,7 @@ func NewNetwork(
 					)
 					return nil, nil, err
 				}
-				connectedValidators, err = arNetwork.ConnectToCanonicalValidators(
-					validatorClient,
-					subnetID,
-				)
+				connectedValidators, err = arNetwork.ConnectToCanonicalValidators(subnetID)
 				if err != nil {
 					logger.Error(
 						"Failed to connect to canonical validators",
@@ -154,10 +154,7 @@ func NewNetwork(
 		} else {
 			// Otherwise, connect to the validators of the source subnet
 			subnetID := sourceBlockchain.GetSubnetID()
-			connectedValidators, err = arNetwork.ConnectToCanonicalValidators(
-				validatorClient,
-				subnetID,
-			)
+			connectedValidators, err = arNetwork.ConnectToCanonicalValidators(subnetID)
 			if err != nil {
 				logger.Error(
 					"Failed to connect to canonical validators",
@@ -296,12 +293,9 @@ func (c *ConnectedCanonicalValidators) GetValidator(nodeID ids.NodeID) (*warp.Va
 
 // ConnectToCanonicalValidators connects to the canonical validators of the given subnet and returns the connected
 // validator information
-func (n *AppRequestNetwork) ConnectToCanonicalValidators(
-	client *validators.CanonicalValidatorClient,
-	subnetID ids.ID,
-) (*ConnectedCanonicalValidators, error) {
+func (n *AppRequestNetwork) ConnectToCanonicalValidators(subnetID ids.ID) (*ConnectedCanonicalValidators, error) {
 	// Get the subnet's current canonical validator set
-	validatorSet, totalValidatorWeight, err := client.GetCurrentCanonicalValidatorSet(subnetID)
+	validatorSet, totalValidatorWeight, err := n.validatorClient.GetCurrentCanonicalValidatorSet(subnetID)
 	if err != nil {
 		return nil, err
 	}

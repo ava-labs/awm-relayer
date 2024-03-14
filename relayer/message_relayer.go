@@ -22,7 +22,6 @@ import (
 	"github.com/ava-labs/awm-relayer/messages"
 	"github.com/ava-labs/awm-relayer/peers"
 	"github.com/ava-labs/awm-relayer/utils"
-	"github.com/ava-labs/awm-relayer/validators"
 	coreEthMsg "github.com/ava-labs/coreth/plugin/evm/message"
 	msg "github.com/ava-labs/subnet-evm/plugin/evm/message"
 	warpBackend "github.com/ava-labs/subnet-evm/warp"
@@ -226,10 +225,7 @@ func (r *messageRelayer) createSignedMessage() (*avalancheWarp.Message, error) {
 // createSignedMessageAppRequest collects signatures from nodes by directly querying them via AppRequest, then aggregates the signatures, and constructs the signed warp message.
 func (r *messageRelayer) createSignedMessageAppRequest(requestID uint32) (*avalancheWarp.Message, error) {
 	r.relayer.logger.Info("Fetching aggregate signature from the source chain validators via AppRequest")
-	connectedValidators, err := r.relayer.network.ConnectToCanonicalValidators(
-		validators.NewCanonicalValidatorClient(r.relayer.logger, r.relayer.pChainClient),
-		r.signingSubnetID,
-	)
+	connectedValidators, err := r.relayer.network.ConnectToCanonicalValidators(r.signingSubnetID)
 	if err != nil {
 		r.relayer.logger.Error(
 			"Failed to connect to canonical validators",
