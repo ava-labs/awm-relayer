@@ -174,12 +174,7 @@ func main() {
 	}
 
 	// Initialize the database
-	sourceChainIDs := make([]ids.ID, len(cfg.SourceBlockchains))
-	for i, sourceBlockchain := range cfg.SourceBlockchains {
-		sourceChainIDs[i] = sourceBlockchain.GetBlockchainID()
-	}
-
-	db, err := database.NewJSONFileStorage(logger, cfg.StorageLocation, sourceChainIDs)
+	db, err := database.NewJSONFileStorage(logger, cfg.StorageLocation, cfg.SourceBlockchains)
 	if err != nil {
 		logger.Error(
 			"Failed to create database",
