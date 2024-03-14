@@ -112,8 +112,10 @@ func NewNetwork(
 	// We return an error if we are unable to connect to sufficient stake on any of the subnets.
 	// Sufficient stake is determined by the Warp quora of the configured supported destinations,
 	// or if the subnet supports all destinations, by the quora of all configured destinations.
+	validatorClient := validators.NewCanonicalValidatorClient(logger, pChainClient)
 	for _, sourceBlockchain := range cfg.SourceBlockchains {
 		// Get the list of destination blockchains that this source may relay to
+		// If supported destinations are not specified, use the configured destinations
 		var destinationBlockchainIDs []ids.ID
 		if supportedDsts := sourceBlockchain.GetSupportedDestinations(); supportedDsts.Len() > 0 {
 			destinationBlockchainIDs = supportedDsts.List()
@@ -131,17 +133,19 @@ func NewNetwork(
 				if err != nil {
 					logger.Error(
 						"Failed to get subnet ID",
+						zap.String("destinationBlockchainID", destinationBlockchainID.String()),
 						zap.Error(err),
 					)
 					return nil, nil, err
 				}
 				connectedValidators, err = arNetwork.ConnectToCanonicalValidators(
-					validators.NewCanonicalValidatorClient(logger, pChainClient),
+					validatorClient,
 					subnetID,
 				)
 				if err != nil {
 					logger.Error(
 						"Failed to connect to canonical validators",
+						zap.String("subnetID", subnetID.String()),
 						zap.Error(err),
 					)
 					return nil, nil, err
@@ -149,13 +153,15 @@ func NewNetwork(
 			}
 		} else {
 			// Otherwise, connect to the validators of the source subnet
+			subnetID := sourceBlockchain.GetSubnetID()
 			connectedValidators, err = arNetwork.ConnectToCanonicalValidators(
-				validators.NewCanonicalValidatorClient(logger, pChainClient),
-				sourceBlockchain.GetSubnetID(),
+				validatorClient,
+				subnetID,
 			)
 			if err != nil {
 				logger.Error(
 					"Failed to connect to canonical validators",
+					zap.String("subnetID", subnetID.String()),
 					zap.Error(err),
 				)
 				return nil, nil, err
@@ -167,6 +173,7 @@ func NewNetwork(
 			if err != nil {
 				logger.Error(
 					"Failed to get warp quorum from config",
+					zap.String("destinationBlockchainID", destinationBlockchainID.String()),
 					zap.Error(err),
 				)
 				return nil, nil, err
@@ -179,6 +186,7 @@ func NewNetwork(
 			) {
 				logger.Error(
 					"Failed to connect to a threshold of stake",
+					zap.String("destinationBlockchainID", destinationBlockchainID.String()),
 					zap.Uint64("connectedWeight", connectedValidators.ConnectedWeight),
 					zap.Uint64("totalValidatorWeight", connectedValidators.TotalValidatorWeight),
 					zap.Any("warpQuorum", quorum),
