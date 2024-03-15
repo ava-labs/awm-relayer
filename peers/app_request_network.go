@@ -117,17 +117,6 @@ func NewNetwork(
 	// Sufficient stake is determined by the Warp quora of the configured supported destinations,
 	// or if the subnet supports all destinations, by the quora of all configured destinations.
 	for _, sourceBlockchain := range cfg.SourceBlockchains {
-		// Get the list of destination blockchains that this source may relay to.
-		// If supported destinations are not specified, use the configured destinations.
-		var destinationBlockchainIDs []ids.ID
-		if supportedDsts := sourceBlockchain.GetSupportedDestinations(); supportedDsts.Len() > 0 {
-			destinationBlockchainIDs = supportedDsts.List()
-		} else {
-			for _, dst := range cfg.DestinationBlockchains {
-				destinationBlockchainIDs = append(destinationBlockchainIDs, dst.GetBlockchainID())
-			}
-		}
-
 		var connectedValidators *ConnectedCanonicalValidators
 		// If the source blockchain is the primary network, connect to the validators of
 		// the destination blockchains in the following loop.
@@ -145,9 +134,9 @@ func NewNetwork(
 			}
 		}
 
-		// Loop over the configured destinations, making sure we're conencted to enough stake
+		// Loop over the supported destinations, making sure we're conencted to enough stake
 		// to successfully deliver to each.
-		for _, destinationBlockchainID := range destinationBlockchainIDs {
+		for _, destinationBlockchainID := range sourceBlockchain.GetSupportedDestinations().List() {
 			quorum, err := cfg.GetWarpQuorum(destinationBlockchainID)
 			if err != nil {
 				logger.Error(
