@@ -103,6 +103,9 @@ type Config struct {
 	DestinationBlockchains []*DestinationBlockchain `mapstructure:"destination-blockchains" json:"destination-blockchains"`
 	ProcessMissedBlocks    bool                     `mapstructure:"process-missed-blocks" json:"process-missed-blocks"`
 	ManualWarpMessages     []*ManualWarpMessage     `mapstructure:"manual-warp-messages" json:"manual-warp-messages"`
+
+	// convenience field to fetch a blockchain's subnet ID
+	blockchainIDToSubnetID map[ids.ID]ids.ID
 }
 
 func SetDefaultConfigValues(v *viper.Viper) {
@@ -196,6 +199,8 @@ func (c *Config) Validate() error {
 		return err
 	}
 
+	blockchainIDToSubnetID := make(map[ids.ID]ids.ID)
+
 	// Validate the destination chains
 	destinationChains := set.NewSet[string](len(c.DestinationBlockchains))
 	for _, s := range c.DestinationBlockchains {
@@ -206,6 +211,7 @@ func (c *Config) Validate() error {
 			return errors.New("configured destination subnets must have unique chain IDs")
 		}
 		destinationChains.Add(s.BlockchainID)
+		blockchainIDToSubnetID[s.blockchainID] = s.subnetID
 	}
 
 	// Validate the source chains and store the source subnet and chain IDs for future use
@@ -220,7 +226,9 @@ func (c *Config) Validate() error {
 			return errors.New("configured source subnets must have unique chain IDs")
 		}
 		sourceBlockchains.Add(s.BlockchainID)
+		blockchainIDToSubnetID[s.blockchainID] = s.subnetID
 	}
+	c.blockchainIDToSubnetID = blockchainIDToSubnetID
 
 	// Validate the manual warp messages
 	for i, msg := range c.ManualWarpMessages {
@@ -230,6 +238,10 @@ func (c *Config) Validate() error {
 	}
 
 	return nil
+}
+
+func (c *Config) GetSubnetID(blockchainID ids.ID) ids.ID {
+	return c.blockchainIDToSubnetID[blockchainID]
 }
 
 func (m *ManualWarpMessage) GetUnsignedMessageBytes() []byte {

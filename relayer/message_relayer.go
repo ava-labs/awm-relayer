@@ -75,15 +75,7 @@ func newMessageRelayer(
 	var signingSubnet ids.ID
 	if relayer.sourceSubnetID == constants.PrimaryNetworkID {
 		// If the message originates from the primary subnet, then we instead "self sign" the message using the validators of the destination subnet.
-		signingSubnet, err = relayer.pChainClient.ValidatedBy(context.Background(), destinationBlockchainID)
-		if err != nil {
-			relayer.logger.Error(
-				"Failed to get validating subnet for destination chain",
-				zap.String("destinationBlockchainID", destinationBlockchainID.String()),
-				zap.Error(err),
-			)
-			return nil, err
-		}
+		signingSubnet = relayer.globalConfig.GetSubnetID(destinationBlockchainID)
 	} else {
 		// Otherwise, the source subnet signs the message.
 		signingSubnet = relayer.sourceSubnetID
