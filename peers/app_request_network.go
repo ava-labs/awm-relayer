@@ -112,13 +112,30 @@ func NewNetwork(
 		validatorClient: validatorClient,
 	}
 
+	// for source : range sources
+	// 	destinations = getDestinations
+	// 	if !source.isPrimaryNetwork
+	// 		connect to source
+	// 	signingSubnet = source
+	// 	for destination : destinations {
+	// 		getWarpQuorum
+
+	// 		if souce.isPrimaryNetwork {
+	// 			connect to destination
+	// 			signingSubnet = destination
+	// 		}
+
+	// 		checkWarpQuorum(signingSubnet)
+
+	// 	}
+
 	// Manually connect to the validators of each of the source subnets.
 	// We return an error if we are unable to connect to sufficient stake on any of the subnets.
 	// Sufficient stake is determined by the Warp quora of the configured supported destinations,
 	// or if the subnet supports all destinations, by the quora of all configured destinations.
 	for _, sourceBlockchain := range cfg.SourceBlockchains {
-		// Get the list of destination blockchains that this source may relay to
-		// If supported destinations are not specified, use the configured destinations
+		// Get the list of destination blockchains that this source may relay to.
+		// If supported destinations are not specified, use the configured destinations.
 		var destinationBlockchainIDs []ids.ID
 		if supportedDsts := sourceBlockchain.GetSupportedDestinations(); supportedDsts.Len() > 0 {
 			destinationBlockchainIDs = supportedDsts.List()
@@ -129,9 +146,35 @@ func NewNetwork(
 		}
 
 		var connectedValidators *ConnectedCanonicalValidators
-		if sourceBlockchain.GetBlockchainID() == constants.PrimaryNetworkID {
-			// For the primary network, connect to the validators of the destination blockchains
-			for _, destinationBlockchainID := range destinationBlockchainIDs {
+		// If the source blockchain is the primary network, connect to the validators of
+		// the destination blockchains in the following loop.
+		// Otherwise, connect to the validators of the source blockchain
+		if sourceBlockchain.GetSubnetID() != constants.PrimaryNetworkID {
+			subnetID := sourceBlockchain.GetSubnetID()
+			connectedValidators, err = arNetwork.ConnectToCanonicalValidators(subnetID)
+			if err != nil {
+				logger.Error(
+					"Failed to connect to canonical validators",
+					zap.String("subnetID", subnetID.String()),
+					zap.Error(err),
+				)
+				return nil, nil, err
+			}
+		}
+
+		// Loop over the configured destinations, making sure we're conencted to enough stake
+		// to successfully deliver to each.
+		for _, destinationBlockchainID := range destinationBlockchainIDs {
+			quorum, err := cfg.GetWarpQuorum(destinationBlockchainID)
+			if err != nil {
+				logger.Error(
+					"Failed to get warp quorum from config",
+					zap.String("destinationBlockchainID", destinationBlockchainID.String()),
+					zap.Error(err),
+				)
+				return nil, nil, err
+			}
+			if sourceBlockchain.GetSubnetID() == constants.PrimaryNetworkID {
 				subnetID, err := pChainClient.ValidatedBy(context.Background(), destinationBlockchainID)
 				if err != nil {
 					logger.Error(
@@ -150,30 +193,6 @@ func NewNetwork(
 					)
 					return nil, nil, err
 				}
-			}
-		} else {
-			// Otherwise, connect to the validators of the source subnet
-			subnetID := sourceBlockchain.GetSubnetID()
-			connectedValidators, err = arNetwork.ConnectToCanonicalValidators(subnetID)
-			if err != nil {
-				logger.Error(
-					"Failed to connect to canonical validators",
-					zap.String("subnetID", subnetID.String()),
-					zap.Error(err),
-				)
-				return nil, nil, err
-			}
-		}
-
-		for _, destinationBlockchainID := range destinationBlockchainIDs {
-			quorum, err := cfg.GetWarpQuorum(destinationBlockchainID)
-			if err != nil {
-				logger.Error(
-					"Failed to get warp quorum from config",
-					zap.String("destinationBlockchainID", destinationBlockchainID.String()),
-					zap.Error(err),
-				)
-				return nil, nil, err
 			}
 			if !utils.CheckStakeWeightExceedsThreshold(
 				big.NewInt(0).SetUint64(connectedValidators.ConnectedWeight),
