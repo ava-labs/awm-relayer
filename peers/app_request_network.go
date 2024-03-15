@@ -112,23 +112,6 @@ func NewNetwork(
 		validatorClient: validatorClient,
 	}
 
-	// for source : range sources
-	// 	destinations = getDestinations
-	// 	if !source.isPrimaryNetwork
-	// 		connect to source
-	// 	signingSubnet = source
-	// 	for destination : destinations {
-	// 		getWarpQuorum
-
-	// 		if souce.isPrimaryNetwork {
-	// 			connect to destination
-	// 			signingSubnet = destination
-	// 		}
-
-	// 		checkWarpQuorum(signingSubnet)
-
-	// 	}
-
 	// Manually connect to the validators of each of the source subnets.
 	// We return an error if we are unable to connect to sufficient stake on any of the subnets.
 	// Sufficient stake is determined by the Warp quora of the configured supported destinations,
