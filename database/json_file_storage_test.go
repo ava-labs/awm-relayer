@@ -14,22 +14,8 @@ import (
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/avalanchego/utils/set"
-	"github.com/ava-labs/awm-relayer/config"
 	"github.com/stretchr/testify/assert"
 )
-
-var validSourceBlockchainConfig = &config.SourceBlockchain{
-	RPCEndpoint:  "http://test.avax.network/ext/bc/C/rpc",
-	WSEndpoint:   "ws://test.avax.network/ext/bc/C/ws",
-	BlockchainID: "S4mMqUXe7vHsGiRAma6bv3CKnyaLssyAxmQ2KvFpX1KEvfFCD",
-	SubnetID:     "2TGBXcnwx5PqiXWiqxAKUaNSqDguXNh1mxnp82jui68hxJSZAx",
-	VM:           "evm",
-	MessageContracts: map[string]config.MessageProtocolConfig{
-		"0xd81545385803bCD83bd59f58Ba2d2c0562387F83": {
-			MessageFormat: config.TELEPORTER.String(),
-		},
-	},
-}
 
 func createRelayerKeys(blockchainIDs []ids.ID) []RelayerKey {
 	destinationsBlockchainIDs := set.NewSet[string](1) // just needs to be non-nil
