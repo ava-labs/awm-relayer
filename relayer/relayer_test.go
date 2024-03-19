@@ -6,26 +6,47 @@ package relayer
 import (
 	"fmt"
 	"os"
-	"strconv"
 	"testing"
 
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/avalanchego/utils/set"
-	"github.com/ava-labs/awm-relayer/database"
-	mock_database "github.com/ava-labs/awm-relayer/database/mocks"
+	"github.com/ava-labs/awm-relayer/config"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/mock/gomock"
 )
 
 var id1 ids.ID = ids.GenerateTestID()
 var id2 ids.ID = ids.GenerateTestID()
 
-func makeRelayerWithMockDatabase(t *testing.T) (*Relayer, *mock_database.MockRelayerDatabase) {
-	mockDatabase := mock_database.NewMockRelayerDatabase(gomock.NewController(t))
+var validSourceBlockchainConfig = &config.SourceBlockchain{
+	RPCEndpoint:  "http://test.avax.network/ext/bc/C/rpc",
+	WSEndpoint:   "ws://test.avax.network/ext/bc/C/ws",
+	BlockchainID: "S4mMqUXe7vHsGiRAma6bv3CKnyaLssyAxmQ2KvFpX1KEvfFCD",
+	SubnetID:     "2TGBXcnwx5PqiXWiqxAKUaNSqDguXNh1mxnp82jui68hxJSZAx",
+	VM:           "evm",
+	MessageContracts: map[string]config.MessageProtocolConfig{
+		"0xd81545385803bCD83bd59f58Ba2d2c0562387F83": {
+			MessageFormat: config.TELEPORTER.String(),
+		},
+	},
+}
 
-	blockchainID, err := ids.FromString("S4mMqUXe7vHsGiRAma6bv3CKnyaLssyAxmQ2KvFpX1KEvfFCD")
-	require.NoError(t, err)
+func populateSourceConfig(blockchainIDs []ids.ID, supportedDestinations []string) []*config.SourceBlockchain {
+	sourceBlockchains := make([]*config.SourceBlockchain, len(blockchainIDs))
+	for i, id := range blockchainIDs {
+		sourceBlockchains[i] = validSourceBlockchainConfig
+		sourceBlockchains[i].BlockchainID = id.String()
+		sourceBlockchains[i].SupportedDestinations = supportedDestinations
+	}
+	destinationsBlockchainIDs := set.NewSet[string](len(supportedDestinations)) // just needs to be non-nil
+	for _, id := range supportedDestinations {
+		destinationsBlockchainIDs.Add(id)
+	}
+	sourceBlockchains[0].Validate(&destinationsBlockchainIDs)
+	return sourceBlockchains
+}
+
+func makeTestRelayer(t *testing.T, supportedDestinations []string) *Relayer {
 
 	logger := logging.NewLogger(
 		"awm-relayer-test",
@@ -36,36 +57,37 @@ func makeRelayerWithMockDatabase(t *testing.T) (*Relayer, *mock_database.MockRel
 		),
 	)
 
+	sourceConfig := populateSourceConfig(
+		[]ids.ID{
+			ids.GenerateTestID(),
+		},
+		supportedDestinations,
+	)
 	return &Relayer{
-		sourceBlockchainID: blockchainID,
-		logger:             logger,
-	}, mockDatabase
+		sourceBlockchain: *sourceConfig[0],
+		logger:           logger,
+	}
 }
 
 func TestCheckSupportedDestination(t *testing.T) {
-	t.Skip()
 	testCases := []struct {
 		name                    string
-		relayer                 Relayer
+		supportedDestinations   []string
 		destinationBlockchainID ids.ID
 		expectedResult          bool
 	}{
 		{
 			name: "explicitly supported destination",
-			relayer: Relayer{
-				supportedDestinations: set.Set[ids.ID]{
-					id1: {},
-				},
+			supportedDestinations: []string{
+				id1.String(),
 			},
 			destinationBlockchainID: id1,
 			expectedResult:          true,
 		},
 		{
 			name: "unsupported destination",
-			relayer: Relayer{
-				supportedDestinations: set.Set[ids.ID]{
-					id1: {},
-				},
+			supportedDestinations: []string{
+				id1.String(),
 			},
 			destinationBlockchainID: id2,
 			expectedResult:          false,
@@ -73,72 +95,8 @@ func TestCheckSupportedDestination(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
-		result := testCase.relayer.CheckSupportedDestination(testCase.destinationBlockchainID)
+		relayer := makeTestRelayer(t, testCase.supportedDestinations)
+		result := relayer.CheckSupportedDestination(testCase.destinationBlockchainID)
 		require.Equal(t, testCase.expectedResult, result, fmt.Sprintf("test failed: %s", testCase.name))
-	}
-}
-
-func TestCalculateStartingBlockHeight(t *testing.T) {
-	t.Skip()
-	testCases := []struct {
-		name          string
-		cfgBlock      uint64
-		dbBlock       uint64
-		dbError       error
-		expectedBlock uint64
-		expectedError error
-	}{
-		{
-			// Value in cfg, no value in db
-			name:          "value in cfg, no value in db",
-			cfgBlock:      100,
-			dbBlock:       0,
-			dbError:       database.ErrKeyNotFound,
-			expectedBlock: 100,
-			expectedError: nil,
-		},
-		{
-			// Unknown DB error
-			name:          "unknown DB error",
-			cfgBlock:      100,
-			dbBlock:       0,
-			dbError:       fmt.Errorf("unknown error"),
-			expectedBlock: 0,
-			expectedError: fmt.Errorf("unknown error"),
-		},
-		{
-			// DB value greater than cfg value
-			name:          "DB value greater than cfg value",
-			cfgBlock:      100,
-			dbBlock:       200,
-			dbError:       nil,
-			expectedBlock: 200,
-			expectedError: nil,
-		},
-		{
-			// cfg value greater than DB value
-			name:          "cfg value greater than DB value",
-			cfgBlock:      200,
-			dbBlock:       100,
-			dbError:       nil,
-			expectedBlock: 200,
-			expectedError: nil,
-		},
-	}
-
-	for _, testCase := range testCases {
-		relayerUnderTest, db := makeRelayerWithMockDatabase(t)
-		db.
-			EXPECT().
-			Get(gomock.Any(), []byte(database.LatestProcessedBlockKey)).
-			Return([]byte(strconv.FormatUint(testCase.dbBlock, 10)), testCase.dbError).
-			Times(1)
-		ret, err := relayerUnderTest.calculateListenerStartingBlockHeight(testCase.cfgBlock)
-		if testCase.expectedError == nil {
-			require.NoError(t, err, fmt.Sprintf("test failed: %s", testCase.name))
-			require.Equal(t, testCase.expectedBlock, ret, fmt.Sprintf("test failed: %s", testCase.name))
-		} else {
-			require.Error(t, err, fmt.Sprintf("test failed: %s", testCase.name))
-		}
 	}
 }

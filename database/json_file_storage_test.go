@@ -3,36 +3,30 @@
 
 package database
 
-import (
-	"github.com/ava-labs/avalanchego/ids"
-	"github.com/ava-labs/avalanchego/utils/set"
-	"github.com/ava-labs/awm-relayer/config"
-)
+// var validSourceBlockchainConfig = &config.SourceBlockchain{
+// 	RPCEndpoint:  "http://test.avax.network/ext/bc/C/rpc",
+// 	WSEndpoint:   "ws://test.avax.network/ext/bc/C/ws",
+// 	BlockchainID: "S4mMqUXe7vHsGiRAma6bv3CKnyaLssyAxmQ2KvFpX1KEvfFCD",
+// 	SubnetID:     "2TGBXcnwx5PqiXWiqxAKUaNSqDguXNh1mxnp82jui68hxJSZAx",
+// 	VM:           "evm",
+// 	MessageContracts: map[string]config.MessageProtocolConfig{
+// 		"0xd81545385803bCD83bd59f58Ba2d2c0562387F83": {
+// 			MessageFormat: config.TELEPORTER.String(),
+// 		},
+// 	},
+// }
 
-var validSourceBlockchainConfig = &config.SourceBlockchain{
-	RPCEndpoint:  "http://test.avax.network/ext/bc/C/rpc",
-	WSEndpoint:   "ws://test.avax.network/ext/bc/C/ws",
-	BlockchainID: "S4mMqUXe7vHsGiRAma6bv3CKnyaLssyAxmQ2KvFpX1KEvfFCD",
-	SubnetID:     "2TGBXcnwx5PqiXWiqxAKUaNSqDguXNh1mxnp82jui68hxJSZAx",
-	VM:           "evm",
-	MessageContracts: map[string]config.MessageProtocolConfig{
-		"0xd81545385803bCD83bd59f58Ba2d2c0562387F83": {
-			MessageFormat: config.TELEPORTER.String(),
-		},
-	},
-}
-
-func populateSourceConfig(blockchainIDs []ids.ID) []*config.SourceBlockchain {
-	sourceBlockchains := make([]*config.SourceBlockchain, len(blockchainIDs))
-	for i, id := range blockchainIDs {
-		sourceBlockchains[i] = validSourceBlockchainConfig
-		sourceBlockchains[i].BlockchainID = id.String()
-	}
-	destinationsBlockchainIDs := set.NewSet[string](1) // just needs to be non-nil
-	destinationsBlockchainIDs.Add(ids.GenerateTestID().String())
-	sourceBlockchains[0].Validate(&destinationsBlockchainIDs)
-	return sourceBlockchains
-}
+// func populateSourceConfig(blockchainIDs []ids.ID) []*config.SourceBlockchain {
+// 	sourceBlockchains := make([]*config.SourceBlockchain, len(blockchainIDs))
+// 	for i, id := range blockchainIDs {
+// 		sourceBlockchains[i] = validSourceBlockchainConfig
+// 		sourceBlockchains[i].BlockchainID = id.String()
+// 	}
+// 	destinationsBlockchainIDs := set.NewSet[string](1) // just needs to be non-nil
+// 	destinationsBlockchainIDs.Add(ids.GenerateTestID().String())
+// 	sourceBlockchains[0].Validate(&destinationsBlockchainIDs)
+// 	return sourceBlockchains
+// }
 
 // Test that the JSON database can write and read to a single chain concurrently.
 // func TestConcurrentWriteReadSingleChain(t *testing.T) {
