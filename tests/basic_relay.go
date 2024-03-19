@@ -118,7 +118,7 @@ func BasicRelay(network interfaces.LocalNetwork) {
 			logging.JSON.ConsoleEncoder(),
 		),
 	)
-	jsonDB, err := database.NewJSONFileStorage(logger, testUtils.RelayerStorageLocation(), []ids.ID{subnetAInfo.BlockchainID, subnetBInfo.BlockchainID})
+	jsonDB, err := database.NewJSONFileStorage(logger, testUtils.RelayerStorageLocation(), relayerConfig.SourceBlockchains)
 	Expect(err).Should(BeNil())
 
 	// Modify the JSON database to force the relayer to re-process old blocks

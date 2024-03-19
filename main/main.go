@@ -12,6 +12,7 @@ import (
 	"os"
 
 	"github.com/alexliesenfeld/health"
+	"github.com/ava-labs/avalanchego/api/info"
 	"github.com/ava-labs/avalanchego/api/metrics"
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/message"
@@ -74,8 +75,9 @@ func main() {
 	}
 	logger.Info(fmt.Sprintf("Set config options.%s", overwrittenLog))
 
-	// Global P-Chain client used to get subnet validator sets
+	// Global P-Chain and Info clients used to get subnet validator sets
 	pChainClient := platformvm.NewClient(cfg.PChainAPIURL)
+	infoClient := info.NewClient(cfg.InfoAPIURL)
 
 	// Initialize all destination clients
 	logger.Info("Initializing destination clients")
@@ -98,7 +100,6 @@ func main() {
 
 	// Initialize the global app request network
 	logger.Info("Initializing app request network")
-	sourceSubnetIDs, sourceBlockchainIDs := cfg.GetSourceIDs()
 
 	// The app request network generates P2P networking logs that are verbose at the info level.
 	// Unless the log level is debug or lower, set the network log level to error to avoid spamming the logs.
@@ -106,7 +107,13 @@ func main() {
 	if logLevel <= logging.Debug {
 		networkLogLevel = logLevel
 	}
-	network, responseChans, err := peers.NewNetwork(networkLogLevel, registerer, sourceSubnetIDs, sourceBlockchainIDs, cfg.InfoAPIURL)
+	network, responseChans, err := peers.NewNetwork(
+		networkLogLevel,
+		registerer,
+		&cfg,
+		infoClient,
+		pChainClient,
+	)
 	if err != nil {
 		logger.Error(
 			"Failed to create app request network",
@@ -167,7 +174,7 @@ func main() {
 	}
 
 	// Initialize the database
-	db, err := database.NewJSONFileStorage(logger, cfg.StorageLocation, sourceBlockchainIDs)
+	db, err := database.NewJSONFileStorage(logger, cfg.StorageLocation, cfg.SourceBlockchains)
 	if err != nil {
 		logger.Error(
 			"Failed to create database",
