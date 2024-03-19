@@ -118,7 +118,7 @@ func BasicRelay(network interfaces.LocalNetwork) {
 			logging.JSON.ConsoleEncoder(),
 		),
 	)
-	jsonDB, err := database.NewJSONFileStorage(logger, relayerConfig.StorageLocation, relayerConfig.GetAllRelayerKeys())
+	jsonDB, err := database.NewJSONFileStorage(logger, relayerConfig.StorageLocation, database.GetConfigRelayerKeys(&relayerConfig))
 	Expect(err).Should(BeNil())
 
 	relayerKeyA := database.CalculateRelayerKey(subnetAInfo.BlockchainID, subnetBInfo.BlockchainID, common.Address{}, common.Address{})

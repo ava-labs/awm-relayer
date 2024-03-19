@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/ava-labs/avalanchego/ids"
+	"github.com/ava-labs/awm-relayer/config"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
@@ -63,4 +64,24 @@ func CalculateRelayerKey(
 			"-",
 		)),
 	)
+}
+
+func GetConfigRelayerKeys(cfg *config.Config) []RelayerKey {
+	var keys []RelayerKey
+	for _, s := range cfg.SourceBlockchains {
+		keys = append(keys, GetSourceConfigRelayerKeys(s)...)
+	}
+	return keys
+}
+func GetSourceConfigRelayerKeys(cfg *config.SourceBlockchain) []RelayerKey {
+	var keys []RelayerKey
+	for _, dst := range cfg.GetSupportedDestinations().List() {
+		keys = append(keys, RelayerKey{
+			SourceBlockchainID:      cfg.GetBlockchainID(),
+			DestinationBlockchainID: dst,
+			OriginSenderAddress:     common.Address{}, // TODO: populate with allowed sender/receiver addresses
+			DestinationAddress:      common.Address{},
+		})
+	}
+	return keys
 }

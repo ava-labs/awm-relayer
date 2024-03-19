@@ -16,7 +16,6 @@ import (
 	"github.com/ava-labs/avalanchego/utils/constants"
 	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/avalanchego/utils/set"
-	"github.com/ava-labs/awm-relayer/database"
 	"github.com/ava-labs/awm-relayer/utils"
 
 	"github.com/ava-labs/subnet-evm/ethclient"
@@ -245,14 +244,6 @@ func (c *Config) GetSubnetID(blockchainID ids.ID) ids.ID {
 	return c.blockchainIDToSubnetID[blockchainID]
 }
 
-func (c *Config) GetAllRelayerKeys() []database.RelayerKey {
-	var keys []database.RelayerKey
-	for _, s := range c.SourceBlockchains {
-		keys = append(keys, s.GetRelayerKeys()...)
-	}
-	return keys
-}
-
 func (m *ManualWarpMessage) GetUnsignedMessageBytes() []byte {
 	return m.unsignedMessageBytes
 }
@@ -470,19 +461,6 @@ func (s *SourceBlockchain) GetSubnetID() ids.ID {
 
 func (s *SourceBlockchain) GetBlockchainID() ids.ID {
 	return s.blockchainID
-}
-
-func (s *SourceBlockchain) GetRelayerKeys() []database.RelayerKey {
-	var keys []database.RelayerKey
-	for _, dst := range s.GetSupportedDestinations().List() {
-		keys = append(keys, database.RelayerKey{
-			SourceBlockchainID:      s.GetBlockchainID(),
-			DestinationBlockchainID: dst,
-			OriginSenderAddress:     common.Address{}, // TODO: populate with allowed sender/receiver addresses
-			DestinationAddress:      common.Address{},
-		})
-	}
-	return keys
 }
 
 // Validatees the destination subnet configuration

@@ -174,7 +174,7 @@ func main() {
 	}
 
 	// Initialize the database
-	db, err := database.NewJSONFileStorage(logger, cfg.StorageLocation, cfg.GetAllRelayerKeys())
+	db, err := database.NewJSONFileStorage(logger, cfg.StorageLocation, database.GetConfigRelayerKeys(&cfg))
 	if err != nil {
 		logger.Error(
 			"Failed to create database",

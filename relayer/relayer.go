@@ -88,7 +88,7 @@ func NewRelayer(
 
 	// Create the message relayers
 	messageRelayers := make(map[common.Hash]*messageRelayer)
-	for _, relayerKey := range sourceBlockchain.GetRelayerKeys() {
+	for _, relayerKey := range database.GetSourceConfigRelayerKeys(&sourceBlockchain) {
 		messageRelayer, err := newMessageRelayer(logger, metrics, network, messageCreator, responseChan, relayerKey, db, sourceBlockchain, cfg)
 		if err != nil {
 			logger.Error(
