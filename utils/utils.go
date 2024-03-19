@@ -13,14 +13,6 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 )
 
-const (
-	// TODO: Revisit these constant values once we are using the subnet-evm branch with finalized
-	// Warp implementation. Should evaluate the maximum gas used by the Teleporter contract "receiveCrossChainMessage"
-	// method, excluding the call to execute the message payload.
-	ReceiveCrossChainMessageStaticGasCost           uint64 = 2_000_000
-	ReceiveCrossChainMessageGasCostPerAggregatedKey uint64 = 1_000
-)
-
 var (
 	// Errors
 	ErrNilInput = errors.New("nil input")

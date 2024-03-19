@@ -11,7 +11,6 @@ import (
 	"sync"
 
 	"github.com/ava-labs/avalanchego/utils/logging"
-	"github.com/ava-labs/awm-relayer/config"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -35,8 +34,7 @@ type JSONFileStorage struct {
 }
 
 // NewJSONFileStorage creates a new JSONFileStorage instance
-func NewJSONFileStorage(logger logging.Logger, cfg config.Config) (*JSONFileStorage, error) {
-	dir := cfg.StorageLocation
+func NewJSONFileStorage(logger logging.Logger, dir string, relayerKeys []RelayerKey) (*JSONFileStorage, error) {
 	storage := &JSONFileStorage{
 		dir:          filepath.Clean(dir),
 		mutexes:      make(map[common.Hash]*sync.RWMutex),
@@ -44,7 +42,7 @@ func NewJSONFileStorage(logger logging.Logger, cfg config.Config) (*JSONFileStor
 		currentState: make(map[common.Hash]chainState),
 	}
 
-	for _, relayerKey := range cfg.GetAllRelayerKeys() {
+	for _, relayerKey := range relayerKeys {
 		key := relayerKey.CalculateRelayerKey()
 		storage.currentState[key] = make(chainState)
 		storage.mutexes[key] = &sync.RWMutex{}
@@ -54,7 +52,7 @@ func NewJSONFileStorage(logger logging.Logger, cfg config.Config) (*JSONFileStor
 	if err == nil {
 		// Directory already exists.
 		// Read the existing storage.
-		for _, relayerKey := range cfg.GetAllRelayerKeys() {
+		for _, relayerKey := range relayerKeys {
 			key := relayerKey.CalculateRelayerKey()
 			currentState, fileExists, err := storage.getCurrentState(key)
 			if err != nil {

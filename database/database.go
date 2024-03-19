@@ -6,6 +6,8 @@
 package database
 
 import (
+	"github.com/ava-labs/avalanchego/ids"
+	"github.com/ava-labs/awm-relayer/utils"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 )
@@ -24,4 +26,20 @@ var (
 type RelayerDatabase interface {
 	Get(relayerKey common.Hash, key []byte) ([]byte, error)
 	Put(relayerKey common.Hash, key []byte, value []byte) error
+}
+
+type RelayerKey struct {
+	SourceBlockchainID      ids.ID
+	DestinationBlockchainID ids.ID
+	OriginSenderAddress     common.Address
+	DestinationAddress      common.Address
+}
+
+func (k RelayerKey) CalculateRelayerKey() common.Hash {
+	return utils.CalculateRelayerKey(
+		k.SourceBlockchainID,
+		k.DestinationBlockchainID,
+		k.OriginSenderAddress,
+		k.DestinationAddress,
+	)
 }

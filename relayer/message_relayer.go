@@ -61,14 +61,14 @@ type messageRelayer struct {
 	originSenderAddress     common.Address
 	destinationAddress      common.Address
 	signingSubnetID         ids.ID
-	relayerKey              config.RelayerKey
+	relayerKey              database.RelayerKey
 	warpQuorum              config.WarpQuorum
 	db                      database.RelayerDatabase
 }
 
 func newMessageRelayer(
 	relayer *Relayer,
-	relayerKey config.RelayerKey,
+	relayerKey database.RelayerKey,
 	db database.RelayerDatabase,
 ) (*messageRelayer, error) {
 	quorum, err := relayer.globalConfig.GetWarpQuorum(relayerKey.DestinationBlockchainID)
@@ -347,6 +347,7 @@ func (r *messageRelayer) createSignedMessageAppRequest(unsignedMessage *avalanch
 		if responsesExpected > 0 {
 			// Handle the responses. For each response, we need to call response.OnFinishedHandling() exactly once.
 			// Wrap the loop body in an anonymous function so that we do so on each loop iteration
+			// TODO: In order to run this concurrently, we need to route to each message relayer from the relayer responseChan
 			for response := range r.relayer.responseChan {
 				r.relayer.logger.Debug(
 					"Processing response from node",
