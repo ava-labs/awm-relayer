@@ -171,3 +171,11 @@ func (m *messageManager) SendMessage(signedMessage *warp.Message, destinationBlo
 func (m *messageManager) GetDestinationBlockchainID(unsignedMessage *warp.UnsignedMessage) (ids.ID, error) {
 	return unsignedMessage.SourceChainID, nil
 }
+
+func (m *messageManager) GetOriginSenderAddress(unsignedMessage *warp.UnsignedMessage) (common.Address, error) {
+	return OffChainRegistrySourceAddress, nil
+}
+
+func (m *messageManager) GetDestinationAddress(unsignedMessage *warp.UnsignedMessage) (common.Address, error) {
+	return m.registryAddress, nil
+}

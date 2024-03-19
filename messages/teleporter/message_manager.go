@@ -105,6 +105,32 @@ func (m *messageManager) GetDestinationBlockchainID(unsignedMessage *warp.Unsign
 	return teleporterMessage.DestinationBlockchainID, nil
 }
 
+func (m *messageManager) GetOriginSenderAddress(unsignedMessage *warp.UnsignedMessage) (common.Address, error) {
+	teleporterMessage, err := m.parseTeleporterMessage(unsignedMessage)
+	if err != nil {
+		m.logger.Error(
+			"Failed get teleporter message.",
+			zap.String("warpMessageID", unsignedMessage.ID().String()),
+		)
+		return common.Address{}, err
+	}
+	m.teleporterMessageCache.Put(unsignedMessage.ID(), teleporterMessage)
+	return teleporterMessage.OriginSenderAddress, nil
+}
+
+func (m *messageManager) GetDestinationAddress(unsignedMessage *warp.UnsignedMessage) (common.Address, error) {
+	teleporterMessage, err := m.parseTeleporterMessage(unsignedMessage)
+	if err != nil {
+		m.logger.Error(
+			"Failed get teleporter message.",
+			zap.String("warpMessageID", unsignedMessage.ID().String()),
+		)
+		return common.Address{}, err
+	}
+	m.teleporterMessageCache.Put(unsignedMessage.ID(), teleporterMessage)
+	return teleporterMessage.DestinationAddress, nil
+}
+
 // ShouldSendMessage returns true if the message should be sent to the destination chain
 func (m *messageManager) ShouldSendMessage(unsignedMessage *warp.UnsignedMessage, destinationBlockchainID ids.ID) (bool, error) {
 	teleporterMessage, err := m.parseTeleporterMessage(unsignedMessage)
