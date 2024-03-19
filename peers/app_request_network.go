@@ -5,8 +5,7 @@ package peers
 
 import (
 	"context"
-	"fmt"
-	"math/rand"
+	"math/big"
 	"os"
 	"sync"
 	"time"
@@ -15,10 +14,16 @@ import (
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/message"
 	"github.com/ava-labs/avalanchego/network"
-	"github.com/ava-labs/avalanchego/snow/validators"
+	snowVdrs "github.com/ava-labs/avalanchego/snow/validators"
+	"github.com/ava-labs/avalanchego/utils/constants"
 	"github.com/ava-labs/avalanchego/utils/ips"
 	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/avalanchego/utils/set"
+	"github.com/ava-labs/avalanchego/vms/platformvm"
+	"github.com/ava-labs/avalanchego/vms/platformvm/warp"
+	"github.com/ava-labs/awm-relayer/config"
+	"github.com/ava-labs/awm-relayer/utils"
+	"github.com/ava-labs/awm-relayer/validators"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 )
@@ -26,25 +31,24 @@ import (
 const (
 	InboundMessageChannelSize = 1000
 	DefaultAppRequestTimeout  = time.Second * 2
-
-	numInitialTestPeers = 5
 )
 
 type AppRequestNetwork struct {
-	Network    network.Network
-	Handler    *RelayerExternalHandler
-	infoClient info.Client
-	logger     logging.Logger
-	lock       *sync.Mutex
+	Network         network.Network
+	Handler         *RelayerExternalHandler
+	infoClient      info.Client
+	logger          logging.Logger
+	lock            *sync.Mutex
+	validatorClient *validators.CanonicalValidatorClient
 }
 
 // NewNetwork connects to a peers at the app request level.
 func NewNetwork(
 	logLevel logging.Level,
 	registerer prometheus.Registerer,
-	subnetIDs []ids.ID,
-	blockchainIDs []ids.ID,
-	infoAPINodeURL string,
+	cfg *config.Config,
+	infoClient info.Client,
+	pChainClient platformvm.Client,
 ) (*AppRequestNetwork, map[ids.ID]chan message.InboundMessage, error) {
 	logger := logging.NewLogger(
 		"awm-relayer-p2p",
@@ -55,13 +59,6 @@ func NewNetwork(
 		),
 	)
 
-	if infoAPINodeURL == "" {
-		logger.Error("No InfoAPI node URL provided")
-		return nil, nil, fmt.Errorf("must provide an Inffo API URL")
-	}
-
-	// Create the info client
-	infoClient := info.NewClient(infoAPINodeURL)
 	networkID, err := infoClient.GetNetworkID(context.Background())
 	if err != nil {
 		logger.Error(
@@ -73,15 +70,15 @@ func NewNetwork(
 
 	// Create the test network for AppRequests
 	var trackedSubnets set.Set[ids.ID]
-	for _, subnetID := range subnetIDs {
-		trackedSubnets.Add(subnetID)
+	for _, sourceBlockchain := range cfg.SourceBlockchains {
+		trackedSubnets.Add(sourceBlockchain.GetSubnetID())
 	}
 
 	// Construct a response chan for each chain. Inbound messages will be routed to the proper channel in the handler
 	responseChans := make(map[ids.ID]chan message.InboundMessage)
-	for _, blockchainID := range blockchainIDs {
+	for _, sourceBlockchain := range cfg.SourceBlockchains {
 		responseChan := make(chan message.InboundMessage, InboundMessageChannelSize)
-		responseChans[blockchainID] = responseChan
+		responseChans[sourceBlockchain.GetBlockchainID()] = responseChan
 	}
 	responseChansLock := new(sync.RWMutex)
 
@@ -94,7 +91,7 @@ func NewNetwork(
 		return nil, nil, err
 	}
 
-	network, err := network.NewTestNetwork(logger, networkID, validators.NewManager(), trackedSubnets, handler)
+	testNetwork, err := network.NewTestNetwork(logger, networkID, snowVdrs.NewManager(), trackedSubnets, handler)
 	if err != nil {
 		logger.Error(
 			"Failed to create test network",
@@ -103,83 +100,38 @@ func NewNetwork(
 		return nil, nil, err
 	}
 
-	// We need to initially connect to some nodes in the network before peer
-	// gossip will enable connecting to all the remaining nodes in the network.
-	var beaconIPs, beaconIDs []string
+	validatorClient := validators.NewCanonicalValidatorClient(logger, pChainClient)
 
-	peers, err := infoClient.Peers(context.Background())
-	if err != nil {
-		logger.Error(
-			"Failed to get peers",
-			zap.Error(err),
-		)
-		return nil, nil, err
+	arNetwork := &AppRequestNetwork{
+		Network:         testNetwork,
+		Handler:         handler,
+		infoClient:      infoClient,
+		logger:          logger,
+		lock:            new(sync.Mutex),
+		validatorClient: validatorClient,
 	}
 
-	// Randomly select peers to connect to until we have numInitialTestPeers
-	indices := rand.Perm(len(peers))
-	for _, index := range indices {
-		// Do not attempt to connect to private peers
-		if len(peers[index].PublicIP) == 0 {
-			continue
+	// Manually connect to the validators of each of the source subnets.
+	// We return an error if we are unable to connect to sufficient stake on any of the subnets.
+	// Sufficient stake is determined by the Warp quora of the configured supported destinations,
+	// or if the subnet supports all destinations, by the quora of all configured destinations.
+	for _, sourceBlockchain := range cfg.SourceBlockchains {
+		if sourceBlockchain.GetSubnetID() == constants.PrimaryNetworkID {
+			if err := arNetwork.connectToPrimaryNetworkPeers(cfg, sourceBlockchain); err != nil {
+				return nil, nil, err
+			}
+		} else {
+			if err := arNetwork.connectToNonPrimaryNetworkPeers(cfg, sourceBlockchain); err != nil {
+				return nil, nil, err
+			}
 		}
-		beaconIPs = append(beaconIPs, peers[index].PublicIP)
-		beaconIDs = append(beaconIDs, peers[index].ID.String())
-		if len(beaconIDs) == numInitialTestPeers {
-			break
-		}
-	}
-	if len(beaconIPs) == 0 {
-		logger.Error(
-			"Failed to find any peers to connect to",
-			zap.Error(err),
-		)
-		return nil, nil, err
-	}
-	if len(beaconIPs) < numInitialTestPeers {
-		logger.Warn(
-			"Failed to find a full set of peers to connect to on startup",
-			zap.Int("connectedPeers", len(beaconIPs)),
-			zap.Int("expectedConnectedPeers", numInitialTestPeers),
-		)
-	}
-
-	for i, beaconIDStr := range beaconIDs {
-		beaconID, err := ids.NodeIDFromString(beaconIDStr)
-		if err != nil {
-			logger.Error(
-				"Failed to parse beaconID",
-				zap.String("beaconID", beaconIDStr),
-				zap.Error(err),
-			)
-			return nil, nil, err
-		}
-
-		beaconIPStr := beaconIPs[i]
-		ipPort, err := ips.ToIPPort(beaconIPStr)
-		if err != nil {
-			logger.Error(
-				"Failed to parse beaconIP",
-				zap.String("beaconIP", beaconIPStr),
-				zap.Error(err),
-			)
-			return nil, nil, err
-		}
-
-		network.ManuallyTrack(beaconID, ipPort)
 	}
 
 	go logger.RecoverAndPanic(func() {
-		network.Dispatch()
+		testNetwork.Dispatch()
 	})
 
-	return &AppRequestNetwork{
-		Network:    network,
-		Handler:    handler,
-		infoClient: infoClient,
-		logger:     logger,
-		lock:       new(sync.Mutex),
-	}, responseChans, nil
+	return arNetwork, responseChans, nil
 }
 
 // ConnectPeers connects the network to peers with the given nodeIDs.
@@ -256,4 +208,140 @@ func (n *AppRequestNetwork) ConnectPeers(nodeIDs set.Set[ids.NodeID]) set.Set[id
 	}
 
 	return trackedNodes
+}
+
+// Helper struct to hold connected validator information
+// Warp Validators sharing the same BLS key may consist of multiple nodes,
+// so we need to track the node ID to validator index mapping
+type ConnectedCanonicalValidators struct {
+	ConnectedWeight       uint64
+	TotalValidatorWeight  uint64
+	ValidatorSet          []*warp.Validator
+	nodeValidatorIndexMap map[ids.NodeID]int
+}
+
+// Returns the Warp Validator and its index in the canonical Validator ordering for a given nodeID
+func (c *ConnectedCanonicalValidators) GetValidator(nodeID ids.NodeID) (*warp.Validator, int) {
+	return c.ValidatorSet[c.nodeValidatorIndexMap[nodeID]], c.nodeValidatorIndexMap[nodeID]
+}
+
+// ConnectToCanonicalValidators connects to the canonical validators of the given subnet and returns the connected
+// validator information
+func (n *AppRequestNetwork) ConnectToCanonicalValidators(subnetID ids.ID) (*ConnectedCanonicalValidators, error) {
+	// Get the subnet's current canonical validator set
+	validatorSet, totalValidatorWeight, err := n.validatorClient.GetCurrentCanonicalValidatorSet(subnetID)
+	if err != nil {
+		return nil, err
+	}
+
+	// We make queries to node IDs, not unique validators as represented by a BLS pubkey, so we need this map to track
+	// responses from nodes and populate the signatureMap with the corresponding validator signature
+	// This maps node IDs to the index in the canonical validator set
+	nodeValidatorIndexMap := make(map[ids.NodeID]int)
+	for i, vdr := range validatorSet {
+		for _, node := range vdr.NodeIDs {
+			nodeValidatorIndexMap[node] = i
+		}
+	}
+
+	// Manually connect to all peers in the validator set
+	// If new peers are connected, AppRequests may fail while the handshake is in progress.
+	// In that case, AppRequests to those nodes will be retried in the next iteration of the retry loop.
+	nodeIDs := set.NewSet[ids.NodeID](len(nodeValidatorIndexMap))
+	for node := range nodeValidatorIndexMap {
+		nodeIDs.Add(node)
+	}
+	connectedNodes := n.ConnectPeers(nodeIDs)
+
+	// Check if we've connected to a stake threshold of nodes
+	connectedWeight := uint64(0)
+	for node := range connectedNodes {
+		connectedWeight += validatorSet[nodeValidatorIndexMap[node]].Weight
+	}
+	return &ConnectedCanonicalValidators{
+		ConnectedWeight:       connectedWeight,
+		TotalValidatorWeight:  totalValidatorWeight,
+		ValidatorSet:          validatorSet,
+		nodeValidatorIndexMap: nodeValidatorIndexMap,
+	}, nil
+}
+
+// Private helpers
+
+// Connect to the validators of the source blockchain. For each destination blockchain, verify that we have connected to a threshold of stake.
+func (n *AppRequestNetwork) connectToNonPrimaryNetworkPeers(cfg *config.Config, sourceBlockchain *config.SourceBlockchain) error {
+	subnetID := sourceBlockchain.GetSubnetID()
+	connectedValidators, err := n.ConnectToCanonicalValidators(subnetID)
+	if err != nil {
+		n.logger.Error(
+			"Failed to connect to canonical validators",
+			zap.String("subnetID", subnetID.String()),
+			zap.Error(err),
+		)
+		return err
+	}
+	for _, destinationBlockchainID := range sourceBlockchain.GetSupportedDestinations().List() {
+		if ok, quorum, err := n.checkForSufficientConnectedStake(cfg, connectedValidators, destinationBlockchainID); !ok {
+			n.logger.Error(
+				"Failed to connect to a threshold of stake",
+				zap.String("destinationBlockchainID", destinationBlockchainID.String()),
+				zap.Uint64("connectedWeight", connectedValidators.ConnectedWeight),
+				zap.Uint64("totalValidatorWeight", connectedValidators.TotalValidatorWeight),
+				zap.Any("warpQuorum", quorum),
+			)
+			return err
+		}
+	}
+	return nil
+}
+
+// Connect to the validators of the destination blockchains. Verify that we have connected to a threshold of stake for each blockchain.
+func (n *AppRequestNetwork) connectToPrimaryNetworkPeers(cfg *config.Config, sourceBlockchain *config.SourceBlockchain) error {
+	for _, destinationBlockchainID := range sourceBlockchain.GetSupportedDestinations().List() {
+		subnetID := cfg.GetSubnetID(destinationBlockchainID)
+		connectedValidators, err := n.ConnectToCanonicalValidators(subnetID)
+		if err != nil {
+			n.logger.Error(
+				"Failed to connect to canonical validators",
+				zap.String("subnetID", subnetID.String()),
+				zap.Error(err),
+			)
+			return err
+		}
+
+		if ok, quorum, err := n.checkForSufficientConnectedStake(cfg, connectedValidators, destinationBlockchainID); !ok {
+			n.logger.Error(
+				"Failed to connect to a threshold of stake",
+				zap.String("destinationBlockchainID", destinationBlockchainID.String()),
+				zap.Uint64("connectedWeight", connectedValidators.ConnectedWeight),
+				zap.Uint64("totalValidatorWeight", connectedValidators.TotalValidatorWeight),
+				zap.Any("warpQuorum", quorum),
+			)
+			return err
+		}
+	}
+	return nil
+}
+
+// Fetch the warp quorum from the config and check if the connected stake exceeds the threshold
+func (n *AppRequestNetwork) checkForSufficientConnectedStake(
+	cfg *config.Config,
+	connectedValidators *ConnectedCanonicalValidators,
+	destinationBlockchainID ids.ID,
+) (bool, *config.WarpQuorum, error) {
+	quorum, err := cfg.GetWarpQuorum(destinationBlockchainID)
+	if err != nil {
+		n.logger.Error(
+			"Failed to get warp quorum from config",
+			zap.String("destinationBlockchainID", destinationBlockchainID.String()),
+			zap.Error(err),
+		)
+		return false, nil, err
+	}
+	return utils.CheckStakeWeightExceedsThreshold(
+		big.NewInt(0).SetUint64(connectedValidators.ConnectedWeight),
+		connectedValidators.TotalValidatorWeight,
+		quorum.QuorumNumerator,
+		quorum.QuorumDenominator,
+	), &quorum, nil
 }

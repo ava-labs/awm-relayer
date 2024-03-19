@@ -68,8 +68,10 @@ type SourceBlockchain struct {
 	SupportedDestinations             []string                         `mapstructure:"supported-destinations" json:"supported-destinations"`
 	ProcessHistoricalBlocksFromHeight uint64                           `mapstructure:"process-historical-blocks-from-height" json:"process-historical-blocks-from-height"`
 
-	// convenience field to access the supported destinations after initialization
+	// convenience fields to access parsed data after initialization
 	supportedDestinations set.Set[ids.ID]
+	subnetID              ids.ID
+	blockchainID          ids.ID
 }
 
 type DestinationBlockchain struct {
@@ -81,6 +83,10 @@ type DestinationBlockchain struct {
 
 	// Fetched from the chain after startup
 	warpQuorum WarpQuorum
+
+	// convenience fields to access parsed data after initialization
+	subnetID     ids.ID
+	blockchainID ids.ID
 }
 
 type WarpQuorum struct {
@@ -98,9 +104,8 @@ type Config struct {
 	ProcessMissedBlocks    bool                     `mapstructure:"process-missed-blocks" json:"process-missed-blocks"`
 	ManualWarpMessages     []*ManualWarpMessage     `mapstructure:"manual-warp-messages" json:"manual-warp-messages"`
 
-	// convenience fields to access the source subnet and chain IDs after initialization
-	sourceSubnetIDs     []ids.ID
-	sourceBlockchainIDs []ids.ID
+	// convenience field to fetch a blockchain's subnet ID
+	blockchainIDToSubnetID map[ids.ID]ids.ID
 }
 
 func SetDefaultConfigValues(v *viper.Viper) {
@@ -194,6 +199,8 @@ func (c *Config) Validate() error {
 		return err
 	}
 
+	blockchainIDToSubnetID := make(map[ids.ID]ids.ID)
+
 	// Validate the destination chains
 	destinationChains := set.NewSet[string](len(c.DestinationBlockchains))
 	for _, s := range c.DestinationBlockchains {
@@ -204,12 +211,11 @@ func (c *Config) Validate() error {
 			return errors.New("configured destination subnets must have unique chain IDs")
 		}
 		destinationChains.Add(s.BlockchainID)
+		blockchainIDToSubnetID[s.blockchainID] = s.subnetID
 	}
 
 	// Validate the source chains and store the source subnet and chain IDs for future use
 	sourceBlockchains := set.NewSet[string](len(c.SourceBlockchains))
-	var sourceSubnetIDs []ids.ID
-	var sourceBlockchainIDs []ids.ID
 	for _, s := range c.SourceBlockchains {
 		// Validate configuration
 		if err := s.Validate(&destinationChains); err != nil {
@@ -220,23 +226,9 @@ func (c *Config) Validate() error {
 			return errors.New("configured source subnets must have unique chain IDs")
 		}
 		sourceBlockchains.Add(s.BlockchainID)
-
-		// Save IDs for future use
-		subnetID, err := ids.FromString(s.SubnetID)
-		if err != nil {
-			return fmt.Errorf("invalid subnetID in configuration. error: %w", err)
-		}
-		sourceSubnetIDs = append(sourceSubnetIDs, subnetID)
-
-		blockchainID, err := ids.FromString(s.BlockchainID)
-		if err != nil {
-			return fmt.Errorf("invalid subnetID in configuration. error: %w", err)
-		}
-		sourceBlockchainIDs = append(sourceBlockchainIDs, blockchainID)
+		blockchainIDToSubnetID[s.blockchainID] = s.subnetID
 	}
-
-	c.sourceSubnetIDs = sourceSubnetIDs
-	c.sourceBlockchainIDs = sourceBlockchainIDs
+	c.blockchainIDToSubnetID = blockchainIDToSubnetID
 
 	// Validate the manual warp messages
 	for i, msg := range c.ManualWarpMessages {
@@ -246,6 +238,10 @@ func (c *Config) Validate() error {
 	}
 
 	return nil
+}
+
+func (c *Config) GetSubnetID(blockchainID ids.ID) ids.ID {
+	return c.blockchainIDToSubnetID[blockchainID]
 }
 
 func (m *ManualWarpMessage) GetUnsignedMessageBytes() []byte {
@@ -417,6 +413,18 @@ func (s *SourceBlockchain) Validate(destinationBlockchainIDs *set.Set[string]) e
 		}
 	}
 
+	// Validate and store the subnet and blockchain IDs for future use
+	blockchainID, err := ids.FromString(s.BlockchainID)
+	if err != nil {
+		return fmt.Errorf("invalid blockchainID in configuration. error: %w", err)
+	}
+	s.blockchainID = blockchainID
+	subnetID, err := ids.FromString(s.SubnetID)
+	if err != nil {
+		return fmt.Errorf("invalid subnetID in configuration. error: %w", err)
+	}
+	s.subnetID = subnetID
+
 	// Validate and store the allowed destinations for future use
 	s.supportedDestinations = set.Set[ids.ID]{}
 
@@ -447,6 +455,14 @@ func (s *SourceBlockchain) Validate(destinationBlockchainIDs *set.Set[string]) e
 	return nil
 }
 
+func (s *SourceBlockchain) GetSubnetID() ids.ID {
+	return s.subnetID
+}
+
+func (s *SourceBlockchain) GetBlockchainID() ids.ID {
+	return s.blockchainID
+}
+
 // Validatees the destination subnet configuration
 func (s *DestinationBlockchain) Validate() error {
 	if _, err := ids.FromString(s.SubnetID); err != nil {
@@ -473,7 +489,27 @@ func (s *DestinationBlockchain) Validate() error {
 		return fmt.Errorf("unsupported VM type for source subnet: %s", s.VM)
 	}
 
+	// Validate and store the subnet and blockchain IDs for future use
+	blockchainID, err := ids.FromString(s.BlockchainID)
+	if err != nil {
+		return fmt.Errorf("invalid blockchainID in configuration. error: %w", err)
+	}
+	s.blockchainID = blockchainID
+	subnetID, err := ids.FromString(s.SubnetID)
+	if err != nil {
+		return fmt.Errorf("invalid subnetID in configuration. error: %w", err)
+	}
+	s.subnetID = subnetID
+
 	return nil
+}
+
+func (s *DestinationBlockchain) GetSubnetID() ids.ID {
+	return s.subnetID
+}
+
+func (s *DestinationBlockchain) GetBlockchainID() ids.ID {
+	return s.blockchainID
 }
 
 func (s *DestinationBlockchain) initializeWarpQuorum() error {
@@ -513,11 +549,6 @@ func (s *DestinationBlockchain) GetRelayerAccountInfo() (*ecdsa.PrivateKey, comm
 //
 // Top-level config getters
 //
-
-// GetSourceIDs returns the Subnet and Chain IDs of all subnets configured as a source
-func (c *Config) GetSourceIDs() ([]ids.ID, []ids.ID) {
-	return c.sourceSubnetIDs, c.sourceBlockchainIDs
-}
 
 func (c *Config) GetWarpQuorum(blockchainID ids.ID) (WarpQuorum, error) {
 	for _, s := range c.DestinationBlockchains {

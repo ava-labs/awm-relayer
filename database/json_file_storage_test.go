@@ -13,15 +13,44 @@ import (
 
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/utils/logging"
+	"github.com/ava-labs/avalanchego/utils/set"
+	"github.com/ava-labs/awm-relayer/config"
 	"github.com/stretchr/testify/assert"
 )
 
+var validSourceBlockchainConfig = &config.SourceBlockchain{
+	RPCEndpoint:  "http://test.avax.network/ext/bc/C/rpc",
+	WSEndpoint:   "ws://test.avax.network/ext/bc/C/ws",
+	BlockchainID: "S4mMqUXe7vHsGiRAma6bv3CKnyaLssyAxmQ2KvFpX1KEvfFCD",
+	SubnetID:     "2TGBXcnwx5PqiXWiqxAKUaNSqDguXNh1mxnp82jui68hxJSZAx",
+	VM:           "evm",
+	MessageContracts: map[string]config.MessageProtocolConfig{
+		"0xd81545385803bCD83bd59f58Ba2d2c0562387F83": {
+			MessageFormat: config.TELEPORTER.String(),
+		},
+	},
+}
+
+func populateSourceConfig(blockchainIDs []ids.ID) []*config.SourceBlockchain {
+	sourceBlockchains := make([]*config.SourceBlockchain, len(blockchainIDs))
+	for i, id := range blockchainIDs {
+		sourceBlockchains[i] = validSourceBlockchainConfig
+		sourceBlockchains[i].BlockchainID = id.String()
+	}
+	destinationsBlockchainIDs := set.NewSet[string](1) // just needs to be non-nil
+	destinationsBlockchainIDs.Add(ids.GenerateTestID().String())
+	sourceBlockchains[0].Validate(&destinationsBlockchainIDs)
+	return sourceBlockchains
+}
+
 // Test that the JSON database can write and read to a single chain concurrently.
 func TestConcurrentWriteReadSingleChain(t *testing.T) {
-	networks := []ids.ID{
-		ids.GenerateTestID(),
-	}
-	jsonStorage := setupJsonStorage(t, networks)
+	sourceBlockchains := populateSourceConfig(
+		[]ids.ID{
+			ids.GenerateTestID(),
+		},
+	)
+	jsonStorage := setupJsonStorage(t, sourceBlockchains)
 
 	// Test writing to the JSON database concurrently.
 	wg := sync.WaitGroup{}
@@ -30,16 +59,16 @@ func TestConcurrentWriteReadSingleChain(t *testing.T) {
 		idx := i
 		go func() {
 			defer wg.Done()
-			testWrite(jsonStorage, networks[0], uint64(idx))
+			testWrite(jsonStorage, sourceBlockchains[0].GetBlockchainID(), uint64(idx))
 		}()
 	}
 	wg.Wait()
 
 	// Write one final time to ensure that concurrent writes don't cause any issues.
 	finalTargetValue := uint64(11)
-	testWrite(jsonStorage, networks[0], finalTargetValue)
+	testWrite(jsonStorage, sourceBlockchains[0].GetBlockchainID(), finalTargetValue)
 
-	latestProcessedBlockData, err := jsonStorage.Get(networks[0], []byte(LatestProcessedBlockKey))
+	latestProcessedBlockData, err := jsonStorage.Get(sourceBlockchains[0].GetBlockchainID(), []byte(LatestProcessedBlockKey))
 	if err != nil {
 		t.Fatalf("failed to retrieve from JSON storage. err: %v", err)
 	}
@@ -52,12 +81,14 @@ func TestConcurrentWriteReadSingleChain(t *testing.T) {
 
 // Test that the JSON database can write and read from multiple chains concurrently. Write to any given chain are not concurrent.
 func TestConcurrentWriteReadMultipleChains(t *testing.T) {
-	networks := []ids.ID{
-		ids.GenerateTestID(),
-		ids.GenerateTestID(),
-		ids.GenerateTestID(),
-	}
-	jsonStorage := setupJsonStorage(t, networks)
+	sourceBlockchains := populateSourceConfig(
+		[]ids.ID{
+			ids.GenerateTestID(),
+			ids.GenerateTestID(),
+			ids.GenerateTestID(),
+		},
+	)
+	jsonStorage := setupJsonStorage(t, sourceBlockchains)
 
 	// Test writing to the JSON database concurrently.
 	wg := sync.WaitGroup{}
@@ -66,19 +97,19 @@ func TestConcurrentWriteReadMultipleChains(t *testing.T) {
 		index := i
 		go func() {
 			defer wg.Done()
-			testWrite(jsonStorage, networks[index], uint64(index))
+			testWrite(jsonStorage, sourceBlockchains[index].GetBlockchainID(), uint64(index))
 		}()
 	}
 	wg.Wait()
 
 	// Write one final time to ensure that concurrent writes don't cause any issues.
 	finalTargetValue := uint64(3)
-	for _, network := range networks {
-		testWrite(jsonStorage, network, finalTargetValue)
+	for _, sourceBlockchain := range sourceBlockchains {
+		testWrite(jsonStorage, sourceBlockchain.GetBlockchainID(), finalTargetValue)
 	}
 
-	for i, id := range networks {
-		latestProcessedBlockData, err := jsonStorage.Get(id, []byte(LatestProcessedBlockKey))
+	for i, sourceBlockchain := range sourceBlockchains {
+		latestProcessedBlockData, err := jsonStorage.Get(sourceBlockchain.GetBlockchainID(), []byte(LatestProcessedBlockKey))
 		if err != nil {
 			t.Fatalf("failed to retrieve from JSON storage. networkID: %d err: %v", i, err)
 		}
@@ -90,7 +121,7 @@ func TestConcurrentWriteReadMultipleChains(t *testing.T) {
 	}
 }
 
-func setupJsonStorage(t *testing.T, networks []ids.ID) *JSONFileStorage {
+func setupJsonStorage(t *testing.T, sourceBlockchains []*config.SourceBlockchain) *JSONFileStorage {
 	logger := logging.NewLogger(
 		"awm-relayer-test",
 		logging.NewWrappedCore(
@@ -101,7 +132,7 @@ func setupJsonStorage(t *testing.T, networks []ids.ID) *JSONFileStorage {
 	)
 	storageDir := t.TempDir()
 
-	jsonStorage, err := NewJSONFileStorage(logger, storageDir, networks)
+	jsonStorage, err := NewJSONFileStorage(logger, storageDir, sourceBlockchains)
 	if err != nil {
 		t.Fatal(err)
 	}
