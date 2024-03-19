@@ -10,9 +10,9 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/awm-relayer/config"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 )
@@ -29,40 +29,42 @@ type JSONFileStorage struct {
 	// Each network has its own mutex
 	// The blockchainIDs used to index the JSONFileStorage are created at initialization
 	// and are not modified afterwards, so we don't need to lock the map itself.
-	mutexes      map[ids.ID]*sync.RWMutex
+	mutexes      map[common.Hash]*sync.RWMutex
 	logger       logging.Logger
-	currentState map[ids.ID]chainState
+	currentState map[common.Hash]chainState
 }
 
 // NewJSONFileStorage creates a new JSONFileStorage instance
-func NewJSONFileStorage(logger logging.Logger, dir string, sourceBlockchains []*config.SourceBlockchain) (*JSONFileStorage, error) {
+func NewJSONFileStorage(logger logging.Logger, cfg config.Config) (*JSONFileStorage, error) {
+	dir := cfg.StorageLocation
 	storage := &JSONFileStorage{
 		dir:          filepath.Clean(dir),
-		mutexes:      make(map[ids.ID]*sync.RWMutex),
+		mutexes:      make(map[common.Hash]*sync.RWMutex),
 		logger:       logger,
-		currentState: make(map[ids.ID]chainState),
+		currentState: make(map[common.Hash]chainState),
 	}
 
-	for _, sourceBlockchain := range sourceBlockchains {
-		sourceBlockchainID := sourceBlockchain.GetBlockchainID()
-		storage.currentState[sourceBlockchainID] = make(chainState)
-		storage.mutexes[sourceBlockchainID] = &sync.RWMutex{}
+	for _, relayerKey := range cfg.GetAllRelayerKeys() {
+		key := relayerKey.CalculateRelayerKey()
+		storage.currentState[key] = make(chainState)
+		storage.mutexes[key] = &sync.RWMutex{}
 	}
 
 	_, err := os.Stat(dir)
 	if err == nil {
 		// Directory already exists.
 		// Read the existing storage.
-		for _, sourceBlockchain := range sourceBlockchains {
-			sourceBlockchainID := sourceBlockchain.GetBlockchainID()
-			currentState, fileExists, err := storage.getCurrentState(sourceBlockchainID)
+		for _, relayerKey := range cfg.GetAllRelayerKeys() {
+			key := relayerKey.CalculateRelayerKey()
+			currentState, fileExists, err := storage.getCurrentState(key)
 			if err != nil {
 				return nil, err
 			}
 			if fileExists {
-				storage.currentState[sourceBlockchainID] = currentState
+				storage.currentState[key] = currentState
 			}
 		}
+
 		return storage, nil
 	}
 
@@ -80,18 +82,18 @@ func NewJSONFileStorage(logger logging.Logger, dir string, sourceBlockchains []*
 }
 
 // Get the latest chain state from the JSON database, and retrieve the value from the key
-func (s *JSONFileStorage) Get(blockchainID ids.ID, key []byte) ([]byte, error) {
-	mutex, ok := s.mutexes[blockchainID]
+func (s *JSONFileStorage) Get(relayerKey common.Hash, key []byte) ([]byte, error) {
+	mutex, ok := s.mutexes[relayerKey]
 	if !ok {
 		return nil, errors.Wrap(
 			ErrDatabaseMisconfiguration,
-			fmt.Sprintf("database not configured for chain %s", blockchainID.String()),
+			fmt.Sprintf("database not configured for key %s", relayerKey.String()),
 		)
 	}
 
 	mutex.RLock()
 	defer mutex.RUnlock()
-	currentState, fileExists, err := s.getCurrentState(blockchainID)
+	currentState, fileExists, err := s.getCurrentState(relayerKey)
 	if err != nil {
 		return nil, err
 	}
@@ -108,13 +110,13 @@ func (s *JSONFileStorage) Get(blockchainID ids.ID, key []byte) ([]byte, error) {
 }
 
 // Helper to get the current state of a blockchainID. Not thread-safe.
-func (s *JSONFileStorage) getCurrentState(blockchainID ids.ID) (chainState, bool, error) {
+func (s *JSONFileStorage) getCurrentState(relayerKey common.Hash) (chainState, bool, error) {
 	currentState := make(chainState)
-	fileExists, err := s.read(blockchainID, &currentState)
+	fileExists, err := s.read(relayerKey, &currentState)
 	if err != nil {
 		s.logger.Error(
 			"failed to read file",
-			zap.String("blockchainID", blockchainID.String()),
+			zap.String("blockchainID", relayerKey.String()),
 			zap.Error(err),
 		)
 		return nil, false, err
@@ -124,12 +126,12 @@ func (s *JSONFileStorage) getCurrentState(blockchainID ids.ID) (chainState, bool
 
 // Put the value into the JSON database. Read the current chain state and overwrite the key, if it exists
 // If the file corresponding to {blockchainID} does not exist, then it will be created
-func (s *JSONFileStorage) Put(blockchainID ids.ID, key []byte, value []byte) error {
-	mutex, ok := s.mutexes[blockchainID]
+func (s *JSONFileStorage) Put(relayerKey common.Hash, key []byte, value []byte) error {
+	mutex, ok := s.mutexes[relayerKey]
 	if !ok {
 		return errors.Wrap(
 			ErrDatabaseMisconfiguration,
-			fmt.Sprintf("database not configured for chain %s", blockchainID.String()),
+			fmt.Sprintf("database not configured for key %s", relayerKey.String()),
 		)
 	}
 
@@ -137,13 +139,13 @@ func (s *JSONFileStorage) Put(blockchainID ids.ID, key []byte, value []byte) err
 	defer mutex.Unlock()
 
 	// Update the in-memory state and write to disk
-	s.currentState[blockchainID][string(key)] = string(value)
-	return s.write(blockchainID, s.currentState[blockchainID])
+	s.currentState[relayerKey][string(key)] = string(value)
+	return s.write(relayerKey, s.currentState[relayerKey])
 }
 
 // Write the value to the file. The caller is responsible for ensuring proper synchronization
-func (s *JSONFileStorage) write(blockchainID ids.ID, v interface{}) error {
-	fnlPath := filepath.Join(s.dir, blockchainID.String()+".json")
+func (s *JSONFileStorage) write(relayerKey common.Hash, v interface{}) error {
+	fnlPath := filepath.Join(s.dir, relayerKey.String()+".json")
 	tmpPath := fnlPath + ".tmp"
 
 	b, err := json.MarshalIndent(v, "", "\t")
@@ -171,8 +173,8 @@ func (s *JSONFileStorage) write(blockchainID ids.ID, v interface{}) error {
 // Returns a bool indicating whether the file exists, and an error.
 // If an error is returned, the bool should be ignored.
 // The caller is responsible for ensuring proper synchronization
-func (s *JSONFileStorage) read(blockchainID ids.ID, v interface{}) (bool, error) {
-	path := filepath.Join(s.dir, blockchainID.String()+".json")
+func (s *JSONFileStorage) read(relayerKey common.Hash, v interface{}) (bool, error) {
+	path := filepath.Join(s.dir, relayerKey.String()+".json")
 
 	// If the file does not exist, return false, but do not return an error as this
 	// is an expected case

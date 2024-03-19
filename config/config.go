@@ -244,6 +244,31 @@ func (c *Config) GetSubnetID(blockchainID ids.ID) ids.ID {
 	return c.blockchainIDToSubnetID[blockchainID]
 }
 
+// TODONOW: Put this somewhere else
+type RelayerKey struct {
+	SourceBlockchainID      ids.ID
+	DestinationBlockchainID ids.ID
+	OriginSenderAddress     common.Address
+	DestinationAddress      common.Address
+}
+
+func (k RelayerKey) CalculateRelayerKey() common.Hash {
+	return utils.CalculateRelayerKey(
+		k.SourceBlockchainID,
+		k.DestinationBlockchainID,
+		k.OriginSenderAddress,
+		k.DestinationAddress,
+	)
+}
+
+func (c *Config) GetAllRelayerKeys() []RelayerKey {
+	var keys []RelayerKey
+	for _, s := range c.SourceBlockchains {
+		keys = append(keys, s.GetRelayerKeys()...)
+	}
+	return keys
+}
+
 func (m *ManualWarpMessage) GetUnsignedMessageBytes() []byte {
 	return m.unsignedMessageBytes
 }
@@ -461,6 +486,19 @@ func (s *SourceBlockchain) GetSubnetID() ids.ID {
 
 func (s *SourceBlockchain) GetBlockchainID() ids.ID {
 	return s.blockchainID
+}
+
+func (s *SourceBlockchain) GetRelayerKeys() []RelayerKey {
+	var keys []RelayerKey
+	for _, dst := range s.GetSupportedDestinations().List() {
+		keys = append(keys, RelayerKey{
+			SourceBlockchainID:      s.GetBlockchainID(),
+			DestinationBlockchainID: dst,
+			OriginSenderAddress:     common.Address{}, // TODO: populate with allowed sender/receiver addresses
+			DestinationAddress:      common.Address{},
+		})
+	}
+	return keys
 }
 
 // Validatees the destination subnet configuration

@@ -15,6 +15,7 @@ import (
 	"github.com/ava-labs/awm-relayer/config"
 	"github.com/ava-labs/awm-relayer/database"
 	testUtils "github.com/ava-labs/awm-relayer/tests/utils"
+	relayerUtils "github.com/ava-labs/awm-relayer/utils"
 	"github.com/ava-labs/subnet-evm/accounts/abi/bind"
 	"github.com/ava-labs/subnet-evm/core/types"
 	"github.com/ava-labs/subnet-evm/precompile/contracts/warp"
@@ -118,12 +119,14 @@ func BasicRelay(network interfaces.LocalNetwork) {
 			logging.JSON.ConsoleEncoder(),
 		),
 	)
-	jsonDB, err := database.NewJSONFileStorage(logger, testUtils.RelayerStorageLocation(), relayerConfig.SourceBlockchains)
+	jsonDB, err := database.NewJSONFileStorage(logger, relayerConfig)
 	Expect(err).Should(BeNil())
 
+	relayerKeyA := relayerUtils.CalculateRelayerKey(subnetAInfo.BlockchainID, subnetBInfo.BlockchainID, common.Address{}, common.Address{})
+	relayerKeyB := relayerUtils.CalculateRelayerKey(subnetBInfo.BlockchainID, subnetAInfo.BlockchainID, common.Address{}, common.Address{})
 	// Modify the JSON database to force the relayer to re-process old blocks
-	jsonDB.Put(subnetAInfo.BlockchainID, []byte(database.LatestProcessedBlockKey), []byte("0"))
-	jsonDB.Put(subnetBInfo.BlockchainID, []byte(database.LatestProcessedBlockKey), []byte("0"))
+	jsonDB.Put(relayerKeyA, []byte(database.LatestProcessedBlockKey), []byte("0"))
+	jsonDB.Put(relayerKeyB, []byte(database.LatestProcessedBlockKey), []byte("0"))
 
 	// Subscribe to the destination chain
 	newHeadsB := make(chan *types.Header, 10)

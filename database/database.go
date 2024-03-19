@@ -6,7 +6,7 @@
 package database
 
 import (
-	"github.com/ava-labs/avalanchego/ids"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 )
 
@@ -22,6 +22,6 @@ var (
 
 // RelayerDatabase is a key-value store for relayer state, with each blockchainID maintaining its own state
 type RelayerDatabase interface {
-	Get(blockchainID ids.ID, key []byte) ([]byte, error)
-	Put(blockchainID ids.ID, key []byte, value []byte) error
+	Get(relayerKey common.Hash, key []byte) ([]byte, error)
+	Put(relayerKey common.Hash, key []byte, value []byte) error
 }
