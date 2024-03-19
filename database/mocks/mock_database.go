@@ -11,7 +11,7 @@ package mocks
 import (
 	reflect "reflect"
 
-	ids "github.com/ava-labs/avalanchego/ids"
+	common "github.com/ethereum/go-ethereum/common"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -39,30 +39,30 @@ func (m *MockRelayerDatabase) EXPECT() *MockRelayerDatabaseMockRecorder {
 }
 
 // Get mocks base method.
-func (m *MockRelayerDatabase) Get(blockchainID ids.ID, key []byte) ([]byte, error) {
+func (m *MockRelayerDatabase) Get(relayerKey common.Hash, key []byte) ([]byte, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Get", blockchainID, key)
+	ret := m.ctrl.Call(m, "Get", relayerKey, key)
 	ret0, _ := ret[0].([]byte)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Get indicates an expected call of Get.
-func (mr *MockRelayerDatabaseMockRecorder) Get(blockchainID, key any) *gomock.Call {
+func (mr *MockRelayerDatabaseMockRecorder) Get(relayerKey, key any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockRelayerDatabase)(nil).Get), blockchainID, key)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockRelayerDatabase)(nil).Get), relayerKey, key)
 }
 
 // Put mocks base method.
-func (m *MockRelayerDatabase) Put(blockchainID ids.ID, key, value []byte) error {
+func (m *MockRelayerDatabase) Put(relayerKey common.Hash, key, value []byte) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Put", blockchainID, key, value)
+	ret := m.ctrl.Call(m, "Put", relayerKey, key, value)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Put indicates an expected call of Put.
-func (mr *MockRelayerDatabaseMockRecorder) Put(blockchainID, key, value any) *gomock.Call {
+func (mr *MockRelayerDatabaseMockRecorder) Put(relayerKey, key, value any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Put", reflect.TypeOf((*MockRelayerDatabase)(nil).Put), blockchainID, key, value)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Put", reflect.TypeOf((*MockRelayerDatabase)(nil).Put), relayerKey, key, value)
 }
