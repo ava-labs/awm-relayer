@@ -47,7 +47,6 @@ func populateSourceConfig(blockchainIDs []ids.ID, supportedDestinations []string
 }
 
 func makeTestRelayer(t *testing.T, supportedDestinations []string) *Relayer {
-
 	logger := logging.NewLogger(
 		"awm-relayer-test",
 		logging.NewWrappedCore(
