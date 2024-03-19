@@ -6,9 +6,11 @@
 package database
 
 import (
+	"strings"
+
 	"github.com/ava-labs/avalanchego/ids"
-	"github.com/ava-labs/awm-relayer/utils"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
 )
 
@@ -36,10 +38,29 @@ type RelayerKey struct {
 }
 
 func (k RelayerKey) CalculateRelayerKey() common.Hash {
-	return utils.CalculateRelayerKey(
+	return CalculateRelayerKey(
 		k.SourceBlockchainID,
 		k.DestinationBlockchainID,
 		k.OriginSenderAddress,
 		k.DestinationAddress,
+	)
+}
+
+func CalculateRelayerKey(
+	sourceBlockchainID ids.ID,
+	destinationBlockchainID ids.ID,
+	originSenderAddress common.Address,
+	desinationAddress common.Address,
+) common.Hash {
+	return crypto.Keccak256Hash(
+		[]byte(strings.Join(
+			[]string{
+				sourceBlockchainID.String(),
+				destinationBlockchainID.String(),
+				originSenderAddress.String(),
+				desinationAddress.String(),
+			},
+			"-",
+		)),
 	)
 }

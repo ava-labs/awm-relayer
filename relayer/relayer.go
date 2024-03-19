@@ -19,7 +19,6 @@ import (
 	"github.com/ava-labs/awm-relayer/database"
 	"github.com/ava-labs/awm-relayer/messages"
 	"github.com/ava-labs/awm-relayer/peers"
-	"github.com/ava-labs/awm-relayer/utils"
 	vms "github.com/ava-labs/awm-relayer/vms"
 	"github.com/ava-labs/awm-relayer/vms/vmtypes"
 	"github.com/ethereum/go-ethereum/common"
@@ -378,7 +377,7 @@ func (r *Relayer) RelayMessage(warpLogInfo *vmtypes.WarpLogInfo, storeProcessedH
 		return nil
 	}
 
-	messageRelayerKey := utils.CalculateRelayerKey(
+	messageRelayerKey := database.CalculateRelayerKey(
 		r.sourceBlockchainID,
 		destinationBlockchainID,
 		common.Address{}, // TODO: Populate with the proper sender/receiver address

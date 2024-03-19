@@ -8,9 +8,7 @@ import (
 	"math/big"
 	"strings"
 
-	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
 )
 
 var (
@@ -74,23 +72,4 @@ func StripFromString(input, substring string) string {
 	strippedString := input[:index]
 
 	return strippedString
-}
-
-func CalculateRelayerKey(
-	sourceBlockchainID ids.ID,
-	destinationBlockchainID ids.ID,
-	originSenderAddress common.Address,
-	desinationAddress common.Address,
-) common.Hash {
-	return crypto.Keccak256Hash(
-		[]byte(strings.Join(
-			[]string{
-				sourceBlockchainID.String(),
-				destinationBlockchainID.String(),
-				originSenderAddress.String(),
-				desinationAddress.String(),
-			},
-			"-",
-		)),
-	)
 }
