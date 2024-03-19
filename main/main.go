@@ -226,7 +226,7 @@ func main() {
 				messageCreator,
 				health,
 				manualWarpMessages[blockchainID],
-				cfg,
+				&cfg,
 			)
 		})
 	}
@@ -251,7 +251,7 @@ func runRelayer(
 	messageCreator message.Creator,
 	relayerHealth *atomic.Bool,
 	manualWarpMessages []*vmtypes.WarpLogInfo,
-	cfg config.Config,
+	cfg *config.Config,
 ) error {
 	logger.Info(
 		"Creating relayer",
