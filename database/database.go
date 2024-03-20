@@ -31,6 +31,7 @@ type RelayerDatabase interface {
 	Put(relayerKey common.Hash, key []byte, value []byte) error
 }
 
+// RelayerKey is a unique identifier for an application relayer
 type RelayerKey struct {
 	SourceBlockchainID      ids.ID
 	DestinationBlockchainID ids.ID
@@ -38,6 +39,7 @@ type RelayerKey struct {
 	DestinationAddress      common.Address
 }
 
+// CalculateRelayerKey calculates the unique identifier for an application relayer
 func (k RelayerKey) CalculateRelayerKey() common.Hash {
 	return CalculateRelayerKey(
 		k.SourceBlockchainID,
@@ -47,6 +49,7 @@ func (k RelayerKey) CalculateRelayerKey() common.Hash {
 	)
 }
 
+// Standalone utility to calculate a relayer key
 func CalculateRelayerKey(
 	sourceBlockchainID ids.ID,
 	destinationBlockchainID ids.ID,
@@ -66,6 +69,7 @@ func CalculateRelayerKey(
 	)
 }
 
+// Get all of the possible relayer keys for a given configuration
 func GetConfigRelayerKeys(cfg *config.Config) []RelayerKey {
 	var keys []RelayerKey
 	for _, s := range cfg.SourceBlockchains {
@@ -73,6 +77,8 @@ func GetConfigRelayerKeys(cfg *config.Config) []RelayerKey {
 	}
 	return keys
 }
+
+// Calculate all of the possible relayer keys for a given source blockchain
 func GetSourceConfigRelayerKeys(cfg *config.SourceBlockchain) []RelayerKey {
 	var keys []RelayerKey
 	for _, dst := range cfg.GetSupportedDestinations().List() {
