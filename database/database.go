@@ -85,7 +85,7 @@ func GetSourceConfigRelayerKeys(cfg *config.SourceBlockchain) []RelayerKey {
 		keys = append(keys, RelayerKey{
 			SourceBlockchainID:      cfg.GetBlockchainID(),
 			DestinationBlockchainID: dst,
-			OriginSenderAddress:     common.Address{}, // TODO: populate with allowed sender/receiver addresses
+			OriginSenderAddress:     common.Address{}, // TODONOW: populate with allowed sender/receiver addresses
 			DestinationAddress:      common.Address{},
 		})
 	}

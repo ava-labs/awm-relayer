@@ -347,12 +347,12 @@ func (r *Relayer) RelayMessage(warpLogInfo *vmtypes.WarpLogInfo, storeProcessedH
 	messageRelayerKey := database.CalculateRelayerKey(
 		r.sourceBlockchain.GetBlockchainID(),
 		destinationBlockchainID,
-		common.Address{}, // TODO: Populate with the proper sender/receiver address
+		common.Address{}, // TODONOW: Populate with the proper sender/receiver address
 		common.Address{},
 	)
 	messageRelayer, ok := r.messageRelayers[messageRelayerKey]
 	if !ok {
-		// TODO: If we don't find the key using the actual addresses, check if all sender/destination addresses are allowed
+		// TODONOW: If we don't find the key using the actual addresses, check if all sender/destination addresses are allowed
 		r.logger.Error(
 			"Message relayer not found",
 			zap.String("blockchainID", r.sourceBlockchain.GetBlockchainID().String()),

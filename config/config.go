@@ -67,26 +67,30 @@ type SourceBlockchain struct {
 	MessageContracts                  map[string]MessageProtocolConfig `mapstructure:"message-contracts" json:"message-contracts"`
 	SupportedDestinations             []string                         `mapstructure:"supported-destinations" json:"supported-destinations"`
 	ProcessHistoricalBlocksFromHeight uint64                           `mapstructure:"process-historical-blocks-from-height" json:"process-historical-blocks-from-height"`
+	AllowedOriginSenderAddresses      []string                         `mapstructure:"allowed-origin-sender-addresses" json:"allowed-origin-sender-addresses"`
 
 	// convenience fields to access parsed data after initialization
-	supportedDestinations set.Set[ids.ID]
-	subnetID              ids.ID
-	blockchainID          ids.ID
+	supportedDestinations        set.Set[ids.ID]
+	subnetID                     ids.ID
+	blockchainID                 ids.ID
+	allowedOriginSenderAddresses []common.Address
 }
 
 type DestinationBlockchain struct {
-	SubnetID          string `mapstructure:"subnet-id" json:"subnet-id"`
-	BlockchainID      string `mapstructure:"blockchain-id" json:"blockchain-id"`
-	VM                string `mapstructure:"vm" json:"vm"`
-	RPCEndpoint       string `mapstructure:"rpc-endpoint" json:"rpc-endpoint"`
-	AccountPrivateKey string `mapstructure:"account-private-key" json:"account-private-key"`
+	SubnetID                    string   `mapstructure:"subnet-id" json:"subnet-id"`
+	BlockchainID                string   `mapstructure:"blockchain-id" json:"blockchain-id"`
+	VM                          string   `mapstructure:"vm" json:"vm"`
+	RPCEndpoint                 string   `mapstructure:"rpc-endpoint" json:"rpc-endpoint"`
+	AccountPrivateKey           string   `mapstructure:"account-private-key" json:"account-private-key"`
+	AllowedDestinationAddresses []string `mapstructure:"allowed-destination-addresses" json:"allowed-destination-addresses"`
 
 	// Fetched from the chain after startup
 	warpQuorum WarpQuorum
 
 	// convenience fields to access parsed data after initialization
-	subnetID     ids.ID
-	blockchainID ids.ID
+	subnetID                    ids.ID
+	blockchainID                ids.ID
+	allowedDestinationAddresses []common.Address
 }
 
 type WarpQuorum struct {
@@ -452,6 +456,17 @@ func (s *SourceBlockchain) Validate(destinationBlockchainIDs *set.Set[string]) e
 		s.supportedDestinations.Add(blockchainID)
 	}
 
+	// Validate and store the allowed origin source addresses
+	allowedOriginSenderAddresses := make([]common.Address, len(s.AllowedOriginSenderAddresses))
+	for i, address := range s.AllowedOriginSenderAddresses {
+		sourceAddress, err := hex.DecodeString(utils.SanitizeHexString(address))
+		if err != nil {
+			return err
+		}
+		allowedOriginSenderAddresses[i] = common.BytesToAddress(sourceAddress)
+	}
+	s.allowedOriginSenderAddresses = allowedOriginSenderAddresses
+
 	return nil
 }
 
@@ -500,6 +515,17 @@ func (s *DestinationBlockchain) Validate() error {
 		return fmt.Errorf("invalid subnetID in configuration. error: %w", err)
 	}
 	s.subnetID = subnetID
+
+	// Validate and store the allowed destination addresses
+	allowedDestinationAddresses := make([]common.Address, len(s.allowedDestinationAddresses))
+	for i, address := range s.AllowedDestinationAddresses {
+		destinationAddress, err := hex.DecodeString(utils.SanitizeHexString(address))
+		if err != nil {
+			return err
+		}
+		allowedDestinationAddresses[i] = common.BytesToAddress(destinationAddress)
+	}
+	s.allowedDestinationAddresses = allowedDestinationAddresses
 
 	return nil
 }
