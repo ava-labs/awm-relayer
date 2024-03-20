@@ -117,7 +117,14 @@ func newMessageRelayer(
 	}, nil
 }
 
-func (r *messageRelayer) relayMessage(unsignedMessage *avalancheWarp.UnsignedMessage, requestID uint32, messageManager messages.MessageManager, useAppRequestNetwork bool) error {
+func (r *messageRelayer) relayMessage(
+	unsignedMessage *avalancheWarp.UnsignedMessage,
+	requestID uint32,
+	messageManager messages.MessageManager,
+	storeProcessedHeight bool,
+	blockNumber uint64,
+	useAppRequestNetwork bool,
+) error {
 	shouldSend, err := messageManager.ShouldSendMessage(unsignedMessage, r.destinationBlockchainID)
 	if err != nil {
 		r.logger.Error(
@@ -176,7 +183,13 @@ func (r *messageRelayer) relayMessage(unsignedMessage *avalancheWarp.UnsignedMes
 		zap.String("destinationBlockchainID", r.destinationBlockchainID.String()),
 	)
 	r.incSuccessfulRelayMessageCount()
-	return nil
+
+	if !storeProcessedHeight {
+		return nil
+	}
+
+	// Update the database with the latest processed block height
+	return r.storeLatestBlockHeight(blockNumber)
 }
 
 // createSignedMessage fetches the signed Warp message from the source chain via RPC.
