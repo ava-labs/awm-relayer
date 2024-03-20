@@ -73,21 +73,25 @@ func CalculateRelayerKey(
 func GetConfigRelayerKeys(cfg *config.Config) []RelayerKey {
 	var keys []RelayerKey
 	for _, s := range cfg.SourceBlockchains {
-		keys = append(keys, GetSourceConfigRelayerKeys(s)...)
+		keys = append(keys, GetSourceConfigRelayerKeys(s, cfg)...)
 	}
 	return keys
 }
 
 // Calculate all of the possible relayer keys for a given source blockchain
-func GetSourceConfigRelayerKeys(cfg *config.SourceBlockchain) []RelayerKey {
+func GetSourceConfigRelayerKeys(sourceBlockchain *config.SourceBlockchain, cfg *config.Config) []RelayerKey {
 	var keys []RelayerKey
-	for _, dst := range cfg.GetSupportedDestinations().List() {
-		keys = append(keys, RelayerKey{
-			SourceBlockchainID:      cfg.GetBlockchainID(),
-			DestinationBlockchainID: dst,
-			OriginSenderAddress:     common.Address{}, // TODONOW: populate with allowed sender/receiver addresses
-			DestinationAddress:      common.Address{},
-		})
+	for _, srcAddress := range cfg.GetSourceBlockchainAllowedAddresses(sourceBlockchain.GetBlockchainID()) {
+		for _, dstID := range sourceBlockchain.GetSupportedDestinations().List() {
+			for _, dstAddress := range cfg.GetDestinationBlockchainAllowedAddresses(dstID) {
+				keys = append(keys, RelayerKey{
+					SourceBlockchainID:      sourceBlockchain.GetBlockchainID(),
+					DestinationBlockchainID: dstID,
+					OriginSenderAddress:     srcAddress,
+					DestinationAddress:      dstAddress,
+				})
+			}
+		}
 	}
 	return keys
 }

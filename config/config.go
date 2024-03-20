@@ -465,6 +465,9 @@ func (s *SourceBlockchain) Validate(destinationBlockchainIDs *set.Set[string]) e
 		}
 		allowedOriginSenderAddresses[i] = common.BytesToAddress(sourceAddress)
 	}
+	if len(allowedOriginSenderAddresses) == 0 {
+		allowedOriginSenderAddresses = append(allowedOriginSenderAddresses, common.Address{})
+	}
 	s.allowedOriginSenderAddresses = allowedOriginSenderAddresses
 
 	return nil
@@ -525,6 +528,9 @@ func (s *DestinationBlockchain) Validate() error {
 		}
 		allowedDestinationAddresses[i] = common.BytesToAddress(destinationAddress)
 	}
+	if len(allowedDestinationAddresses) == 0 {
+		allowedDestinationAddresses = append(allowedDestinationAddresses, common.Address{})
+	}
 	s.allowedDestinationAddresses = allowedDestinationAddresses
 
 	return nil
@@ -583,4 +589,22 @@ func (c *Config) GetWarpQuorum(blockchainID ids.ID) (WarpQuorum, error) {
 		}
 	}
 	return WarpQuorum{}, errFailedToGetWarpQuorum
+}
+
+func (c *Config) GetSourceBlockchainAllowedAddresses(blockchainID ids.ID) []common.Address {
+	for _, s := range c.SourceBlockchains {
+		if blockchainID.String() == s.BlockchainID {
+			return s.allowedOriginSenderAddresses
+		}
+	}
+	return nil
+}
+
+func (c *Config) GetDestinationBlockchainAllowedAddresses(blockchainID ids.ID) []common.Address {
+	for _, s := range c.DestinationBlockchains {
+		if blockchainID.String() == s.BlockchainID {
+			return s.allowedDestinationAddresses
+		}
+	}
+	return nil
 }
