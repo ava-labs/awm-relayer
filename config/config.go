@@ -527,7 +527,7 @@ func (s *DestinationBlockchain) Validate() error {
 	s.subnetID = subnetID
 
 	// Validate and store the allowed destination addresses
-	allowedDestinationAddresses := make([]common.Address, len(s.allowedDestinationAddresses))
+	allowedDestinationAddresses := make([]common.Address, len(s.AllowedDestinationAddresses))
 	for i, address := range s.AllowedDestinationAddresses {
 		destinationAddress, err := hex.DecodeString(utils.SanitizeHexString(address))
 		if err != nil {

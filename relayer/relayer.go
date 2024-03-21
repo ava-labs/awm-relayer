@@ -4,6 +4,7 @@
 package relayer
 
 import (
+	"bytes"
 	"context"
 	"encoding/hex"
 	"fmt"
@@ -462,6 +463,9 @@ func (r *Relayer) CheckSupportedDestination(destinationBlockchainID ids.ID) bool
 
 func (r *Relayer) CheckAllowedOriginSenderAddress(addr common.Address) bool {
 	allowedAddresses := r.globalConfig.GetSourceBlockchainAllowedAddresses(r.sourceBlockchain.GetBlockchainID())
+	if bytes.Equal(allowedAddresses[0].Bytes(), common.Address{}.Bytes()) {
+		return true
+	}
 	for _, allowedAddress := range allowedAddresses {
 		if allowedAddress == addr {
 			return true
@@ -472,6 +476,9 @@ func (r *Relayer) CheckAllowedOriginSenderAddress(addr common.Address) bool {
 
 func (r *Relayer) CheckAllowedDestinationAddress(addr common.Address, destinationBlockchainID ids.ID) bool {
 	allowedAddresses := r.globalConfig.GetDestinationBlockchainAllowedAddresses(destinationBlockchainID)
+	if bytes.Equal(allowedAddresses[0].Bytes(), common.Address{}.Bytes()) {
+		return true
+	}
 	for _, allowedAddress := range allowedAddresses {
 		if allowedAddress == addr {
 			return true
