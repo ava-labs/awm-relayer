@@ -202,13 +202,13 @@ func SendBasicTeleporterMessage(
 	source interfaces.SubnetTestInfo,
 	destination interfaces.SubnetTestInfo,
 	fundedKey *ecdsa.PrivateKey,
-	fundedAddress common.Address,
+	destinationAddress common.Address,
 ) (*types.Receipt, teleportermessenger.TeleporterMessage, ids.ID) {
 	input := teleportermessenger.TeleporterMessageInput{
 		DestinationBlockchainID: destination.BlockchainID,
-		DestinationAddress:      fundedAddress,
+		DestinationAddress:      destinationAddress,
 		FeeInfo: teleportermessenger.TeleporterFeeInfo{
-			FeeTokenAddress: fundedAddress,
+			FeeTokenAddress: common.Address{},
 			Amount:          big.NewInt(0),
 		},
 		RequiredGasLimit:        big.NewInt(1),
@@ -241,7 +241,7 @@ func RelayBasicMessage(
 	destination interfaces.SubnetTestInfo,
 	teleporterContractAddress common.Address,
 	fundedKey *ecdsa.PrivateKey,
-	fundedAddress common.Address,
+	destinationAddress common.Address,
 ) {
 	newHeadsDest := make(chan *types.Header, 10)
 	sub, err := destination.WSClient.SubscribeNewHead(ctx, newHeadsDest)
@@ -253,7 +253,7 @@ func RelayBasicMessage(
 		source,
 		destination,
 		fundedKey,
-		fundedAddress,
+		destinationAddress,
 	)
 
 	log.Info("Waiting for new block confirmation")
@@ -379,7 +379,7 @@ func TriggerProcessMissedBlocks(
 	log.Info("Starting the relayer")
 	relayerCleanup := BuildAndRunRelayerExecutable(ctx, relayerConfigPath)
 	defer relayerCleanup()
-	log.Info("Waiting for a new block confirmation on subnet B")
+	log.Info("Waiting for a new block confirmation on the destination")
 	<-newHeads
 	delivered1, err := destinationSubnetInfo.TeleporterMessenger.MessageReceived(
 		&bind.CallOpts{}, id1,
