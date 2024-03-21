@@ -16,7 +16,6 @@ const relayerCfgFname1 = "relayer-config-1.json"
 const relayerCfgFname2 = "relayer-config-2.json"
 
 func SharedDatabaseAccess(network interfaces.LocalNetwork) {
-
 	subnetAInfo := network.GetPrimaryNetworkInfo()
 	subnetBInfo, _ := utils.GetTwoSubnets(network)
 	fundedAddress, fundedKey := network.GetFundedAccountInfo()
