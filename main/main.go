@@ -32,11 +32,6 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-const (
-	defaultApiPort     = 8080
-	defaultMetricsPort = 9090
-)
-
 func main() {
 	fs := config.BuildFlagSet()
 	v, err := config.BuildViper(fs, os.Args[1:])
@@ -149,10 +144,10 @@ func main() {
 
 	// start the health check server
 	go func() {
-		log.Fatalln(http.ListenAndServe(fmt.Sprintf(":%d", defaultApiPort), nil))
+		log.Fatalln(http.ListenAndServe(fmt.Sprintf(":%d", cfg.APIPort), nil))
 	}()
 
-	startMetricsServer(logger, gatherer, defaultMetricsPort)
+	startMetricsServer(logger, gatherer, uint32(cfg.MetricsPort))
 
 	metrics, err := relayer.NewMessageRelayerMetrics(registerer)
 	if err != nil {

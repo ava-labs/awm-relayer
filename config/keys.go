@@ -9,6 +9,8 @@ const (
 	LogLevelKey               = "log-level"
 	PChainAPIURLKey           = "p-chain-api-url"
 	InfoAPIURLKey             = "info-api-url"
+	APIPortKey                = "api-port"
+	MetricsPortKey            = "metrics-port"
 	SourceBlockchainsKey      = "source-blockchains"
 	DestinationBlockchainsKey = "destination-blockchains"
 	AccountPrivateKeyKey      = "account-private-key"
