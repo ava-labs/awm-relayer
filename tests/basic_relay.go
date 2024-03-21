@@ -121,7 +121,8 @@ func BasicRelay(network interfaces.LocalNetwork) {
 	jsonDB, err := database.NewJSONFileStorage(logger, relayerConfig.StorageLocation, database.GetConfigRelayerKeys(&relayerConfig))
 	Expect(err).Should(BeNil())
 
-	relayerKeyA := database.CalculateRelayerKey(subnetAInfo.BlockchainID, subnetBInfo.BlockchainID, common.Address{}, common.Address{}) // TODONOW: update the src/dst addresses once allow lists added
+	// Create relayer keys that allow all source and destination addresses
+	relayerKeyA := database.CalculateRelayerKey(subnetAInfo.BlockchainID, subnetBInfo.BlockchainID, common.Address{}, common.Address{})
 	relayerKeyB := database.CalculateRelayerKey(subnetBInfo.BlockchainID, subnetAInfo.BlockchainID, common.Address{}, common.Address{})
 	// Modify the JSON database to force the relayer to re-process old blocks
 	jsonDB.Put(relayerKeyA, []byte(database.LatestProcessedBlockKey), []byte("0"))
