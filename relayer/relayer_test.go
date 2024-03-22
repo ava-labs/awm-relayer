@@ -19,31 +19,10 @@ import (
 var id1 ids.ID = ids.GenerateTestID()
 var id2 ids.ID = ids.GenerateTestID()
 
-var validSourceBlockchainConfig = &config.SourceBlockchain{
-	RPCEndpoint:  "http://test.avax.network/ext/bc/C/rpc",
-	WSEndpoint:   "ws://test.avax.network/ext/bc/C/ws",
-	BlockchainID: "S4mMqUXe7vHsGiRAma6bv3CKnyaLssyAxmQ2KvFpX1KEvfFCD",
-	SubnetID:     "2TGBXcnwx5PqiXWiqxAKUaNSqDguXNh1mxnp82jui68hxJSZAx",
-	VM:           "evm",
-	MessageContracts: map[string]config.MessageProtocolConfig{
-		"0xd81545385803bCD83bd59f58Ba2d2c0562387F83": {
-			MessageFormat: config.TELEPORTER.String(),
-		},
-	},
-}
-
-var validDestinationBlockchainConfig = &config.DestinationBlockchain{
-	SubnetID:          "2TGBXcnwx5PqiXWiqxAKUaNSqDguXNh1mxnp82jui68hxJSZAx",
-	BlockchainID:      "S4mMqUXe7vHsGiRAma6bv3CKnyaLssyAxmQ2KvFpX1KEvfFCD",
-	VM:                "evm",
-	RPCEndpoint:       "http://test.avax.network/ext/bc/C/rpc",
-	AccountPrivateKey: "1234567890123456789012345678901234567890123456789012345678901234",
-}
-
 func populateSourceConfig(blockchainIDs []ids.ID, supportedDestinations []string, allowedAddresses []string) []*config.SourceBlockchain {
 	sourceBlockchains := make([]*config.SourceBlockchain, len(blockchainIDs))
 	for i, id := range blockchainIDs {
-		sourceBlockchains[i] = validSourceBlockchainConfig
+		sourceBlockchains[i] = &config.TestValidSourceBlockchainConfig
 		sourceBlockchains[i].BlockchainID = id.String()
 		sourceBlockchains[i].SupportedDestinations = supportedDestinations
 		sourceBlockchains[i].AllowedOriginSenderAddresses = allowedAddresses
@@ -57,11 +36,11 @@ func populateSourceConfig(blockchainIDs []ids.ID, supportedDestinations []string
 }
 
 func populateDestinationConfig(allowedAddresses []string) []*config.DestinationBlockchain {
-	destinationBlockchain := validDestinationBlockchainConfig
+	destinationBlockchain := config.TestValidDestinationBlockchainConfig
 	destinationBlockchain.BlockchainID = id1.String()
 	destinationBlockchain.AllowedDestinationAddresses = allowedAddresses
 	destinationBlockchain.Validate()
-	return []*config.DestinationBlockchain{destinationBlockchain}
+	return []*config.DestinationBlockchain{&destinationBlockchain}
 }
 
 func makeTestRelayer(t *testing.T, supportedDestinations []string, allowedAddresses []string) *Relayer {
