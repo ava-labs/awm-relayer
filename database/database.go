@@ -20,15 +20,20 @@ const (
 )
 
 var (
-	ErrKeyNotFound              = errors.New("key not found")
-	ErrChainNotFound            = errors.New("no database for chain")
+	ErrDataKeyNotFound          = errors.New("data key not found")
+	ErrRelayerKeyNotFound       = errors.New("no database for relayer key")
 	ErrDatabaseMisconfiguration = errors.New("database misconfiguration")
 )
 
 // RelayerDatabase is a key-value store for relayer state, with each blockchainID maintaining its own state
 type RelayerDatabase interface {
-	Get(relayerKey common.Hash, key []byte) ([]byte, error)
-	Put(relayerKey common.Hash, key []byte, value []byte) error
+	Get(relayerKey common.Hash, dataKey []byte) ([]byte, error)
+	Put(relayerKey common.Hash, dataKey []byte, value []byte) error
+}
+
+// Returns true if an error returned by a RelayerDatabase indicates the requested key was not found
+func IsKeyNotFoundError(err error) bool {
+	return errors.Is(err, ErrRelayerKeyNotFound) || errors.Is(err, ErrDataKeyNotFound)
 }
 
 // RelayerKey is a unique identifier for an application relayer
