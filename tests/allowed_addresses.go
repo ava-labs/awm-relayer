@@ -3,8 +3,11 @@ package tests
 import (
 	"context"
 	"crypto/ecdsa"
+	"strconv"
 	"time"
 
+	"github.com/ava-labs/avalanchego/utils/logging"
+	"github.com/ava-labs/awm-relayer/database"
 	testUtils "github.com/ava-labs/awm-relayer/tests/utils"
 	"github.com/ava-labs/subnet-evm/accounts/abi/bind"
 	"github.com/ava-labs/teleporter/tests/interfaces"
@@ -160,6 +163,8 @@ func AllowedAddresses(network interfaces.LocalNetwork) {
 		allowedKeys[generalAllowedAddressIdx],
 		allowedAddresses[generalAllowedAddressIdx],
 	)
+	height1, err := subnetAInfo.RPCClient.BlockNumber(ctx)
+	Expect(err).Should(BeNil())
 	relayerCleanup()
 
 	// Test Relayer 2
@@ -196,6 +201,8 @@ func AllowedAddresses(network interfaces.LocalNetwork) {
 		allowedKeys[relayer2AllowedSrcAddressIdx],
 		allowedAddresses[generalAllowedAddressIdx],
 	)
+	height2, err := subnetAInfo.RPCClient.BlockNumber(ctx)
+	Expect(err).Should(BeNil())
 	relayerCleanup()
 
 	// Test Relayer 3
@@ -232,6 +239,8 @@ func AllowedAddresses(network interfaces.LocalNetwork) {
 		allowedKeys[generalAllowedAddressIdx],
 		allowedAddresses[relayer3AllowedDstAddressIdx],
 	)
+	height3, err := subnetAInfo.RPCClient.BlockNumber(ctx)
+	Expect(err).Should(BeNil())
 	relayerCleanup()
 
 	// Test Relayer 4
@@ -268,7 +277,65 @@ func AllowedAddresses(network interfaces.LocalNetwork) {
 		allowedKeys[relayer4AllowedSrcAddressIdx],
 		allowedAddresses[relayer4AllowedDstAddressIdx],
 	)
+	height4, err := subnetAInfo.RPCClient.BlockNumber(ctx)
+	Expect(err).Should(BeNil())
 	relayerCleanup()
 
+	//
 	// Check the database state to ensure that the four relayer instances wrote to distinct keys
+	//
+
+	// Create relayer keys that allow all source and destination addresses
+	relayerKey1 := database.RelayerKey{
+		SourceBlockchainID:      subnetAInfo.BlockchainID,
+		DestinationBlockchainID: subnetBInfo.BlockchainID,
+		OriginSenderAddress:     common.Address{},
+		DestinationAddress:      common.Address{},
+	}
+	relayerKey2 := database.RelayerKey{
+		SourceBlockchainID:      subnetAInfo.BlockchainID,
+		DestinationBlockchainID: subnetBInfo.BlockchainID,
+		OriginSenderAddress:     allowedAddresses[relayer2AllowedSrcAddressIdx],
+		DestinationAddress:      common.Address{},
+	}
+	relayerKey3 := database.RelayerKey{
+		SourceBlockchainID:      subnetAInfo.BlockchainID,
+		DestinationBlockchainID: subnetBInfo.BlockchainID,
+		OriginSenderAddress:     common.Address{},
+		DestinationAddress:      allowedAddresses[relayer3AllowedDstAddressIdx],
+	}
+	relayerKey4 := database.RelayerKey{
+		SourceBlockchainID:      subnetAInfo.BlockchainID,
+		DestinationBlockchainID: subnetBInfo.BlockchainID,
+		OriginSenderAddress:     allowedAddresses[relayer4AllowedSrcAddressIdx],
+		DestinationAddress:      allowedAddresses[relayer4AllowedDstAddressIdx],
+	}
+	relayerKeys := []database.RelayerKey{relayerKey1, relayerKey2, relayerKey3, relayerKey4}
+	jsonDB, err := database.NewJSONFileStorage(logging.NoLog{}, testUtils.StorageLocation, relayerKeys)
+	Expect(err).Should(BeNil())
+
+	// Fetch the checkpointed heights from the shared database
+	data, err := jsonDB.Get(relayerKey1.CalculateRelayerKey(), []byte(database.LatestProcessedBlockKey))
+	Expect(err).Should(BeNil())
+	storedHeight1, err := strconv.ParseUint(string(data), 10, 64)
+	Expect(err).Should(BeNil())
+	Expect(storedHeight1).Should(Equal(height1))
+
+	data, err = jsonDB.Get(relayerKey2.CalculateRelayerKey(), []byte(database.LatestProcessedBlockKey))
+	Expect(err).Should(BeNil())
+	storedHeight2, err := strconv.ParseUint(string(data), 10, 64)
+	Expect(err).Should(BeNil())
+	Expect(storedHeight2).Should(Equal(height2))
+
+	data, err = jsonDB.Get(relayerKey3.CalculateRelayerKey(), []byte(database.LatestProcessedBlockKey))
+	Expect(err).Should(BeNil())
+	storedHeight3, err := strconv.ParseUint(string(data), 10, 64)
+	Expect(err).Should(BeNil())
+	Expect(storedHeight3).Should(Equal(height3))
+
+	data, err = jsonDB.Get(relayerKey4.CalculateRelayerKey(), []byte(database.LatestProcessedBlockKey))
+	Expect(err).Should(BeNil())
+	storedHeight4, err := strconv.ParseUint(string(data), 10, 64)
+	Expect(err).Should(BeNil())
+	Expect(storedHeight4).Should(Equal(height4))
 }
