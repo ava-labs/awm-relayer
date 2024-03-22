@@ -4,6 +4,8 @@ import (
 	"testing"
 
 	"github.com/ava-labs/avalanchego/ids"
+	"github.com/ava-labs/avalanchego/utils/set"
+	"github.com/ava-labs/awm-relayer/config"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
@@ -90,5 +92,77 @@ func TestCalculateRelayerKey(t *testing.T) {
 			testCase.destinationAddress,
 		)
 		require.Equal(t, testCase.expected, result, testCase.name)
+	}
+}
+
+func TestGetConfigRelayerKeys(t *testing.T) {
+	allowedAddress := common.HexToAddress("0x0123456789abcdef0123456789abcdef01234567")
+	// Create a configuration with two source and two destination blockchains.
+	// One of which allows all addresses, the other only a specific address.
+	srcCfg1 := config.TestValidSourceBlockchainConfig
+	srcCfg2 := config.TestValidSourceBlockchainConfig
+	srcCfg2.BlockchainID = ids.GenerateTestID().String()
+	srcCfg2.AllowedOriginSenderAddresses = []string{allowedAddress.String()}
+
+	dstCfg1 := config.TestValidDestinationBlockchainConfig
+	dstCfg2 := config.TestValidDestinationBlockchainConfig
+	dstCfg2.BlockchainID = ids.GenerateTestID().String()
+	dstCfg2.AllowedDestinationAddresses = []string{allowedAddress.String()}
+
+	allowedDestinations := set.NewSet[string](2)
+	allowedDestinations.Add(dstCfg1.BlockchainID)
+	allowedDestinations.Add(dstCfg2.BlockchainID)
+	err := srcCfg1.Validate(&allowedDestinations)
+	require.ErrorIs(t, err, nil)
+	err = srcCfg2.Validate(&allowedDestinations)
+	require.ErrorIs(t, err, nil)
+	err = dstCfg1.Validate()
+	require.ErrorIs(t, err, nil)
+	err = dstCfg2.Validate()
+	require.ErrorIs(t, err, nil)
+
+	cfg := &config.Config{
+		SourceBlockchains:      []*config.SourceBlockchain{&srcCfg1, &srcCfg2},
+		DestinationBlockchains: []*config.DestinationBlockchain{&dstCfg1, &dstCfg2},
+	}
+
+	targetKeys := []RelayerKey{
+		{
+			SourceBlockchainID:      srcCfg1.GetBlockchainID(),
+			DestinationBlockchainID: dstCfg1.GetBlockchainID(),
+			OriginSenderAddress:     common.Address{},
+			DestinationAddress:      common.Address{},
+		},
+		{
+			SourceBlockchainID:      srcCfg1.GetBlockchainID(),
+			DestinationBlockchainID: dstCfg2.GetBlockchainID(),
+			OriginSenderAddress:     common.Address{},
+			DestinationAddress:      allowedAddress,
+		},
+		{
+			SourceBlockchainID:      srcCfg2.GetBlockchainID(),
+			DestinationBlockchainID: dstCfg1.GetBlockchainID(),
+			OriginSenderAddress:     allowedAddress,
+			DestinationAddress:      common.Address{},
+		},
+		{
+			SourceBlockchainID:      srcCfg2.GetBlockchainID(),
+			DestinationBlockchainID: dstCfg2.GetBlockchainID(),
+			OriginSenderAddress:     allowedAddress,
+			DestinationAddress:      allowedAddress,
+		},
+	}
+
+	relayerKeys := GetConfigRelayerKeys(cfg)
+
+	for _, key := range targetKeys {
+		require.True(t, func(keys []RelayerKey, target RelayerKey) bool {
+			for _, key := range keys {
+				if key.CalculateRelayerKey() == target.CalculateRelayerKey() {
+					return true
+				}
+			}
+			return false
+		}(relayerKeys, key))
 	}
 }
