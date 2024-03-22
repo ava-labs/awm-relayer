@@ -30,7 +30,6 @@ import (
 	"github.com/ava-labs/subnet-evm/ethclient"
 	msg "github.com/ava-labs/subnet-evm/plugin/evm/message"
 	warpBackend "github.com/ava-labs/subnet-evm/warp"
-	"github.com/ethereum/go-ethereum/common"
 	"go.uber.org/zap"
 )
 
@@ -64,8 +63,6 @@ type messageRelayer struct {
 	responseChan            chan message.InboundMessage
 	sourceBlockchain        config.SourceBlockchain
 	destinationBlockchainID ids.ID
-	originSenderAddress     common.Address
-	destinationAddress      common.Address
 	signingSubnetID         ids.ID
 	relayerKey              database.RelayerKey
 	warpQuorum              config.WarpQuorum
@@ -108,8 +105,6 @@ func newMessageRelayer(
 		responseChan:            responseChan,
 		sourceBlockchain:        sourceBlockchain,
 		destinationBlockchainID: relayerKey.DestinationBlockchainID,
-		originSenderAddress:     relayerKey.OriginSenderAddress,
-		destinationAddress:      relayerKey.DestinationAddress,
 		relayerKey:              relayerKey,
 		signingSubnetID:         signingSubnet,
 		warpQuorum:              quorum,
@@ -607,7 +602,7 @@ func (r *messageRelayer) aggregateSignatures(signatureMap map[int]blsSignatureBu
 //     we return the chain head.
 func (r *messageRelayer) calculateStartingBlockHeight(processHistoricalBlocksFromHeight uint64) (uint64, error) {
 	latestProcessedBlock, err := r.getLatestProcessedBlockHeight()
-	if errors.Is(err, database.ErrChainNotFound) || errors.Is(err, database.ErrKeyNotFound) {
+	if database.IsKeyNotFoundError(err) {
 		// The database does not contain the latest processed block data for the chain,
 		// use the configured process-historical-blocks-from-height instead.
 		// If process-historical-blocks-from-height was not configured, start from the chain head.
@@ -710,7 +705,7 @@ func (r *messageRelayer) storeLatestBlockHeight(height uint64) error {
 	// First, check that the stored height is less than the current block height
 	// This is necessary because the relayer may be processing blocks out of order on startup
 	latestProcessedBlock, err := r.getLatestProcessedBlockHeight()
-	if err != nil && !errors.Is(err, database.ErrChainNotFound) && !errors.Is(err, database.ErrKeyNotFound) {
+	if err != nil && !database.IsKeyNotFoundError(err) {
 		r.logger.Error(
 			"Encountered an unknown error while getting latest processed block from database",
 			zap.String("relayerKey", r.relayerKey.CalculateRelayerKey().String()),

@@ -245,7 +245,7 @@ The relayer consists of the following components:
 - Per Destination Blockchain
   - Destination RPC client: broadcasts transactions to the destination
 - Application Relayers
-  - Relays messages from a specific source blockchain and source address to a specific destination blockchain and destination address
+  - Relay messages from a specific source blockchain and source address to a specific destination blockchain and destination address
 
 ### Data Flow
 
