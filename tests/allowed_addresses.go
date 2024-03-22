@@ -7,7 +7,6 @@ import (
 
 	testUtils "github.com/ava-labs/awm-relayer/tests/utils"
 	"github.com/ava-labs/subnet-evm/accounts/abi/bind"
-	"github.com/ava-labs/subnet-evm/core/types"
 	"github.com/ava-labs/teleporter/tests/interfaces"
 	"github.com/ava-labs/teleporter/tests/utils"
 	"github.com/ethereum/go-ethereum/common"
@@ -44,24 +43,15 @@ func AllowedAddresses(network interfaces.LocalNetwork) {
 	ctx := context.Background()
 
 	log.Info("Funding relayer address on all subnets")
-	relayerKey1, err := crypto.GenerateKey()
+	relayerKey, err := crypto.GenerateKey()
 	Expect(err).Should(BeNil())
-	relayerKey2, err := crypto.GenerateKey()
-	Expect(err).Should(BeNil())
-	relayerKey3, err := crypto.GenerateKey()
-	Expect(err).Should(BeNil())
-	relayerKey4, err := crypto.GenerateKey()
-	Expect(err).Should(BeNil())
+	testUtils.FundRelayers(ctx, []interfaces.SubnetTestInfo{subnetAInfo, subnetBInfo}, fundedKey, relayerKey)
 
-	testUtils.FundRelayers(ctx, []interfaces.SubnetTestInfo{subnetAInfo, subnetBInfo}, fundedKey, relayerKey1)
-	testUtils.FundRelayers(ctx, []interfaces.SubnetTestInfo{subnetAInfo, subnetBInfo}, fundedKey, relayerKey2)
-	testUtils.FundRelayers(ctx, []interfaces.SubnetTestInfo{subnetAInfo, subnetBInfo}, fundedKey, relayerKey3)
-	testUtils.FundRelayers(ctx, []interfaces.SubnetTestInfo{subnetAInfo, subnetBInfo}, fundedKey, relayerKey4)
-
-	// Create a distinct key/address to be used in the configuration, and fund it
+	// Create distinct key/address pairs to be used in the configuration, and fund them
 	var allowedKeys []*ecdsa.PrivateKey
 	var allowedAddresses []common.Address
 	var allowedAddressesStr []string
+
 	for i := 0; i < numKeys; i++ {
 		allowedKey, err := crypto.GenerateKey()
 		Expect(err).Should(BeNil())
@@ -73,6 +63,17 @@ func AllowedAddresses(network interfaces.LocalNetwork) {
 	}
 	log.Info("Allowed addresses", "allowedAddresses", allowedAddressesStr)
 
+	// Track which addresses are allowed by each relayer
+	generalAllowedAddressIdx := 0
+	relayer2AllowedSrcAddressIdx := 1
+	relayer3AllowedDstAddressIdx := 2
+	relayer4AllowedSrcAddressIdx := 3
+	relayer4AllowedDstAddressIdx := 0
+
+	//
+	// Configure the relayers
+	//
+
 	// All sources -> All destinations
 	// Will send from allowed Address 0 -> 0
 	relayerConfig1 := testUtils.CreateDefaultRelayerConfig(
@@ -80,7 +81,7 @@ func AllowedAddresses(network interfaces.LocalNetwork) {
 		[]interfaces.SubnetTestInfo{subnetAInfo, subnetBInfo},
 		teleporterContractAddress,
 		fundedAddress,
-		relayerKey1,
+		relayerKey,
 	)
 
 	// Specific source -> All destinations
@@ -90,10 +91,10 @@ func AllowedAddresses(network interfaces.LocalNetwork) {
 		[]interfaces.SubnetTestInfo{subnetAInfo, subnetBInfo},
 		teleporterContractAddress,
 		fundedAddress,
-		relayerKey2,
+		relayerKey,
 	)
 	for _, src := range relayerConfig2.SourceBlockchains {
-		src.AllowedOriginSenderAddresses = []string{allowedAddresses[1].String()}
+		src.AllowedOriginSenderAddresses = []string{allowedAddresses[relayer2AllowedSrcAddressIdx].String()}
 	}
 	relayerConfig2.APIPort = 8081
 	relayerConfig2.MetricsPort = 9091
@@ -105,10 +106,10 @@ func AllowedAddresses(network interfaces.LocalNetwork) {
 		[]interfaces.SubnetTestInfo{subnetAInfo, subnetBInfo},
 		teleporterContractAddress,
 		fundedAddress,
-		relayerKey3,
+		relayerKey,
 	)
 	for _, dst := range relayerConfig3.DestinationBlockchains {
-		dst.AllowedDestinationAddresses = []string{allowedAddresses[2].String()}
+		dst.AllowedDestinationAddresses = []string{allowedAddresses[relayer3AllowedDstAddressIdx].String()}
 	}
 	relayerConfig3.APIPort = 8082
 	relayerConfig3.MetricsPort = 9092
@@ -120,13 +121,13 @@ func AllowedAddresses(network interfaces.LocalNetwork) {
 		[]interfaces.SubnetTestInfo{subnetAInfo, subnetBInfo},
 		teleporterContractAddress,
 		fundedAddress,
-		relayerKey4,
+		relayerKey,
 	)
 	for _, src := range relayerConfig4.SourceBlockchains {
-		src.AllowedOriginSenderAddresses = []string{allowedAddresses[3].String()}
+		src.AllowedOriginSenderAddresses = []string{allowedAddresses[relayer4AllowedSrcAddressIdx].String()}
 	}
 	for _, dst := range relayerConfig4.DestinationBlockchains {
-		dst.AllowedDestinationAddresses = []string{allowedAddresses[0].String()}
+		dst.AllowedDestinationAddresses = []string{allowedAddresses[relayer4AllowedDstAddressIdx].String()}
 	}
 	relayerConfig4.APIPort = 8083
 	relayerConfig4.MetricsPort = 9093
@@ -140,100 +141,43 @@ func AllowedAddresses(network interfaces.LocalNetwork) {
 	// Test Relaying from Subnet A to Subnet B
 	//
 	log.Info("Test Relaying from Subnet A to Subnet B")
-	// Subscribe to the destination chain
-	newHeadsB := make(chan *types.Header, 10)
-	sub, err := subnetBInfo.WSClient.SubscribeNewHead(ctx, newHeadsB)
-	Expect(err).Should(BeNil())
-	defer sub.Unsubscribe()
 
-	// Test Relayer 4
-	log.Info("Testing Relayer 4")
-	relayerCleanup4 := testUtils.BuildAndRunRelayerExecutable(ctx, relayerConfigPath4)
-	defer relayerCleanup4()
+	// Test Relayer 1
+	log.Info("Testing Relayer 1: All sources -> All destinations")
+	relayerCleanup := testUtils.BuildAndRunRelayerExecutable(ctx, relayerConfigPath1)
+	defer relayerCleanup()
 
 	// Sleep for some time to make sure relayer has started up and subscribed.
 	log.Info("Waiting for the relayers to start up")
 	time.Sleep(10 * time.Second)
 
-	// Disallowed by Relayer 4
-	_, _, id := testUtils.SendBasicTeleporterMessage(
-		ctx,
-		subnetAInfo,
-		subnetBInfo,
-		allowedKeys[0], // not allowed
-		allowedAddresses[0],
-	)
-	Consistently(func() bool {
-		delivered, err := subnetBInfo.TeleporterMessenger.MessageReceived(
-			&bind.CallOpts{}, id,
-		)
-		Expect(err).Should(BeNil())
-		return delivered
-	}, 10*time.Second, 500*time.Millisecond).Should(BeFalse())
-
-	// Allowed by Relayer 4
+	// Allowed by Relayer 1
 	testUtils.RelayBasicMessage(
 		ctx,
 		subnetAInfo,
 		subnetBInfo,
 		teleporterContractAddress,
-		allowedKeys[3],
-		allowedAddresses[0],
+		allowedKeys[generalAllowedAddressIdx],
+		allowedAddresses[generalAllowedAddressIdx],
 	)
-	relayerCleanup4()
-
-	// Test Relayer 3
-	log.Info("Testing Relayer 3")
-	relayerCleanup3 := testUtils.BuildAndRunRelayerExecutable(ctx, relayerConfigPath3)
-	defer relayerCleanup3()
-
-	// Sleep for some time to make sure relayer has started up and subscribed.
-	log.Info("Waiting for the relayers to start up")
-	time.Sleep(10 * time.Second)
-
-	// Disallowed by Relayer 3
-	_, _, id = testUtils.SendBasicTeleporterMessage(
-		ctx,
-		subnetAInfo,
-		subnetBInfo,
-		allowedKeys[0],
-		allowedAddresses[0], // not allowed
-	)
-	Consistently(func() bool {
-		delivered, err := subnetBInfo.TeleporterMessenger.MessageReceived(
-			&bind.CallOpts{}, id,
-		)
-		Expect(err).Should(BeNil())
-		return delivered
-	}, 10*time.Second, 500*time.Millisecond).Should(BeFalse())
-
-	// Allowed by Relayer 3
-	testUtils.RelayBasicMessage(
-		ctx,
-		subnetAInfo,
-		subnetBInfo,
-		teleporterContractAddress,
-		allowedKeys[0],
-		allowedAddresses[2],
-	)
-	relayerCleanup3()
+	relayerCleanup()
 
 	// Test Relayer 2
-	log.Info("Testing Relayer 2")
-	relayerCleanup2 := testUtils.BuildAndRunRelayerExecutable(ctx, relayerConfigPath2)
-	defer relayerCleanup2()
+	log.Info("Testing Relayer 2: Specific source -> All destinations")
+	relayerCleanup = testUtils.BuildAndRunRelayerExecutable(ctx, relayerConfigPath2)
+	defer relayerCleanup()
 
 	// Sleep for some time to make sure relayer has started up and subscribed.
 	log.Info("Waiting for the relayers to start up")
 	time.Sleep(10 * time.Second)
 
 	// Disallowed by Relayer 2
-	_, _, id = testUtils.SendBasicTeleporterMessage(
+	_, _, id := testUtils.SendBasicTeleporterMessage(
 		ctx,
 		subnetAInfo,
 		subnetBInfo,
-		allowedKeys[0], // not allowed
-		allowedAddresses[0],
+		allowedKeys[generalAllowedAddressIdx], // not allowed
+		allowedAddresses[generalAllowedAddressIdx],
 	)
 	Consistently(func() bool {
 		delivered, err := subnetBInfo.TeleporterMessenger.MessageReceived(
@@ -249,30 +193,82 @@ func AllowedAddresses(network interfaces.LocalNetwork) {
 		subnetAInfo,
 		subnetBInfo,
 		teleporterContractAddress,
-		allowedKeys[1],
-		allowedAddresses[0],
+		allowedKeys[relayer2AllowedSrcAddressIdx],
+		allowedAddresses[generalAllowedAddressIdx],
 	)
-	relayerCleanup2()
+	relayerCleanup()
 
-	// Test Relayer 1
-	log.Info("Testing Relayer 1")
-	relayerCleanup1 := testUtils.BuildAndRunRelayerExecutable(ctx, relayerConfigPath1)
-	defer relayerCleanup1()
+	// Test Relayer 3
+	log.Info("Testing Relayer 3: All sources -> Specific destination")
+	relayerCleanup = testUtils.BuildAndRunRelayerExecutable(ctx, relayerConfigPath3)
+	defer relayerCleanup()
 
 	// Sleep for some time to make sure relayer has started up and subscribed.
 	log.Info("Waiting for the relayers to start up")
 	time.Sleep(10 * time.Second)
 
-	// Allowed by Relayer 1
+	// Disallowed by Relayer 3
+	_, _, id = testUtils.SendBasicTeleporterMessage(
+		ctx,
+		subnetAInfo,
+		subnetBInfo,
+		allowedKeys[generalAllowedAddressIdx],
+		allowedAddresses[generalAllowedAddressIdx], // not allowed
+	)
+	Consistently(func() bool {
+		delivered, err := subnetBInfo.TeleporterMessenger.MessageReceived(
+			&bind.CallOpts{}, id,
+		)
+		Expect(err).Should(BeNil())
+		return delivered
+	}, 10*time.Second, 500*time.Millisecond).Should(BeFalse())
+
+	// Allowed by Relayer 3
 	testUtils.RelayBasicMessage(
 		ctx,
 		subnetAInfo,
 		subnetBInfo,
 		teleporterContractAddress,
-		allowedKeys[0],
-		allowedAddresses[0],
+		allowedKeys[generalAllowedAddressIdx],
+		allowedAddresses[relayer3AllowedDstAddressIdx],
 	)
-	relayerCleanup1()
+	relayerCleanup()
+
+	// Test Relayer 4
+	log.Info("Testing Relayer 4: Specific source -> Specific destination")
+	relayerCleanup = testUtils.BuildAndRunRelayerExecutable(ctx, relayerConfigPath4)
+	defer relayerCleanup()
+
+	// Sleep for some time to make sure relayer has started up and subscribed.
+	log.Info("Waiting for the relayers to start up")
+	time.Sleep(10 * time.Second)
+
+	// Disallowed by Relayer 4
+	_, _, id = testUtils.SendBasicTeleporterMessage(
+		ctx,
+		subnetAInfo,
+		subnetBInfo,
+		allowedKeys[generalAllowedAddressIdx], // not allowed
+		allowedAddresses[generalAllowedAddressIdx],
+	)
+	Consistently(func() bool {
+		delivered, err := subnetBInfo.TeleporterMessenger.MessageReceived(
+			&bind.CallOpts{}, id,
+		)
+		Expect(err).Should(BeNil())
+		return delivered
+	}, 10*time.Second, 500*time.Millisecond).Should(BeFalse())
+
+	// Allowed by Relayer 4
+	testUtils.RelayBasicMessage(
+		ctx,
+		subnetAInfo,
+		subnetBInfo,
+		teleporterContractAddress,
+		allowedKeys[relayer4AllowedSrcAddressIdx],
+		allowedAddresses[relayer4AllowedDstAddressIdx],
+	)
+	relayerCleanup()
 
 	// Check the database state to ensure that the four relayer instances wrote to distinct keys
 }
