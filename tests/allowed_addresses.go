@@ -6,6 +6,7 @@ import (
 	"time"
 
 	testUtils "github.com/ava-labs/awm-relayer/tests/utils"
+	"github.com/ava-labs/subnet-evm/accounts/abi/bind"
 	"github.com/ava-labs/subnet-evm/core/types"
 	"github.com/ava-labs/teleporter/tests/interfaces"
 	"github.com/ava-labs/teleporter/tests/utils"
@@ -60,6 +61,7 @@ func AllowedAddresses(network interfaces.LocalNetwork) {
 	// Create a distinct key/address to be used in the configuration, and fund it
 	var allowedKeys []*ecdsa.PrivateKey
 	var allowedAddresses []common.Address
+	var allowedAddressesStr []string
 	for i := 0; i < numKeys; i++ {
 		allowedKey, err := crypto.GenerateKey()
 		Expect(err).Should(BeNil())
@@ -67,7 +69,9 @@ func AllowedAddresses(network interfaces.LocalNetwork) {
 		testUtils.FundRelayers(ctx, []interfaces.SubnetTestInfo{subnetAInfo, subnetBInfo}, fundedKey, allowedKey)
 		allowedKeys = append(allowedKeys, allowedKey)
 		allowedAddresses = append(allowedAddresses, allowedAddress)
+		allowedAddressesStr = append(allowedAddressesStr, allowedAddress.String())
 	}
+	log.Info("Allowed addresses", "allowedAddresses", allowedAddressesStr)
 
 	// All sources -> All destinations
 	// Will send from allowed Address 0 -> 0
@@ -88,7 +92,9 @@ func AllowedAddresses(network interfaces.LocalNetwork) {
 		fundedAddress,
 		relayerKey2,
 	)
-	relayerConfig2.SourceBlockchains[0].AllowedOriginSenderAddresses = []string{allowedAddresses[1].String()}
+	for _, src := range relayerConfig2.SourceBlockchains {
+		src.AllowedOriginSenderAddresses = []string{allowedAddresses[1].String()}
+	}
 	relayerConfig2.APIPort = 8081
 	relayerConfig2.MetricsPort = 9091
 
@@ -101,7 +107,9 @@ func AllowedAddresses(network interfaces.LocalNetwork) {
 		fundedAddress,
 		relayerKey3,
 	)
-	relayerConfig3.DestinationBlockchains[0].AllowedDestinationAddresses = []string{allowedAddresses[2].String()}
+	for _, dst := range relayerConfig3.DestinationBlockchains {
+		dst.AllowedDestinationAddresses = []string{allowedAddresses[2].String()}
+	}
 	relayerConfig3.APIPort = 8082
 	relayerConfig3.MetricsPort = 9092
 
@@ -114,8 +122,12 @@ func AllowedAddresses(network interfaces.LocalNetwork) {
 		fundedAddress,
 		relayerKey4,
 	)
-	relayerConfig4.SourceBlockchains[0].AllowedOriginSenderAddresses = []string{allowedAddresses[3].String()}
-	relayerConfig4.DestinationBlockchains[0].AllowedDestinationAddresses = []string{allowedAddresses[0].String()}
+	for _, src := range relayerConfig4.SourceBlockchains {
+		src.AllowedOriginSenderAddresses = []string{allowedAddresses[3].String()}
+	}
+	for _, dst := range relayerConfig4.DestinationBlockchains {
+		dst.AllowedDestinationAddresses = []string{allowedAddresses[0].String()}
+	}
 	relayerConfig4.APIPort = 8083
 	relayerConfig4.MetricsPort = 9093
 
@@ -134,11 +146,8 @@ func AllowedAddresses(network interfaces.LocalNetwork) {
 	Expect(err).Should(BeNil())
 	defer sub.Unsubscribe()
 
-	// Test each relayer individually, going in descending order of restriction.
-	// Otherwise, less restrictive relayers will relay messages that are intended to be
-	// disallowed by more restrictive relayers.
-
 	// Test Relayer 4
+	log.Info("Testing Relayer 4")
 	relayerCleanup4 := testUtils.BuildAndRunRelayerExecutable(ctx, relayerConfigPath4)
 	defer relayerCleanup4()
 
@@ -147,14 +156,20 @@ func AllowedAddresses(network interfaces.LocalNetwork) {
 	time.Sleep(10 * time.Second)
 
 	// Disallowed by Relayer 4
-	testUtils.SendBasicTeleporterMessage(
+	_, _, id := testUtils.SendBasicTeleporterMessage(
 		ctx,
 		subnetAInfo,
 		subnetBInfo,
 		allowedKeys[0], // not allowed
 		allowedAddresses[0],
 	)
-	Consistently(newHeadsB, 10*time.Second, 500*time.Millisecond).ShouldNot(Receive())
+	Consistently(func() bool {
+		delivered, err := subnetBInfo.TeleporterMessenger.MessageReceived(
+			&bind.CallOpts{}, id,
+		)
+		Expect(err).Should(BeNil())
+		return delivered
+	}, 10*time.Second, 500*time.Millisecond).Should(BeFalse())
 
 	// Allowed by Relayer 4
 	testUtils.RelayBasicMessage(
@@ -165,8 +180,10 @@ func AllowedAddresses(network interfaces.LocalNetwork) {
 		allowedKeys[3],
 		allowedAddresses[0],
 	)
+	relayerCleanup4()
 
 	// Test Relayer 3
+	log.Info("Testing Relayer 3")
 	relayerCleanup3 := testUtils.BuildAndRunRelayerExecutable(ctx, relayerConfigPath3)
 	defer relayerCleanup3()
 
@@ -175,14 +192,20 @@ func AllowedAddresses(network interfaces.LocalNetwork) {
 	time.Sleep(10 * time.Second)
 
 	// Disallowed by Relayer 3
-	testUtils.SendBasicTeleporterMessage(
+	_, _, id = testUtils.SendBasicTeleporterMessage(
 		ctx,
 		subnetAInfo,
 		subnetBInfo,
 		allowedKeys[0],
 		allowedAddresses[0], // not allowed
 	)
-	Consistently(newHeadsB, 10*time.Second, 500*time.Millisecond).ShouldNot(Receive())
+	Consistently(func() bool {
+		delivered, err := subnetBInfo.TeleporterMessenger.MessageReceived(
+			&bind.CallOpts{}, id,
+		)
+		Expect(err).Should(BeNil())
+		return delivered
+	}, 10*time.Second, 500*time.Millisecond).Should(BeFalse())
 
 	// Allowed by Relayer 3
 	testUtils.RelayBasicMessage(
@@ -190,11 +213,13 @@ func AllowedAddresses(network interfaces.LocalNetwork) {
 		subnetAInfo,
 		subnetBInfo,
 		teleporterContractAddress,
-		allowedKeys[2],
-		allowedAddresses[0],
+		allowedKeys[0],
+		allowedAddresses[2],
 	)
+	relayerCleanup3()
 
 	// Test Relayer 2
+	log.Info("Testing Relayer 2")
 	relayerCleanup2 := testUtils.BuildAndRunRelayerExecutable(ctx, relayerConfigPath2)
 	defer relayerCleanup2()
 
@@ -203,14 +228,20 @@ func AllowedAddresses(network interfaces.LocalNetwork) {
 	time.Sleep(10 * time.Second)
 
 	// Disallowed by Relayer 2
-	testUtils.SendBasicTeleporterMessage(
+	_, _, id = testUtils.SendBasicTeleporterMessage(
 		ctx,
 		subnetAInfo,
 		subnetBInfo,
 		allowedKeys[0], // not allowed
 		allowedAddresses[0],
 	)
-	Consistently(newHeadsB, 10*time.Second, 500*time.Millisecond).ShouldNot(Receive())
+	Consistently(func() bool {
+		delivered, err := subnetBInfo.TeleporterMessenger.MessageReceived(
+			&bind.CallOpts{}, id,
+		)
+		Expect(err).Should(BeNil())
+		return delivered
+	}, 10*time.Second, 500*time.Millisecond).Should(BeFalse())
 
 	// Allowed by Relayer 2
 	testUtils.RelayBasicMessage(
@@ -221,8 +252,10 @@ func AllowedAddresses(network interfaces.LocalNetwork) {
 		allowedKeys[1],
 		allowedAddresses[0],
 	)
+	relayerCleanup2()
 
 	// Test Relayer 1
+	log.Info("Testing Relayer 1")
 	relayerCleanup1 := testUtils.BuildAndRunRelayerExecutable(ctx, relayerConfigPath1)
 	defer relayerCleanup1()
 
@@ -239,4 +272,7 @@ func AllowedAddresses(network interfaces.LocalNetwork) {
 		allowedKeys[0],
 		allowedAddresses[0],
 	)
+	relayerCleanup1()
+
+	// Check the database state to ensure that the four relayer instances wrote to distinct keys
 }
