@@ -173,7 +173,15 @@ func (m *messageManager) GetDestinationBlockchainID(unsignedMessage *warp.Unsign
 }
 
 func (m *messageManager) GetOriginSenderAddress(unsignedMessage *warp.UnsignedMessage) (common.Address, error) {
-	return OffChainRegistrySourceAddress, nil
+	addressedPayload, err := warpPayload.ParseAddressedCall(unsignedMessage.Payload)
+	if err != nil {
+		m.logger.Error(
+			"Failed parsing addressed payload",
+			zap.Error(err),
+		)
+		return common.Address{}, err
+	}
+	return common.BytesToAddress(addressedPayload.SourceAddress), nil
 }
 
 func (m *messageManager) GetDestinationAddress(unsignedMessage *warp.UnsignedMessage) (common.Address, error) {
