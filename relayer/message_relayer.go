@@ -30,7 +30,6 @@ import (
 	"github.com/ava-labs/subnet-evm/ethclient"
 	msg "github.com/ava-labs/subnet-evm/plugin/evm/message"
 	warpBackend "github.com/ava-labs/subnet-evm/warp"
-	"github.com/ethereum/go-ethereum/common"
 	"go.uber.org/zap"
 )
 
@@ -64,8 +63,6 @@ type messageRelayer struct {
 	responseChan            chan message.InboundMessage
 	sourceBlockchain        config.SourceBlockchain
 	destinationBlockchainID ids.ID
-	originSenderAddress     common.Address
-	destinationAddress      common.Address
 	signingSubnetID         ids.ID
 	relayerKey              database.RelayerKey
 	warpQuorum              config.WarpQuorum
@@ -108,8 +105,6 @@ func newMessageRelayer(
 		responseChan:            responseChan,
 		sourceBlockchain:        sourceBlockchain,
 		destinationBlockchainID: relayerKey.DestinationBlockchainID,
-		originSenderAddress:     relayerKey.OriginSenderAddress,
-		destinationAddress:      relayerKey.DestinationAddress,
 		relayerKey:              relayerKey,
 		signingSubnetID:         signingSubnet,
 		warpQuorum:              quorum,
