@@ -597,7 +597,7 @@ func (r *messageRelayer) aggregateSignatures(signatureMap map[int]blsSignatureBu
 // 2) The database has been configured for the chain, but does not contain the latest processed block data
 //   - In this case, we return the configured processHistoricalBlocksFromHeight
 //
-// 3) The database does not contain the any information for the chain.
+// 3) The database does not contain any information for the chain.
 //   - In this case, we return the configured processHistoricalBlocksFromHeight if it is set, otherwise
 //     we return the chain head.
 func (r *messageRelayer) calculateStartingBlockHeight(processHistoricalBlocksFromHeight uint64) (uint64, error) {
