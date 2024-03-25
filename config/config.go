@@ -99,8 +99,8 @@ type Config struct {
 	PChainAPIURL    string `mapstructure:"p-chain-api-url" json:"p-chain-api-url"`
 	InfoAPIURL      string `mapstructure:"info-api-url" json:"info-api-url"`
 	StorageLocation string `mapstructure:"storage-location" json:"storage-location"`
-	APIPort         uint64 `mapstructure:"api-port" json:"api-port"`
-	MetricsPort     uint64 `mapstructure:"metrics-port" json:"metrics-port"`
+	APIPort         uint16 `mapstructure:"api-port" json:"api-port"`
+	MetricsPort     uint16 `mapstructure:"metrics-port" json:"metrics-port"`
 
 	SourceBlockchains      []*SourceBlockchain      `mapstructure:"source-blockchains" json:"source-blockchains"`
 	DestinationBlockchains []*DestinationBlockchain `mapstructure:"destination-blockchains" json:"destination-blockchains"`
@@ -146,8 +146,8 @@ func BuildConfig(v *viper.Viper) (Config, bool, error) {
 	cfg.InfoAPIURL = v.GetString(InfoAPIURLKey)
 	cfg.StorageLocation = v.GetString(StorageLocationKey)
 	cfg.ProcessMissedBlocks = v.GetBool(ProcessMissedBlocksKey)
-	cfg.APIPort = v.GetUint64(APIPortKey)
-	cfg.MetricsPort = v.GetUint64(MetricsPortKey)
+	cfg.APIPort = v.GetUint16(APIPortKey)
+	cfg.MetricsPort = v.GetUint16(MetricsPortKey)
 	if err := v.UnmarshalKey(ManualWarpMessagesKey, &cfg.ManualWarpMessages); err != nil {
 		return Config{}, false, fmt.Errorf("failed to unmarshal manual warp messages: %w", err)
 	}

@@ -147,7 +147,7 @@ func main() {
 		log.Fatalln(http.ListenAndServe(fmt.Sprintf(":%d", cfg.APIPort), nil))
 	}()
 
-	startMetricsServer(logger, gatherer, uint32(cfg.MetricsPort))
+	startMetricsServer(logger, gatherer, cfg.MetricsPort)
 
 	metrics, err := relayer.NewMessageRelayerMetrics(registerer)
 	if err != nil {
@@ -302,12 +302,12 @@ func runRelayer(
 	return relayer.ProcessLogs(ctx)
 }
 
-func startMetricsServer(logger logging.Logger, gatherer prometheus.Gatherer, port uint32) {
+func startMetricsServer(logger logging.Logger, gatherer prometheus.Gatherer, port uint16) {
 	http.Handle("/metrics", promhttp.HandlerFor(gatherer, promhttp.HandlerOpts{}))
 
 	go func() {
 		logger.Info("starting metrics server...",
-			zap.Uint32("port", port))
+			zap.Uint16("port", port))
 		log.Fatalln(http.ListenAndServe(fmt.Sprintf(":%d", port), nil))
 	}()
 }
