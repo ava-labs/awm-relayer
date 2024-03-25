@@ -26,7 +26,7 @@ type JSONFileStorage struct {
 	dir string
 
 	// Each network has its own mutex
-	// The blockchainIDs used to index the JSONFileStorage are created at initialization
+	// The RelayerKeys used to index the JSONFileStorage are created at initialization
 	// and are not modified afterwards, so we don't need to lock the map itself.
 	mutexes      map[common.Hash]*sync.RWMutex
 	logger       logging.Logger
@@ -107,14 +107,14 @@ func (s *JSONFileStorage) Get(relayerKey common.Hash, dataKey []byte) ([]byte, e
 	return []byte(val), nil
 }
 
-// Helper to get the current state of a blockchainID. Not thread-safe.
+// Helper to get the current state of a relayerKey. Not thread-safe.
 func (s *JSONFileStorage) getCurrentState(relayerKey common.Hash) (chainState, bool, error) {
 	currentState := make(chainState)
 	fileExists, err := s.read(relayerKey, &currentState)
 	if err != nil {
 		s.logger.Error(
 			"failed to read file",
-			zap.String("blockchainID", relayerKey.String()),
+			zap.String("relayerKey", relayerKey.String()),
 			zap.Error(err),
 		)
 		return nil, false, err
@@ -123,7 +123,7 @@ func (s *JSONFileStorage) getCurrentState(relayerKey common.Hash) (chainState, b
 }
 
 // Put the value into the JSON database. Read the current chain state and overwrite the key, if it exists
-// If the file corresponding to {blockchainID} does not exist, then it will be created
+// If the file corresponding to {relayerKey} does not exist, then it will be created
 func (s *JSONFileStorage) Put(relayerKey common.Hash, dataKey []byte, value []byte) error {
 	mutex, ok := s.mutexes[relayerKey]
 	if !ok {
