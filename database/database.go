@@ -25,7 +25,7 @@ var (
 	ErrDatabaseMisconfiguration = errors.New("database misconfiguration")
 )
 
-// RelayerDatabase is a key-value store for relayer state, with each blockchainID maintaining its own state
+// RelayerDatabase is a key-value store for relayer state, with each relayerKey maintaining its own state
 type RelayerDatabase interface {
 	Get(relayerKey common.Hash, dataKey []byte) ([]byte, error)
 	Put(relayerKey common.Hash, dataKey []byte, value []byte) error
