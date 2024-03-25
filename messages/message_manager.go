@@ -35,7 +35,7 @@ type MessageManager interface {
 	// GetOriginSenderAddress returns the address of the sender on the origin chain
 	GetOriginSenderAddress(unsignedMessage *warp.UnsignedMessage) (common.Address, error)
 
-	// GetDestinationAddress returns the address of the recipient on the destination chain
+	// GetDestinationAddress returns the address of the recipient on the destination blockchain
 	GetDestinationAddress(unsignedMessage *warp.UnsignedMessage) (common.Address, error)
 }
 
