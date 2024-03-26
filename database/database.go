@@ -42,16 +42,20 @@ type RelayerKey struct {
 	DestinationBlockchainID ids.ID
 	OriginSenderAddress     common.Address
 	DestinationAddress      common.Address
+	key                     common.Hash
 }
 
-// CalculateRelayerKey calculates the unique identifier for an application relayer
-func (k RelayerKey) CalculateRelayerKey() common.Hash {
-	return CalculateRelayerKey(
-		k.SourceBlockchainID,
-		k.DestinationBlockchainID,
-		k.OriginSenderAddress,
-		k.DestinationAddress,
-	)
+// GetKey returns the unique identifier for an application relayer
+func (k *RelayerKey) GetKey() common.Hash {
+	if k.key == (common.Hash{}) {
+		k.key = CalculateRelayerKey(
+			k.SourceBlockchainID,
+			k.DestinationBlockchainID,
+			k.OriginSenderAddress,
+			k.DestinationAddress,
+		)
+	}
+	return k.key
 }
 
 // Standalone utility to calculate a relayer key
