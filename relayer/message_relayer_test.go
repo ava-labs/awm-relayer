@@ -35,7 +35,7 @@ func TestCalculateStartingBlockHeight(t *testing.T) {
 			name:          "value in cfg, no value in db",
 			cfgBlock:      100,
 			dbBlock:       0,
-			dbError:       database.ErrDataKeyNotFound,
+			dbError:       database.ErrKeyNotFound,
 			expectedBlock: 100,
 			expectedError: nil,
 		},

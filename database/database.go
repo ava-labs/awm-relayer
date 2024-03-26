@@ -16,8 +16,8 @@ import (
 )
 
 var (
-	ErrDataKeyNotFound          = errors.New("data key not found")
-	ErrRelayerKeyNotFound       = errors.New("no database for relayer key")
+	ErrKeyNotFound              = errors.New("key not found")
+	ErrRelayerIDNotFound        = errors.New("no database entryfor relayer id")
 	ErrDatabaseMisconfiguration = errors.New("database misconfiguration")
 )
 
@@ -35,41 +35,41 @@ func (k DataKey) String() string {
 	return "unknown"
 }
 
-// RelayerDatabase is a key-value store for relayer state, with each relayerKey maintaining its own state
+// RelayerDatabase is a key-value store for relayer state, with each relayerID maintaining its own state
 type RelayerDatabase interface {
-	Get(relayerKey common.Hash, dataKey DataKey) ([]byte, error)
-	Put(relayerKey common.Hash, dataKey DataKey, value []byte) error
+	Get(relayerID common.Hash, key DataKey) ([]byte, error)
+	Put(relayerID common.Hash, key DataKey, value []byte) error
 }
 
 // Returns true if an error returned by a RelayerDatabase indicates the requested key was not found
 func IsKeyNotFoundError(err error) bool {
-	return errors.Is(err, ErrRelayerKeyNotFound) || errors.Is(err, ErrDataKeyNotFound)
+	return errors.Is(err, ErrRelayerIDNotFound) || errors.Is(err, ErrKeyNotFound)
 }
 
-// RelayerKey is a unique identifier for an application relayer
-type RelayerKey struct {
+// RelayerID is a unique identifier for an application relayer
+type RelayerID struct {
 	SourceBlockchainID      ids.ID
 	DestinationBlockchainID ids.ID
 	OriginSenderAddress     common.Address
 	DestinationAddress      common.Address
-	key                     common.Hash
+	id                      common.Hash
 }
 
 // GetKey returns the unique identifier for an application relayer
-func (k *RelayerKey) GetKey() common.Hash {
-	if k.key == (common.Hash{}) {
-		k.key = CalculateRelayerKey(
-			k.SourceBlockchainID,
-			k.DestinationBlockchainID,
-			k.OriginSenderAddress,
-			k.DestinationAddress,
+func (id *RelayerID) GetID() common.Hash {
+	if id.id == (common.Hash{}) {
+		id.id = CalculateRelayerID(
+			id.SourceBlockchainID,
+			id.DestinationBlockchainID,
+			id.OriginSenderAddress,
+			id.DestinationAddress,
 		)
 	}
-	return k.key
+	return id.id
 }
 
-// Standalone utility to calculate a relayer key
-func CalculateRelayerKey(
+// Standalone utility to calculate a relayer ID
+func CalculateRelayerID(
 	sourceBlockchainID ids.ID,
 	destinationBlockchainID ids.ID,
 	originSenderAddress common.Address,
@@ -89,24 +89,24 @@ func CalculateRelayerKey(
 }
 
 // Get all of the possible relayer keys for a given configuration
-func GetConfigRelayerKeys(cfg *config.Config) []RelayerKey {
-	var keys []RelayerKey
+func GetConfigRelayerIDs(cfg *config.Config) []RelayerID {
+	var keys []RelayerID
 	for _, s := range cfg.SourceBlockchains {
-		keys = append(keys, GetSourceBlockchainRelayerKeys(s)...)
+		keys = append(keys, GetSourceBlockchainRelayerIDs(s)...)
 	}
 	return keys
 }
 
 // Calculate all of the possible relayer keys for a given source blockchain
-func GetSourceBlockchainRelayerKeys(sourceBlockchain *config.SourceBlockchain) []RelayerKey {
-	var keys []RelayerKey
+func GetSourceBlockchainRelayerIDs(sourceBlockchain *config.SourceBlockchain) []RelayerID {
+	var ids []RelayerID
 	for _, dst := range sourceBlockchain.GetSupportedDestinations().List() {
-		keys = append(keys, RelayerKey{
+		ids = append(ids, RelayerID{
 			SourceBlockchainID:      sourceBlockchain.GetBlockchainID(),
 			DestinationBlockchainID: dst,
 			OriginSenderAddress:     common.Address{}, // TODO: populate with allowed sender/receiver addresses
 			DestinationAddress:      common.Address{},
 		})
 	}
-	return keys
+	return ids
 }

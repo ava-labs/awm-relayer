@@ -64,7 +64,7 @@ type messageRelayer struct {
 	sourceBlockchain        config.SourceBlockchain
 	destinationBlockchainID ids.ID
 	signingSubnetID         ids.ID
-	relayerKey              database.RelayerKey
+	relayerID               database.RelayerID
 	warpQuorum              config.WarpQuorum
 	db                      database.RelayerDatabase
 }
@@ -75,16 +75,16 @@ func newMessageRelayer(
 	network *peers.AppRequestNetwork,
 	messageCreator message.Creator,
 	responseChan chan message.InboundMessage,
-	relayerKey database.RelayerKey,
+	relayerID database.RelayerID,
 	db database.RelayerDatabase,
 	sourceBlockchain config.SourceBlockchain,
 	cfg *config.Config,
 ) (*messageRelayer, error) {
-	quorum, err := cfg.GetWarpQuorum(relayerKey.DestinationBlockchainID)
+	quorum, err := cfg.GetWarpQuorum(relayerID.DestinationBlockchainID)
 	if err != nil {
 		logger.Error(
 			"Failed to get warp quorum from config. Relayer may not be configured to deliver to the destination chain.",
-			zap.String("destinationBlockchainID", relayerKey.DestinationBlockchainID.String()),
+			zap.String("destinationBlockchainID", relayerID.DestinationBlockchainID.String()),
 			zap.Error(err),
 		)
 		return nil, err
@@ -92,7 +92,7 @@ func newMessageRelayer(
 	var signingSubnet ids.ID
 	if sourceBlockchain.GetSubnetID() == constants.PrimaryNetworkID {
 		// If the message originates from the primary subnet, then we instead "self sign" the message using the validators of the destination subnet.
-		signingSubnet = cfg.GetSubnetID(relayerKey.DestinationBlockchainID)
+		signingSubnet = cfg.GetSubnetID(relayerID.DestinationBlockchainID)
 	} else {
 		// Otherwise, the source subnet signs the message.
 		signingSubnet = sourceBlockchain.GetSubnetID()
@@ -104,8 +104,8 @@ func newMessageRelayer(
 		messageCreator:          messageCreator,
 		responseChan:            responseChan,
 		sourceBlockchain:        sourceBlockchain,
-		destinationBlockchainID: relayerKey.DestinationBlockchainID,
-		relayerKey:              relayerKey,
+		destinationBlockchainID: relayerID.DestinationBlockchainID,
+		relayerID:               relayerID,
 		signingSubnetID:         signingSubnet,
 		warpQuorum:              quorum,
 		db:                      db,
@@ -614,7 +614,7 @@ func (r *messageRelayer) calculateStartingBlockHeight(processHistoricalBlocksFro
 		// Otherwise, we've encountered an unknown database error
 		r.logger.Error(
 			"failed to get latest block from database",
-			zap.String("relayerKey", r.relayerKey.GetKey().String()),
+			zap.String("relayerID", r.relayerID.GetID().String()),
 			zap.Error(err),
 		)
 		return 0, err
@@ -625,7 +625,7 @@ func (r *messageRelayer) calculateStartingBlockHeight(processHistoricalBlocksFro
 	if latestProcessedBlock > processHistoricalBlocksFromHeight {
 		r.logger.Info(
 			"Processing historical blocks from the latest processed block in the DB",
-			zap.String("relayerKey", r.relayerKey.GetKey().String()),
+			zap.String("relayerID", r.relayerID.GetID().String()),
 			zap.Uint64("latestProcessedBlock", latestProcessedBlock),
 		)
 		return latestProcessedBlock, nil
@@ -633,7 +633,7 @@ func (r *messageRelayer) calculateStartingBlockHeight(processHistoricalBlocksFro
 	// Otherwise, return the configured start block height
 	r.logger.Info(
 		"Processing historical blocks from the configured start block height",
-		zap.String("relayerKey", r.relayerKey.GetKey().String()),
+		zap.String("relayerID", r.relayerID.GetID().String()),
 		zap.Uint64("processHistoricalBlocksFromHeight", processHistoricalBlocksFromHeight),
 	)
 	return processHistoricalBlocksFromHeight, nil
@@ -663,7 +663,7 @@ func (r *messageRelayer) setProcessedBlockHeightToLatest() (uint64, error) {
 
 	r.logger.Info(
 		"Updating latest processed block in database",
-		zap.String("relayerKey", r.relayerKey.GetKey().String()),
+		zap.String("relayerID", r.relayerID.GetID().String()),
 		zap.Uint64("latestBlock", latestBlock),
 	)
 
@@ -671,7 +671,7 @@ func (r *messageRelayer) setProcessedBlockHeightToLatest() (uint64, error) {
 	if err != nil {
 		r.logger.Error(
 			fmt.Sprintf("failed to put %s into database", database.LatestProcessedBlockKey),
-			zap.String("relayerKey", r.relayerKey.GetKey().String()),
+			zap.String("relayerID", r.relayerID.GetID().String()),
 			zap.Error(err),
 		)
 		return 0, err
@@ -684,7 +684,7 @@ func (r *messageRelayer) setProcessedBlockHeightToLatest() (uint64, error) {
 // because it is updated as soon as a single message from that block is relayed,
 // and there may be multiple message in the same block.
 func (r *messageRelayer) getLatestProcessedBlockHeight() (uint64, error) {
-	latestProcessedBlockData, err := r.db.Get(r.relayerKey.GetKey(), database.LatestProcessedBlockKey)
+	latestProcessedBlockData, err := r.db.Get(r.relayerID.GetID(), database.LatestProcessedBlockKey)
 	if err != nil {
 		return 0, err
 	}
@@ -697,7 +697,7 @@ func (r *messageRelayer) getLatestProcessedBlockHeight() (uint64, error) {
 
 // Store the block height in the database. Does not check against the current latest processed block height.
 func (r *messageRelayer) storeBlockHeight(height uint64) error {
-	return r.db.Put(r.relayerKey.GetKey(), database.LatestProcessedBlockKey, []byte(strconv.FormatUint(height, 10)))
+	return r.db.Put(r.relayerID.GetID(), database.LatestProcessedBlockKey, []byte(strconv.FormatUint(height, 10)))
 }
 
 // Stores the block height in the database if it is greater than the current latest processed block height.
@@ -708,7 +708,7 @@ func (r *messageRelayer) storeLatestBlockHeight(height uint64) error {
 	if err != nil && !database.IsKeyNotFoundError(err) {
 		r.logger.Error(
 			"Encountered an unknown error while getting latest processed block from database",
-			zap.String("relayerKey", r.relayerKey.GetKey().String()),
+			zap.String("relayerID", r.relayerID.GetID().String()),
 			zap.Error(err),
 		)
 		return err
@@ -722,7 +722,7 @@ func (r *messageRelayer) storeLatestBlockHeight(height uint64) error {
 		if err != nil {
 			r.logger.Error(
 				fmt.Sprintf("failed to put %s into database", database.LatestProcessedBlockKey),
-				zap.String("relayerKey", r.relayerKey.GetKey().String()),
+				zap.String("relayerID", r.relayerID.GetID().String()),
 				zap.Error(err),
 			)
 		}

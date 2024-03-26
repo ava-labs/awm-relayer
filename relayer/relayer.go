@@ -88,14 +88,14 @@ func NewRelayer(
 
 	// Create the message relayers
 	messageRelayers := make(map[common.Hash]*messageRelayer)
-	for _, relayerKey := range database.GetSourceBlockchainRelayerKeys(&sourceBlockchain) {
+	for _, relayerID := range database.GetSourceBlockchainRelayerIDs(&sourceBlockchain) {
 		messageRelayer, err := newMessageRelayer(
 			logger,
 			metrics,
 			network,
 			messageCreator,
 			responseChan,
-			relayerKey,
+			relayerID,
 			db,
 			sourceBlockchain,
 			cfg,
@@ -103,12 +103,12 @@ func NewRelayer(
 		if err != nil {
 			logger.Error(
 				"Failed to create message relayer",
-				zap.String("relayerKey", relayerKey.GetKey().String()),
+				zap.String("relayerID", relayerID.GetID().String()),
 				zap.Error(err),
 			)
 			return nil, err
 		}
-		messageRelayers[relayerKey.GetKey()] = messageRelayer
+		messageRelayers[relayerID.GetID()] = messageRelayer
 	}
 
 	logger.Info(
@@ -354,13 +354,13 @@ func (r *Relayer) RelayMessage(warpLogInfo *vmtypes.WarpLogInfo, storeProcessedH
 		return nil
 	}
 
-	messageRelayerKey := database.CalculateRelayerKey(
+	messageRelayerID := database.CalculateRelayerID(
 		r.sourceBlockchain.GetBlockchainID(),
 		destinationBlockchainID,
 		common.Address{}, // TODO: Populate with the proper sender/receiver address
 		common.Address{},
 	)
-	messageRelayer, ok := r.messageRelayers[messageRelayerKey]
+	messageRelayer, ok := r.messageRelayers[messageRelayerID]
 	if !ok {
 		// TODO: If we don't find the key using the actual addresses, check if all sender/destination addresses are allowed
 		r.logger.Error(

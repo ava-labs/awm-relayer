@@ -17,32 +17,32 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func createRelayerKeys(blockchainIDs []ids.ID) []RelayerKey {
+func createRelayerIDs(blockchainIDs []ids.ID) []RelayerID {
 	destinationsBlockchainIDs := set.NewSet[string](1) // just needs to be non-nil
 	destinationsBlockchainIDs.Add(ids.GenerateTestID().String())
 
-	var relayerKeys []RelayerKey
+	var relayerIDs []RelayerID
 	for _, blockchainID := range blockchainIDs {
 		for allowedDestination := range destinationsBlockchainIDs {
 			id, _ := ids.FromString(allowedDestination)
-			relayerKeys = append(relayerKeys, RelayerKey{
+			relayerIDs = append(relayerIDs, RelayerID{
 				SourceBlockchainID:      blockchainID,
 				DestinationBlockchainID: id,
 			},
 			)
 		}
 	}
-	return relayerKeys
+	return relayerIDs
 }
 
 // Test that the JSON database can write and read to a single chain concurrently.
 func TestConcurrentWriteReadSingleChain(t *testing.T) {
-	relayerKeys := createRelayerKeys(
+	relayerIDs := createRelayerIDs(
 		[]ids.ID{
 			ids.GenerateTestID(),
 		},
 	)
-	jsonStorage := setupJsonStorage(t, relayerKeys)
+	jsonStorage := setupJsonStorage(t, relayerIDs)
 
 	// Test writing to the JSON database concurrently.
 	wg := sync.WaitGroup{}
@@ -51,16 +51,16 @@ func TestConcurrentWriteReadSingleChain(t *testing.T) {
 		idx := i
 		go func() {
 			defer wg.Done()
-			testWrite(jsonStorage, relayerKeys[0], uint64(idx))
+			testWrite(jsonStorage, relayerIDs[0], uint64(idx))
 		}()
 	}
 	wg.Wait()
 
 	// Write one final time to ensure that concurrent writes don't cause any issues.
 	finalTargetValue := uint64(11)
-	testWrite(jsonStorage, relayerKeys[0], finalTargetValue)
+	testWrite(jsonStorage, relayerIDs[0], finalTargetValue)
 
-	latestProcessedBlockData, err := jsonStorage.Get(relayerKeys[0].GetKey(), LatestProcessedBlockKey)
+	latestProcessedBlockData, err := jsonStorage.Get(relayerIDs[0].GetID(), LatestProcessedBlockKey)
 	if err != nil {
 		t.Fatalf("failed to retrieve from JSON storage. err: %v", err)
 	}
@@ -73,14 +73,14 @@ func TestConcurrentWriteReadSingleChain(t *testing.T) {
 
 // Test that the JSON database can write and read from multiple chains concurrently. Write to any given chain are not concurrent.
 func TestConcurrentWriteReadMultipleChains(t *testing.T) {
-	relayerKeys := createRelayerKeys(
+	relayerIDs := createRelayerIDs(
 		[]ids.ID{
 			ids.GenerateTestID(),
 			ids.GenerateTestID(),
 			ids.GenerateTestID(),
 		},
 	)
-	jsonStorage := setupJsonStorage(t, relayerKeys)
+	jsonStorage := setupJsonStorage(t, relayerIDs)
 
 	// Test writing to the JSON database concurrently.
 	wg := sync.WaitGroup{}
@@ -89,19 +89,19 @@ func TestConcurrentWriteReadMultipleChains(t *testing.T) {
 		index := i
 		go func() {
 			defer wg.Done()
-			testWrite(jsonStorage, relayerKeys[index], uint64(index))
+			testWrite(jsonStorage, relayerIDs[index], uint64(index))
 		}()
 	}
 	wg.Wait()
 
 	// Write one final time to ensure that concurrent writes don't cause any issues.
 	finalTargetValue := uint64(3)
-	for _, relayerKey := range relayerKeys {
-		testWrite(jsonStorage, relayerKey, finalTargetValue)
+	for _, relayerID := range relayerIDs {
+		testWrite(jsonStorage, relayerID, finalTargetValue)
 	}
 
-	for i, relayerKey := range relayerKeys {
-		latestProcessedBlockData, err := jsonStorage.Get(relayerKey.GetKey(), LatestProcessedBlockKey)
+	for i, relayerID := range relayerIDs {
+		latestProcessedBlockData, err := jsonStorage.Get(relayerID.GetID(), LatestProcessedBlockKey)
 		if err != nil {
 			t.Fatalf("failed to retrieve from JSON storage. networkID: %d err: %v", i, err)
 		}
@@ -113,7 +113,7 @@ func TestConcurrentWriteReadMultipleChains(t *testing.T) {
 	}
 }
 
-func setupJsonStorage(t *testing.T, relayerKeys []RelayerKey) *JSONFileStorage {
+func setupJsonStorage(t *testing.T, relayerIDs []RelayerID) *JSONFileStorage {
 	logger := logging.NewLogger(
 		"awm-relayer-test",
 		logging.NewWrappedCore(
@@ -124,15 +124,15 @@ func setupJsonStorage(t *testing.T, relayerKeys []RelayerKey) *JSONFileStorage {
 	)
 	storageDir := t.TempDir()
 
-	jsonStorage, err := NewJSONFileStorage(logger, storageDir, relayerKeys)
+	jsonStorage, err := NewJSONFileStorage(logger, storageDir, relayerIDs)
 	if err != nil {
 		t.Fatal(err)
 	}
 	return jsonStorage
 }
 
-func testWrite(storage *JSONFileStorage, relayerKey RelayerKey, height uint64) {
-	err := storage.Put(relayerKey.GetKey(), LatestProcessedBlockKey, []byte(strconv.FormatUint(height, 10)))
+func testWrite(storage *JSONFileStorage, relayerID RelayerID, height uint64) {
+	err := storage.Put(relayerID.GetID(), LatestProcessedBlockKey, []byte(strconv.FormatUint(height, 10)))
 	if err != nil {
 		fmt.Printf("failed to put data: %v", err)
 		return

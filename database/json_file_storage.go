@@ -26,7 +26,7 @@ type JSONFileStorage struct {
 	dir string
 
 	// Each network has its own mutex
-	// The RelayerKeys used to index the JSONFileStorage are created at initialization
+	// The RelayerIDs used to index the JSONFileStorage are created at initialization
 	// and are not modified afterwards, so we don't need to lock the map itself.
 	mutexes      map[common.Hash]*sync.RWMutex
 	logger       logging.Logger
@@ -34,7 +34,7 @@ type JSONFileStorage struct {
 }
 
 // NewJSONFileStorage creates a new JSONFileStorage instance
-func NewJSONFileStorage(logger logging.Logger, dir string, relayerKeys []RelayerKey) (*JSONFileStorage, error) {
+func NewJSONFileStorage(logger logging.Logger, dir string, relayerIDs []RelayerID) (*JSONFileStorage, error) {
 	storage := &JSONFileStorage{
 		dir:          filepath.Clean(dir),
 		mutexes:      make(map[common.Hash]*sync.RWMutex),
@@ -42,8 +42,8 @@ func NewJSONFileStorage(logger logging.Logger, dir string, relayerKeys []Relayer
 		currentState: make(map[common.Hash]chainState),
 	}
 
-	for _, relayerKey := range relayerKeys {
-		key := relayerKey.GetKey()
+	for _, relayerID := range relayerIDs {
+		key := relayerID.GetID()
 		storage.currentState[key] = make(chainState)
 		storage.mutexes[key] = &sync.RWMutex{}
 	}
@@ -52,8 +52,8 @@ func NewJSONFileStorage(logger logging.Logger, dir string, relayerKeys []Relayer
 	if err == nil {
 		// Directory already exists.
 		// Read the existing storage.
-		for _, relayerKey := range relayerKeys {
-			key := relayerKey.GetKey()
+		for _, relayerID := range relayerIDs {
+			key := relayerID.GetID()
 			currentState, fileExists, err := storage.getCurrentState(key)
 			if err != nil {
 				return nil, err
@@ -80,41 +80,41 @@ func NewJSONFileStorage(logger logging.Logger, dir string, relayerKeys []Relayer
 }
 
 // Get the latest chain state from the JSON database, and retrieve the value from the key
-func (s *JSONFileStorage) Get(relayerKey common.Hash, dataKey DataKey) ([]byte, error) {
-	mutex, ok := s.mutexes[relayerKey]
+func (s *JSONFileStorage) Get(relayerID common.Hash, dataKey DataKey) ([]byte, error) {
+	mutex, ok := s.mutexes[relayerID]
 	if !ok {
 		return nil, errors.Wrap(
 			ErrDatabaseMisconfiguration,
-			fmt.Sprintf("database not configured for key %s", relayerKey.String()),
+			fmt.Sprintf("database not configured for key %s", relayerID.String()),
 		)
 	}
 
 	mutex.RLock()
 	defer mutex.RUnlock()
-	currentState, fileExists, err := s.getCurrentState(relayerKey)
+	currentState, fileExists, err := s.getCurrentState(relayerID)
 	if err != nil {
 		return nil, err
 	}
 	if !fileExists {
-		return nil, ErrRelayerKeyNotFound
+		return nil, ErrRelayerIDNotFound
 	}
 
 	var val string
 	if val, ok = currentState[dataKey.String()]; !ok {
-		return nil, ErrDataKeyNotFound
+		return nil, ErrKeyNotFound
 	}
 
 	return []byte(val), nil
 }
 
-// Helper to get the current state of a relayerKey. Not thread-safe.
-func (s *JSONFileStorage) getCurrentState(relayerKey common.Hash) (chainState, bool, error) {
+// Helper to get the current state of a relayerID. Not thread-safe.
+func (s *JSONFileStorage) getCurrentState(relayerID common.Hash) (chainState, bool, error) {
 	currentState := make(chainState)
-	fileExists, err := s.read(relayerKey, &currentState)
+	fileExists, err := s.read(relayerID, &currentState)
 	if err != nil {
 		s.logger.Error(
 			"failed to read file",
-			zap.String("relayerKey", relayerKey.String()),
+			zap.String("relayerID", relayerID.String()),
 			zap.Error(err),
 		)
 		return nil, false, err
@@ -123,13 +123,13 @@ func (s *JSONFileStorage) getCurrentState(relayerKey common.Hash) (chainState, b
 }
 
 // Put the value into the JSON database. Read the current chain state and overwrite the key, if it exists
-// If the file corresponding to {relayerKey} does not exist, then it will be created
-func (s *JSONFileStorage) Put(relayerKey common.Hash, dataKey DataKey, value []byte) error {
-	mutex, ok := s.mutexes[relayerKey]
+// If the file corresponding to {relayerID} does not exist, then it will be created
+func (s *JSONFileStorage) Put(relayerID common.Hash, dataKey DataKey, value []byte) error {
+	mutex, ok := s.mutexes[relayerID]
 	if !ok {
 		return errors.Wrap(
 			ErrDatabaseMisconfiguration,
-			fmt.Sprintf("database not configured for key %s", relayerKey.String()),
+			fmt.Sprintf("database not configured for key %s", relayerID.String()),
 		)
 	}
 
@@ -137,13 +137,13 @@ func (s *JSONFileStorage) Put(relayerKey common.Hash, dataKey DataKey, value []b
 	defer mutex.Unlock()
 
 	// Update the in-memory state and write to disk
-	s.currentState[relayerKey][dataKey.String()] = string(value)
-	return s.write(relayerKey, s.currentState[relayerKey])
+	s.currentState[relayerID][dataKey.String()] = string(value)
+	return s.write(relayerID, s.currentState[relayerID])
 }
 
 // Write the value to the file. The caller is responsible for ensuring proper synchronization
-func (s *JSONFileStorage) write(relayerKey common.Hash, v interface{}) error {
-	fnlPath := filepath.Join(s.dir, relayerKey.String()+".json")
+func (s *JSONFileStorage) write(relayerID common.Hash, v interface{}) error {
+	fnlPath := filepath.Join(s.dir, relayerID.String()+".json")
 	tmpPath := fnlPath + ".tmp"
 
 	b, err := json.MarshalIndent(v, "", "\t")
@@ -171,8 +171,8 @@ func (s *JSONFileStorage) write(relayerKey common.Hash, v interface{}) error {
 // Returns a bool indicating whether the file exists, and an error.
 // If an error is returned, the bool should be ignored.
 // The caller is responsible for ensuring proper synchronization
-func (s *JSONFileStorage) read(relayerKey common.Hash, v interface{}) (bool, error) {
-	path := filepath.Join(s.dir, relayerKey.String()+".json")
+func (s *JSONFileStorage) read(relayerID common.Hash, v interface{}) (bool, error) {
+	path := filepath.Join(s.dir, relayerID.String()+".json")
 
 	// If the file does not exist, return false, but do not return an error as this
 	// is an expected case

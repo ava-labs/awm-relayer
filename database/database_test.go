@@ -17,12 +17,12 @@ func TestIsKeyNotFoundError(t *testing.T) {
 	}{
 		{
 			name:     "key not found error",
-			err:      ErrDataKeyNotFound,
+			err:      ErrKeyNotFound,
 			expected: true,
 		},
 		{
 			name:     "relayer key not found error",
-			err:      ErrRelayerKeyNotFound,
+			err:      ErrRelayerIDNotFound,
 			expected: true,
 		},
 		{
@@ -37,7 +37,7 @@ func TestIsKeyNotFoundError(t *testing.T) {
 	}
 }
 
-func TestCalculateRelayerKey(t *testing.T) {
+func TestCalculateRelayerID(t *testing.T) {
 	id1, _ := ids.FromString("S4mMqUXe7vHsGiRAma6bv3CKnyaLssyAxmQ2KvFpX1KEvfFCD")
 	id2, _ := ids.FromString("2TGBXcnwx5PqiXWiqxAKUaNSqDguXNh1mxnp82jui68hxJSZAx")
 	zeroAddress := common.HexToAddress("0x0000000000000000000000000000000000000000")
@@ -83,7 +83,7 @@ func TestCalculateRelayerKey(t *testing.T) {
 		},
 	}
 	for _, testCase := range testCases {
-		result := CalculateRelayerKey(
+		result := CalculateRelayerID(
 			testCase.sourceBlockchainID,
 			testCase.destinationBlockchainID,
 			testCase.originSenderAddress,
