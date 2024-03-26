@@ -15,20 +15,30 @@ import (
 	"github.com/pkg/errors"
 )
 
-const (
-	LatestProcessedBlockKey = "latestProcessedBlock"
-)
-
 var (
 	ErrDataKeyNotFound          = errors.New("data key not found")
 	ErrRelayerKeyNotFound       = errors.New("no database for relayer key")
 	ErrDatabaseMisconfiguration = errors.New("database misconfiguration")
 )
 
+const (
+	LatestProcessedBlockKey DataKey = iota
+)
+
+type DataKey int
+
+func (k DataKey) String() string {
+	switch k {
+	case LatestProcessedBlockKey:
+		return "latestProcessedBlock"
+	}
+	return "unknown"
+}
+
 // RelayerDatabase is a key-value store for relayer state, with each relayerKey maintaining its own state
 type RelayerDatabase interface {
-	Get(relayerKey common.Hash, dataKey []byte) ([]byte, error)
-	Put(relayerKey common.Hash, dataKey []byte, value []byte) error
+	Get(relayerKey common.Hash, dataKey DataKey) ([]byte, error)
+	Put(relayerKey common.Hash, dataKey DataKey, value []byte) error
 }
 
 // Returns true if an error returned by a RelayerDatabase indicates the requested key was not found

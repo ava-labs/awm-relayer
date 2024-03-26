@@ -684,7 +684,7 @@ func (r *messageRelayer) setProcessedBlockHeightToLatest() (uint64, error) {
 // because it is updated as soon as a single message from that block is relayed,
 // and there may be multiple message in the same block.
 func (r *messageRelayer) getLatestProcessedBlockHeight() (uint64, error) {
-	latestProcessedBlockData, err := r.db.Get(r.relayerKey.GetKey(), []byte(database.LatestProcessedBlockKey))
+	latestProcessedBlockData, err := r.db.Get(r.relayerKey.GetKey(), database.LatestProcessedBlockKey)
 	if err != nil {
 		return 0, err
 	}
@@ -697,7 +697,7 @@ func (r *messageRelayer) getLatestProcessedBlockHeight() (uint64, error) {
 
 // Store the block height in the database. Does not check against the current latest processed block height.
 func (r *messageRelayer) storeBlockHeight(height uint64) error {
-	return r.db.Put(r.relayerKey.GetKey(), []byte(database.LatestProcessedBlockKey), []byte(strconv.FormatUint(height, 10)))
+	return r.db.Put(r.relayerKey.GetKey(), database.LatestProcessedBlockKey, []byte(strconv.FormatUint(height, 10)))
 }
 
 // Stores the block height in the database if it is greater than the current latest processed block height.

@@ -60,7 +60,7 @@ func TestConcurrentWriteReadSingleChain(t *testing.T) {
 	finalTargetValue := uint64(11)
 	testWrite(jsonStorage, relayerKeys[0], finalTargetValue)
 
-	latestProcessedBlockData, err := jsonStorage.Get(relayerKeys[0].GetKey(), []byte(LatestProcessedBlockKey))
+	latestProcessedBlockData, err := jsonStorage.Get(relayerKeys[0].GetKey(), LatestProcessedBlockKey)
 	if err != nil {
 		t.Fatalf("failed to retrieve from JSON storage. err: %v", err)
 	}
@@ -101,7 +101,7 @@ func TestConcurrentWriteReadMultipleChains(t *testing.T) {
 	}
 
 	for i, relayerKey := range relayerKeys {
-		latestProcessedBlockData, err := jsonStorage.Get(relayerKey.GetKey(), []byte(LatestProcessedBlockKey))
+		latestProcessedBlockData, err := jsonStorage.Get(relayerKey.GetKey(), LatestProcessedBlockKey)
 		if err != nil {
 			t.Fatalf("failed to retrieve from JSON storage. networkID: %d err: %v", i, err)
 		}
@@ -132,7 +132,7 @@ func setupJsonStorage(t *testing.T, relayerKeys []RelayerKey) *JSONFileStorage {
 }
 
 func testWrite(storage *JSONFileStorage, relayerKey RelayerKey, height uint64) {
-	err := storage.Put(relayerKey.GetKey(), []byte(LatestProcessedBlockKey), []byte(strconv.FormatUint(height, 10)))
+	err := storage.Put(relayerKey.GetKey(), LatestProcessedBlockKey, []byte(strconv.FormatUint(height, 10)))
 	if err != nil {
 		fmt.Printf("failed to put data: %v", err)
 		return

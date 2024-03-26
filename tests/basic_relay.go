@@ -111,8 +111,8 @@ func BasicRelay(network interfaces.LocalNetwork) {
 	relayerKeyA := database.CalculateRelayerKey(subnetAInfo.BlockchainID, subnetBInfo.BlockchainID, common.Address{}, common.Address{}) // TODO: update the src/dst addresses once allow lists added
 	relayerKeyB := database.CalculateRelayerKey(subnetBInfo.BlockchainID, subnetAInfo.BlockchainID, common.Address{}, common.Address{})
 	// Modify the JSON database to force the relayer to re-process old blocks
-	jsonDB.Put(relayerKeyA, []byte(database.LatestProcessedBlockKey), []byte("0"))
-	jsonDB.Put(relayerKeyB, []byte(database.LatestProcessedBlockKey), []byte("0"))
+	jsonDB.Put(relayerKeyA, database.LatestProcessedBlockKey, []byte("0"))
+	jsonDB.Put(relayerKeyB, database.LatestProcessedBlockKey, []byte("0"))
 
 	// Subscribe to the destination chain
 	newHeadsB := make(chan *types.Header, 10)

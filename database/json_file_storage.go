@@ -80,7 +80,7 @@ func NewJSONFileStorage(logger logging.Logger, dir string, relayerKeys []Relayer
 }
 
 // Get the latest chain state from the JSON database, and retrieve the value from the key
-func (s *JSONFileStorage) Get(relayerKey common.Hash, dataKey []byte) ([]byte, error) {
+func (s *JSONFileStorage) Get(relayerKey common.Hash, dataKey DataKey) ([]byte, error) {
 	mutex, ok := s.mutexes[relayerKey]
 	if !ok {
 		return nil, errors.Wrap(
@@ -100,7 +100,7 @@ func (s *JSONFileStorage) Get(relayerKey common.Hash, dataKey []byte) ([]byte, e
 	}
 
 	var val string
-	if val, ok = currentState[string(dataKey)]; !ok {
+	if val, ok = currentState[dataKey.String()]; !ok {
 		return nil, ErrDataKeyNotFound
 	}
 
@@ -124,7 +124,7 @@ func (s *JSONFileStorage) getCurrentState(relayerKey common.Hash) (chainState, b
 
 // Put the value into the JSON database. Read the current chain state and overwrite the key, if it exists
 // If the file corresponding to {relayerKey} does not exist, then it will be created
-func (s *JSONFileStorage) Put(relayerKey common.Hash, dataKey []byte, value []byte) error {
+func (s *JSONFileStorage) Put(relayerKey common.Hash, dataKey DataKey, value []byte) error {
 	mutex, ok := s.mutexes[relayerKey]
 	if !ok {
 		return errors.Wrap(
@@ -137,7 +137,7 @@ func (s *JSONFileStorage) Put(relayerKey common.Hash, dataKey []byte, value []by
 	defer mutex.Unlock()
 
 	// Update the in-memory state and write to disk
-	s.currentState[relayerKey][string(dataKey)] = string(value)
+	s.currentState[relayerKey][dataKey.String()] = string(value)
 	return s.write(relayerKey, s.currentState[relayerKey])
 }
 
