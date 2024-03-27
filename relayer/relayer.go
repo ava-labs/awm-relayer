@@ -89,17 +89,27 @@ func NewRelayer(
 
 	// Create the message relayers
 	messageRelayers := make(map[common.Hash]*messageRelayer)
-	for _, relayerKey := range database.GetSourceConfigRelayerKeys(&sourceBlockchain, cfg) {
-		messageRelayer, err := newMessageRelayer(logger, metrics, network, messageCreator, responseChan, relayerKey, db, sourceBlockchain, cfg)
+	for _, relayerID := range database.GetSourceBlockchainRelayerIDs(&sourceBlockchain, cfg) {
+		messageRelayer, err := newMessageRelayer(
+			logger,
+			metrics,
+			network,
+			messageCreator,
+			responseChan,
+			relayerID,
+			db,
+			sourceBlockchain,
+			cfg,
+		)
 		if err != nil {
 			logger.Error(
 				"Failed to create message relayer",
-				zap.String("relayerKey", relayerKey.CalculateRelayerKey().String()),
+				zap.String("relayerID", relayerID.GetID().String()),
 				zap.Error(err),
 			)
 			return nil, err
 		}
-		messageRelayers[relayerKey.CalculateRelayerKey()] = messageRelayer
+		messageRelayers[relayerID.GetID()] = messageRelayer
 	}
 
 	logger.Info(
@@ -288,46 +298,46 @@ func (r *Relayer) getMessageRelayer(
 	destinationAddress common.Address,
 ) (*messageRelayer, bool) {
 	// Check for an exact match
-	messageRelayerKey := database.CalculateRelayerKey(
+	messageRelayerID := database.CalculateRelayerID(
 		sourceBlockchainID,
 		destinationBlockchainID,
 		originSenderAddress,
 		destinationAddress,
 	)
-	if messageRelayer, ok := r.messageRelayers[messageRelayerKey]; ok {
+	if messageRelayer, ok := r.messageRelayers[messageRelayerID]; ok {
 		return messageRelayer, ok
 	}
 
 	// Check for a match on sourceBlockchainID and destinationBlockchainID, with any originSenderAddress and any destinationAddress
-	messageRelayerKey = database.CalculateRelayerKey(
+	messageRelayerID = database.CalculateRelayerID(
 		sourceBlockchainID,
 		destinationBlockchainID,
 		common.Address{},
 		common.Address{},
 	)
-	if messageRelayer, ok := r.messageRelayers[messageRelayerKey]; ok {
+	if messageRelayer, ok := r.messageRelayers[messageRelayerID]; ok {
 		return messageRelayer, ok
 	}
 
 	// Check for a match on sourceBlockchainID and destinationBlockchainID, with a specific originSenderAddress and any destinationAddress
-	messageRelayerKey = database.CalculateRelayerKey(
+	messageRelayerID = database.CalculateRelayerID(
 		sourceBlockchainID,
 		destinationBlockchainID,
 		originSenderAddress,
 		common.Address{},
 	)
-	if messageRelayer, ok := r.messageRelayers[messageRelayerKey]; ok {
+	if messageRelayer, ok := r.messageRelayers[messageRelayerID]; ok {
 		return messageRelayer, ok
 	}
 
 	// Check for a match on sourceBlockchainID and destinationBlockchainID, with any originSenderAddress and a specific destinationAddress
-	messageRelayerKey = database.CalculateRelayerKey(
+	messageRelayerID = database.CalculateRelayerID(
 		sourceBlockchainID,
 		destinationBlockchainID,
 		common.Address{},
 		destinationAddress,
 	)
-	messageRelayer, ok := r.messageRelayers[messageRelayerKey]
+	messageRelayer, ok := r.messageRelayers[messageRelayerID]
 	return messageRelayer, ok
 }
 

@@ -15,47 +15,61 @@ import (
 	"github.com/pkg/errors"
 )
 
-const (
-	LatestProcessedBlockKey = "latestProcessedBlock"
-)
-
 var (
-	ErrDataKeyNotFound          = errors.New("data key not found")
-	ErrRelayerKeyNotFound       = errors.New("no database for relayer key")
+	ErrKeyNotFound              = errors.New("key not found")
+	ErrRelayerIDNotFound        = errors.New("no database entryfor relayer id")
 	ErrDatabaseMisconfiguration = errors.New("database misconfiguration")
 )
 
-// RelayerDatabase is a key-value store for relayer state, with each blockchainID maintaining its own state
+const (
+	LatestProcessedBlockKey DataKey = iota
+)
+
+type DataKey int
+
+func (k DataKey) String() string {
+	switch k {
+	case LatestProcessedBlockKey:
+		return "latestProcessedBlock"
+	}
+	return "unknown"
+}
+
+// RelayerDatabase is a key-value store for relayer state, with each relayerID maintaining its own state
 type RelayerDatabase interface {
-	Get(relayerKey common.Hash, dataKey []byte) ([]byte, error)
-	Put(relayerKey common.Hash, dataKey []byte, value []byte) error
+	Get(relayerID common.Hash, key DataKey) ([]byte, error)
+	Put(relayerID common.Hash, key DataKey, value []byte) error
 }
 
 // Returns true if an error returned by a RelayerDatabase indicates the requested key was not found
 func IsKeyNotFoundError(err error) bool {
-	return errors.Is(err, ErrRelayerKeyNotFound) || errors.Is(err, ErrDataKeyNotFound)
+	return errors.Is(err, ErrRelayerIDNotFound) || errors.Is(err, ErrKeyNotFound)
 }
 
-// RelayerKey is a unique identifier for an application relayer
-type RelayerKey struct {
+// RelayerID is a unique identifier for an application relayer
+type RelayerID struct {
 	SourceBlockchainID      ids.ID
 	DestinationBlockchainID ids.ID
 	OriginSenderAddress     common.Address
 	DestinationAddress      common.Address
+	id                      common.Hash
 }
 
-// CalculateRelayerKey calculates the unique identifier for an application relayer
-func (k RelayerKey) CalculateRelayerKey() common.Hash {
-	return CalculateRelayerKey(
-		k.SourceBlockchainID,
-		k.DestinationBlockchainID,
-		k.OriginSenderAddress,
-		k.DestinationAddress,
-	)
+// GetKey returns the unique identifier for an application relayer
+func (id *RelayerID) GetID() common.Hash {
+	if id.id == (common.Hash{}) {
+		id.id = CalculateRelayerID(
+			id.SourceBlockchainID,
+			id.DestinationBlockchainID,
+			id.OriginSenderAddress,
+			id.DestinationAddress,
+		)
+	}
+	return id.id
 }
 
-// Standalone utility to calculate a relayer key
-func CalculateRelayerKey(
+// Standalone utility to calculate a relayer ID
+func CalculateRelayerID(
 	sourceBlockchainID ids.ID,
 	destinationBlockchainID ids.ID,
 	originSenderAddress common.Address,
@@ -75,21 +89,21 @@ func CalculateRelayerKey(
 }
 
 // Get all of the possible relayer keys for a given configuration
-func GetConfigRelayerKeys(cfg *config.Config) []RelayerKey {
-	var keys []RelayerKey
+func GetConfigRelayerIDs(cfg *config.Config) []RelayerID {
+	var keys []RelayerID
 	for _, s := range cfg.SourceBlockchains {
-		keys = append(keys, GetSourceConfigRelayerKeys(s, cfg)...)
+		keys = append(keys, GetSourceBlockchainRelayerIDs(s, cfg)...)
 	}
 	return keys
 }
 
 // Calculate all of the possible relayer keys for a given source blockchain
-func GetSourceConfigRelayerKeys(sourceBlockchain *config.SourceBlockchain, cfg *config.Config) []RelayerKey {
-	var keys []RelayerKey
+func GetSourceBlockchainRelayerIDs(sourceBlockchain *config.SourceBlockchain, cfg *config.Config) []RelayerID {
+	var ids []RelayerID
 	for _, srcAddress := range cfg.GetSourceBlockchainAllowedAddresses(sourceBlockchain.GetBlockchainID()) {
 		for _, dstID := range sourceBlockchain.GetSupportedDestinations().List() {
 			for _, dstAddress := range cfg.GetDestinationBlockchainAllowedAddresses(dstID) {
-				keys = append(keys, RelayerKey{
+				ids = append(ids, RelayerID{
 					SourceBlockchainID:      sourceBlockchain.GetBlockchainID(),
 					DestinationBlockchainID: dstID,
 					OriginSenderAddress:     srcAddress,
@@ -98,5 +112,5 @@ func GetSourceConfigRelayerKeys(sourceBlockchain *config.SourceBlockchain, cfg *
 			}
 		}
 	}
-	return keys
+	return ids
 }

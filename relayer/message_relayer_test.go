@@ -35,7 +35,7 @@ func TestCalculateStartingBlockHeight(t *testing.T) {
 			name:          "value in cfg, no value in db",
 			cfgBlock:      100,
 			dbBlock:       0,
-			dbError:       database.ErrDataKeyNotFound,
+			dbError:       database.ErrKeyNotFound,
 			expectedBlock: 100,
 			expectedError: nil,
 		},
@@ -72,7 +72,7 @@ func TestCalculateStartingBlockHeight(t *testing.T) {
 		relayerUnderTest, db := makeMessageRelayerWithMockDatabase(t)
 		db.
 			EXPECT().
-			Get(gomock.Any(), []byte(database.LatestProcessedBlockKey)).
+			Get(gomock.Any(), database.LatestProcessedBlockKey).
 			Return([]byte(strconv.FormatUint(testCase.dbBlock, 10)), testCase.dbError).
 			Times(1)
 		ret, err := relayerUnderTest.calculateStartingBlockHeight(testCase.cfgBlock)

@@ -105,15 +105,15 @@ func BasicRelay(network interfaces.LocalNetwork) {
 			logging.JSON.ConsoleEncoder(),
 		),
 	)
-	jsonDB, err := database.NewJSONFileStorage(logger, relayerConfig.StorageLocation, database.GetConfigRelayerKeys(&relayerConfig))
+	jsonDB, err := database.NewJSONFileStorage(logger, relayerConfig.StorageLocation, database.GetConfigRelayerIDs(&relayerConfig))
 	Expect(err).Should(BeNil())
 
 	// Create relayer keys that allow all source and destination addresses
-	relayerKeyA := database.CalculateRelayerKey(subnetAInfo.BlockchainID, subnetBInfo.BlockchainID, common.Address{}, common.Address{})
-	relayerKeyB := database.CalculateRelayerKey(subnetBInfo.BlockchainID, subnetAInfo.BlockchainID, common.Address{}, common.Address{})
+	relayerIDA := database.CalculateRelayerID(subnetAInfo.BlockchainID, subnetBInfo.BlockchainID, common.Address{}, common.Address{})
+	relayerIDB := database.CalculateRelayerID(subnetBInfo.BlockchainID, subnetAInfo.BlockchainID, common.Address{}, common.Address{})
 	// Modify the JSON database to force the relayer to re-process old blocks
-	jsonDB.Put(relayerKeyA, []byte(database.LatestProcessedBlockKey), []byte("0"))
-	jsonDB.Put(relayerKeyB, []byte(database.LatestProcessedBlockKey), []byte("0"))
+	jsonDB.Put(relayerIDA, database.LatestProcessedBlockKey, []byte("0"))
+	jsonDB.Put(relayerIDB, database.LatestProcessedBlockKey, []byte("0"))
 
 	// Subscribe to the destination chain
 	newHeadsB := make(chan *types.Header, 10)

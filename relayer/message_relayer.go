@@ -56,17 +56,16 @@ var (
 // and send the signed warp message to the destination chain.
 // Each messageRelayer runs in its own goroutine.
 type messageRelayer struct {
-	logger                  logging.Logger
-	metrics                 *MessageRelayerMetrics
-	network                 *peers.AppRequestNetwork
-	messageCreator          message.Creator
-	responseChan            chan message.InboundMessage
-	sourceBlockchain        config.SourceBlockchain
-	destinationBlockchainID ids.ID
-	signingSubnetID         ids.ID
-	relayerKey              database.RelayerKey
-	warpQuorum              config.WarpQuorum
-	db                      database.RelayerDatabase
+	logger           logging.Logger
+	metrics          *MessageRelayerMetrics
+	network          *peers.AppRequestNetwork
+	messageCreator   message.Creator
+	responseChan     chan message.InboundMessage
+	sourceBlockchain config.SourceBlockchain
+	signingSubnetID  ids.ID
+	relayerID        database.RelayerID
+	warpQuorum       config.WarpQuorum
+	db               database.RelayerDatabase
 }
 
 func newMessageRelayer(
@@ -75,16 +74,16 @@ func newMessageRelayer(
 	network *peers.AppRequestNetwork,
 	messageCreator message.Creator,
 	responseChan chan message.InboundMessage,
-	relayerKey database.RelayerKey,
+	relayerID database.RelayerID,
 	db database.RelayerDatabase,
 	sourceBlockchain config.SourceBlockchain,
 	cfg *config.Config,
 ) (*messageRelayer, error) {
-	quorum, err := cfg.GetWarpQuorum(relayerKey.DestinationBlockchainID)
+	quorum, err := cfg.GetWarpQuorum(relayerID.DestinationBlockchainID)
 	if err != nil {
 		logger.Error(
 			"Failed to get warp quorum from config. Relayer may not be configured to deliver to the destination chain.",
-			zap.String("destinationBlockchainID", relayerKey.DestinationBlockchainID.String()),
+			zap.String("destinationBlockchainID", relayerID.DestinationBlockchainID.String()),
 			zap.Error(err),
 		)
 		return nil, err
@@ -92,23 +91,22 @@ func newMessageRelayer(
 	var signingSubnet ids.ID
 	if sourceBlockchain.GetSubnetID() == constants.PrimaryNetworkID {
 		// If the message originates from the primary subnet, then we instead "self sign" the message using the validators of the destination subnet.
-		signingSubnet = cfg.GetSubnetID(relayerKey.DestinationBlockchainID)
+		signingSubnet = cfg.GetSubnetID(relayerID.DestinationBlockchainID)
 	} else {
 		// Otherwise, the source subnet signs the message.
 		signingSubnet = sourceBlockchain.GetSubnetID()
 	}
 	return &messageRelayer{
-		logger:                  logger,
-		metrics:                 metrics,
-		network:                 network,
-		messageCreator:          messageCreator,
-		responseChan:            responseChan,
-		sourceBlockchain:        sourceBlockchain,
-		destinationBlockchainID: relayerKey.DestinationBlockchainID,
-		relayerKey:              relayerKey,
-		signingSubnetID:         signingSubnet,
-		warpQuorum:              quorum,
-		db:                      db,
+		logger:           logger,
+		metrics:          metrics,
+		network:          network,
+		messageCreator:   messageCreator,
+		responseChan:     responseChan,
+		sourceBlockchain: sourceBlockchain,
+		relayerID:        relayerID,
+		signingSubnetID:  signingSubnet,
+		warpQuorum:       quorum,
+		db:               db,
 	}, nil
 }
 
@@ -120,7 +118,7 @@ func (r *messageRelayer) relayMessage(
 	blockNumber uint64,
 	useAppRequestNetwork bool,
 ) error {
-	shouldSend, err := messageManager.ShouldSendMessage(unsignedMessage, r.destinationBlockchainID)
+	shouldSend, err := messageManager.ShouldSendMessage(unsignedMessage, r.relayerID.DestinationBlockchainID)
 	if err != nil {
 		r.logger.Error(
 			"Failed to check if message should be sent",
@@ -164,7 +162,7 @@ func (r *messageRelayer) relayMessage(
 	// create signed message latency (ms)
 	r.setCreateSignedMessageLatencyMS(float64(time.Since(startCreateSignedMessageTime).Milliseconds()))
 
-	err = messageManager.SendMessage(signedMessage, r.destinationBlockchainID)
+	err = messageManager.SendMessage(signedMessage, r.relayerID.DestinationBlockchainID)
 	if err != nil {
 		r.logger.Error(
 			"Failed to send warp message",
@@ -175,7 +173,7 @@ func (r *messageRelayer) relayMessage(
 	}
 	r.logger.Info(
 		"Finished relaying message to destination chain",
-		zap.String("destinationBlockchainID", r.destinationBlockchainID.String()),
+		zap.String("destinationBlockchainID", r.relayerID.DestinationBlockchainID.String()),
 	)
 	r.incSuccessfulRelayMessageCount()
 
@@ -209,7 +207,7 @@ func (r *messageRelayer) createSignedMessage(unsignedMessage *avalancheWarp.Unsi
 			"Relayer collecting signatures from peers.",
 			zap.Int("attempt", attempt),
 			zap.String("sourceBlockchainID", r.sourceBlockchain.GetBlockchainID().String()),
-			zap.String("destinationBlockchainID", r.destinationBlockchainID.String()),
+			zap.String("destinationBlockchainID", r.relayerID.DestinationBlockchainID.String()),
 			zap.String("signingSubnetID", r.signingSubnetID.String()),
 		)
 		signedWarpMessageBytes, err = warpClient.GetMessageAggregateSignature(
@@ -244,7 +242,7 @@ func (r *messageRelayer) createSignedMessage(unsignedMessage *avalancheWarp.Unsi
 		"Failed to get aggregate signature from node endpoint",
 		zap.Int("attempts", maxRelayerQueryAttempts),
 		zap.String("sourceBlockchainID", r.sourceBlockchain.GetBlockchainID().String()),
-		zap.String("destinationBlockchainID", r.destinationBlockchainID.String()),
+		zap.String("destinationBlockchainID", r.relayerID.DestinationBlockchainID.String()),
 		zap.String("signingSubnetID", r.signingSubnetID.String()),
 	)
 	return nil, errFailedToGetAggSig
@@ -319,7 +317,7 @@ func (r *messageRelayer) createSignedMessageAppRequest(unsignedMessage *avalanch
 		r.logger.Debug(
 			"Relayer collecting signatures from peers.",
 			zap.Int("attempt", attempt),
-			zap.String("destinationBlockchainID", r.destinationBlockchainID.String()),
+			zap.String("destinationBlockchainID", r.relayerID.DestinationBlockchainID.String()),
 			zap.Int("validatorSetSize", len(connectedValidators.ValidatorSet)),
 			zap.Int("signatureMapSize", len(signatureMap)),
 			zap.Int("responsesExpected", responsesExpected),
@@ -436,7 +434,7 @@ func (r *messageRelayer) createSignedMessageAppRequest(unsignedMessage *avalanch
 						if err != nil {
 							r.logger.Error(
 								"Failed to aggregate signature.",
-								zap.String("destinationBlockchainID", r.destinationBlockchainID.String()),
+								zap.String("destinationBlockchainID", r.relayerID.DestinationBlockchainID.String()),
 								zap.Error(err),
 							)
 							return nil, err
@@ -465,7 +463,7 @@ func (r *messageRelayer) createSignedMessageAppRequest(unsignedMessage *avalanch
 				if signedMsg != nil {
 					r.logger.Info(
 						"Created signed message.",
-						zap.String("destinationBlockchainID", r.destinationBlockchainID.String()),
+						zap.String("destinationBlockchainID", r.relayerID.DestinationBlockchainID.String()),
 					)
 					return signedMsg, nil
 				}
@@ -485,7 +483,7 @@ func (r *messageRelayer) createSignedMessageAppRequest(unsignedMessage *avalanch
 	r.logger.Warn(
 		"Failed to collect a threshold of signatures",
 		zap.Int("attempts", maxRelayerQueryAttempts),
-		zap.String("destinationBlockchainID", r.destinationBlockchainID.String()),
+		zap.String("destinationBlockchainID", r.relayerID.DestinationBlockchainID.String()),
 	)
 	return nil, errNotEnoughSignatures
 }
@@ -530,7 +528,7 @@ func (r *messageRelayer) isValidSignatureResponse(
 		r.logger.Debug(
 			"Response contained an empty signature",
 			zap.String("nodeID", response.NodeID().String()),
-			zap.String("destinationBlockchainID", r.destinationBlockchainID.String()),
+			zap.String("destinationBlockchainID", r.relayerID.DestinationBlockchainID.String()),
 		)
 		return blsSignatureBuf{}, false
 	}
@@ -539,7 +537,7 @@ func (r *messageRelayer) isValidSignatureResponse(
 	if err != nil {
 		r.logger.Debug(
 			"Failed to create signature from response",
-			zap.String("destinationBlockchainID", r.destinationBlockchainID.String()),
+			zap.String("destinationBlockchainID", r.relayerID.DestinationBlockchainID.String()),
 		)
 		return blsSignatureBuf{}, false
 	}
@@ -547,7 +545,7 @@ func (r *messageRelayer) isValidSignatureResponse(
 	if !bls.Verify(pubKey, sig, unsignedMessage.Bytes()) {
 		r.logger.Debug(
 			"Failed verification for signature",
-			zap.String("destinationBlockchainID", r.destinationBlockchainID.String()),
+			zap.String("destinationBlockchainID", r.relayerID.DestinationBlockchainID.String()),
 		)
 		return blsSignatureBuf{}, false
 	}
@@ -597,7 +595,7 @@ func (r *messageRelayer) aggregateSignatures(signatureMap map[int]blsSignatureBu
 // 2) The database has been configured for the chain, but does not contain the latest processed block data
 //   - In this case, we return the configured processHistoricalBlocksFromHeight
 //
-// 3) The database does not contain the any information for the chain.
+// 3) The database does not contain any information for the chain.
 //   - In this case, we return the configured processHistoricalBlocksFromHeight if it is set, otherwise
 //     we return the chain head.
 func (r *messageRelayer) calculateStartingBlockHeight(processHistoricalBlocksFromHeight uint64) (uint64, error) {
@@ -614,7 +612,7 @@ func (r *messageRelayer) calculateStartingBlockHeight(processHistoricalBlocksFro
 		// Otherwise, we've encountered an unknown database error
 		r.logger.Error(
 			"failed to get latest block from database",
-			zap.String("relayerKey", r.relayerKey.CalculateRelayerKey().String()),
+			zap.String("relayerID", r.relayerID.GetID().String()),
 			zap.Error(err),
 		)
 		return 0, err
@@ -625,7 +623,7 @@ func (r *messageRelayer) calculateStartingBlockHeight(processHistoricalBlocksFro
 	if latestProcessedBlock > processHistoricalBlocksFromHeight {
 		r.logger.Info(
 			"Processing historical blocks from the latest processed block in the DB",
-			zap.String("relayerKey", r.relayerKey.CalculateRelayerKey().String()),
+			zap.String("relayerID", r.relayerID.GetID().String()),
 			zap.Uint64("latestProcessedBlock", latestProcessedBlock),
 		)
 		return latestProcessedBlock, nil
@@ -633,7 +631,7 @@ func (r *messageRelayer) calculateStartingBlockHeight(processHistoricalBlocksFro
 	// Otherwise, return the configured start block height
 	r.logger.Info(
 		"Processing historical blocks from the configured start block height",
-		zap.String("relayerKey", r.relayerKey.CalculateRelayerKey().String()),
+		zap.String("relayerID", r.relayerID.GetID().String()),
 		zap.Uint64("processHistoricalBlocksFromHeight", processHistoricalBlocksFromHeight),
 	)
 	return processHistoricalBlocksFromHeight, nil
@@ -663,7 +661,7 @@ func (r *messageRelayer) setProcessedBlockHeightToLatest() (uint64, error) {
 
 	r.logger.Info(
 		"Updating latest processed block in database",
-		zap.String("relayerKey", r.relayerKey.CalculateRelayerKey().String()),
+		zap.String("relayerID", r.relayerID.GetID().String()),
 		zap.Uint64("latestBlock", latestBlock),
 	)
 
@@ -671,7 +669,7 @@ func (r *messageRelayer) setProcessedBlockHeightToLatest() (uint64, error) {
 	if err != nil {
 		r.logger.Error(
 			fmt.Sprintf("failed to put %s into database", database.LatestProcessedBlockKey),
-			zap.String("relayerKey", r.relayerKey.CalculateRelayerKey().String()),
+			zap.String("relayerID", r.relayerID.GetID().String()),
 			zap.Error(err),
 		)
 		return 0, err
@@ -684,7 +682,7 @@ func (r *messageRelayer) setProcessedBlockHeightToLatest() (uint64, error) {
 // because it is updated as soon as a single message from that block is relayed,
 // and there may be multiple message in the same block.
 func (r *messageRelayer) getLatestProcessedBlockHeight() (uint64, error) {
-	latestProcessedBlockData, err := r.db.Get(r.relayerKey.CalculateRelayerKey(), []byte(database.LatestProcessedBlockKey))
+	latestProcessedBlockData, err := r.db.Get(r.relayerID.GetID(), database.LatestProcessedBlockKey)
 	if err != nil {
 		return 0, err
 	}
@@ -697,7 +695,7 @@ func (r *messageRelayer) getLatestProcessedBlockHeight() (uint64, error) {
 
 // Store the block height in the database. Does not check against the current latest processed block height.
 func (r *messageRelayer) storeBlockHeight(height uint64) error {
-	return r.db.Put(r.relayerKey.CalculateRelayerKey(), []byte(database.LatestProcessedBlockKey), []byte(strconv.FormatUint(height, 10)))
+	return r.db.Put(r.relayerID.GetID(), database.LatestProcessedBlockKey, []byte(strconv.FormatUint(height, 10)))
 }
 
 // Stores the block height in the database if it is greater than the current latest processed block height.
@@ -708,7 +706,7 @@ func (r *messageRelayer) storeLatestBlockHeight(height uint64) error {
 	if err != nil && !database.IsKeyNotFoundError(err) {
 		r.logger.Error(
 			"Encountered an unknown error while getting latest processed block from database",
-			zap.String("relayerKey", r.relayerKey.CalculateRelayerKey().String()),
+			zap.String("relayerID", r.relayerID.GetID().String()),
 			zap.Error(err),
 		)
 		return err
@@ -722,7 +720,7 @@ func (r *messageRelayer) storeLatestBlockHeight(height uint64) error {
 		if err != nil {
 			r.logger.Error(
 				fmt.Sprintf("failed to put %s into database", database.LatestProcessedBlockKey),
-				zap.String("relayerKey", r.relayerKey.CalculateRelayerKey().String()),
+				zap.String("relayerID", r.relayerID.GetID().String()),
 				zap.Error(err),
 			)
 		}
@@ -738,7 +736,7 @@ func (r *messageRelayer) storeLatestBlockHeight(height uint64) error {
 func (r *messageRelayer) incSuccessfulRelayMessageCount() {
 	r.metrics.successfulRelayMessageCount.
 		WithLabelValues(
-			r.destinationBlockchainID.String(),
+			r.relayerID.DestinationBlockchainID.String(),
 			r.sourceBlockchain.GetBlockchainID().String(),
 			r.sourceBlockchain.GetSubnetID().String()).Inc()
 }
@@ -746,7 +744,7 @@ func (r *messageRelayer) incSuccessfulRelayMessageCount() {
 func (r *messageRelayer) incFailedRelayMessageCount(failureReason string) {
 	r.metrics.failedRelayMessageCount.
 		WithLabelValues(
-			r.destinationBlockchainID.String(),
+			r.relayerID.DestinationBlockchainID.String(),
 			r.sourceBlockchain.GetBlockchainID().String(),
 			r.sourceBlockchain.GetSubnetID().String(),
 			failureReason).Inc()
@@ -755,7 +753,7 @@ func (r *messageRelayer) incFailedRelayMessageCount(failureReason string) {
 func (r *messageRelayer) setCreateSignedMessageLatencyMS(latency float64) {
 	r.metrics.createSignedMessageLatencyMS.
 		WithLabelValues(
-			r.destinationBlockchainID.String(),
+			r.relayerID.DestinationBlockchainID.String(),
 			r.sourceBlockchain.GetBlockchainID().String(),
 			r.sourceBlockchain.GetSubnetID().String()).Set(latency)
 }

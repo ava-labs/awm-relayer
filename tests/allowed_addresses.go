@@ -286,54 +286,54 @@ func AllowedAddresses(network interfaces.LocalNetwork) {
 	//
 
 	// Create relayer keys that allow all source and destination addresses
-	relayerKey1 := database.RelayerKey{
+	relayerID1 := database.RelayerID{
 		SourceBlockchainID:      subnetAInfo.BlockchainID,
 		DestinationBlockchainID: subnetBInfo.BlockchainID,
 		OriginSenderAddress:     common.Address{},
 		DestinationAddress:      common.Address{},
 	}
-	relayerKey2 := database.RelayerKey{
+	relayerID2 := database.RelayerID{
 		SourceBlockchainID:      subnetAInfo.BlockchainID,
 		DestinationBlockchainID: subnetBInfo.BlockchainID,
 		OriginSenderAddress:     allowedAddresses[relayer2AllowedSrcAddressIdx],
 		DestinationAddress:      common.Address{},
 	}
-	relayerKey3 := database.RelayerKey{
+	relayerID3 := database.RelayerID{
 		SourceBlockchainID:      subnetAInfo.BlockchainID,
 		DestinationBlockchainID: subnetBInfo.BlockchainID,
 		OriginSenderAddress:     common.Address{},
 		DestinationAddress:      allowedAddresses[relayer3AllowedDstAddressIdx],
 	}
-	relayerKey4 := database.RelayerKey{
+	relayerID4 := database.RelayerID{
 		SourceBlockchainID:      subnetAInfo.BlockchainID,
 		DestinationBlockchainID: subnetBInfo.BlockchainID,
 		OriginSenderAddress:     allowedAddresses[relayer4AllowedSrcAddressIdx],
 		DestinationAddress:      allowedAddresses[relayer4AllowedDstAddressIdx],
 	}
-	relayerKeys := []database.RelayerKey{relayerKey1, relayerKey2, relayerKey3, relayerKey4}
+	relayerKeys := []database.RelayerID{relayerID1, relayerID2, relayerID3, relayerID4}
 	jsonDB, err := database.NewJSONFileStorage(logging.NoLog{}, testUtils.StorageLocation, relayerKeys)
 	Expect(err).Should(BeNil())
 
 	// Fetch the checkpointed heights from the shared database
-	data, err := jsonDB.Get(relayerKey1.CalculateRelayerKey(), []byte(database.LatestProcessedBlockKey))
+	data, err := jsonDB.Get(relayerID1.GetID(), database.LatestProcessedBlockKey)
 	Expect(err).Should(BeNil())
 	storedHeight1, err := strconv.ParseUint(string(data), 10, 64)
 	Expect(err).Should(BeNil())
 	Expect(storedHeight1).Should(Equal(height1))
 
-	data, err = jsonDB.Get(relayerKey2.CalculateRelayerKey(), []byte(database.LatestProcessedBlockKey))
+	data, err = jsonDB.Get(relayerID2.GetID(), database.LatestProcessedBlockKey)
 	Expect(err).Should(BeNil())
 	storedHeight2, err := strconv.ParseUint(string(data), 10, 64)
 	Expect(err).Should(BeNil())
 	Expect(storedHeight2).Should(Equal(height2))
 
-	data, err = jsonDB.Get(relayerKey3.CalculateRelayerKey(), []byte(database.LatestProcessedBlockKey))
+	data, err = jsonDB.Get(relayerID3.GetID(), database.LatestProcessedBlockKey)
 	Expect(err).Should(BeNil())
 	storedHeight3, err := strconv.ParseUint(string(data), 10, 64)
 	Expect(err).Should(BeNil())
 	Expect(storedHeight3).Should(Equal(height3))
 
-	data, err = jsonDB.Get(relayerKey4.CalculateRelayerKey(), []byte(database.LatestProcessedBlockKey))
+	data, err = jsonDB.Get(relayerID4.GetID(), database.LatestProcessedBlockKey)
 	Expect(err).Should(BeNil())
 	storedHeight4, err := strconv.ParseUint(string(data), 10, 64)
 	Expect(err).Should(BeNil())
