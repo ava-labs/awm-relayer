@@ -55,6 +55,10 @@ var (
 	}
 	testPk1 string = "0xabc89e99c94b6912bfc12adc093c9b51124f0dc54ac7a766b2bc5ccf558d8abc"
 	testPk2 string = "0x12389e99c94b6912bfc12adc093c9b51124f0dc54ac7a766b2bc5ccf558d8123"
+
+	awsRegion string = "us-west-2"
+	kmsKey1          = "test-kms-id1"
+	kmsKey2          = "test-kms-id2"
 )
 
 // GetRelayerAccountPrivateKey tests. Individual cases must be run in their own functions
@@ -182,6 +186,7 @@ func TestGetRelayerAccountPrivateKey_set_pk_with_global_env(t *testing.T) {
 
 func TestEitherKMSOrAccountPrivateKey(t *testing.T) {
 	dstCfg := *testValidConfig.DestinationBlockchains[0]
+	// Zero out all fields under test
 	dstCfg.AccountPrivateKey = ""
 	dstCfg.KMSKeyID = ""
 	dstCfg.AWSRegion = ""
@@ -195,8 +200,8 @@ func TestEitherKMSOrAccountPrivateKey(t *testing.T) {
 			name: "kms supplied",
 			dstCfg: func() DestinationBlockchain {
 				cfg := dstCfg
-				cfg.KMSKeyID = "test-kms-id"
-				cfg.AWSRegion = "us-west-2"
+				cfg.KMSKeyID = kmsKey1
+				cfg.AWSRegion = awsRegion
 				return cfg
 			},
 			valid: true,
@@ -221,8 +226,8 @@ func TestEitherKMSOrAccountPrivateKey(t *testing.T) {
 			name: "both supplied",
 			dstCfg: func() DestinationBlockchain {
 				cfg := dstCfg
-				cfg.KMSKeyID = "test-kms-id"
-				cfg.AWSRegion = "us-west-2"
+				cfg.KMSKeyID = kmsKey1
+				cfg.AWSRegion = awsRegion
 				cfg.AccountPrivateKey = "0x56289e99c94b6912bfc12adc093c9b51124f0dc54ac7a766b2bc5ccf558d8027"
 				return cfg
 			},
@@ -232,7 +237,7 @@ func TestEitherKMSOrAccountPrivateKey(t *testing.T) {
 			name: "invalid kms",
 			dstCfg: func() DestinationBlockchain {
 				cfg := dstCfg
-				cfg.KMSKeyID = "test-kms-id"
+				cfg.KMSKeyID = kmsKey1
 				// Missing AWS region
 				return cfg
 			},
@@ -254,8 +259,8 @@ func TestGetRelayerKMSID_set_kmd_id_with_global_env(t *testing.T) {
 		baseConfig: testValidConfig,
 		configModifier: func(c Config) Config {
 			c.DestinationBlockchains[0].AccountPrivateKey = ""
-			c.DestinationBlockchains[0].KMSKeyID = "test-kms-id2"
-			c.DestinationBlockchains[0].AWSRegion = "us-west-2"
+			c.DestinationBlockchains[0].KMSKeyID = kmsKey2
+			c.DestinationBlockchains[0].AWSRegion = awsRegion
 			// Add a second destination subnet. This KMS ID SHOULD be overwritten
 			newSubnet := *c.DestinationBlockchains[0]
 			newSubnet.BlockchainID = testBlockchainID2
@@ -265,14 +270,14 @@ func TestGetRelayerKMSID_set_kmd_id_with_global_env(t *testing.T) {
 		},
 		envSetter: func() {
 			// Overwrite the PK for the first subnet using an env var
-			t.Setenv("KMS_KEY_ID", "test-kms-id2")
+			t.Setenv("KMS_KEY_ID", kmsKey2)
 		},
 		expectedOverwritten: true,
 		resultVerifier: func(c Config) bool {
 			// All destination subnets should have test-kms-id2
 			for _, subnet := range c.DestinationBlockchains {
-				if subnet.KMSKeyID != "test-kms-id2" {
-					fmt.Printf("expected: %s, got: %s\n", "test-kms-id2", subnet.KMSKeyID)
+				if subnet.KMSKeyID != kmsKey2 {
+					fmt.Printf("expected: %s, got: %s\n", kmsKey2, subnet.KMSKeyID)
 					return false
 				}
 			}
