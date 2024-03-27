@@ -59,7 +59,7 @@ var (
 
 // GetRelayerAccountPrivateKey tests. Individual cases must be run in their own functions
 // because they modify the environment variables.
-type getRelayerAccountPrivateKeyTestCase struct {
+type configMondifierEnvVarTestCase struct {
 	baseConfig          Config
 	configModifier      func(Config) Config
 	flags               []string
@@ -68,8 +68,15 @@ type getRelayerAccountPrivateKeyTestCase struct {
 	resultVerifier      func(Config) bool
 }
 
+// setups config json file and writes content
+func setupConfigJSON(t *testing.T, rootPath string, value string) string {
+	configFilePath := filepath.Join(rootPath, "config.json")
+	require.NoError(t, os.WriteFile(configFilePath, []byte(value), 0o600))
+	return configFilePath
+}
+
 // Sets up the config file temporary environment and runs the test case.
-func runGetRelayerAccountPrivateKeyTest(t *testing.T, testCase getRelayerAccountPrivateKeyTestCase) {
+func runConfigModifierEnvVarTest(t *testing.T, testCase configMondifierEnvVarTestCase) {
 	root := t.TempDir()
 
 	cfg := testCase.configModifier(testCase.baseConfig)
@@ -92,7 +99,7 @@ func runGetRelayerAccountPrivateKeyTest(t *testing.T, testCase getRelayerAccount
 }
 
 func TestGetRelayerAccountPrivateKey_set_pk_in_config(t *testing.T) {
-	testCase := getRelayerAccountPrivateKeyTestCase{
+	testCase := configMondifierEnvVarTestCase{
 		baseConfig:          testValidConfig,
 		configModifier:      func(c Config) Config { return c },
 		envSetter:           func() {},
@@ -108,11 +115,11 @@ func TestGetRelayerAccountPrivateKey_set_pk_in_config(t *testing.T) {
 			return true
 		},
 	}
-	runGetRelayerAccountPrivateKeyTest(t, testCase)
+	runConfigModifierEnvVarTest(t, testCase)
 }
 
 func TestGetRelayerAccountPrivateKey_set_pk_with_subnet_env(t *testing.T) {
-	testCase := getRelayerAccountPrivateKeyTestCase{
+	testCase := configMondifierEnvVarTestCase{
 		baseConfig: testValidConfig,
 		configModifier: func(c Config) Config {
 			// Add a second destination subnet. This PK should NOT be overwritten
@@ -141,10 +148,10 @@ func TestGetRelayerAccountPrivateKey_set_pk_with_subnet_env(t *testing.T) {
 			return true
 		},
 	}
-	runGetRelayerAccountPrivateKeyTest(t, testCase)
+	runConfigModifierEnvVarTest(t, testCase)
 }
 func TestGetRelayerAccountPrivateKey_set_pk_with_global_env(t *testing.T) {
-	testCase := getRelayerAccountPrivateKeyTestCase{
+	testCase := configMondifierEnvVarTestCase{
 		baseConfig: testValidConfig,
 		configModifier: func(c Config) Config {
 			// Add a second destination subnet. This PK SHOULD be overwritten
@@ -170,14 +177,109 @@ func TestGetRelayerAccountPrivateKey_set_pk_with_global_env(t *testing.T) {
 			return true
 		},
 	}
-	runGetRelayerAccountPrivateKeyTest(t, testCase)
+	runConfigModifierEnvVarTest(t, testCase)
 }
 
-// setups config json file and writes content
-func setupConfigJSON(t *testing.T, rootPath string, value string) string {
-	configFilePath := filepath.Join(rootPath, "config.json")
-	require.NoError(t, os.WriteFile(configFilePath, []byte(value), 0o600))
-	return configFilePath
+func TestEitherKMSOrAccountPrivateKey(t *testing.T) {
+	dstCfg := *testValidConfig.DestinationBlockchains[0]
+	dstCfg.AccountPrivateKey = ""
+	dstCfg.KMSKeyID = ""
+	dstCfg.AWSRegion = ""
+
+	testCases := []struct {
+		name   string
+		dstCfg func() DestinationBlockchain
+		valid  bool
+	}{
+		{
+			name: "kms supplied",
+			dstCfg: func() DestinationBlockchain {
+				cfg := dstCfg
+				cfg.KMSKeyID = "test-kms-id"
+				cfg.AWSRegion = "us-west-2"
+				return cfg
+			},
+			valid: true,
+		},
+		{
+			name: "account private key supplied",
+			dstCfg: func() DestinationBlockchain {
+				cfg := dstCfg
+				cfg.AccountPrivateKey = "56289e99c94b6912bfc12adc093c9b51124f0dc54ac7a766b2bc5ccf558d8027"
+				return cfg
+			},
+			valid: true,
+		},
+		{
+			name: "neither supplied",
+			dstCfg: func() DestinationBlockchain {
+				return dstCfg
+			},
+			valid: false,
+		},
+		{
+			name: "both supplied",
+			dstCfg: func() DestinationBlockchain {
+				cfg := dstCfg
+				cfg.KMSKeyID = "test-kms-id"
+				cfg.AWSRegion = "us-west-2"
+				cfg.AccountPrivateKey = "0x56289e99c94b6912bfc12adc093c9b51124f0dc54ac7a766b2bc5ccf558d8027"
+				return cfg
+			},
+			valid: false,
+		},
+		{
+			name: "invalid kms",
+			dstCfg: func() DestinationBlockchain {
+				cfg := dstCfg
+				cfg.KMSKeyID = "test-kms-id"
+				// Missing AWS region
+				return cfg
+			},
+			valid: false,
+		},
+	}
+	for _, testCase := range testCases {
+		dstCfg := testCase.dstCfg()
+		err := dstCfg.Validate()
+		if testCase.valid {
+			require.NoError(t, err)
+		} else {
+			require.Error(t, err)
+		}
+	}
+}
+func TestGetRelayerKMSID_set_kmd_id_with_global_env(t *testing.T) {
+	testCase := configMondifierEnvVarTestCase{
+		baseConfig: testValidConfig,
+		configModifier: func(c Config) Config {
+			c.DestinationBlockchains[0].AccountPrivateKey = ""
+			c.DestinationBlockchains[0].KMSKeyID = "test-kms-id2"
+			c.DestinationBlockchains[0].AWSRegion = "us-west-2"
+			// Add a second destination subnet. This KMS ID SHOULD be overwritten
+			newSubnet := *c.DestinationBlockchains[0]
+			newSubnet.BlockchainID = testBlockchainID2
+			newSubnet.KMSKeyID = "test-kms-id1"
+			c.DestinationBlockchains = append(c.DestinationBlockchains, &newSubnet)
+			return c
+		},
+		envSetter: func() {
+			// Overwrite the PK for the first subnet using an env var
+			t.Setenv("KMS_KEY_ID", "test-kms-id2")
+		},
+		expectedOverwritten: true,
+		resultVerifier: func(c Config) bool {
+			// All destination subnets should have test-kms-id2
+			for _, subnet := range c.DestinationBlockchains {
+				if subnet.KMSKeyID != "test-kms-id2" {
+					fmt.Printf("expected: %s, got: %s\n", "test-kms-id2", subnet.KMSKeyID)
+					return false
+				}
+			}
+			return true
+		},
+	}
+	runConfigModifierEnvVarTest(t, testCase)
 }
 
 func TestGetWarpQuorum(t *testing.T) {

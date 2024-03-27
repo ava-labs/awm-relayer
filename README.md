@@ -219,7 +219,15 @@ The relayer is configured via a JSON file, the path to which is passed in via th
 
   `"account-private-key": string`
 
-  - The hex-encoded private key to use for signing transactions on the destination Subnet. May be provided by the environment variable `ACCOUNT_PRIVATE_KEY`. Each `destination-subnet` may use a separate private key by appending the blockchain ID to the private key environment variable name, for example `ACCOUNT_PRIVATE_KEY_11111111111111111111111111111111LpoYY`
+  - The hex-encoded private key to use for signing transactions on the destination Subnet. May be provided by the environment variable `ACCOUNT_PRIVATE_KEY`. Each `destination-subnet` may use a separate private key by appending the blockchain ID to the private key environment variable name, for example `ACCOUNT_PRIVATE_KEY_11111111111111111111111111111111LpoYY`. Only one of `account-private-key` or `kms-key-id` should be provided.
+
+  `"kms-key-id": string`
+
+  - The ID of the KMS key to use for signing transactions on the destination Subnet. May be provided by the environment variable `KMS_KEY_ID`. Only one of `account-private-key` or `kms-key-id` should be provided. If `kms-key-id` is provided, then `aws-region` is required.
+
+  `"aws-region": string`
+
+  - The AWS region in which the KMS key is located. May be provided by the environment variable `AWS_REGION`. Required if `kms-key-id` is provided.
 
 ## Architecture
 

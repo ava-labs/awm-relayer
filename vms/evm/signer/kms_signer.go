@@ -85,6 +85,9 @@ func (s *KMSSigner) Address() common.Address {
 // Recover the EIP-155 signature from the KMS signature
 // KMS returns the signature in ASN.1 format, but the EIP-155 signature is in R || S || V format,
 // so we need to test both V = 0 and V = 1 against the recovered public key
+//
+// This function is adapted from https://github.com/welthee/go-ethereum-aws-kms-tx-signer
+// and is reproduced here under welthee's MIT license
 func getEthereumSignature(expectedPublicKeyBytes []byte, txHash []byte, r []byte, s []byte) ([]byte, error) {
 	rsSignature := append(adjustSignatureLength(r), adjustSignatureLength(s)...)
 	signature := append(rsSignature, []byte{0}...)
@@ -110,6 +113,9 @@ func getEthereumSignature(expectedPublicKeyBytes []byte, txHash []byte, r []byte
 }
 
 // Trim null bytes and pad with zeros to 32 bytes
+//
+// This function is adapted from https://github.com/welthee/go-ethereum-aws-kms-tx-signer
+// and is reproduced here under welthee's MIT license
 func adjustSignatureLength(buffer []byte) []byte {
 	buffer = bytes.TrimLeft(buffer, "\x00")
 	for len(buffer) < 32 {

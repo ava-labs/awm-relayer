@@ -65,7 +65,7 @@ func NewDestinationClient(logger logging.Logger, destinationBlockchain *config.D
 		return nil, err
 	}
 
-	sgnr, err := signer.NewTxSigner(destinationBlockchain)
+	sgnr, err := signer.NewSigner(destinationBlockchain)
 	if err != nil {
 		logger.Error(
 			"Failed to create signer",
