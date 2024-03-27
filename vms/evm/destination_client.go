@@ -7,15 +7,14 @@ package evm
 
 import (
 	"context"
-	"crypto/ecdsa"
 	"math/big"
-	"runtime"
 	"sync"
 
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/utils/logging"
 	avalancheWarp "github.com/ava-labs/avalanchego/vms/platformvm/warp"
 	"github.com/ava-labs/awm-relayer/config"
+	"github.com/ava-labs/awm-relayer/vms/evm/signer"
 	"github.com/ava-labs/subnet-evm/core/types"
 	"github.com/ava-labs/subnet-evm/ethclient"
 	"github.com/ava-labs/subnet-evm/precompile/contracts/warp"
@@ -38,19 +37,17 @@ type Client interface {
 
 // Implements DestinationClient
 type destinationClient struct {
-	client ethclient.Client
-	lock   *sync.Mutex
-
+	client                  ethclient.Client
+	lock                    *sync.Mutex
 	destinationBlockchainID ids.ID
-	pk                      *ecdsa.PrivateKey
-	eoa                     common.Address
+	signer                  signer.Signer
 	currentNonce            uint64
 	logger                  logging.Logger
 }
 
-func NewDestinationClient(logger logging.Logger, subnetInfo config.DestinationBlockchain) (*destinationClient, error) {
+func NewDestinationClient(logger logging.Logger, destinationBlockchain *config.DestinationBlockchain) (*destinationClient, error) {
 	// Dial the destination RPC endpoint
-	client, err := ethclient.Dial(subnetInfo.RPCEndpoint)
+	client, err := ethclient.Dial(destinationBlockchain.RPCEndpoint)
 	if err != nil {
 		logger.Error(
 			"Failed to dial rpc endpoint",
@@ -59,7 +56,7 @@ func NewDestinationClient(logger logging.Logger, subnetInfo config.DestinationBl
 		return nil, err
 	}
 
-	destinationID, err := ids.FromString(subnetInfo.BlockchainID)
+	destinationID, err := ids.FromString(destinationBlockchain.BlockchainID)
 	if err != nil {
 		logger.Error(
 			"Could not decode destination chain ID from string",
@@ -68,21 +65,16 @@ func NewDestinationClient(logger logging.Logger, subnetInfo config.DestinationBl
 		return nil, err
 	}
 
-	pk, eoa, err := subnetInfo.GetRelayerAccountInfo()
+	sgnr, err := signer.NewTxSigner(destinationBlockchain)
 	if err != nil {
 		logger.Error(
-			"Could not extract relayer account information from config",
+			"Failed to create signer",
 			zap.Error(err),
 		)
 		return nil, err
 	}
-	// Explicitly zero the private key when it is gc'd
-	runtime.SetFinalizer(pk, func(pk *ecdsa.PrivateKey) {
-		pk.D.SetInt64(0)
-		pk = nil
-	})
 
-	nonce, err := client.NonceAt(context.Background(), eoa, nil)
+	nonce, err := client.NonceAt(context.Background(), sgnr.Address(), nil)
 	if err != nil {
 		logger.Error(
 			"Failed to get nonce",
@@ -95,8 +87,7 @@ func NewDestinationClient(logger logging.Logger, subnetInfo config.DestinationBl
 		client:                  client,
 		lock:                    new(sync.Mutex),
 		destinationBlockchainID: destinationID,
-		pk:                      pk,
-		eoa:                     eoa,
+		signer:                  sgnr,
 		currentNonce:            nonce,
 		logger:                  logger,
 	}, nil
@@ -109,16 +100,6 @@ func (c *destinationClient) SendTx(signedMessage *avalancheWarp.Message,
 	// Synchronize teleporter message requests to the same destination chain so that message ordering is preserved
 	c.lock.Lock()
 	defer c.lock.Unlock()
-	// We need the global 32-byte representation of the destination chain ID, as well as the destination's configured blockchainID
-	// Without the destination's configured blockchainID, transaction signature verification will fail
-	destinationChainIDBigInt, err := c.client.ChainID(context.Background())
-	if err != nil {
-		c.logger.Error(
-			"Failed to get chain ID from destination chain endpoint",
-			zap.Error(err),
-		)
-		return err
-	}
 
 	// Get the current base fee estimation, which is based on the previous blocks gas usage.
 	baseFee, err := c.client.EstimateBaseFee(context.Background())
@@ -145,9 +126,18 @@ func (c *destinationClient) SendTx(signedMessage *avalancheWarp.Message,
 	gasFeeCap := baseFee.Mul(baseFee, big.NewInt(BaseFeeFactor))
 	gasFeeCap.Add(gasFeeCap, big.NewInt(MaxPriorityFeePerGas))
 
+	evmChainID, err := c.client.ChainID(context.Background())
+	if err != nil {
+		c.logger.Error(
+			"Failed to get chain ID from destination chain endpoint",
+			zap.Error(err),
+		)
+		return err
+	}
+
 	// Construct the actual transaction to broadcast on the destination chain
 	tx := predicateutils.NewPredicateTx(
-		destinationChainIDBigInt,
+		evmChainID,
 		c.currentNonce,
 		&to,
 		gasLimit,
@@ -161,8 +151,7 @@ func (c *destinationClient) SendTx(signedMessage *avalancheWarp.Message,
 	)
 
 	// Sign and send the transaction on the destination chain
-	signer := types.LatestSignerForChainID(destinationChainIDBigInt)
-	signedTx, err := types.SignTx(tx, signer, c.pk)
+	signedTx, err := c.signer.SignTx(tx, evmChainID)
 	if err != nil {
 		c.logger.Error(
 			"Failed to sign transaction",
@@ -195,7 +184,7 @@ func (c *destinationClient) Client() interface{} {
 }
 
 func (c *destinationClient) SenderAddress() common.Address {
-	return c.eoa
+	return c.signer.Address()
 }
 
 func (c *destinationClient) DestinationBlockchainID() ids.ID {

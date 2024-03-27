@@ -5,7 +5,6 @@ package config
 
 import (
 	"context"
-	"crypto/ecdsa"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -25,7 +24,6 @@ import (
 	_ "github.com/ava-labs/subnet-evm/precompile/registry"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/spf13/viper"
 )
 
@@ -534,16 +532,6 @@ func (s *DestinationBlockchain) initializeWarpQuorum() error {
 
 	s.warpQuorum = quorum
 	return nil
-}
-
-// Get the private key and derive the wallet address from a relayer's configured private key for a given destination subnet.
-func (s *DestinationBlockchain) GetRelayerAccountInfo() (*ecdsa.PrivateKey, common.Address, error) {
-	pk, err := crypto.HexToECDSA(s.AccountPrivateKey)
-	if err != nil {
-		return nil, common.Address{}, err
-	}
-
-	return pk, crypto.PubkeyToAddress(pk.PublicKey), nil
 }
 
 //

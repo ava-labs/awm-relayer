@@ -4,11 +4,8 @@
 package config
 
 import (
-	"crypto/ecdsa"
 	"encoding/json"
-	"errors"
 	"fmt"
-	"math/big"
 	"os"
 	"path/filepath"
 	"testing"
@@ -19,7 +16,6 @@ import (
 	mock_ethclient "github.com/ava-labs/awm-relayer/vms/evm/mocks"
 	"github.com/ava-labs/subnet-evm/params"
 	"github.com/ava-labs/subnet-evm/precompile/contracts/warp"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 )
@@ -60,71 +56,6 @@ var (
 	testPk1 string = "0xabc89e99c94b6912bfc12adc093c9b51124f0dc54ac7a766b2bc5ccf558d8abc"
 	testPk2 string = "0x12389e99c94b6912bfc12adc093c9b51124f0dc54ac7a766b2bc5ccf558d8123"
 )
-
-func TestGetRelayerAccountInfo(t *testing.T) {
-	type retStruct struct {
-		pk   *ecdsa.PrivateKey
-		addr common.Address
-		err  error
-	}
-
-	testCases := []struct {
-		name           string
-		s              DestinationBlockchain
-		expectedResult retStruct
-	}{
-		{
-			name: "valid",
-			s: DestinationBlockchain{
-				AccountPrivateKey: "56289e99c94b6912bfc12adc093c9b51124f0dc54ac7a766b2bc5ccf558d8027",
-			},
-			expectedResult: retStruct{
-				pk: &ecdsa.PrivateKey{
-					D: big.NewInt(-5567472993773453273),
-				},
-				addr: common.HexToAddress("0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC"),
-				err:  nil,
-			},
-		},
-		{
-			name: "invalid 0x prefix",
-			s: DestinationBlockchain{
-				AccountPrivateKey: "0x56289e99c94b6912bfc12adc093c9b51124f0dc54ac7a766b2bc5ccf558d8027",
-			},
-			expectedResult: retStruct{
-				pk: &ecdsa.PrivateKey{
-					D: big.NewInt(-5567472993773453273),
-				},
-				addr: common.HexToAddress("0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC"),
-				err:  errors.New("invalid hex character 'x' in private key"),
-			},
-		},
-		{
-			name: "invalid private key",
-			s: DestinationBlockchain{
-				AccountPrivateKey: "invalid56289e99c94b6912bfc12adc093c9b51124f0dc54ac7a766b2bc5ccf558d8027",
-			},
-			expectedResult: retStruct{
-				pk: &ecdsa.PrivateKey{
-					D: big.NewInt(-5567472993773453273),
-				},
-				addr: common.HexToAddress("0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC"),
-				err:  errors.New("invalid hex character 'i' in private key"),
-			},
-		},
-	}
-
-	for _, testCase := range testCases {
-		t.Run(testCase.name, func(t *testing.T) {
-			pk, addr, err := testCase.s.GetRelayerAccountInfo()
-			require.Equal(t, testCase.expectedResult.err, err)
-			if err == nil {
-				require.Equal(t, testCase.expectedResult.pk.D.Int64(), pk.D.Int64())
-				require.Equal(t, testCase.expectedResult.addr, addr)
-			}
-		})
-	}
-}
 
 // GetRelayerAccountPrivateKey tests. Individual cases must be run in their own functions
 // because they modify the environment variables.
@@ -247,19 +178,6 @@ func setupConfigJSON(t *testing.T, rootPath string, value string) string {
 	configFilePath := filepath.Join(rootPath, "config.json")
 	require.NoError(t, os.WriteFile(configFilePath, []byte(value), 0o600))
 	return configFilePath
-}
-
-func TestGetRelayerAccountInfoSkipChainConfigCheckCompatible(t *testing.T) {
-	accountPrivateKey := "56289e99c94b6912bfc12adc093c9b51124f0dc54ac7a766b2bc5ccf558d8027"
-	expectedAddress := "0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC"
-
-	info := DestinationBlockchain{
-		AccountPrivateKey: accountPrivateKey,
-	}
-	_, address, err := info.GetRelayerAccountInfo()
-
-	require.NoError(t, err)
-	require.Equal(t, expectedAddress, address.String())
 }
 
 func TestGetWarpQuorum(t *testing.T) {
