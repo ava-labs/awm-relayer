@@ -141,9 +141,13 @@ func (s *JSONFileStorage) Put(relayerID common.Hash, dataKey DataKey, value []by
 	return s.write(relayerID, s.currentState[relayerID])
 }
 
+func (s *JSONFileStorage) getFileName(relayerID common.Hash) string {
+	return filepath.Join(s.dir, relayerID.String()+".json")
+}
+
 // Write the value to the file. The caller is responsible for ensuring proper synchronization
 func (s *JSONFileStorage) write(relayerID common.Hash, v interface{}) error {
-	fnlPath := filepath.Join(s.dir, relayerID.String()+".json")
+	fnlPath := s.getFileName(relayerID)
 	tmpPath := fnlPath + ".tmp"
 
 	b, err := json.MarshalIndent(v, "", "\t")
@@ -172,7 +176,7 @@ func (s *JSONFileStorage) write(relayerID common.Hash, v interface{}) error {
 // If an error is returned, the bool should be ignored.
 // The caller is responsible for ensuring proper synchronization
 func (s *JSONFileStorage) read(relayerID common.Hash, v interface{}) (bool, error) {
-	path := filepath.Join(s.dir, relayerID.String()+".json")
+	path := s.getFileName(relayerID)
 
 	// If the file does not exist, return false, but do not return an error as this
 	// is an expected case
