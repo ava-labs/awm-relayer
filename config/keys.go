@@ -13,6 +13,8 @@ const (
 	MetricsPortKey            = "metrics-port"
 	SourceBlockchainsKey      = "source-blockchains"
 	DestinationBlockchainsKey = "destination-blockchains"
+	KMSKeyIDKey               = "kms-key-id"
+	AWSRegionKey              = "aws-region"
 	AccountPrivateKeyKey      = "account-private-key"
 	StorageLocationKey        = "storage-location"
 	ProcessMissedBlocksKey    = "process-missed-blocks"

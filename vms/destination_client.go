@@ -34,7 +34,7 @@ type DestinationClient interface {
 	DestinationBlockchainID() ids.ID
 }
 
-func NewDestinationClient(logger logging.Logger, subnetInfo config.DestinationBlockchain) (DestinationClient, error) {
+func NewDestinationClient(logger logging.Logger, subnetInfo *config.DestinationBlockchain) (DestinationClient, error) {
 	switch config.ParseVM(subnetInfo.VM) {
 	case config.EVM:
 		return evm.NewDestinationClient(logger, subnetInfo)
@@ -64,7 +64,7 @@ func CreateDestinationClients(logger logging.Logger, relayerConfig config.Config
 			continue
 		}
 
-		destinationClient, err := NewDestinationClient(logger, *subnetInfo)
+		destinationClient, err := NewDestinationClient(logger, subnetInfo)
 		if err != nil {
 			logger.Error(
 				"Could not create destination client",

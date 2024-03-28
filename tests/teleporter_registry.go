@@ -1,3 +1,6 @@
+// Copyright (C) 2024, Ava Labs, Inc. All rights reserved.
+// See the file LICENSE for licensing terms.
+
 package tests
 
 import (
@@ -12,7 +15,6 @@ import (
 	"github.com/ava-labs/subnet-evm/accounts/abi/bind"
 	"github.com/ava-labs/subnet-evm/core/types"
 	"github.com/ava-labs/teleporter/tests/interfaces"
-	"github.com/ava-labs/teleporter/tests/utils"
 	teleporterTestUtils "github.com/ava-labs/teleporter/tests/utils"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -25,7 +27,7 @@ import (
 // - Verifies that the Teleporter Registry is updated
 func TeleporterRegistry(network interfaces.LocalNetwork) {
 	cChainInfo := network.GetPrimaryNetworkInfo()
-	subnetAInfo, subnetBInfo := utils.GetTwoSubnets(network)
+	subnetAInfo, subnetBInfo := teleporterTestUtils.GetTwoSubnets(network)
 	fundedAddress, fundedKey := network.GetFundedAccountInfo()
 	teleporterContractAddress := network.GetTeleporterContractAddress()
 	err := testUtils.ClearRelayerStorage()
@@ -59,7 +61,7 @@ func TeleporterRegistry(network interfaces.LocalNetwork) {
 	// Set up the nodes to accept the off-chain message
 	//
 	// Create chain config file with off chain message for each chain
-	unsignedMessage, warpEnabledChainConfigC := utils.InitOffChainMessageChainConfig(networkID, cChainInfo, newProtocolAddress, 2)
+	unsignedMessage, warpEnabledChainConfigC := teleporterTestUtils.InitOffChainMessageChainConfig(networkID, cChainInfo, newProtocolAddress, 2)
 	_, warpEnabledChainConfigA := teleporterTestUtils.InitOffChainMessageChainConfig(networkID, subnetAInfo, newProtocolAddress, 2)
 	_, warpEnabledChainConfigB := teleporterTestUtils.InitOffChainMessageChainConfig(networkID, subnetBInfo, newProtocolAddress, 2)
 

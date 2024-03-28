@@ -13,6 +13,7 @@ import (
 	avalancheWarp "github.com/ava-labs/avalanchego/vms/platformvm/warp"
 	"github.com/ava-labs/awm-relayer/config"
 	mock_ethclient "github.com/ava-labs/awm-relayer/vms/evm/mocks"
+	"github.com/ava-labs/awm-relayer/vms/evm/signer"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 )
@@ -26,14 +27,14 @@ var destinationSubnet = config.DestinationBlockchain{
 }
 
 func TestSendTx(t *testing.T) {
-	pk, eoa, err := destinationSubnet.GetRelayerAccountInfo()
+	txSigner, err := signer.NewTxSigner(&destinationSubnet)
 	require.NoError(t, err)
 
 	testError := fmt.Errorf("call errored")
 	testCases := []struct {
 		name                  string
-		blockchainIDErr       error
-		blockchainIDTimes     int
+		chainIDErr            error
+		chainIDTimes          int
 		estimateBaseFeeErr    error
 		estimateBaseFeeTimes  int
 		suggestGasTipCapErr   error
@@ -44,27 +45,27 @@ func TestSendTx(t *testing.T) {
 	}{
 		{
 			name:                  "valid",
-			blockchainIDTimes:     1,
+			chainIDTimes:          1,
 			estimateBaseFeeTimes:  1,
 			suggestGasTipCapTimes: 1,
 			sendTransactionTimes:  1,
 		},
 		{
-			name:              "invalid blockchainID",
-			blockchainIDErr:   testError,
-			blockchainIDTimes: 1,
-			expectError:       true,
+			name:                  "invalid chainID",
+			chainIDErr:            testError,
+			chainIDTimes:          1,
+			estimateBaseFeeTimes:  1,
+			suggestGasTipCapTimes: 1,
+			expectError:           true,
 		},
 		{
 			name:                 "invalid estimateBaseFee",
-			blockchainIDTimes:    1,
 			estimateBaseFeeErr:   testError,
 			estimateBaseFeeTimes: 1,
 			expectError:          true,
 		},
 		{
 			name:                  "invalid suggestGasTipCap",
-			blockchainIDTimes:     1,
 			estimateBaseFeeTimes:  1,
 			suggestGasTipCapErr:   testError,
 			suggestGasTipCapTimes: 1,
@@ -72,7 +73,7 @@ func TestSendTx(t *testing.T) {
 		},
 		{
 			name:                  "invalid sendTransaction",
-			blockchainIDTimes:     1,
+			chainIDTimes:          1,
 			estimateBaseFeeTimes:  1,
 			suggestGasTipCapTimes: 1,
 			sendTransactionErr:    testError,
@@ -89,16 +90,15 @@ func TestSendTx(t *testing.T) {
 				lock:   &sync.Mutex{},
 				logger: logging.NoLog{},
 				client: mockClient,
-				pk:     pk,
-				eoa:    eoa,
+				signer: txSigner,
 			}
 			warpMsg := &avalancheWarp.Message{}
 			toAddress := "0x27aE10273D17Cd7e80de8580A51f476960626e5f"
 
 			gomock.InOrder(
-				mockClient.EXPECT().ChainID(gomock.Any()).Return(new(big.Int), test.blockchainIDErr).Times(test.blockchainIDTimes),
 				mockClient.EXPECT().EstimateBaseFee(gomock.Any()).Return(new(big.Int), test.estimateBaseFeeErr).Times(test.estimateBaseFeeTimes),
 				mockClient.EXPECT().SuggestGasTipCap(gomock.Any()).Return(new(big.Int), test.suggestGasTipCapErr).Times(test.suggestGasTipCapTimes),
+				mockClient.EXPECT().ChainID(gomock.Any()).Return(new(big.Int), test.chainIDErr).Times(test.chainIDTimes),
 				mockClient.EXPECT().SendTransaction(gomock.Any(), gomock.Any()).Return(test.sendTransactionErr).Times(test.sendTransactionTimes),
 			)
 

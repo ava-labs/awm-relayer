@@ -5,7 +5,6 @@ package config
 
 import (
 	"context"
-	"crypto/ecdsa"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -25,7 +24,6 @@ import (
 	_ "github.com/ava-labs/subnet-evm/precompile/registry"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/spf13/viper"
 )
 
@@ -79,6 +77,8 @@ type DestinationBlockchain struct {
 	BlockchainID      string `mapstructure:"blockchain-id" json:"blockchain-id"`
 	VM                string `mapstructure:"vm" json:"vm"`
 	RPCEndpoint       string `mapstructure:"rpc-endpoint" json:"rpc-endpoint"`
+	KMSKeyID          string `mapstructure:"kms-key-id" json:"kms-key-id"`
+	AWSRegion         string `mapstructure:"aws-region" json:"aws-region"`
 	AccountPrivateKey string `mapstructure:"account-private-key" json:"account-private-key"`
 
 	// Fetched from the chain after startup
@@ -156,6 +156,24 @@ func BuildConfig(v *viper.Viper) (Config, bool, error) {
 	}
 	if err := v.UnmarshalKey(SourceBlockchainsKey, &cfg.SourceBlockchains); err != nil {
 		return Config{}, false, fmt.Errorf("failed to unmarshal source subnets: %w", err)
+	}
+
+	// Explicitly overwrite the configured KMS configuration
+	// If kms-key-id and aws-region are set as flags or environment variables,
+	// overwrite all destination subnet configurations to use that key
+	keyID := v.GetString(KMSKeyIDKey)
+	if keyID != "" {
+		optionOverwritten = true
+		for i := range cfg.DestinationBlockchains {
+			cfg.DestinationBlockchains[i].KMSKeyID = keyID
+		}
+	}
+	awsRegion := v.GetString(AWSRegionKey)
+	if awsRegion != "" {
+		optionOverwritten = true
+		for i := range cfg.DestinationBlockchains {
+			cfg.DestinationBlockchains[i].AWSRegion = awsRegion
+		}
 	}
 
 	// Explicitly overwrite the configured account private key
@@ -470,7 +488,7 @@ func (s *SourceBlockchain) GetBlockchainID() ids.ID {
 	return s.blockchainID
 }
 
-// Validatees the destination subnet configuration
+// Validates the destination subnet configuration
 func (s *DestinationBlockchain) Validate() error {
 	if _, err := ids.FromString(s.SubnetID); err != nil {
 		return fmt.Errorf("invalid subnetID in source subnet configuration. Provided ID: %s", s.SubnetID)
@@ -481,13 +499,21 @@ func (s *DestinationBlockchain) Validate() error {
 	if _, err := url.ParseRequestURI(s.RPCEndpoint); err != nil {
 		return fmt.Errorf("invalid relayer broadcast URL: %w", err)
 	}
+	if s.KMSKeyID != "" {
+		if s.AWSRegion == "" {
+			return errors.New("KMS key ID provided without an AWS region")
+		}
+		if s.AccountPrivateKey != "" {
+			return errors.New("only one of account private key or KMS key ID can be provided")
+		}
+	} else {
+		if len(s.AccountPrivateKey) != relayerPrivateKeyBytes*2 {
+			return errors.New("invalid account private key hex string")
+		}
 
-	if len(s.AccountPrivateKey) != relayerPrivateKeyBytes*2 {
-		return errors.New("invalid account private key hex string")
-	}
-
-	if _, err := hex.DecodeString(s.AccountPrivateKey); err != nil {
-		return fmt.Errorf("invalid account private key hex string: %w", err)
+		if _, err := hex.DecodeString(s.AccountPrivateKey); err != nil {
+			return fmt.Errorf("invalid account private key hex string: %w", err)
+		}
 	}
 
 	// Validate the VM specific settings
@@ -541,16 +567,6 @@ func (s *DestinationBlockchain) initializeWarpQuorum() error {
 
 	s.warpQuorum = quorum
 	return nil
-}
-
-// Get the private key and derive the wallet address from a relayer's configured private key for a given destination subnet.
-func (s *DestinationBlockchain) GetRelayerAccountInfo() (*ecdsa.PrivateKey, common.Address, error) {
-	pk, err := crypto.HexToECDSA(s.AccountPrivateKey)
-	if err != nil {
-		return nil, common.Address{}, err
-	}
-
-	return pk, crypto.PubkeyToAddress(pk.PublicKey), nil
 }
 
 //
