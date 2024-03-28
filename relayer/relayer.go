@@ -287,9 +287,9 @@ func (r *Relayer) ReconnectToSubscriber() error {
 // Fetch the appropriate message relayer
 // Checks for the following registered keys. Exactly one of these keys should be registered, or none of them.
 // 1. An exact match on sourceBlockchainID, destinationBlockchainID, originSenderAddress, and destinationAddress
-// 2. A match on sourceBlockchainID and destinationBlockchainID, with any originSenderAddress and any destinationAddress
-// 3. A match on sourceBlockchainID and destinationBlockchainID, with a specific originSenderAddress and any destinationAddress
-// 4. A match on sourceBlockchainID and destinationBlockchainID, with any originSenderAddress and a specific destinationAddress
+// 2. A match on sourceBlockchainID and destinationBlockchainID, with a specific originSenderAddress and any destinationAddress
+// 3. A match on sourceBlockchainID and destinationBlockchainID, with any originSenderAddress and a specific destinationAddress
+// 4. A match on sourceBlockchainID and destinationBlockchainID, with any originSenderAddress and any destinationAddress
 func (r *Relayer) getMessageRelayer(
 	sourceBlockchainID ids.ID,
 	destinationBlockchainID ids.ID,
@@ -325,8 +325,20 @@ func (r *Relayer) getMessageRelayer(
 		database.AllAllowedAddress,
 		destinationAddress,
 	)
+	if messageRelayer, ok := r.messageRelayers[messageRelayerID]; ok {
+		return messageRelayer, ok
+	}
+
+	// Check for a match on sourceBlockchainID and destinationBlockchainID, with any originSenderAddress and any destinationAddress
+	messageRelayerID = database.CalculateRelayerID(
+		sourceBlockchainID,
+		destinationBlockchainID,
+		database.AllAllowedAddress,
+		database.AllAllowedAddress,
+	)
 	messageRelayer, ok := r.messageRelayers[messageRelayerID]
 	return messageRelayer, ok
+
 }
 
 // RelayMessage relays a single warp message to the destination chain. Warp message relay requests from the same origin chain are processed serially
