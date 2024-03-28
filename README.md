@@ -147,11 +147,11 @@ The relayer is configured via a JSON file, the path to which is passed in via th
 
   `"source-blockchain-id": string`
 
-  - cb58-encoded Blockchain ID of the source blockchain.
+  - cb58-encoded blockchain ID of the source blockchain.
 
   `"destination-blockchain-id": string`
 
-  - cb58-encoded Blockchain ID of the destination blockchain.
+  - cb58-encoded blockchain ID of the destination blockchain.
 
   `"source-address": string`
 
@@ -171,7 +171,7 @@ The relayer is configured via a JSON file, the path to which is passed in via th
 
   `"blockchain-id": string`
 
-  - cb58-encoded Blockchain ID.
+  - cb58-encoded blockchain ID.
 
   `"vm": string`
 
@@ -211,7 +211,7 @@ The relayer is configured via a JSON file, the path to which is passed in via th
 
   `"blockchain-id": string`
 
-  - cb58-encoded Blockchain ID.
+  - cb58-encoded blockchain ID.
 
   `"vm": string`
 
