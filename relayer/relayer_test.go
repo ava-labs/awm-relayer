@@ -19,31 +19,32 @@ import (
 var id1 ids.ID = ids.GenerateTestID()
 var id2 ids.ID = ids.GenerateTestID()
 
-func populateSourceConfig(blockchainIDs []ids.ID, supportedDestinations []string, allowedAddresses []string) []*config.SourceBlockchain {
+func populateSourceConfig(blockchainIDs []ids.ID, supportedDestinations []*config.SupportedDestination, allowedAddresses []string) []*config.SourceBlockchain {
+	destinationsBlockchainIDs := set.NewSet[string](len(supportedDestinations)) // just needs to be non-nil
+	for _, dest := range supportedDestinations {
+		destinationsBlockchainIDs.Add(dest.BlockchainID)
+	}
+
 	sourceBlockchains := make([]*config.SourceBlockchain, len(blockchainIDs))
 	for i, id := range blockchainIDs {
 		sourceBlockchains[i] = &config.TestValidSourceBlockchainConfig
 		sourceBlockchains[i].BlockchainID = id.String()
 		sourceBlockchains[i].SupportedDestinations = supportedDestinations
 		sourceBlockchains[i].AllowedOriginSenderAddresses = allowedAddresses
+		sourceBlockchains[i].Validate(&destinationsBlockchainIDs)
 	}
-	destinationsBlockchainIDs := set.NewSet[string](len(supportedDestinations)) // just needs to be non-nil
-	for _, id := range supportedDestinations {
-		destinationsBlockchainIDs.Add(id)
-	}
-	sourceBlockchains[0].Validate(&destinationsBlockchainIDs)
+
 	return sourceBlockchains
 }
 
-func populateDestinationConfig(allowedAddresses []string) []*config.DestinationBlockchain {
+func populateDestinationConfig() []*config.DestinationBlockchain {
 	destinationBlockchain := config.TestValidDestinationBlockchainConfig
 	destinationBlockchain.BlockchainID = id1.String()
-	destinationBlockchain.AllowedDestinationAddresses = allowedAddresses
 	destinationBlockchain.Validate()
 	return []*config.DestinationBlockchain{&destinationBlockchain}
 }
 
-func makeTestRelayer(t *testing.T, supportedDestinations []string, allowedAddresses []string) *Relayer {
+func makeTestRelayer(t *testing.T, supportedDestinations []*config.SupportedDestination, allowedAddresses []string) *Relayer {
 	logger := logging.NewLogger(
 		"awm-relayer-test",
 		logging.NewWrappedCore(
@@ -60,7 +61,7 @@ func makeTestRelayer(t *testing.T, supportedDestinations []string, allowedAddres
 		supportedDestinations,
 		allowedAddresses,
 	)
-	destinationConfig := populateDestinationConfig(allowedAddresses)
+	destinationConfig := populateDestinationConfig()
 	return &Relayer{
 		sourceBlockchain: *sourceConfig[0],
 		logger:           logger,
@@ -74,22 +75,26 @@ func makeTestRelayer(t *testing.T, supportedDestinations []string, allowedAddres
 func TestCheckSupportedDestination(t *testing.T) {
 	testCases := []struct {
 		name                    string
-		supportedDestinations   []string
+		supportedDestinations   []*config.SupportedDestination
 		destinationBlockchainID ids.ID
 		expectedResult          bool
 	}{
 		{
 			name: "explicitly supported destination",
-			supportedDestinations: []string{
-				id1.String(),
+			supportedDestinations: []*config.SupportedDestination{
+				{
+					BlockchainID: id1.String(),
+				},
 			},
 			destinationBlockchainID: id1,
 			expectedResult:          true,
 		},
 		{
 			name: "unsupported destination",
-			supportedDestinations: []string{
-				id1.String(),
+			supportedDestinations: []*config.SupportedDestination{
+				{
+					BlockchainID: id1.String(),
+				},
 			},
 			destinationBlockchainID: id2,
 			expectedResult:          false,
@@ -104,8 +109,8 @@ func TestCheckSupportedDestination(t *testing.T) {
 }
 
 func TestCheckAllowedAddress(t *testing.T) {
-	supportedDestinations := []string{
-		id1.String(),
+	supportedDestination := config.SupportedDestination{
+		BlockchainID: id1.String(),
 	}
 	testCases := []struct {
 		name             string
@@ -137,6 +142,9 @@ func TestCheckAllowedAddress(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
+		supportedDestination := supportedDestination
+		supportedDestination.Addresses = testCase.allowedAddresses
+		supportedDestinations := []*config.SupportedDestination{&supportedDestination}
 		relayer := makeTestRelayer(t, supportedDestinations, testCase.allowedAddresses)
 
 		originResult := relayer.CheckAllowedOriginSenderAddress(testCase.address)

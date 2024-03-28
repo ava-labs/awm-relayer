@@ -1,6 +1,7 @@
 package database
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/ava-labs/avalanchego/ids"
@@ -97,33 +98,79 @@ func TestCalculateRelayerID(t *testing.T) {
 
 func TestGetConfigRelayerKeys(t *testing.T) {
 	allowedAddress := common.HexToAddress("0x0123456789abcdef0123456789abcdef01234567")
-	// Create a configuration with two source and two destination blockchains.
-	// One of which allows all addresses, the other only a specific address.
+	dstCfg1 := config.TestValidDestinationBlockchainConfig
+
+	// All destination chains and source and destination addresses are allowed
 	srcCfg1 := config.TestValidSourceBlockchainConfig
+
+	// All destination chains, but only a single source address is allowed
 	srcCfg2 := config.TestValidSourceBlockchainConfig
 	srcCfg2.BlockchainID = ids.GenerateTestID().String()
 	srcCfg2.AllowedOriginSenderAddresses = []string{allowedAddress.String()}
 
-	dstCfg1 := config.TestValidDestinationBlockchainConfig
-	dstCfg2 := config.TestValidDestinationBlockchainConfig
-	dstCfg2.BlockchainID = ids.GenerateTestID().String()
-	dstCfg2.AllowedDestinationAddresses = []string{allowedAddress.String()}
+	// Restricted to a single destination chain, but all source and destination addresses are allowed
+	srcCfg3 := config.TestValidSourceBlockchainConfig
+	srcCfg3.BlockchainID = ids.GenerateTestID().String()
+	srcCfg3.SupportedDestinations = []*config.SupportedDestination{
+		{
+			BlockchainID: dstCfg1.BlockchainID,
+		},
+	}
 
-	allowedDestinations := set.NewSet[string](2)
+	// Restricted to a single destination chain, but only a single source address is allowed
+	srcCfg4 := config.TestValidSourceBlockchainConfig
+	srcCfg4.BlockchainID = ids.GenerateTestID().String()
+	srcCfg4.AllowedOriginSenderAddresses = []string{allowedAddress.String()}
+	srcCfg4.SupportedDestinations = []*config.SupportedDestination{
+		{
+			BlockchainID: dstCfg1.BlockchainID,
+		},
+	}
+
+	// Restricted to a single destination chain, but only a single destination address is allowed
+	srcCfg5 := config.TestValidSourceBlockchainConfig
+	srcCfg5.BlockchainID = ids.GenerateTestID().String()
+	srcCfg5.SupportedDestinations = []*config.SupportedDestination{
+		{
+			BlockchainID: dstCfg1.BlockchainID,
+			Addresses:    []string{allowedAddress.String()},
+		},
+	}
+
+	// Restricted to a single destination, but only a single source and destination address is allowed
+	srcCfg6 := config.TestValidSourceBlockchainConfig
+	srcCfg6.BlockchainID = ids.GenerateTestID().String()
+	srcCfg6.AllowedOriginSenderAddresses = []string{allowedAddress.String()}
+	srcCfg6.SupportedDestinations = []*config.SupportedDestination{
+		{
+			BlockchainID: dstCfg1.BlockchainID,
+			Addresses:    []string{allowedAddress.String()},
+		},
+	}
+
+	//
+
+	err := dstCfg1.Validate()
+	require.ErrorIs(t, err, nil)
+
+	allowedDestinations := set.NewSet[string](1)
 	allowedDestinations.Add(dstCfg1.BlockchainID)
-	allowedDestinations.Add(dstCfg2.BlockchainID)
-	err := srcCfg1.Validate(&allowedDestinations)
+	err = srcCfg1.Validate(&allowedDestinations)
 	require.ErrorIs(t, err, nil)
 	err = srcCfg2.Validate(&allowedDestinations)
 	require.ErrorIs(t, err, nil)
-	err = dstCfg1.Validate()
+	err = srcCfg3.Validate(&allowedDestinations)
 	require.ErrorIs(t, err, nil)
-	err = dstCfg2.Validate()
+	err = srcCfg4.Validate(&allowedDestinations)
+	require.ErrorIs(t, err, nil)
+	err = srcCfg5.Validate(&allowedDestinations)
+	require.ErrorIs(t, err, nil)
+	err = srcCfg6.Validate(&allowedDestinations)
 	require.ErrorIs(t, err, nil)
 
 	cfg := &config.Config{
-		SourceBlockchains:      []*config.SourceBlockchain{&srcCfg1, &srcCfg2},
-		DestinationBlockchains: []*config.DestinationBlockchain{&dstCfg1, &dstCfg2},
+		SourceBlockchains:      []*config.SourceBlockchain{&srcCfg1, &srcCfg2, &srcCfg3, &srcCfg4, &srcCfg5, &srcCfg6},
+		DestinationBlockchains: []*config.DestinationBlockchain{&dstCfg1},
 	}
 
 	targetIDs := []RelayerID{
@@ -134,35 +181,51 @@ func TestGetConfigRelayerKeys(t *testing.T) {
 			DestinationAddress:      common.Address{},
 		},
 		{
-			SourceBlockchainID:      srcCfg1.GetBlockchainID(),
-			DestinationBlockchainID: dstCfg2.GetBlockchainID(),
-			OriginSenderAddress:     common.Address{},
-			DestinationAddress:      allowedAddress,
-		},
-		{
 			SourceBlockchainID:      srcCfg2.GetBlockchainID(),
 			DestinationBlockchainID: dstCfg1.GetBlockchainID(),
 			OriginSenderAddress:     allowedAddress,
 			DestinationAddress:      common.Address{},
 		},
 		{
-			SourceBlockchainID:      srcCfg2.GetBlockchainID(),
-			DestinationBlockchainID: dstCfg2.GetBlockchainID(),
+			SourceBlockchainID:      srcCfg3.GetBlockchainID(),
+			DestinationBlockchainID: dstCfg1.GetBlockchainID(),
+			OriginSenderAddress:     common.Address{},
+			DestinationAddress:      common.Address{},
+		},
+		{
+			SourceBlockchainID:      srcCfg4.GetBlockchainID(),
+			DestinationBlockchainID: dstCfg1.GetBlockchainID(),
+			OriginSenderAddress:     allowedAddress,
+			DestinationAddress:      common.Address{},
+		},
+		{
+			SourceBlockchainID:      srcCfg5.GetBlockchainID(),
+			DestinationBlockchainID: dstCfg1.GetBlockchainID(),
+			OriginSenderAddress:     common.Address{},
+			DestinationAddress:      allowedAddress,
+		},
+		{
+			SourceBlockchainID:      srcCfg6.GetBlockchainID(),
+			DestinationBlockchainID: dstCfg1.GetBlockchainID(),
 			OriginSenderAddress:     allowedAddress,
 			DestinationAddress:      allowedAddress,
 		},
 	}
 
-	relayerKeys := GetConfigRelayerIDs(cfg)
+	relayerIDs := GetConfigRelayerIDs(cfg)
 
-	for _, key := range targetIDs {
-		require.True(t, func(keys []RelayerID, target RelayerID) bool {
-			for _, key := range keys {
-				if key.GetID() == target.GetID() {
-					return true
+	// Test that all target IDs are present
+	for i, id := range targetIDs {
+		require.True(t,
+			func(ids []RelayerID, target RelayerID) bool {
+				for _, id := range ids {
+					if id.GetID() == target.GetID() {
+						return true
+					}
 				}
-			}
-			return false
-		}(relayerKeys, key))
+				return false
+			}(relayerIDs, id),
+			fmt.Sprintf("target ID %d not found", i),
+		)
 	}
 }

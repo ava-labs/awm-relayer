@@ -58,6 +58,23 @@ type ManualWarpMessage struct {
 	destinationAddress      common.Address
 }
 
+type SupportedDestination struct {
+	BlockchainID string   `mapstructure:"blockchain-id" json:"blockchain-id"`
+	Addresses    []string `mapstructure:"addresses" json:"addresses"`
+
+	// convenience fields to access parsed data after initialization
+	blockchainID ids.ID
+	addresses    []common.Address
+}
+
+func (s *SupportedDestination) GetBlockchainID() ids.ID {
+	return s.blockchainID
+}
+
+func (s *SupportedDestination) GetAddresses() []common.Address {
+	return s.addresses
+}
+
 type SourceBlockchain struct {
 	SubnetID                          string                           `mapstructure:"subnet-id" json:"subnet-id"`
 	BlockchainID                      string                           `mapstructure:"blockchain-id" json:"blockchain-id"`
@@ -65,32 +82,29 @@ type SourceBlockchain struct {
 	RPCEndpoint                       string                           `mapstructure:"rpc-endpoint" json:"rpc-endpoint"`
 	WSEndpoint                        string                           `mapstructure:"ws-endpoint" json:"ws-endpoint"`
 	MessageContracts                  map[string]MessageProtocolConfig `mapstructure:"message-contracts" json:"message-contracts"`
-	SupportedDestinations             []string                         `mapstructure:"supported-destinations" json:"supported-destinations"`
+	SupportedDestinations             []*SupportedDestination          `mapstructure:"supported-destinations" json:"supported-destinations"`
 	ProcessHistoricalBlocksFromHeight uint64                           `mapstructure:"process-historical-blocks-from-height" json:"process-historical-blocks-from-height"`
 	AllowedOriginSenderAddresses      []string                         `mapstructure:"allowed-origin-sender-addresses" json:"allowed-origin-sender-addresses"`
 
 	// convenience fields to access parsed data after initialization
-	supportedDestinations        set.Set[ids.ID]
 	subnetID                     ids.ID
 	blockchainID                 ids.ID
 	allowedOriginSenderAddresses []common.Address
 }
 
 type DestinationBlockchain struct {
-	SubnetID                    string   `mapstructure:"subnet-id" json:"subnet-id"`
-	BlockchainID                string   `mapstructure:"blockchain-id" json:"blockchain-id"`
-	VM                          string   `mapstructure:"vm" json:"vm"`
-	RPCEndpoint                 string   `mapstructure:"rpc-endpoint" json:"rpc-endpoint"`
-	AccountPrivateKey           string   `mapstructure:"account-private-key" json:"account-private-key"`
-	AllowedDestinationAddresses []string `mapstructure:"allowed-destination-addresses" json:"allowed-destination-addresses"`
+	SubnetID          string `mapstructure:"subnet-id" json:"subnet-id"`
+	BlockchainID      string `mapstructure:"blockchain-id" json:"blockchain-id"`
+	VM                string `mapstructure:"vm" json:"vm"`
+	RPCEndpoint       string `mapstructure:"rpc-endpoint" json:"rpc-endpoint"`
+	AccountPrivateKey string `mapstructure:"account-private-key" json:"account-private-key"`
 
 	// Fetched from the chain after startup
 	warpQuorum WarpQuorum
 
 	// convenience fields to access parsed data after initialization
-	subnetID                    ids.ID
-	blockchainID                ids.ID
-	allowedDestinationAddresses []common.Address
+	subnetID     ids.ID
+	blockchainID ids.ID
 }
 
 type WarpQuorum struct {
@@ -383,10 +397,6 @@ func (c *Config) InitializeWarpQuorums() error {
 	return nil
 }
 
-func (s *SourceBlockchain) GetSupportedDestinations() set.Set[ids.ID] {
-	return s.supportedDestinations
-}
-
 // Validates the source subnet configuration, including verifying that the supported destinations are present in destinationBlockchainIDs
 // Does not modify the public fields as derived from the configuration passed to the application,
 // but does initialize private fields available through getters
@@ -436,31 +446,36 @@ func (s *SourceBlockchain) Validate(destinationBlockchainIDs *set.Set[string]) e
 	}
 	s.subnetID = subnetID
 
-	// Validate and store the allowed destinations for future use
-	s.supportedDestinations = set.Set[ids.ID]{}
-
 	// If the list of supported destinations is empty, populate with all of the configured destinations
 	if len(s.SupportedDestinations) == 0 {
 		for _, blockchainIDStr := range destinationBlockchainIDs.List() {
-			blockchainID, err := ids.FromString(blockchainIDStr)
-			if err != nil {
-				return fmt.Errorf("invalid blockchainID in configuration. error: %w", err)
-			}
-			s.supportedDestinations.Add(blockchainID)
+			s.SupportedDestinations = append(s.SupportedDestinations, &SupportedDestination{
+				BlockchainID: blockchainIDStr,
+			})
 		}
 	}
 
-	for _, blockchainIDStr := range s.SupportedDestinations {
-		blockchainID, err := ids.FromString(blockchainIDStr)
+	for _, dest := range s.SupportedDestinations {
+		blockchainID, err := ids.FromString(dest.BlockchainID)
 		if err != nil {
 			return fmt.Errorf("invalid blockchainID in configuration. error: %w", err)
 		}
-		if !destinationBlockchainIDs.Contains(blockchainIDStr) {
+		if !destinationBlockchainIDs.Contains(dest.BlockchainID) {
 			return fmt.Errorf("configured source subnet %s has a supported destination blockchain ID %s that is not configured as a destination blockchain",
 				s.SubnetID,
 				blockchainID)
 		}
-		s.supportedDestinations.Add(blockchainID)
+		dest.blockchainID = blockchainID
+		for _, address := range dest.Addresses {
+			destinationAddress, err := hex.DecodeString(utils.SanitizeHexString(address))
+			if err != nil {
+				return err
+			}
+			dest.addresses = append(dest.addresses, common.BytesToAddress(destinationAddress))
+		}
+		if len(dest.addresses) == 0 {
+			dest.addresses = append(dest.addresses, common.Address{})
+		}
 	}
 
 	// Validate and store the allowed origin source addresses
@@ -486,6 +501,10 @@ func (s *SourceBlockchain) GetSubnetID() ids.ID {
 
 func (s *SourceBlockchain) GetBlockchainID() ids.ID {
 	return s.blockchainID
+}
+
+func (s *SourceBlockchain) GetAllowedOriginSenderAddresses() []common.Address {
+	return s.allowedOriginSenderAddresses
 }
 
 // Validatees the destination subnet configuration
@@ -525,20 +544,6 @@ func (s *DestinationBlockchain) Validate() error {
 		return fmt.Errorf("invalid subnetID in configuration. error: %w", err)
 	}
 	s.subnetID = subnetID
-
-	// Validate and store the allowed destination addresses
-	allowedDestinationAddresses := make([]common.Address, len(s.AllowedDestinationAddresses))
-	for i, address := range s.AllowedDestinationAddresses {
-		destinationAddress, err := hex.DecodeString(utils.SanitizeHexString(address))
-		if err != nil {
-			return err
-		}
-		allowedDestinationAddresses[i] = common.BytesToAddress(destinationAddress)
-	}
-	if len(allowedDestinationAddresses) == 0 {
-		allowedDestinationAddresses = append(allowedDestinationAddresses, common.Address{})
-	}
-	s.allowedDestinationAddresses = allowedDestinationAddresses
 
 	return nil
 }
@@ -602,15 +607,6 @@ func (c *Config) GetSourceBlockchainAllowedAddresses(blockchainID ids.ID) []comm
 	for _, s := range c.SourceBlockchains {
 		if blockchainID.String() == s.BlockchainID {
 			return s.allowedOriginSenderAddresses
-		}
-	}
-	return nil
-}
-
-func (c *Config) GetDestinationBlockchainAllowedAddresses(blockchainID ids.ID) []common.Address {
-	for _, s := range c.DestinationBlockchains {
-		if blockchainID.String() == s.BlockchainID {
-			return s.allowedDestinationAddresses
 		}
 	}
 	return nil

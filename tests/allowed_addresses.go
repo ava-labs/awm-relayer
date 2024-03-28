@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/ava-labs/avalanchego/utils/logging"
+	"github.com/ava-labs/awm-relayer/config"
 	"github.com/ava-labs/awm-relayer/database"
 	testUtils "github.com/ava-labs/awm-relayer/tests/utils"
 	"github.com/ava-labs/subnet-evm/accounts/abi/bind"
@@ -111,9 +112,20 @@ func AllowedAddresses(network interfaces.LocalNetwork) {
 		fundedAddress,
 		relayerKey,
 	)
-	for _, dst := range relayerConfig3.DestinationBlockchains {
-		dst.AllowedDestinationAddresses = []string{allowedAddresses[relayer3AllowedDstAddressIdx].String()}
+	supportedDestinations := []*config.SupportedDestination{
+		{
+			BlockchainID: subnetAInfo.BlockchainID.String(),
+			Addresses:    []string{allowedAddresses[relayer3AllowedDstAddressIdx].String()},
+		},
+		{
+			BlockchainID: subnetBInfo.BlockchainID.String(),
+			Addresses:    []string{allowedAddresses[relayer3AllowedDstAddressIdx].String()},
+		},
 	}
+	for _, src := range relayerConfig3.SourceBlockchains {
+		src.SupportedDestinations = supportedDestinations
+	}
+
 	relayerConfig3.APIPort = 8082
 	relayerConfig3.MetricsPort = 9092
 
@@ -129,8 +141,18 @@ func AllowedAddresses(network interfaces.LocalNetwork) {
 	for _, src := range relayerConfig4.SourceBlockchains {
 		src.AllowedOriginSenderAddresses = []string{allowedAddresses[relayer4AllowedSrcAddressIdx].String()}
 	}
-	for _, dst := range relayerConfig4.DestinationBlockchains {
-		dst.AllowedDestinationAddresses = []string{allowedAddresses[relayer4AllowedDstAddressIdx].String()}
+	supportedDestinations = []*config.SupportedDestination{
+		{
+			BlockchainID: subnetAInfo.BlockchainID.String(),
+			Addresses:    []string{allowedAddresses[relayer4AllowedDstAddressIdx].String()},
+		},
+		{
+			BlockchainID: subnetBInfo.BlockchainID.String(),
+			Addresses:    []string{allowedAddresses[relayer4AllowedDstAddressIdx].String()},
+		},
+	}
+	for _, src := range relayerConfig4.SourceBlockchains {
+		src.SupportedDestinations = supportedDestinations
 	}
 	relayerConfig4.APIPort = 8083
 	relayerConfig4.MetricsPort = 9093

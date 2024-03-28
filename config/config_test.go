@@ -353,12 +353,16 @@ func TestGetWarpQuorum(t *testing.T) {
 
 func TestValidateSourceBlockchain(t *testing.T) {
 	validSourceCfg := SourceBlockchain{
-		BlockchainID:          testBlockchainID,
-		RPCEndpoint:           fmt.Sprintf("http://test.avax.network/ext/bc/%s/rpc", testBlockchainID),
-		WSEndpoint:            fmt.Sprintf("ws://test.avax.network/ext/bc/%s/ws", testBlockchainID),
-		SubnetID:              testSubnetID,
-		VM:                    "evm",
-		SupportedDestinations: []string{testBlockchainID},
+		BlockchainID: testBlockchainID,
+		RPCEndpoint:  fmt.Sprintf("http://test.avax.network/ext/bc/%s/rpc", testBlockchainID),
+		WSEndpoint:   fmt.Sprintf("ws://test.avax.network/ext/bc/%s/ws", testBlockchainID),
+		SubnetID:     testSubnetID,
+		VM:           "evm",
+		SupportedDestinations: []*SupportedDestination{
+			{
+				BlockchainID: testBlockchainID,
+			},
+		},
 		MessageContracts: map[string]MessageProtocolConfig{
 			testAddress: {
 				MessageFormat: TELEPORTER.String(),
@@ -423,7 +427,14 @@ func TestValidateSourceBlockchain(t *testing.T) {
 			for _, idStr := range testCase.expectedSupportedDestinations {
 				id, err := ids.FromString(idStr)
 				require.NoError(t, err)
-				require.True(t, sourceSubnet.supportedDestinations.Contains(id))
+				require.True(t, func() bool {
+					for _, dest := range sourceSubnet.SupportedDestinations {
+						if dest.GetBlockchainID() == id {
+							return true
+						}
+					}
+					return false
+				}())
 			}
 		})
 	}

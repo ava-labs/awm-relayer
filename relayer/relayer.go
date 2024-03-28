@@ -89,7 +89,7 @@ func NewRelayer(
 
 	// Create the message relayers
 	messageRelayers := make(map[common.Hash]*messageRelayer)
-	for _, relayerID := range database.GetSourceBlockchainRelayerIDs(&sourceBlockchain, cfg) {
+	for _, relayerID := range database.GetSourceBlockchainRelayerIDs(&sourceBlockchain) {
 		messageRelayer, err := newMessageRelayer(
 			logger,
 			metrics,
@@ -467,8 +467,12 @@ func (r *Relayer) RelayMessage(warpLogInfo *vmtypes.WarpLogInfo, storeProcessedH
 
 // Returns whether destinationBlockchainID is a supported destination.
 func (r *Relayer) CheckSupportedDestination(destinationBlockchainID ids.ID) bool {
-	supportedDsts := r.sourceBlockchain.GetSupportedDestinations()
-	return supportedDsts.Contains(destinationBlockchainID)
+	for _, destination := range r.sourceBlockchain.SupportedDestinations {
+		if destination.GetBlockchainID() == destinationBlockchainID {
+			return true
+		}
+	}
+	return false
 }
 
 func (r *Relayer) CheckAllowedOriginSenderAddress(addr common.Address) bool {
@@ -485,7 +489,14 @@ func (r *Relayer) CheckAllowedOriginSenderAddress(addr common.Address) bool {
 }
 
 func (r *Relayer) CheckAllowedDestinationAddress(addr common.Address, destinationBlockchainID ids.ID) bool {
-	allowedAddresses := r.globalConfig.GetDestinationBlockchainAllowedAddresses(destinationBlockchainID)
+	var allowedAddresses []common.Address
+	for _, destination := range r.sourceBlockchain.SupportedDestinations {
+		if destination.GetBlockchainID() == destinationBlockchainID {
+			allowedAddresses = destination.GetAddresses()
+			break
+		}
+	}
+
 	if bytes.Equal(allowedAddresses[0].Bytes(), common.Address{}.Bytes()) {
 		return true
 	}
