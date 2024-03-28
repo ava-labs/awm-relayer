@@ -189,9 +189,9 @@ The relayer is configured via a JSON file, the path to which is passed in via th
 
   - Map of contract addresses to the config options of the protocol at that address. Each `MessageProtocolConfig` consists of a unique `message-format` name, and the raw JSON `settings`.
 
-  `"supported-destinations": []string`
+  `"supported-destinations": []SupportedDestination`
 
-  - List of destination blockchain IDs that the source blockchain supports. If empty, then all destinations are supported.
+  - List of destinations that the source blockchain supports. Each `SupportedDestination` consists of a destination blockchain ID, and a list of addresses on that destination blockchain that the relayer supports delivering Warp messages to. The destination address is defined by the message protocol. For example, it could be the address called from the message protocol contract. If no supported addresses are provided, all addresses are allowed on that blockchain. If `supported-destinations` is empty, then all destination blockchains (and therefore all addresses on those destination blockchains) are supported.
 
   `"process-historical-blocks-from-height": unsigned integer`
 
@@ -199,7 +199,7 @@ The relayer is configured via a JSON file, the path to which is passed in via th
 
   `"allowed-origin-sender-addresses": []string`
 
-  - List of addresses that are allowed to send Warp messages from this source blockchain. The sending address is defined by the message protocol. For example, it could be defined as the EOA that initiates the transaction, or the address that calls the message protocol contract. If empty, then all addresses are allowed.
+  - List of addresses on this source blockchain to relay Warp messages from. The sending address is defined by the message protocol. For example, it could be defined as the EOA that initiates the transaction, or the address that calls the message protocol contract. If empty, then all addresses are allowed.
 
 `"destination-blockchains": []DestinationBlockchains`
 
@@ -224,10 +224,6 @@ The relayer is configured via a JSON file, the path to which is passed in via th
   `"account-private-key": string`
 
   - The hex-encoded private key to use for signing transactions on the destination blockchain. May be provided by the environment variable `ACCOUNT_PRIVATE_KEY`. Each `destination-subnet` may use a separate private key by appending the cb58 encoded blockchain ID to the private key environment variable name, for example `ACCOUNT_PRIVATE_KEY_11111111111111111111111111111111LpoYY`
-
-  `"allowed-destination-addresses": []string`
-
-  - List of addresses that the relayer is allowed to deliver Warp messages to on this destination blockchain. The destination address is defined by the message protocol. For example, it could be the address called from the message protocol contract. If empty, then all addresses are allowed.
 
 ## Architecture
 
