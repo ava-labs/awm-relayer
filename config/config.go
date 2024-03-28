@@ -38,11 +38,13 @@ const (
 
 var errFailedToGetWarpQuorum = errors.New("failed to get warp quorum")
 
+// The generic configuration for a message protocol.
 type MessageProtocolConfig struct {
 	MessageFormat string                 `mapstructure:"message-format" json:"message-format"`
 	Settings      map[string]interface{} `mapstructure:"settings" json:"settings"`
 }
 
+// Defines a manual warp message to be sent from the relayer on startup.
 type ManualWarpMessage struct {
 	UnsignedMessageBytes    string `mapstructure:"unsigned-message-bytes" json:"unsigned-message-bytes"`
 	SourceBlockchainID      string `mapstructure:"source-blockchain-id" json:"source-blockchain-id"`
@@ -58,6 +60,7 @@ type ManualWarpMessage struct {
 	destinationAddress      common.Address
 }
 
+// Specifies a supported destination blockchain and addresses for a source blockchain.
 type SupportedDestination struct {
 	BlockchainID string   `mapstructure:"blockchain-id" json:"blockchain-id"`
 	Addresses    []string `mapstructure:"addresses" json:"addresses"`
@@ -75,6 +78,11 @@ func (s *SupportedDestination) GetAddresses() []common.Address {
 	return s.addresses
 }
 
+// Source blockchain configuration.
+// Specifies how to connect to and listen for messages on the source blockchain.
+// Specifies the message protocols supported by the relayer for this blockchain.
+// Specifies the supported source addresses, and destination blockchains and addresses.
+// Specifies the height from which to start processing historical blocks.
 type SourceBlockchain struct {
 	SubnetID                          string                           `mapstructure:"subnet-id" json:"subnet-id"`
 	BlockchainID                      string                           `mapstructure:"blockchain-id" json:"blockchain-id"`
@@ -92,6 +100,7 @@ type SourceBlockchain struct {
 	allowedOriginSenderAddresses []common.Address
 }
 
+// Destination blockchain configuration. Specifies how to connect to and issue transactions on the desination blockchain.
 type DestinationBlockchain struct {
 	SubnetID          string `mapstructure:"subnet-id" json:"subnet-id"`
 	BlockchainID      string `mapstructure:"blockchain-id" json:"blockchain-id"`
@@ -107,11 +116,13 @@ type DestinationBlockchain struct {
 	blockchainID ids.ID
 }
 
+// Warp Quorum configuration, fetched from the chain config
 type WarpQuorum struct {
 	QuorumNumerator   uint64
 	QuorumDenominator uint64
 }
 
+// Top-level configuration
 type Config struct {
 	LogLevel        string `mapstructure:"log-level" json:"log-level"`
 	PChainAPIURL    string `mapstructure:"p-chain-api-url" json:"p-chain-api-url"`
