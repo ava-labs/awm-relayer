@@ -11,7 +11,6 @@ import (
 	"github.com/ava-labs/subnet-evm/core/types"
 	"github.com/ava-labs/teleporter/tests/interfaces"
 	"github.com/ava-labs/teleporter/tests/utils"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	. "github.com/onsi/gomega"
@@ -109,8 +108,8 @@ func BasicRelay(network interfaces.LocalNetwork) {
 	Expect(err).Should(BeNil())
 
 	// Create relayer keys that allow all source and destination addresses
-	relayerIDA := database.CalculateRelayerID(subnetAInfo.BlockchainID, subnetBInfo.BlockchainID, common.Address{}, common.Address{})
-	relayerIDB := database.CalculateRelayerID(subnetBInfo.BlockchainID, subnetAInfo.BlockchainID, common.Address{}, common.Address{})
+	relayerIDA := database.CalculateRelayerID(subnetAInfo.BlockchainID, subnetBInfo.BlockchainID, database.AllAllowedAddress, database.AllAllowedAddress)
+	relayerIDB := database.CalculateRelayerID(subnetBInfo.BlockchainID, subnetAInfo.BlockchainID, database.AllAllowedAddress, database.AllAllowedAddress)
 	// Modify the JSON database to force the relayer to re-process old blocks
 	jsonDB.Put(relayerIDA, database.LatestProcessedBlockKey, []byte("0"))
 	jsonDB.Put(relayerIDB, database.LatestProcessedBlockKey, []byte("0"))

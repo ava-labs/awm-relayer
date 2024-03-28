@@ -177,31 +177,31 @@ func TestGetConfigRelayerKeys(t *testing.T) {
 		{
 			SourceBlockchainID:      srcCfg1.GetBlockchainID(),
 			DestinationBlockchainID: dstCfg1.GetBlockchainID(),
-			OriginSenderAddress:     common.Address{},
-			DestinationAddress:      common.Address{},
+			OriginSenderAddress:     AllAllowedAddress,
+			DestinationAddress:      AllAllowedAddress,
 		},
 		{
 			SourceBlockchainID:      srcCfg2.GetBlockchainID(),
 			DestinationBlockchainID: dstCfg1.GetBlockchainID(),
 			OriginSenderAddress:     allowedAddress,
-			DestinationAddress:      common.Address{},
+			DestinationAddress:      AllAllowedAddress,
 		},
 		{
 			SourceBlockchainID:      srcCfg3.GetBlockchainID(),
 			DestinationBlockchainID: dstCfg1.GetBlockchainID(),
-			OriginSenderAddress:     common.Address{},
-			DestinationAddress:      common.Address{},
+			OriginSenderAddress:     AllAllowedAddress,
+			DestinationAddress:      AllAllowedAddress,
 		},
 		{
 			SourceBlockchainID:      srcCfg4.GetBlockchainID(),
 			DestinationBlockchainID: dstCfg1.GetBlockchainID(),
 			OriginSenderAddress:     allowedAddress,
-			DestinationAddress:      common.Address{},
+			DestinationAddress:      AllAllowedAddress,
 		},
 		{
 			SourceBlockchainID:      srcCfg5.GetBlockchainID(),
 			DestinationBlockchainID: dstCfg1.GetBlockchainID(),
-			OriginSenderAddress:     common.Address{},
+			OriginSenderAddress:     AllAllowedAddress,
 			DestinationAddress:      allowedAddress,
 		},
 		{

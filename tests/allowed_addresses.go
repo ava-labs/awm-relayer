@@ -311,19 +311,19 @@ func AllowedAddresses(network interfaces.LocalNetwork) {
 	relayerID1 := database.RelayerID{
 		SourceBlockchainID:      subnetAInfo.BlockchainID,
 		DestinationBlockchainID: subnetBInfo.BlockchainID,
-		OriginSenderAddress:     common.Address{},
-		DestinationAddress:      common.Address{},
+		OriginSenderAddress:     database.AllAllowedAddress,
+		DestinationAddress:      database.AllAllowedAddress,
 	}
 	relayerID2 := database.RelayerID{
 		SourceBlockchainID:      subnetAInfo.BlockchainID,
 		DestinationBlockchainID: subnetBInfo.BlockchainID,
 		OriginSenderAddress:     allowedAddresses[relayer2AllowedSrcAddressIdx],
-		DestinationAddress:      common.Address{},
+		DestinationAddress:      database.AllAllowedAddress,
 	}
 	relayerID3 := database.RelayerID{
 		SourceBlockchainID:      subnetAInfo.BlockchainID,
 		DestinationBlockchainID: subnetBInfo.BlockchainID,
-		OriginSenderAddress:     common.Address{},
+		OriginSenderAddress:     database.AllAllowedAddress,
 		DestinationAddress:      allowedAddresses[relayer3AllowedDstAddressIdx],
 	}
 	relayerID4 := database.RelayerID{

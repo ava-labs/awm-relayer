@@ -19,6 +19,9 @@ var (
 	ErrKeyNotFound              = errors.New("key not found")
 	ErrRelayerIDNotFound        = errors.New("no database entryfor relayer id")
 	ErrDatabaseMisconfiguration = errors.New("database misconfiguration")
+
+	// AllAllowedAddress is used to construct relayer IDs when all addresses are allowed
+	AllAllowedAddress = common.Address{}
 )
 
 const (
@@ -103,14 +106,14 @@ func GetSourceBlockchainRelayerIDs(sourceBlockchain *config.SourceBlockchain) []
 	srcAddresses := sourceBlockchain.GetAllowedOriginSenderAddresses()
 	// If no addresses are provided, use the zero address to construct the relayer ID
 	if len(srcAddresses) == 0 {
-		srcAddresses = append(srcAddresses, common.Address{})
+		srcAddresses = append(srcAddresses, AllAllowedAddress)
 	}
 	for _, srcAddress := range srcAddresses {
 		for _, dst := range sourceBlockchain.SupportedDestinations {
 			dstAddresses := dst.GetAddresses()
 			// If no addresses are provided, use the zero address to construct the relayer ID
 			if len(dstAddresses) == 0 {
-				dstAddresses = append(dstAddresses, common.Address{})
+				dstAddresses = append(dstAddresses, AllAllowedAddress)
 			}
 			for _, dstAddress := range dstAddresses {
 				ids = append(ids, RelayerID{

@@ -307,23 +307,12 @@ func (r *Relayer) getMessageRelayer(
 		return messageRelayer, ok
 	}
 
-	// Check for a match on sourceBlockchainID and destinationBlockchainID, with any originSenderAddress and any destinationAddress
-	messageRelayerID = database.CalculateRelayerID(
-		sourceBlockchainID,
-		destinationBlockchainID,
-		common.Address{},
-		common.Address{},
-	)
-	if messageRelayer, ok := r.messageRelayers[messageRelayerID]; ok {
-		return messageRelayer, ok
-	}
-
 	// Check for a match on sourceBlockchainID and destinationBlockchainID, with a specific originSenderAddress and any destinationAddress
 	messageRelayerID = database.CalculateRelayerID(
 		sourceBlockchainID,
 		destinationBlockchainID,
 		originSenderAddress,
-		common.Address{},
+		database.AllAllowedAddress,
 	)
 	if messageRelayer, ok := r.messageRelayers[messageRelayerID]; ok {
 		return messageRelayer, ok
@@ -333,7 +322,7 @@ func (r *Relayer) getMessageRelayer(
 	messageRelayerID = database.CalculateRelayerID(
 		sourceBlockchainID,
 		destinationBlockchainID,
-		common.Address{},
+		database.AllAllowedAddress,
 		destinationAddress,
 	)
 	messageRelayer, ok := r.messageRelayers[messageRelayerID]
