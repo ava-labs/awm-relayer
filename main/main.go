@@ -32,11 +32,6 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-const (
-	defaultApiPort     = 8080
-	defaultMetricsPort = 9090
-)
-
 func main() {
 	fs := config.BuildFlagSet()
 	v, err := config.BuildViper(fs, os.Args[1:])
@@ -149,10 +144,10 @@ func main() {
 
 	// start the health check server
 	go func() {
-		log.Fatalln(http.ListenAndServe(fmt.Sprintf(":%d", defaultApiPort), nil))
+		log.Fatalln(http.ListenAndServe(fmt.Sprintf(":%d", cfg.APIPort), nil))
 	}()
 
-	startMetricsServer(logger, gatherer, defaultMetricsPort)
+	startMetricsServer(logger, gatherer, cfg.MetricsPort)
 
 	metrics, err := relayer.NewMessageRelayerMetrics(registerer)
 	if err != nil {
@@ -174,7 +169,7 @@ func main() {
 	}
 
 	// Initialize the database
-	db, err := database.NewJSONFileStorage(logger, cfg.StorageLocation, cfg.SourceBlockchains)
+	db, err := database.NewJSONFileStorage(logger, cfg.StorageLocation, database.GetConfigRelayerIDs(&cfg))
 	if err != nil {
 		logger.Error(
 			"Failed to create database",
@@ -226,7 +221,7 @@ func main() {
 				messageCreator,
 				health,
 				manualWarpMessages[blockchainID],
-				cfg,
+				&cfg,
 			)
 		})
 	}
@@ -251,7 +246,7 @@ func runRelayer(
 	messageCreator message.Creator,
 	relayerHealth *atomic.Bool,
 	manualWarpMessages []*vmtypes.WarpLogInfo,
-	cfg config.Config,
+	cfg *config.Config,
 ) error {
 	logger.Info(
 		"Creating relayer",
@@ -307,12 +302,12 @@ func runRelayer(
 	return relayer.ProcessLogs(ctx)
 }
 
-func startMetricsServer(logger logging.Logger, gatherer prometheus.Gatherer, port uint32) {
+func startMetricsServer(logger logging.Logger, gatherer prometheus.Gatherer, port uint16) {
 	http.Handle("/metrics", promhttp.HandlerFor(gatherer, promhttp.HandlerOpts{}))
 
 	go func() {
 		logger.Info("starting metrics server...",
-			zap.Uint32("port", port))
+			zap.Uint16("port", port))
 		log.Fatalln(http.ListenAndServe(fmt.Sprintf(":%d", port), nil))
 	}()
 }

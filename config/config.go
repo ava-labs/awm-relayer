@@ -95,10 +95,13 @@ type WarpQuorum struct {
 }
 
 type Config struct {
-	LogLevel               string                   `mapstructure:"log-level" json:"log-level"`
-	PChainAPIURL           string                   `mapstructure:"p-chain-api-url" json:"p-chain-api-url"`
-	InfoAPIURL             string                   `mapstructure:"info-api-url" json:"info-api-url"`
-	StorageLocation        string                   `mapstructure:"storage-location" json:"storage-location"`
+	LogLevel        string `mapstructure:"log-level" json:"log-level"`
+	PChainAPIURL    string `mapstructure:"p-chain-api-url" json:"p-chain-api-url"`
+	InfoAPIURL      string `mapstructure:"info-api-url" json:"info-api-url"`
+	StorageLocation string `mapstructure:"storage-location" json:"storage-location"`
+	APIPort         uint16 `mapstructure:"api-port" json:"api-port"`
+	MetricsPort     uint16 `mapstructure:"metrics-port" json:"metrics-port"`
+
 	SourceBlockchains      []*SourceBlockchain      `mapstructure:"source-blockchains" json:"source-blockchains"`
 	DestinationBlockchains []*DestinationBlockchain `mapstructure:"destination-blockchains" json:"destination-blockchains"`
 	ProcessMissedBlocks    bool                     `mapstructure:"process-missed-blocks" json:"process-missed-blocks"`
@@ -112,6 +115,8 @@ func SetDefaultConfigValues(v *viper.Viper) {
 	v.SetDefault(LogLevelKey, logging.Info.String())
 	v.SetDefault(StorageLocationKey, "./.awm-relayer-storage")
 	v.SetDefault(ProcessMissedBlocksKey, true)
+	v.SetDefault(APIPortKey, 8080)
+	v.SetDefault(MetricsPortKey, 9090)
 }
 
 // BuildConfig constructs the relayer config using Viper.
@@ -141,6 +146,8 @@ func BuildConfig(v *viper.Viper) (Config, bool, error) {
 	cfg.InfoAPIURL = v.GetString(InfoAPIURLKey)
 	cfg.StorageLocation = v.GetString(StorageLocationKey)
 	cfg.ProcessMissedBlocks = v.GetBool(ProcessMissedBlocksKey)
+	cfg.APIPort = v.GetUint16(APIPortKey)
+	cfg.MetricsPort = v.GetUint16(MetricsPortKey)
 	if err := v.UnmarshalKey(ManualWarpMessagesKey, &cfg.ManualWarpMessages); err != nil {
 		return Config{}, false, fmt.Errorf("failed to unmarshal manual warp messages: %w", err)
 	}
