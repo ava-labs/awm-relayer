@@ -338,7 +338,6 @@ func (r *Relayer) getMessageRelayer(
 	)
 	messageRelayer, ok := r.messageRelayers[messageRelayerID]
 	return messageRelayer, ok
-
 }
 
 // RelayMessage relays a single warp message to the destination chain. Warp message relay requests from the same origin chain are processed serially
@@ -393,14 +392,6 @@ func (r *Relayer) RelayMessage(warpLogInfo *vmtypes.WarpLogInfo, storeProcessedH
 		)
 		return err
 	}
-	if !r.CheckAllowedOriginSenderAddress(originSenderAddress) {
-		r.logger.Debug(
-			"Message origin sender address not allowed. Not relaying.",
-			zap.String("blockchainID", r.sourceBlockchain.GetBlockchainID().String()),
-			zap.String("originSenderAddress", originSenderAddress.String()),
-		)
-		return nil
-	}
 	destinationAddress, err := messageManager.GetDestinationAddress(unsignedMessage)
 	if err != nil {
 		r.logger.Error(
@@ -408,25 +399,6 @@ func (r *Relayer) RelayMessage(warpLogInfo *vmtypes.WarpLogInfo, storeProcessedH
 			zap.Error(err),
 		)
 		return err
-	}
-	if !r.CheckAllowedDestinationAddress(destinationAddress, destinationBlockchainID) {
-		r.logger.Debug(
-			"Message destination address not allowed. Not relaying.",
-			zap.String("blockchainID", r.sourceBlockchain.GetBlockchainID().String()),
-			zap.String("destinationBlockchainID", destinationBlockchainID.String()),
-			zap.String("destinationAddress", destinationAddress.String()),
-		)
-		return nil
-	}
-
-	// Check that the destination chain ID is supported
-	if !r.CheckSupportedDestination(destinationBlockchainID) {
-		r.logger.Debug(
-			"Message destination chain ID not supported. Not relaying.",
-			zap.String("blockchainID", r.sourceBlockchain.GetBlockchainID().String()),
-			zap.String("destinationBlockchainID", destinationBlockchainID.String()),
-		)
-		return nil
 	}
 
 	messageRelayer, ok := r.getMessageRelayer(
@@ -463,49 +435,4 @@ func (r *Relayer) RelayMessage(warpLogInfo *vmtypes.WarpLogInfo, storeProcessedH
 	// Increment the request ID for the next message relay request
 	r.currentRequestID++
 	return nil
-}
-
-// Returns whether destinationBlockchainID is a supported destination.
-func (r *Relayer) CheckSupportedDestination(destinationBlockchainID ids.ID) bool {
-	for _, destination := range r.sourceBlockchain.SupportedDestinations {
-		if destination.GetBlockchainID() == destinationBlockchainID {
-			return true
-		}
-	}
-	return false
-}
-
-func (r *Relayer) CheckAllowedOriginSenderAddress(addr common.Address) bool {
-	allowedAddresses := r.sourceBlockchain.GetAllowedOriginSenderAddresses()
-	// If no addresses are present, then all addresses are allowed
-	if len(allowedAddresses) == 0 {
-		return true
-	}
-	for _, allowedAddress := range allowedAddresses {
-		if allowedAddress == addr {
-			return true
-		}
-	}
-	return false
-}
-
-func (r *Relayer) CheckAllowedDestinationAddress(addr common.Address, destinationBlockchainID ids.ID) bool {
-	var allowedAddresses []common.Address
-	for _, destination := range r.sourceBlockchain.SupportedDestinations {
-		if destination.GetBlockchainID() == destinationBlockchainID {
-			allowedAddresses = destination.GetAddresses()
-			break
-		}
-	}
-
-	// If no addresses are present, then all addresses are allowed
-	if len(allowedAddresses) == 0 {
-		return true
-	}
-	for _, allowedAddress := range allowedAddresses {
-		if allowedAddress == addr {
-			return true
-		}
-	}
-	return false
 }
