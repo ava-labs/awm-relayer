@@ -312,23 +312,21 @@ func (m *ManualWarpMessage) Validate() error {
 	if err != nil {
 		return err
 	}
-	sourceAddress, err := hex.DecodeString(utils.SanitizeHexString(m.SourceAddress))
-	if err != nil {
-		return err
+	if !common.IsHexAddress(m.SourceAddress) {
+		return errors.New("invalid source address in manual warp message configuration")
 	}
 	destinationBlockchainID, err := ids.FromString(m.DestinationBlockchainID)
 	if err != nil {
 		return err
 	}
-	destinationAddress, err := hex.DecodeString(utils.SanitizeHexString(m.DestinationAddress))
-	if err != nil {
-		return err
+	if !common.IsHexAddress(m.DestinationAddress) {
+		return errors.New("invalid destination address in manual warp message configuration")
 	}
 	m.unsignedMessageBytes = unsignedMsg
 	m.sourceBlockchainID = sourceBlockchainID
-	m.sourceAddress = common.BytesToAddress(sourceAddress)
+	m.sourceAddress = common.HexToAddress(m.SourceAddress)
 	m.destinationBlockchainID = destinationBlockchainID
-	m.destinationAddress = common.BytesToAddress(destinationAddress)
+	m.destinationAddress = common.HexToAddress(m.DestinationAddress)
 	return nil
 }
 
@@ -478,22 +476,20 @@ func (s *SourceBlockchain) Validate(destinationBlockchainIDs *set.Set[string]) e
 		}
 		dest.blockchainID = blockchainID
 		for _, address := range dest.Addresses {
-			destinationAddress, err := hex.DecodeString(utils.SanitizeHexString(address))
-			if err != nil {
-				return err
+			if !common.IsHexAddress(address) {
+				return fmt.Errorf("invalid allowed destination address in source blockchain configuration: %s", address)
 			}
-			dest.addresses = append(dest.addresses, common.BytesToAddress(destinationAddress))
+			dest.addresses = append(dest.addresses, common.HexToAddress(address))
 		}
 	}
 
 	// Validate and store the allowed origin source addresses
 	allowedOriginSenderAddresses := make([]common.Address, len(s.AllowedOriginSenderAddresses))
 	for i, address := range s.AllowedOriginSenderAddresses {
-		sourceAddress, err := hex.DecodeString(utils.SanitizeHexString(address))
-		if err != nil {
-			return err
+		if !common.IsHexAddress(address) {
+			return fmt.Errorf("invalid allowed origin sender address in source blockchain configuration: %s", address)
 		}
-		allowedOriginSenderAddresses[i] = common.BytesToAddress(sourceAddress)
+		allowedOriginSenderAddresses[i] = common.HexToAddress(address)
 	}
 	s.allowedOriginSenderAddresses = allowedOriginSenderAddresses
 
