@@ -43,7 +43,6 @@ func TestIsKeyNotFoundError(t *testing.T) {
 func TestCalculateRelayerID(t *testing.T) {
 	id1, _ := ids.FromString("S4mMqUXe7vHsGiRAma6bv3CKnyaLssyAxmQ2KvFpX1KEvfFCD")
 	id2, _ := ids.FromString("2TGBXcnwx5PqiXWiqxAKUaNSqDguXNh1mxnp82jui68hxJSZAx")
-	zeroAddress := common.HexToAddress("0x0000000000000000000000000000000000000000")
 	testCases := []struct {
 		name                    string
 		sourceBlockchainID      ids.ID
@@ -56,15 +55,15 @@ func TestCalculateRelayerID(t *testing.T) {
 			name:                    "all zero",
 			sourceBlockchainID:      id1,
 			destinationBlockchainID: id2,
-			originSenderAddress:     zeroAddress,
-			destinationAddress:      zeroAddress,
+			originSenderAddress:     AllAllowedAddress,
+			destinationAddress:      AllAllowedAddress,
 			expected:                common.HexToHash("0xf8a8467088fd6f8ad4577408ddda1607e2702ca9827d7fd556c46adae624b7a2"),
 		},
 		{
 			name:                    "zero source address",
 			sourceBlockchainID:      id1,
 			destinationBlockchainID: id2,
-			originSenderAddress:     zeroAddress,
+			originSenderAddress:     AllAllowedAddress,
 			destinationAddress:      common.HexToAddress("0x0123456789abcdef0123456789abcdef01234567"),
 			expected:                common.HexToHash("0xa20ede2231d43d072800ad436a4ca8844f9ddd9cb4174f4cc3046e0958e48320"),
 		},
@@ -73,7 +72,7 @@ func TestCalculateRelayerID(t *testing.T) {
 			sourceBlockchainID:      id1,
 			destinationBlockchainID: id2,
 			originSenderAddress:     common.HexToAddress("0x0123456789abcdef0123456789abcdef01234567"),
-			destinationAddress:      zeroAddress,
+			destinationAddress:      AllAllowedAddress,
 			expected:                common.HexToHash("0xb205a049831478f55b768a4c875b2085339b6053831ecde8a3d406f9d13454a5"),
 		},
 		{
