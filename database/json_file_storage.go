@@ -43,7 +43,7 @@ func NewJSONFileStorage(logger logging.Logger, dir string, relayerIDs []RelayerI
 	}
 
 	for _, relayerID := range relayerIDs {
-		key := relayerID.GetID()
+		key := relayerID.ID
 		storage.currentState[key] = make(chainState)
 		storage.mutexes[key] = &sync.RWMutex{}
 	}
@@ -53,7 +53,7 @@ func NewJSONFileStorage(logger logging.Logger, dir string, relayerIDs []RelayerI
 		// Directory already exists.
 		// Read the existing storage.
 		for _, relayerID := range relayerIDs {
-			key := relayerID.GetID()
+			key := relayerID.ID
 			currentState, fileExists, err := storage.getCurrentState(key)
 			if err != nil {
 				return nil, err

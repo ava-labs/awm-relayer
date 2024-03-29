@@ -55,20 +55,28 @@ type RelayerID struct {
 	DestinationBlockchainID ids.ID
 	OriginSenderAddress     common.Address
 	DestinationAddress      common.Address
-	id                      common.Hash
+	ID                      common.Hash
 }
 
-// GetKey returns the unique identifier for an application relayer
-func (id *RelayerID) GetID() common.Hash {
-	if id.id == (common.Hash{}) {
-		id.id = CalculateRelayerID(
-			id.SourceBlockchainID,
-			id.DestinationBlockchainID,
-			id.OriginSenderAddress,
-			id.DestinationAddress,
-		)
+func NewRelayerID(
+	sourceBlockchainID ids.ID,
+	destinationBlockchainID ids.ID,
+	originSenderAddress common.Address,
+	destinationAddress common.Address,
+) RelayerID {
+	id := CalculateRelayerID(
+		sourceBlockchainID,
+		destinationBlockchainID,
+		originSenderAddress,
+		destinationAddress,
+	)
+	return RelayerID{
+		SourceBlockchainID:      sourceBlockchainID,
+		DestinationBlockchainID: destinationBlockchainID,
+		OriginSenderAddress:     originSenderAddress,
+		DestinationAddress:      destinationAddress,
+		ID:                      id,
 	}
-	return id.id
 }
 
 // Standalone utility to calculate a relayer ID
@@ -116,12 +124,12 @@ func GetSourceBlockchainRelayerIDs(sourceBlockchain *config.SourceBlockchain) []
 				dstAddresses = append(dstAddresses, AllAllowedAddress)
 			}
 			for _, dstAddress := range dstAddresses {
-				ids = append(ids, RelayerID{
-					SourceBlockchainID:      sourceBlockchain.GetBlockchainID(),
-					DestinationBlockchainID: dst.GetBlockchainID(),
-					OriginSenderAddress:     srcAddress,
-					DestinationAddress:      dstAddress,
-				})
+				ids = append(ids, NewRelayerID(
+					sourceBlockchain.GetBlockchainID(),
+					dst.GetBlockchainID(),
+					srcAddress,
+					dstAddress,
+				))
 			}
 		}
 	}

@@ -103,12 +103,12 @@ func NewRelayer(
 		if err != nil {
 			logger.Error(
 				"Failed to create message relayer",
-				zap.String("relayerID", relayerID.GetID().String()),
+				zap.String("relayerID", relayerID.ID.String()),
 				zap.Error(err),
 			)
 			return nil, err
 		}
-		messageRelayers[relayerID.GetID()] = messageRelayer
+		messageRelayers[relayerID.ID] = messageRelayer
 	}
 
 	logger.Info(

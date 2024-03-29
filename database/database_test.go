@@ -173,42 +173,42 @@ func TestGetConfigRelayerKeys(t *testing.T) {
 	}
 
 	targetIDs := []RelayerID{
-		{
-			SourceBlockchainID:      srcCfg1.GetBlockchainID(),
-			DestinationBlockchainID: dstCfg1.GetBlockchainID(),
-			OriginSenderAddress:     AllAllowedAddress,
-			DestinationAddress:      AllAllowedAddress,
-		},
-		{
-			SourceBlockchainID:      srcCfg2.GetBlockchainID(),
-			DestinationBlockchainID: dstCfg1.GetBlockchainID(),
-			OriginSenderAddress:     allowedAddress,
-			DestinationAddress:      AllAllowedAddress,
-		},
-		{
-			SourceBlockchainID:      srcCfg3.GetBlockchainID(),
-			DestinationBlockchainID: dstCfg1.GetBlockchainID(),
-			OriginSenderAddress:     AllAllowedAddress,
-			DestinationAddress:      AllAllowedAddress,
-		},
-		{
-			SourceBlockchainID:      srcCfg4.GetBlockchainID(),
-			DestinationBlockchainID: dstCfg1.GetBlockchainID(),
-			OriginSenderAddress:     allowedAddress,
-			DestinationAddress:      AllAllowedAddress,
-		},
-		{
-			SourceBlockchainID:      srcCfg5.GetBlockchainID(),
-			DestinationBlockchainID: dstCfg1.GetBlockchainID(),
-			OriginSenderAddress:     AllAllowedAddress,
-			DestinationAddress:      allowedAddress,
-		},
-		{
-			SourceBlockchainID:      srcCfg6.GetBlockchainID(),
-			DestinationBlockchainID: dstCfg1.GetBlockchainID(),
-			OriginSenderAddress:     allowedAddress,
-			DestinationAddress:      allowedAddress,
-		},
+		NewRelayerID(
+			srcCfg1.GetBlockchainID(),
+			dstCfg1.GetBlockchainID(),
+			AllAllowedAddress,
+			AllAllowedAddress,
+		),
+		NewRelayerID(
+			srcCfg2.GetBlockchainID(),
+			dstCfg1.GetBlockchainID(),
+			allowedAddress,
+			AllAllowedAddress,
+		),
+		NewRelayerID(
+			srcCfg3.GetBlockchainID(),
+			dstCfg1.GetBlockchainID(),
+			AllAllowedAddress,
+			AllAllowedAddress,
+		),
+		NewRelayerID(
+			srcCfg4.GetBlockchainID(),
+			dstCfg1.GetBlockchainID(),
+			allowedAddress,
+			AllAllowedAddress,
+		),
+		NewRelayerID(
+			srcCfg5.GetBlockchainID(),
+			dstCfg1.GetBlockchainID(),
+			AllAllowedAddress,
+			allowedAddress,
+		),
+		NewRelayerID(
+			srcCfg6.GetBlockchainID(),
+			dstCfg1.GetBlockchainID(),
+			allowedAddress,
+			allowedAddress,
+		),
 	}
 
 	relayerIDs := GetConfigRelayerIDs(cfg)
@@ -218,7 +218,7 @@ func TestGetConfigRelayerKeys(t *testing.T) {
 		require.True(t,
 			func(ids []RelayerID, target RelayerID) bool {
 				for _, id := range ids {
-					if id.GetID() == target.GetID() {
+					if id.ID == target.ID {
 						return true
 					}
 				}

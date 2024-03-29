@@ -612,7 +612,7 @@ func (r *messageRelayer) calculateStartingBlockHeight(processHistoricalBlocksFro
 		// Otherwise, we've encountered an unknown database error
 		r.logger.Error(
 			"failed to get latest block from database",
-			zap.String("relayerID", r.relayerID.GetID().String()),
+			zap.String("relayerID", r.relayerID.ID.String()),
 			zap.Error(err),
 		)
 		return 0, err
@@ -623,7 +623,7 @@ func (r *messageRelayer) calculateStartingBlockHeight(processHistoricalBlocksFro
 	if latestProcessedBlock > processHistoricalBlocksFromHeight {
 		r.logger.Info(
 			"Processing historical blocks from the latest processed block in the DB",
-			zap.String("relayerID", r.relayerID.GetID().String()),
+			zap.String("relayerID", r.relayerID.ID.String()),
 			zap.Uint64("latestProcessedBlock", latestProcessedBlock),
 		)
 		return latestProcessedBlock, nil
@@ -631,7 +631,7 @@ func (r *messageRelayer) calculateStartingBlockHeight(processHistoricalBlocksFro
 	// Otherwise, return the configured start block height
 	r.logger.Info(
 		"Processing historical blocks from the configured start block height",
-		zap.String("relayerID", r.relayerID.GetID().String()),
+		zap.String("relayerID", r.relayerID.ID.String()),
 		zap.Uint64("processHistoricalBlocksFromHeight", processHistoricalBlocksFromHeight),
 	)
 	return processHistoricalBlocksFromHeight, nil
@@ -661,7 +661,7 @@ func (r *messageRelayer) setProcessedBlockHeightToLatest() (uint64, error) {
 
 	r.logger.Info(
 		"Updating latest processed block in database",
-		zap.String("relayerID", r.relayerID.GetID().String()),
+		zap.String("relayerID", r.relayerID.ID.String()),
 		zap.Uint64("latestBlock", latestBlock),
 	)
 
@@ -669,7 +669,7 @@ func (r *messageRelayer) setProcessedBlockHeightToLatest() (uint64, error) {
 	if err != nil {
 		r.logger.Error(
 			fmt.Sprintf("failed to put %s into database", database.LatestProcessedBlockKey),
-			zap.String("relayerID", r.relayerID.GetID().String()),
+			zap.String("relayerID", r.relayerID.ID.String()),
 			zap.Error(err),
 		)
 		return 0, err
@@ -682,7 +682,7 @@ func (r *messageRelayer) setProcessedBlockHeightToLatest() (uint64, error) {
 // because it is updated as soon as a single message from that block is relayed,
 // and there may be multiple message in the same block.
 func (r *messageRelayer) getLatestProcessedBlockHeight() (uint64, error) {
-	latestProcessedBlockData, err := r.db.Get(r.relayerID.GetID(), database.LatestProcessedBlockKey)
+	latestProcessedBlockData, err := r.db.Get(r.relayerID.ID, database.LatestProcessedBlockKey)
 	if err != nil {
 		return 0, err
 	}
@@ -695,7 +695,7 @@ func (r *messageRelayer) getLatestProcessedBlockHeight() (uint64, error) {
 
 // Store the block height in the database. Does not check against the current latest processed block height.
 func (r *messageRelayer) storeBlockHeight(height uint64) error {
-	return r.db.Put(r.relayerID.GetID(), database.LatestProcessedBlockKey, []byte(strconv.FormatUint(height, 10)))
+	return r.db.Put(r.relayerID.ID, database.LatestProcessedBlockKey, []byte(strconv.FormatUint(height, 10)))
 }
 
 // Stores the block height in the database if it is greater than the current latest processed block height.
@@ -706,7 +706,7 @@ func (r *messageRelayer) storeLatestBlockHeight(height uint64) error {
 	if err != nil && !database.IsKeyNotFoundError(err) {
 		r.logger.Error(
 			"Encountered an unknown error while getting latest processed block from database",
-			zap.String("relayerID", r.relayerID.GetID().String()),
+			zap.String("relayerID", r.relayerID.ID.String()),
 			zap.Error(err),
 		)
 		return err
@@ -720,7 +720,7 @@ func (r *messageRelayer) storeLatestBlockHeight(height uint64) error {
 		if err != nil {
 			r.logger.Error(
 				fmt.Sprintf("failed to put %s into database", database.LatestProcessedBlockKey),
-				zap.String("relayerID", r.relayerID.GetID().String()),
+				zap.String("relayerID", r.relayerID.ID.String()),
 				zap.Error(err),
 			)
 		}

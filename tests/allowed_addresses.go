@@ -308,54 +308,54 @@ func AllowedAddresses(network interfaces.LocalNetwork) {
 	//
 
 	// Create relayer keys that allow all source and destination addresses
-	relayerID1 := database.RelayerID{
-		SourceBlockchainID:      subnetAInfo.BlockchainID,
-		DestinationBlockchainID: subnetBInfo.BlockchainID,
-		OriginSenderAddress:     database.AllAllowedAddress,
-		DestinationAddress:      database.AllAllowedAddress,
-	}
-	relayerID2 := database.RelayerID{
-		SourceBlockchainID:      subnetAInfo.BlockchainID,
-		DestinationBlockchainID: subnetBInfo.BlockchainID,
-		OriginSenderAddress:     allowedAddresses[relayer2AllowedSrcAddressIdx],
-		DestinationAddress:      database.AllAllowedAddress,
-	}
-	relayerID3 := database.RelayerID{
-		SourceBlockchainID:      subnetAInfo.BlockchainID,
-		DestinationBlockchainID: subnetBInfo.BlockchainID,
-		OriginSenderAddress:     database.AllAllowedAddress,
-		DestinationAddress:      allowedAddresses[relayer3AllowedDstAddressIdx],
-	}
-	relayerID4 := database.RelayerID{
-		SourceBlockchainID:      subnetAInfo.BlockchainID,
-		DestinationBlockchainID: subnetBInfo.BlockchainID,
-		OriginSenderAddress:     allowedAddresses[relayer4AllowedSrcAddressIdx],
-		DestinationAddress:      allowedAddresses[relayer4AllowedDstAddressIdx],
-	}
+	relayerID1 := database.NewRelayerID(
+		subnetAInfo.BlockchainID,
+		subnetBInfo.BlockchainID,
+		database.AllAllowedAddress,
+		database.AllAllowedAddress,
+	)
+	relayerID2 := database.NewRelayerID(
+		subnetAInfo.BlockchainID,
+		subnetBInfo.BlockchainID,
+		allowedAddresses[relayer2AllowedSrcAddressIdx],
+		database.AllAllowedAddress,
+	)
+	relayerID3 := database.NewRelayerID(
+		subnetAInfo.BlockchainID,
+		subnetBInfo.BlockchainID,
+		database.AllAllowedAddress,
+		allowedAddresses[relayer3AllowedDstAddressIdx],
+	)
+	relayerID4 := database.NewRelayerID(
+		subnetAInfo.BlockchainID,
+		subnetBInfo.BlockchainID,
+		allowedAddresses[relayer4AllowedSrcAddressIdx],
+		allowedAddresses[relayer4AllowedDstAddressIdx],
+	)
 	relayerKeys := []database.RelayerID{relayerID1, relayerID2, relayerID3, relayerID4}
 	jsonDB, err := database.NewJSONFileStorage(logging.NoLog{}, testUtils.StorageLocation, relayerKeys)
 	Expect(err).Should(BeNil())
 
 	// Fetch the checkpointed heights from the shared database
-	data, err := jsonDB.Get(relayerID1.GetID(), database.LatestProcessedBlockKey)
+	data, err := jsonDB.Get(relayerID1.ID, database.LatestProcessedBlockKey)
 	Expect(err).Should(BeNil())
 	storedHeight1, err := strconv.ParseUint(string(data), 10, 64)
 	Expect(err).Should(BeNil())
 	Expect(storedHeight1).Should(Equal(height1))
 
-	data, err = jsonDB.Get(relayerID2.GetID(), database.LatestProcessedBlockKey)
+	data, err = jsonDB.Get(relayerID2.ID, database.LatestProcessedBlockKey)
 	Expect(err).Should(BeNil())
 	storedHeight2, err := strconv.ParseUint(string(data), 10, 64)
 	Expect(err).Should(BeNil())
 	Expect(storedHeight2).Should(Equal(height2))
 
-	data, err = jsonDB.Get(relayerID3.GetID(), database.LatestProcessedBlockKey)
+	data, err = jsonDB.Get(relayerID3.ID, database.LatestProcessedBlockKey)
 	Expect(err).Should(BeNil())
 	storedHeight3, err := strconv.ParseUint(string(data), 10, 64)
 	Expect(err).Should(BeNil())
 	Expect(storedHeight3).Should(Equal(height3))
 
-	data, err = jsonDB.Get(relayerID4.GetID(), database.LatestProcessedBlockKey)
+	data, err = jsonDB.Get(relayerID4.ID, database.LatestProcessedBlockKey)
 	Expect(err).Should(BeNil())
 	storedHeight4, err := strconv.ParseUint(string(data), 10, 64)
 	Expect(err).Should(BeNil())

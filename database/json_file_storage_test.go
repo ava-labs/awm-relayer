@@ -25,10 +25,12 @@ func createRelayerIDs(blockchainIDs []ids.ID) []RelayerID {
 	for _, blockchainID := range blockchainIDs {
 		for allowedDestination := range destinationsBlockchainIDs {
 			id, _ := ids.FromString(allowedDestination)
-			relayerIDs = append(relayerIDs, RelayerID{
-				SourceBlockchainID:      blockchainID,
-				DestinationBlockchainID: id,
-			},
+			relayerIDs = append(relayerIDs, NewRelayerID(
+				blockchainID,
+				id,
+				AllAllowedAddress,
+				AllAllowedAddress,
+			),
 			)
 		}
 	}
@@ -60,7 +62,7 @@ func TestConcurrentWriteReadSingleChain(t *testing.T) {
 	finalTargetValue := uint64(11)
 	testWrite(jsonStorage, relayerIDs[0], finalTargetValue)
 
-	latestProcessedBlockData, err := jsonStorage.Get(relayerIDs[0].GetID(), LatestProcessedBlockKey)
+	latestProcessedBlockData, err := jsonStorage.Get(relayerIDs[0].ID, LatestProcessedBlockKey)
 	if err != nil {
 		t.Fatalf("failed to retrieve from JSON storage. err: %v", err)
 	}
@@ -101,7 +103,7 @@ func TestConcurrentWriteReadMultipleChains(t *testing.T) {
 	}
 
 	for i, relayerID := range relayerIDs {
-		latestProcessedBlockData, err := jsonStorage.Get(relayerID.GetID(), LatestProcessedBlockKey)
+		latestProcessedBlockData, err := jsonStorage.Get(relayerID.ID, LatestProcessedBlockKey)
 		if err != nil {
 			t.Fatalf("failed to retrieve from JSON storage. networkID: %d err: %v", i, err)
 		}
@@ -132,7 +134,7 @@ func setupJsonStorage(t *testing.T, relayerIDs []RelayerID) *JSONFileStorage {
 }
 
 func testWrite(storage *JSONFileStorage, relayerID RelayerID, height uint64) {
-	err := storage.Put(relayerID.GetID(), LatestProcessedBlockKey, []byte(strconv.FormatUint(height, 10)))
+	err := storage.Put(relayerID.ID, LatestProcessedBlockKey, []byte(strconv.FormatUint(height, 10)))
 	if err != nil {
 		fmt.Printf("failed to put data: %v", err)
 		return
