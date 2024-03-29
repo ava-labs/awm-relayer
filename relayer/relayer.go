@@ -285,7 +285,7 @@ func (r *Relayer) ReconnectToSubscriber() error {
 }
 
 // Fetch the appropriate message relayer
-// Checks for the following registered keys. Exactly one of these keys should be registered, or none of them.
+// Checks for the following registered keys. At most one of these keys should be registered.
 // 1. An exact match on sourceBlockchainID, destinationBlockchainID, originSenderAddress, and destinationAddress
 // 2. A match on sourceBlockchainID and destinationBlockchainID, with a specific originSenderAddress and any destinationAddress
 // 3. A match on sourceBlockchainID and destinationBlockchainID, with any originSenderAddress and a specific destinationAddress
