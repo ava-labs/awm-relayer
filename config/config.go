@@ -463,7 +463,7 @@ func (s *SourceBlockchain) Validate(destinationBlockchainIDs *set.Set[string]) e
 			})
 		}
 	}
-
+	zeroAddress := common.Address{}
 	for _, dest := range s.SupportedDestinations {
 		blockchainID, err := ids.FromString(dest.BlockchainID)
 		if err != nil {
@@ -475,21 +475,30 @@ func (s *SourceBlockchain) Validate(destinationBlockchainIDs *set.Set[string]) e
 				blockchainID)
 		}
 		dest.blockchainID = blockchainID
-		for _, address := range dest.Addresses {
-			if !common.IsHexAddress(address) {
-				return fmt.Errorf("invalid allowed destination address in source blockchain configuration: %s", address)
+		for _, addressStr := range dest.Addresses {
+			if !common.IsHexAddress(addressStr) {
+				return fmt.Errorf("invalid allowed destination address in source blockchain configuration: %s", addressStr)
 			}
-			dest.addresses = append(dest.addresses, common.HexToAddress(address))
+			address := common.HexToAddress(addressStr)
+			if address == zeroAddress {
+				return fmt.Errorf("invalid allowed destination address in source blockchain configuration: %s", addressStr)
+			}
+			dest.addresses = append(dest.addresses, address)
 		}
 	}
 
 	// Validate and store the allowed origin source addresses
 	allowedOriginSenderAddresses := make([]common.Address, len(s.AllowedOriginSenderAddresses))
-	for i, address := range s.AllowedOriginSenderAddresses {
-		if !common.IsHexAddress(address) {
-			return fmt.Errorf("invalid allowed origin sender address in source blockchain configuration: %s", address)
+	for i, addressStr := range s.AllowedOriginSenderAddresses {
+		if !common.IsHexAddress(addressStr) {
+			return fmt.Errorf("invalid allowed origin sender address in source blockchain configuration: %s", addressStr)
 		}
-		allowedOriginSenderAddresses[i] = common.HexToAddress(address)
+		address := common.HexToAddress(addressStr)
+		zeroAddress := common.Address{}
+		if address == zeroAddress {
+			return fmt.Errorf("invalid allowed origin sender address in source blockchain configuration: %s", addressStr)
+		}
+		allowedOriginSenderAddresses[i] = address
 	}
 	s.allowedOriginSenderAddresses = allowedOriginSenderAddresses
 
