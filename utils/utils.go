@@ -12,6 +12,8 @@ import (
 )
 
 var (
+	ZeroAddress = common.Address{}
+
 	// Errors
 	ErrNilInput = errors.New("nil input")
 	ErrTooLarge = errors.New("exceeds uint256 maximum value")

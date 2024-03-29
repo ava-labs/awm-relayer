@@ -463,7 +463,6 @@ func (s *SourceBlockchain) Validate(destinationBlockchainIDs *set.Set[string]) e
 			})
 		}
 	}
-	zeroAddress := common.Address{}
 	for _, dest := range s.SupportedDestinations {
 		blockchainID, err := ids.FromString(dest.BlockchainID)
 		if err != nil {
@@ -480,7 +479,7 @@ func (s *SourceBlockchain) Validate(destinationBlockchainIDs *set.Set[string]) e
 				return fmt.Errorf("invalid allowed destination address in source blockchain configuration: %s", addressStr)
 			}
 			address := common.HexToAddress(addressStr)
-			if address == zeroAddress {
+			if address == utils.ZeroAddress {
 				return fmt.Errorf("invalid allowed destination address in source blockchain configuration: %s", addressStr)
 			}
 			dest.addresses = append(dest.addresses, address)
@@ -494,8 +493,7 @@ func (s *SourceBlockchain) Validate(destinationBlockchainIDs *set.Set[string]) e
 			return fmt.Errorf("invalid allowed origin sender address in source blockchain configuration: %s", addressStr)
 		}
 		address := common.HexToAddress(addressStr)
-		zeroAddress := common.Address{}
-		if address == zeroAddress {
+		if address == utils.ZeroAddress {
 			return fmt.Errorf("invalid allowed origin sender address in source blockchain configuration: %s", addressStr)
 		}
 		allowedOriginSenderAddresses[i] = address
