@@ -58,7 +58,6 @@ var (
 
 	awsRegion string = "us-west-2"
 	kmsKey1          = "test-kms-id1"
-	kmsKey2          = "test-kms-id2"
 )
 
 // GetRelayerAccountPrivateKey tests. Individual cases must be run in their own functions
