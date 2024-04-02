@@ -254,39 +254,6 @@ func TestEitherKMSOrAccountPrivateKey(t *testing.T) {
 		}
 	}
 }
-func TestGetRelayerKMSID_set_kmd_id_with_global_env(t *testing.T) {
-	testCase := configMondifierEnvVarTestCase{
-		baseConfig: testValidConfig,
-		configModifier: func(c Config) Config {
-			c.DestinationBlockchains[0].AccountPrivateKey = ""
-			c.DestinationBlockchains[0].KMSKeyID = kmsKey2
-			c.DestinationBlockchains[0].KMSAWSRegion = awsRegion
-			// Add a second destination subnet. This KMS ID SHOULD be overwritten
-			newSubnet := *c.DestinationBlockchains[0]
-			newSubnet.BlockchainID = testBlockchainID2
-			newSubnet.KMSKeyID = "test-kms-id1"
-			c.DestinationBlockchains = append(c.DestinationBlockchains, &newSubnet)
-			return c
-		},
-		envSetter: func() {
-			// Overwrite the PK for the first subnet using an env var
-			t.Setenv("KMS_KEY_ID", kmsKey2)
-		},
-		expectedOverwritten: true,
-		resultVerifier: func(c Config) bool {
-			// All destination subnets should have test-kms-id2
-			for _, subnet := range c.DestinationBlockchains {
-				if subnet.KMSKeyID != kmsKey2 {
-					fmt.Printf("expected: %s, got: %s\n", kmsKey2, subnet.KMSKeyID)
-					return false
-				}
-			}
-			return true
-		},
-	}
-	runConfigModifierEnvVarTest(t, testCase)
-}
-
 func TestGetWarpQuorum(t *testing.T) {
 	blockchainID, err := ids.FromString("p433wpuXyJiDhyazPYyZMJeaoPSW76CBZ2x7wrVPLgvokotXz")
 	require.NoError(t, err)

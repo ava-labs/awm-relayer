@@ -24,11 +24,11 @@ import (
 	_ "github.com/ava-labs/subnet-evm/precompile/registry"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/spf13/viper"
 )
 
 const (
-	relayerPrivateKeyBytes      = 32
 	accountPrivateKeyEnvVarName = "ACCOUNT_PRIVATE_KEY"
 	cChainIdentifierString      = "C"
 	warpConfigKey               = "warpConfig"
@@ -149,24 +149,6 @@ func BuildConfig(v *viper.Viper) (Config, bool, error) {
 	}
 	if err := v.UnmarshalKey(SourceBlockchainsKey, &cfg.SourceBlockchains); err != nil {
 		return Config{}, false, fmt.Errorf("failed to unmarshal source subnets: %w", err)
-	}
-
-	// Explicitly overwrite the configured KMS configuration
-	// If kms-key-id and aws-region are set as flags or environment variables,
-	// overwrite all destination subnet configurations to use that key
-	keyID := v.GetString(KMSKeyIDKey)
-	if keyID != "" {
-		optionOverwritten = true
-		for i := range cfg.DestinationBlockchains {
-			cfg.DestinationBlockchains[i].KMSKeyID = keyID
-		}
-	}
-	awsRegion := v.GetString(KMSAWSRegionKey)
-	if awsRegion != "" {
-		optionOverwritten = true
-		for i := range cfg.DestinationBlockchains {
-			cfg.DestinationBlockchains[i].KMSAWSRegion = awsRegion
-		}
 	}
 
 	// Explicitly overwrite the configured account private key
@@ -500,11 +482,7 @@ func (s *DestinationBlockchain) Validate() error {
 			return errors.New("only one of account private key or KMS key ID can be provided")
 		}
 	} else {
-		if len(s.AccountPrivateKey) != relayerPrivateKeyBytes*2 {
-			return errors.New("invalid account private key hex string")
-		}
-
-		if _, err := hex.DecodeString(s.AccountPrivateKey); err != nil {
+		if _, err := crypto.HexToECDSA(s.AccountPrivateKey); err != nil {
 			return fmt.Errorf("invalid account private key hex string: %w", err)
 		}
 	}
