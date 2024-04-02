@@ -10,6 +10,7 @@ import (
 
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/awm-relayer/config"
+	"github.com/ava-labs/awm-relayer/utils"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
@@ -19,6 +20,9 @@ var (
 	ErrKeyNotFound              = errors.New("key not found")
 	ErrRelayerIDNotFound        = errors.New("no database entryfor relayer id")
 	ErrDatabaseMisconfiguration = errors.New("database misconfiguration")
+
+	// AllAllowedAddress is used to construct relayer IDs when all addresses are allowed
+	AllAllowedAddress = utils.ZeroAddress
 )
 
 const (
@@ -52,20 +56,28 @@ type RelayerID struct {
 	DestinationBlockchainID ids.ID
 	OriginSenderAddress     common.Address
 	DestinationAddress      common.Address
-	id                      common.Hash
+	ID                      common.Hash
 }
 
-// GetKey returns the unique identifier for an application relayer
-func (id *RelayerID) GetID() common.Hash {
-	if id.id == (common.Hash{}) {
-		id.id = CalculateRelayerID(
-			id.SourceBlockchainID,
-			id.DestinationBlockchainID,
-			id.OriginSenderAddress,
-			id.DestinationAddress,
-		)
+func NewRelayerID(
+	sourceBlockchainID ids.ID,
+	destinationBlockchainID ids.ID,
+	originSenderAddress common.Address,
+	destinationAddress common.Address,
+) RelayerID {
+	id := CalculateRelayerID(
+		sourceBlockchainID,
+		destinationBlockchainID,
+		originSenderAddress,
+		destinationAddress,
+	)
+	return RelayerID{
+		SourceBlockchainID:      sourceBlockchainID,
+		DestinationBlockchainID: destinationBlockchainID,
+		OriginSenderAddress:     originSenderAddress,
+		DestinationAddress:      destinationAddress,
+		ID:                      id,
 	}
-	return id.id
 }
 
 // Standalone utility to calculate a relayer ID
@@ -100,13 +112,27 @@ func GetConfigRelayerIDs(cfg *config.Config) []RelayerID {
 // Calculate all of the possible relayer keys for a given source blockchain
 func GetSourceBlockchainRelayerIDs(sourceBlockchain *config.SourceBlockchain) []RelayerID {
 	var ids []RelayerID
-	for _, dst := range sourceBlockchain.GetSupportedDestinations().List() {
-		ids = append(ids, RelayerID{
-			SourceBlockchainID:      sourceBlockchain.GetBlockchainID(),
-			DestinationBlockchainID: dst,
-			OriginSenderAddress:     common.Address{}, // TODO: populate with allowed sender/receiver addresses
-			DestinationAddress:      common.Address{},
-		})
+	srcAddresses := sourceBlockchain.GetAllowedOriginSenderAddresses()
+	// If no addresses are provided, use the zero address to construct the relayer ID
+	if len(srcAddresses) == 0 {
+		srcAddresses = append(srcAddresses, AllAllowedAddress)
+	}
+	for _, srcAddress := range srcAddresses {
+		for _, dst := range sourceBlockchain.SupportedDestinations {
+			dstAddresses := dst.GetAddresses()
+			// If no addresses are provided, use the zero address to construct the relayer ID
+			if len(dstAddresses) == 0 {
+				dstAddresses = append(dstAddresses, AllAllowedAddress)
+			}
+			for _, dstAddress := range dstAddresses {
+				ids = append(ids, NewRelayerID(
+					sourceBlockchain.GetBlockchainID(),
+					dst.GetBlockchainID(),
+					srcAddress,
+					dstAddress,
+				))
+			}
+		}
 	}
 	return ids
 }

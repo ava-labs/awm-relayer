@@ -74,4 +74,7 @@ var _ = ginkgo.Describe("[AWM Relayer Integration Tests", func() {
 	ginkgo.It("Shared Database", func() {
 		SharedDatabaseAccess(localNetworkInstance)
 	})
+	ginkgo.It("Allowed Addresses", func() {
+		AllowedAddresses(localNetworkInstance)
+	})
 })

@@ -103,12 +103,12 @@ func NewRelayer(
 		if err != nil {
 			logger.Error(
 				"Failed to create message relayer",
-				zap.String("relayerID", relayerID.GetID().String()),
+				zap.String("relayerID", relayerID.ID.String()),
 				zap.Error(err),
 			)
 			return nil, err
 		}
-		messageRelayers[relayerID.GetID()] = messageRelayer
+		messageRelayers[relayerID.ID] = messageRelayer
 	}
 
 	logger.Info(
@@ -284,6 +284,62 @@ func (r *Relayer) ReconnectToSubscriber() error {
 	return nil
 }
 
+// Fetch the appropriate message relayer
+// Checks for the following registered keys. At most one of these keys should be registered.
+// 1. An exact match on sourceBlockchainID, destinationBlockchainID, originSenderAddress, and destinationAddress
+// 2. A match on sourceBlockchainID and destinationBlockchainID, with a specific originSenderAddress and any destinationAddress
+// 3. A match on sourceBlockchainID and destinationBlockchainID, with any originSenderAddress and a specific destinationAddress
+// 4. A match on sourceBlockchainID and destinationBlockchainID, with any originSenderAddress and any destinationAddress
+func (r *Relayer) getMessageRelayer(
+	sourceBlockchainID ids.ID,
+	destinationBlockchainID ids.ID,
+	originSenderAddress common.Address,
+	destinationAddress common.Address,
+) (*messageRelayer, bool) {
+	// Check for an exact match
+	messageRelayerID := database.CalculateRelayerID(
+		sourceBlockchainID,
+		destinationBlockchainID,
+		originSenderAddress,
+		destinationAddress,
+	)
+	if messageRelayer, ok := r.messageRelayers[messageRelayerID]; ok {
+		return messageRelayer, ok
+	}
+
+	// Check for a match on sourceBlockchainID and destinationBlockchainID, with a specific originSenderAddress and any destinationAddress
+	messageRelayerID = database.CalculateRelayerID(
+		sourceBlockchainID,
+		destinationBlockchainID,
+		originSenderAddress,
+		database.AllAllowedAddress,
+	)
+	if messageRelayer, ok := r.messageRelayers[messageRelayerID]; ok {
+		return messageRelayer, ok
+	}
+
+	// Check for a match on sourceBlockchainID and destinationBlockchainID, with any originSenderAddress and a specific destinationAddress
+	messageRelayerID = database.CalculateRelayerID(
+		sourceBlockchainID,
+		destinationBlockchainID,
+		database.AllAllowedAddress,
+		destinationAddress,
+	)
+	if messageRelayer, ok := r.messageRelayers[messageRelayerID]; ok {
+		return messageRelayer, ok
+	}
+
+	// Check for a match on sourceBlockchainID and destinationBlockchainID, with any originSenderAddress and any destinationAddress
+	messageRelayerID = database.CalculateRelayerID(
+		sourceBlockchainID,
+		destinationBlockchainID,
+		database.AllAllowedAddress,
+		database.AllAllowedAddress,
+	)
+	messageRelayer, ok := r.messageRelayers[messageRelayerID]
+	return messageRelayer, ok
+}
+
 // RelayMessage relays a single warp message to the destination chain. Warp message relay requests from the same origin chain are processed serially
 func (r *Relayer) RelayMessage(warpLogInfo *vmtypes.WarpLogInfo, storeProcessedHeight bool) error {
 	r.logger.Info(
@@ -327,6 +383,7 @@ func (r *Relayer) RelayMessage(warpLogInfo *vmtypes.WarpLogInfo, storeProcessedH
 		)
 		return err
 	}
+
 	originSenderAddress, err := messageManager.GetOriginSenderAddress(unsignedMessage)
 	if err != nil {
 		r.logger.Error(
@@ -344,25 +401,13 @@ func (r *Relayer) RelayMessage(warpLogInfo *vmtypes.WarpLogInfo, storeProcessedH
 		return err
 	}
 
-	// Check that the destination chain ID is supported
-	if !r.CheckSupportedDestination(destinationBlockchainID) {
-		r.logger.Debug(
-			"Message destination chain ID not supported. Not relaying.",
-			zap.String("blockchainID", r.sourceBlockchain.GetBlockchainID().String()),
-			zap.String("sourceBlockchain.GetBlockchainID()", destinationBlockchainID.String()),
-		)
-		return nil
-	}
-
-	messageRelayerID := database.CalculateRelayerID(
+	messageRelayer, ok := r.getMessageRelayer(
 		r.sourceBlockchain.GetBlockchainID(),
 		destinationBlockchainID,
-		common.Address{}, // TODO: Populate with the proper sender/receiver address
-		common.Address{},
+		originSenderAddress,
+		destinationAddress,
 	)
-	messageRelayer, ok := r.messageRelayers[messageRelayerID]
 	if !ok {
-		// TODO: If we don't find the key using the actual addresses, check if all sender/destination addresses are allowed
 		r.logger.Error(
 			"Message relayer not found",
 			zap.String("blockchainID", r.sourceBlockchain.GetBlockchainID().String()),
@@ -390,10 +435,4 @@ func (r *Relayer) RelayMessage(warpLogInfo *vmtypes.WarpLogInfo, storeProcessedH
 	// Increment the request ID for the next message relay request
 	r.currentRequestID++
 	return nil
-}
-
-// Returns whether destinationBlockchainID is a supported destination.
-func (r *Relayer) CheckSupportedDestination(destinationBlockchainID ids.ID) bool {
-	supportedDsts := r.sourceBlockchain.GetSupportedDestinations()
-	return supportedDsts.Contains(destinationBlockchainID)
 }

@@ -38,11 +38,13 @@ const (
 
 var errFailedToGetWarpQuorum = errors.New("failed to get warp quorum")
 
+// The generic configuration for a message protocol.
 type MessageProtocolConfig struct {
 	MessageFormat string                 `mapstructure:"message-format" json:"message-format"`
 	Settings      map[string]interface{} `mapstructure:"settings" json:"settings"`
 }
 
+// Defines a manual warp message to be sent from the relayer on startup.
 type ManualWarpMessage struct {
 	UnsignedMessageBytes    string `mapstructure:"unsigned-message-bytes" json:"unsigned-message-bytes"`
 	SourceBlockchainID      string `mapstructure:"source-blockchain-id" json:"source-blockchain-id"`
@@ -58,6 +60,29 @@ type ManualWarpMessage struct {
 	destinationAddress      common.Address
 }
 
+// Specifies a supported destination blockchain and addresses for a source blockchain.
+type SupportedDestination struct {
+	BlockchainID string   `mapstructure:"blockchain-id" json:"blockchain-id"`
+	Addresses    []string `mapstructure:"addresses" json:"addresses"`
+
+	// convenience fields to access parsed data after initialization
+	blockchainID ids.ID
+	addresses    []common.Address
+}
+
+func (s *SupportedDestination) GetBlockchainID() ids.ID {
+	return s.blockchainID
+}
+
+func (s *SupportedDestination) GetAddresses() []common.Address {
+	return s.addresses
+}
+
+// Source blockchain configuration.
+// Specifies how to connect to and listen for messages on the source blockchain.
+// Specifies the message protocols supported by the relayer for this blockchain.
+// Specifies the supported source addresses, and destination blockchains and addresses.
+// Specifies the height from which to start processing historical blocks.
 type SourceBlockchain struct {
 	SubnetID                          string                           `mapstructure:"subnet-id" json:"subnet-id"`
 	BlockchainID                      string                           `mapstructure:"blockchain-id" json:"blockchain-id"`
@@ -65,15 +90,17 @@ type SourceBlockchain struct {
 	RPCEndpoint                       string                           `mapstructure:"rpc-endpoint" json:"rpc-endpoint"`
 	WSEndpoint                        string                           `mapstructure:"ws-endpoint" json:"ws-endpoint"`
 	MessageContracts                  map[string]MessageProtocolConfig `mapstructure:"message-contracts" json:"message-contracts"`
-	SupportedDestinations             []string                         `mapstructure:"supported-destinations" json:"supported-destinations"`
+	SupportedDestinations             []*SupportedDestination          `mapstructure:"supported-destinations" json:"supported-destinations"`
 	ProcessHistoricalBlocksFromHeight uint64                           `mapstructure:"process-historical-blocks-from-height" json:"process-historical-blocks-from-height"`
+	AllowedOriginSenderAddresses      []string                         `mapstructure:"allowed-origin-sender-addresses" json:"allowed-origin-sender-addresses"`
 
 	// convenience fields to access parsed data after initialization
-	supportedDestinations set.Set[ids.ID]
-	subnetID              ids.ID
-	blockchainID          ids.ID
+	subnetID                     ids.ID
+	blockchainID                 ids.ID
+	allowedOriginSenderAddresses []common.Address
 }
 
+// Destination blockchain configuration. Specifies how to connect to and issue transactions on the desination blockchain.
 type DestinationBlockchain struct {
 	SubnetID          string `mapstructure:"subnet-id" json:"subnet-id"`
 	BlockchainID      string `mapstructure:"blockchain-id" json:"blockchain-id"`
@@ -89,11 +116,13 @@ type DestinationBlockchain struct {
 	blockchainID ids.ID
 }
 
+// Warp Quorum configuration, fetched from the chain config
 type WarpQuorum struct {
 	QuorumNumerator   uint64
 	QuorumDenominator uint64
 }
 
+// Top-level configuration
 type Config struct {
 	LogLevel        string `mapstructure:"log-level" json:"log-level"`
 	PChainAPIURL    string `mapstructure:"p-chain-api-url" json:"p-chain-api-url"`
@@ -283,23 +312,21 @@ func (m *ManualWarpMessage) Validate() error {
 	if err != nil {
 		return err
 	}
-	sourceAddress, err := hex.DecodeString(utils.SanitizeHexString(m.SourceAddress))
-	if err != nil {
-		return err
+	if !common.IsHexAddress(m.SourceAddress) {
+		return errors.New("invalid source address in manual warp message configuration")
 	}
 	destinationBlockchainID, err := ids.FromString(m.DestinationBlockchainID)
 	if err != nil {
 		return err
 	}
-	destinationAddress, err := hex.DecodeString(utils.SanitizeHexString(m.DestinationAddress))
-	if err != nil {
-		return err
+	if !common.IsHexAddress(m.DestinationAddress) {
+		return errors.New("invalid destination address in manual warp message configuration")
 	}
 	m.unsignedMessageBytes = unsignedMsg
 	m.sourceBlockchainID = sourceBlockchainID
-	m.sourceAddress = common.BytesToAddress(sourceAddress)
+	m.sourceAddress = common.HexToAddress(m.SourceAddress)
 	m.destinationBlockchainID = destinationBlockchainID
-	m.destinationAddress = common.BytesToAddress(destinationAddress)
+	m.destinationAddress = common.HexToAddress(m.DestinationAddress)
 	return nil
 }
 
@@ -379,10 +406,6 @@ func (c *Config) InitializeWarpQuorums() error {
 	return nil
 }
 
-func (s *SourceBlockchain) GetSupportedDestinations() set.Set[ids.ID] {
-	return s.supportedDestinations
-}
-
 // Validates the source subnet configuration, including verifying that the supported destinations are present in destinationBlockchainIDs
 // Does not modify the public fields as derived from the configuration passed to the application,
 // but does initialize private fields available through getters
@@ -432,32 +455,50 @@ func (s *SourceBlockchain) Validate(destinationBlockchainIDs *set.Set[string]) e
 	}
 	s.subnetID = subnetID
 
-	// Validate and store the allowed destinations for future use
-	s.supportedDestinations = set.Set[ids.ID]{}
-
 	// If the list of supported destinations is empty, populate with all of the configured destinations
 	if len(s.SupportedDestinations) == 0 {
 		for _, blockchainIDStr := range destinationBlockchainIDs.List() {
-			blockchainID, err := ids.FromString(blockchainIDStr)
-			if err != nil {
-				return fmt.Errorf("invalid blockchainID in configuration. error: %w", err)
-			}
-			s.supportedDestinations.Add(blockchainID)
+			s.SupportedDestinations = append(s.SupportedDestinations, &SupportedDestination{
+				BlockchainID: blockchainIDStr,
+			})
 		}
 	}
-
-	for _, blockchainIDStr := range s.SupportedDestinations {
-		blockchainID, err := ids.FromString(blockchainIDStr)
+	for _, dest := range s.SupportedDestinations {
+		blockchainID, err := ids.FromString(dest.BlockchainID)
 		if err != nil {
 			return fmt.Errorf("invalid blockchainID in configuration. error: %w", err)
 		}
-		if !destinationBlockchainIDs.Contains(blockchainIDStr) {
+		if !destinationBlockchainIDs.Contains(dest.BlockchainID) {
 			return fmt.Errorf("configured source subnet %s has a supported destination blockchain ID %s that is not configured as a destination blockchain",
 				s.SubnetID,
 				blockchainID)
 		}
-		s.supportedDestinations.Add(blockchainID)
+		dest.blockchainID = blockchainID
+		for _, addressStr := range dest.Addresses {
+			if !common.IsHexAddress(addressStr) {
+				return fmt.Errorf("invalid allowed destination address in source blockchain configuration: %s", addressStr)
+			}
+			address := common.HexToAddress(addressStr)
+			if address == utils.ZeroAddress {
+				return fmt.Errorf("invalid allowed destination address in source blockchain configuration: %s", addressStr)
+			}
+			dest.addresses = append(dest.addresses, address)
+		}
 	}
+
+	// Validate and store the allowed origin source addresses
+	allowedOriginSenderAddresses := make([]common.Address, len(s.AllowedOriginSenderAddresses))
+	for i, addressStr := range s.AllowedOriginSenderAddresses {
+		if !common.IsHexAddress(addressStr) {
+			return fmt.Errorf("invalid allowed origin sender address in source blockchain configuration: %s", addressStr)
+		}
+		address := common.HexToAddress(addressStr)
+		if address == utils.ZeroAddress {
+			return fmt.Errorf("invalid allowed origin sender address in source blockchain configuration: %s", addressStr)
+		}
+		allowedOriginSenderAddresses[i] = address
+	}
+	s.allowedOriginSenderAddresses = allowedOriginSenderAddresses
 
 	return nil
 }
@@ -468,6 +509,10 @@ func (s *SourceBlockchain) GetSubnetID() ids.ID {
 
 func (s *SourceBlockchain) GetBlockchainID() ids.ID {
 	return s.blockchainID
+}
+
+func (s *SourceBlockchain) GetAllowedOriginSenderAddresses() []common.Address {
+	return s.allowedOriginSenderAddresses
 }
 
 // Validatees the destination subnet configuration
