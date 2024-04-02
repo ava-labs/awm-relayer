@@ -105,7 +105,7 @@ The relayer binary accepts a path to a JSON configuration file as the sole argum
 
 ### Configuration
 
-The relayer is configured via a JSON file, the path to which is passed in via the `--config-file` command line argument. The following configuration options are available:
+The relayer is configured via a JSON file, the path to which is passed in via the `--config-file` command line argument. Top level configuration options are also able to be set via environment variable. To get the environment variable corresponding to a key, upper case the key and change the delimiter from "-" to "_". For example, `LOG_LEVEL` sets the `"log-level"` JSON key. The following configuration options are available:
 
 `"log-level": "verbo" | "debug" | "info" | "warn" | "error" | "fatal" | "panic"`
 
@@ -132,6 +132,10 @@ The relayer is configured via a JSON file, the path to which is passed in via th
 `"storage-location": string`
 
 - The path to the directory in which the relayer will store its state. Defaults to `./awm-relayer-storage`.
+
+`"redis-url": string`
+
+- The URL of the Redis server to use to manage state. This URL should specify the user, password, host, port, DB index, and protocol version. For example, `"redis://user:password@localhost:6379/0?protocol=3"`. Overrides `storage-location` if provided.
 
 `"process-missed-blocks": boolean`
 

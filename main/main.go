@@ -169,13 +169,25 @@ func main() {
 	}
 
 	// Initialize the database
-	db, err := database.NewJSONFileStorage(logger, cfg.StorageLocation, database.GetConfigRelayerIDs(&cfg))
-	if err != nil {
-		logger.Error(
-			"Failed to create database",
-			zap.Error(err),
-		)
-		panic(err)
+	var db database.RelayerDatabase
+	if cfg.RedisURL != "" {
+		db, err = database.NewRedisDatabase(logger, cfg.RedisURL, database.GetConfigRelayerIDs(&cfg))
+		if err != nil {
+			logger.Error(
+				"Failed to create Redis database",
+				zap.Error(err),
+			)
+			panic(err)
+		}
+	} else {
+		db, err = database.NewJSONFileStorage(logger, cfg.StorageLocation, database.GetConfigRelayerIDs(&cfg))
+		if err != nil {
+			logger.Error(
+				"Failed to create JSON database",
+				zap.Error(err),
+			)
+			panic(err)
+		}
 	}
 
 	manualWarpMessages := make(map[ids.ID][]*vmtypes.WarpLogInfo)

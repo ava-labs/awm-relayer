@@ -15,6 +15,7 @@ const (
 	DestinationBlockchainsKey = "destination-blockchains"
 	AccountPrivateKeyKey      = "account-private-key"
 	StorageLocationKey        = "storage-location"
+	RedisURLKey               = "redis-url"
 	ProcessMissedBlocksKey    = "process-missed-blocks"
 	ManualWarpMessagesKey     = "manual-warp-messages"
 )
