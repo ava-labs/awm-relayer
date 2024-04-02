@@ -6,16 +6,13 @@ package relayer
 import (
 	"context"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"math/big"
 	"math/rand"
-	"strconv"
 
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/message"
 	"github.com/ava-labs/avalanchego/utils/logging"
-	"github.com/ava-labs/avalanchego/utils/set"
 	"github.com/ava-labs/avalanchego/vms/platformvm"
 	"github.com/ava-labs/awm-relayer/config"
 	"github.com/ava-labs/awm-relayer/database"
@@ -23,7 +20,6 @@ import (
 	"github.com/ava-labs/awm-relayer/peers"
 	vms "github.com/ava-labs/awm-relayer/vms"
 	"github.com/ava-labs/awm-relayer/vms/vmtypes"
-	"github.com/ava-labs/coreth/ethclient"
 	"github.com/ethereum/go-ethereum/common"
 	"go.uber.org/atomic"
 	"go.uber.org/zap"
@@ -38,62 +34,38 @@ const (
 
 // Relayer handles all messages sent from a given source chain
 type Relayer struct {
-	Subscriber            vms.Subscriber
-	pChainClient          platformvm.Client
-	currentRequestID      uint32
-	network               *peers.AppRequestNetwork
-	sourceSubnetID        ids.ID
-	sourceBlockchainID    ids.ID
-	responseChan          chan message.InboundMessage
-	contractMessage       vms.ContractMessage
-	messageManagers       map[common.Address]messages.MessageManager
-	logger                logging.Logger
-	metrics               *MessageRelayerMetrics
-	db                    database.RelayerDatabase
-	supportedDestinations set.Set[ids.ID]
-	rpcEndpoint           string
-	messageCreator        message.Creator
-	catchUpResultChan     chan bool
-	healthStatus          *atomic.Bool
-	globalConfig          config.Config
+	Subscriber        vms.Subscriber
+	pChainClient      platformvm.Client
+	currentRequestID  uint32
+	responseChan      chan message.InboundMessage
+	contractMessage   vms.ContractMessage
+	messageManagers   map[common.Address]messages.MessageManager
+	logger            logging.Logger
+	sourceBlockchain  config.SourceBlockchain
+	catchUpResultChan chan bool
+	healthStatus      *atomic.Bool
+	globalConfig      *config.Config
+	messageRelayers   map[common.Hash]*messageRelayer
 }
 
 func NewRelayer(
 	logger logging.Logger,
 	metrics *MessageRelayerMetrics,
 	db database.RelayerDatabase,
-	sourceSubnetInfo config.SourceBlockchain,
+	sourceBlockchain config.SourceBlockchain,
 	pChainClient platformvm.Client,
 	network *peers.AppRequestNetwork,
 	responseChan chan message.InboundMessage,
 	destinationClients map[ids.ID]vms.DestinationClient,
 	messageCreator message.Creator,
 	relayerHealth *atomic.Bool,
-	cfg config.Config,
+	cfg *config.Config,
 ) (*Relayer, error) {
-	sub := vms.NewSubscriber(logger, sourceSubnetInfo)
-
-	subnetID, err := ids.FromString(sourceSubnetInfo.SubnetID)
-	if err != nil {
-		logger.Error(
-			"Invalid subnetID in configuration",
-			zap.Error(err),
-		)
-		return nil, err
-	}
-
-	blockchainID, err := ids.FromString(sourceSubnetInfo.BlockchainID)
-	if err != nil {
-		logger.Error(
-			"Failed to decode base-58 encoded source chain ID",
-			zap.Error(err),
-		)
-		return nil, err
-	}
+	sub := vms.NewSubscriber(logger, sourceBlockchain)
 
 	// Create message managers for each supported message protocol
 	messageManagers := make(map[common.Address]messages.MessageManager)
-	for addressStr, config := range sourceSubnetInfo.MessageContracts {
+	for addressStr, config := range sourceBlockchain.MessageContracts {
 		address := common.HexToAddress(addressStr)
 		messageManager, err := messages.NewMessageManager(logger, address, config, destinationClients)
 		if err != nil {
@@ -114,37 +86,56 @@ func NewRelayer(
 	// scenario.
 	catchUpResultChan := make(chan bool, 1)
 
+	// Create the message relayers
+	messageRelayers := make(map[common.Hash]*messageRelayer)
+	for _, relayerID := range database.GetSourceBlockchainRelayerIDs(&sourceBlockchain) {
+		messageRelayer, err := newMessageRelayer(
+			logger,
+			metrics,
+			network,
+			messageCreator,
+			responseChan,
+			relayerID,
+			db,
+			sourceBlockchain,
+			cfg,
+		)
+		if err != nil {
+			logger.Error(
+				"Failed to create message relayer",
+				zap.String("relayerID", relayerID.ID.String()),
+				zap.Error(err),
+			)
+			return nil, err
+		}
+		messageRelayers[relayerID.ID] = messageRelayer
+	}
+
 	logger.Info(
 		"Creating relayer",
-		zap.String("subnetID", subnetID.String()),
-		zap.String("subnetIDHex", subnetID.Hex()),
-		zap.String("blockchainID", blockchainID.String()),
-		zap.String("blockchainIDHex", blockchainID.Hex()),
+		zap.String("subnetID", sourceBlockchain.GetSubnetID().String()),
+		zap.String("subnetIDHex", sourceBlockchain.GetSubnetID().Hex()),
+		zap.String("blockchainID", sourceBlockchain.GetBlockchainID().String()),
+		zap.String("blockchainIDHex", sourceBlockchain.GetBlockchainID().Hex()),
 	)
 	r := Relayer{
-		Subscriber:            sub,
-		pChainClient:          pChainClient,
-		currentRequestID:      rand.Uint32(), // Initialize to a random value to mitigate requestID collision
-		network:               network,
-		sourceSubnetID:        subnetID,
-		sourceBlockchainID:    blockchainID,
-		responseChan:          responseChan,
-		contractMessage:       vms.NewContractMessage(logger, sourceSubnetInfo),
-		messageManagers:       messageManagers,
-		logger:                logger,
-		metrics:               metrics,
-		db:                    db,
-		supportedDestinations: sourceSubnetInfo.GetSupportedDestinations(),
-		rpcEndpoint:           sourceSubnetInfo.RPCEndpoint,
-		messageCreator:        messageCreator,
-		catchUpResultChan:     catchUpResultChan,
-		healthStatus:          relayerHealth,
-		globalConfig:          cfg,
+		Subscriber:        sub,
+		pChainClient:      pChainClient,
+		currentRequestID:  rand.Uint32(), // Initialize to a random value to mitigate requestID collision
+		responseChan:      responseChan,
+		contractMessage:   vms.NewContractMessage(logger, sourceBlockchain),
+		messageManagers:   messageManagers,
+		logger:            logger,
+		sourceBlockchain:  sourceBlockchain,
+		catchUpResultChan: catchUpResultChan,
+		healthStatus:      relayerHealth,
+		globalConfig:      cfg,
+		messageRelayers:   messageRelayers,
 	}
 
 	// Open the subscription. We must do this before processing any missed messages, otherwise we may miss an incoming message
 	// in between fetching the latest block and subscribing.
-	err = r.Subscriber.Subscribe(maxSubscribeAttempts)
+	err := r.Subscriber.Subscribe(maxSubscribeAttempts)
 	if err != nil {
 		logger.Error(
 			"Failed to subscribe to node",
@@ -154,7 +145,7 @@ func NewRelayer(
 	}
 
 	if r.globalConfig.ProcessMissedBlocks {
-		height, err := r.calculateStartingBlockHeight(sourceSubnetInfo.ProcessHistoricalBlocksFromHeight)
+		height, err := r.calculateListenerStartingBlockHeight(sourceBlockchain.ProcessHistoricalBlocksFromHeight)
 		if err != nil {
 			logger.Error(
 				"Failed to calculate starting block height on startup",
@@ -169,13 +160,13 @@ func NewRelayer(
 	} else {
 		r.logger.Info(
 			"processed-missed-blocks set to false, starting processing from chain head",
-			zap.String("blockchainID", r.sourceBlockchainID.String()),
+			zap.String("blockchainID", r.sourceBlockchain.GetBlockchainID().String()),
 		)
-		_, err = r.setProcessedBlockHeightToLatest()
+		err = r.setAllProcessedBlockHeightsToLatest()
 		if err != nil {
 			logger.Error(
 				"Failed to update latest processed block. Continuing to normal relaying operation",
-				zap.String("blockchainID", r.sourceBlockchainID.String()),
+				zap.String("blockchainID", r.sourceBlockchain.GetBlockchainID().String()),
 				zap.Error(err),
 			)
 			return nil, err
@@ -184,6 +175,30 @@ func NewRelayer(
 	}
 
 	return &r, nil
+}
+
+func (r *Relayer) calculateListenerStartingBlockHeight(processHistoricalBlocksFromHeight uint64) (uint64, error) {
+	minHeight := uint64(0)
+	for _, relayer := range r.messageRelayers {
+		height, err := relayer.calculateStartingBlockHeight(processHistoricalBlocksFromHeight)
+		if err != nil {
+			return 0, err
+		}
+		if minHeight == 0 || height < minHeight {
+			minHeight = height
+		}
+	}
+	return minHeight, nil
+}
+
+func (r *Relayer) setAllProcessedBlockHeightsToLatest() error {
+	for _, relayer := range r.messageRelayers {
+		_, err := relayer.setProcessedBlockHeightToLatest()
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // Listens to the Subscriber logs channel to process them.
@@ -198,7 +213,7 @@ func (r *Relayer) ProcessLogs(ctx context.Context) error {
 				r.healthStatus.Store(false)
 				r.logger.Error(
 					"Failed to catch up on historical blocks. Exiting relayer goroutine.",
-					zap.String("originChainId", r.sourceBlockchainID.String()),
+					zap.String("originChainId", r.sourceBlockchain.GetBlockchainID().String()),
 				)
 				return fmt.Errorf("failed to catch up on historical blocks")
 			} else {
@@ -209,7 +224,7 @@ func (r *Relayer) ProcessLogs(ctx context.Context) error {
 			r.logger.Info(
 				"Handling Teleporter submit message log.",
 				zap.String("txId", hex.EncodeToString(txLog.SourceTxID)),
-				zap.String("originChainId", r.sourceBlockchainID.String()),
+				zap.String("originChainId", r.sourceBlockchain.GetBlockchainID().String()),
 				zap.String("sourceAddress", txLog.SourceAddress.String()),
 			)
 
@@ -222,7 +237,7 @@ func (r *Relayer) ProcessLogs(ctx context.Context) error {
 			if err != nil {
 				r.logger.Error(
 					"Error relaying message",
-					zap.String("originChainID", r.sourceBlockchainID.String()),
+					zap.String("originChainID", r.sourceBlockchain.GetBlockchainID().String()),
 					zap.Error(err),
 				)
 				continue
@@ -231,7 +246,7 @@ func (r *Relayer) ProcessLogs(ctx context.Context) error {
 			r.healthStatus.Store(false)
 			r.logger.Error(
 				"Received error from subscribed node",
-				zap.String("originChainID", r.sourceBlockchainID.String()),
+				zap.String("originChainID", r.sourceBlockchain.GetBlockchainID().String()),
 				zap.Error(err),
 			)
 			// TODO try to resubscribe in perpetuity once we have a mechanism for refreshing state
@@ -240,7 +255,7 @@ func (r *Relayer) ProcessLogs(ctx context.Context) error {
 			if err != nil {
 				r.logger.Error(
 					"Relayer goroutine exiting.",
-					zap.String("originChainID", r.sourceBlockchainID.String()),
+					zap.String("originChainID", r.sourceBlockchain.GetBlockchainID().String()),
 					zap.Error(err),
 				)
 				return fmt.Errorf("relayer goroutine exiting: %w", err)
@@ -249,104 +264,11 @@ func (r *Relayer) ProcessLogs(ctx context.Context) error {
 			r.healthStatus.Store(false)
 			r.logger.Info(
 				"Exiting Relayer because context cancelled",
-				zap.String("originChainId", r.sourceBlockchainID.String()),
+				zap.String("originChainId", r.sourceBlockchain.GetBlockchainID().String()),
 			)
 			return nil
 		}
 	}
-}
-
-// Determines the height to process from. There are three cases:
-// 1) The database contains the latest processed block data for the chain
-//   - In this case, we return the maximum of the latest processed block and the configured processHistoricalBlocksFromHeight
-//
-// 2) The database has been configured for the chain, but does not contain the latest processed block data
-//   - In this case, we return the configured processHistoricalBlocksFromHeight
-//
-// 3) The database does not contain the any information for the chain.
-//   - In this case, we return the configured processHistoricalBlocksFromHeight if it is set, otherwise
-//     we return the chain head.
-func (r *Relayer) calculateStartingBlockHeight(processHistoricalBlocksFromHeight uint64) (uint64, error) {
-	latestProcessedBlock, err := r.getLatestProcessedBlockHeight()
-	if errors.Is(err, database.ErrChainNotFound) || errors.Is(err, database.ErrKeyNotFound) {
-		// The database does not contain the latest processed block data for the chain,
-		// use the configured process-historical-blocks-from-height instead.
-		// If process-historical-blocks-from-height was not configured, start from the chain head.
-		if processHistoricalBlocksFromHeight == 0 {
-			r.logger.Info(
-				"process-historical-blocks-from-height not set, starting process from chain head",
-				zap.String("blockchainID", r.sourceBlockchainID.String()),
-			)
-			return r.setProcessedBlockHeightToLatest()
-		}
-		return processHistoricalBlocksFromHeight, nil
-	} else if err != nil {
-		// Otherwise, we've encountered an unknown database error
-		r.logger.Error(
-			"failed to get latest block from database",
-			zap.String("blockchainID", r.sourceBlockchainID.String()),
-			zap.Error(err),
-		)
-		return 0, err
-	}
-
-	// If the database does contain the latest processed block data for the chain,
-	// use the max of the latest processed block and the configured start block height (if it was provided)
-	if latestProcessedBlock > processHistoricalBlocksFromHeight {
-		r.logger.Info(
-			"Processing historical blocks from the latest processed block in the DB",
-			zap.String("blockchainID", r.sourceBlockchainID.String()),
-			zap.Uint64("latestProcessedBlock", latestProcessedBlock),
-		)
-		return latestProcessedBlock, nil
-	}
-	// Otherwise, return the configured start block height
-	r.logger.Info(
-		"Processing historical blocks from the configured start block height",
-		zap.String("blockchainID", r.sourceBlockchainID.String()),
-		zap.Uint64("processHistoricalBlocksFromHeight", processHistoricalBlocksFromHeight),
-	)
-	return processHistoricalBlocksFromHeight, nil
-}
-
-// Gets the height of the chain head, writes it to the database, then returns it.
-func (r *Relayer) setProcessedBlockHeightToLatest() (uint64, error) {
-	ethClient, err := ethclient.Dial(r.rpcEndpoint)
-	if err != nil {
-		r.logger.Error(
-			"Failed to dial node",
-			zap.String("blockchainID", r.sourceBlockchainID.String()),
-			zap.Error(err),
-		)
-		return 0, err
-	}
-
-	latestBlock, err := ethClient.BlockNumber(context.Background())
-	if err != nil {
-		r.logger.Error(
-			"Failed to get latest block",
-			zap.String("blockchainID", r.sourceBlockchainID.String()),
-			zap.Error(err),
-		)
-		return 0, err
-	}
-
-	r.logger.Info(
-		"Updating latest processed block in database",
-		zap.String("blockchainID", r.sourceBlockchainID.String()),
-		zap.Uint64("latestBlock", latestBlock),
-	)
-
-	err = r.storeBlockHeight(latestBlock)
-	if err != nil {
-		r.logger.Error(
-			fmt.Sprintf("failed to put %s into database", database.LatestProcessedBlockKey),
-			zap.String("blockchainID", r.sourceBlockchainID.String()),
-			zap.Error(err),
-		)
-		return 0, err
-	}
-	return latestBlock, nil
 }
 
 // Sets the relayer health status to false while attempting to reconnect.
@@ -362,11 +284,67 @@ func (r *Relayer) ReconnectToSubscriber() error {
 	return nil
 }
 
+// Fetch the appropriate message relayer
+// Checks for the following registered keys. At most one of these keys should be registered.
+// 1. An exact match on sourceBlockchainID, destinationBlockchainID, originSenderAddress, and destinationAddress
+// 2. A match on sourceBlockchainID and destinationBlockchainID, with a specific originSenderAddress and any destinationAddress
+// 3. A match on sourceBlockchainID and destinationBlockchainID, with any originSenderAddress and a specific destinationAddress
+// 4. A match on sourceBlockchainID and destinationBlockchainID, with any originSenderAddress and any destinationAddress
+func (r *Relayer) getMessageRelayer(
+	sourceBlockchainID ids.ID,
+	destinationBlockchainID ids.ID,
+	originSenderAddress common.Address,
+	destinationAddress common.Address,
+) (*messageRelayer, bool) {
+	// Check for an exact match
+	messageRelayerID := database.CalculateRelayerID(
+		sourceBlockchainID,
+		destinationBlockchainID,
+		originSenderAddress,
+		destinationAddress,
+	)
+	if messageRelayer, ok := r.messageRelayers[messageRelayerID]; ok {
+		return messageRelayer, ok
+	}
+
+	// Check for a match on sourceBlockchainID and destinationBlockchainID, with a specific originSenderAddress and any destinationAddress
+	messageRelayerID = database.CalculateRelayerID(
+		sourceBlockchainID,
+		destinationBlockchainID,
+		originSenderAddress,
+		database.AllAllowedAddress,
+	)
+	if messageRelayer, ok := r.messageRelayers[messageRelayerID]; ok {
+		return messageRelayer, ok
+	}
+
+	// Check for a match on sourceBlockchainID and destinationBlockchainID, with any originSenderAddress and a specific destinationAddress
+	messageRelayerID = database.CalculateRelayerID(
+		sourceBlockchainID,
+		destinationBlockchainID,
+		database.AllAllowedAddress,
+		destinationAddress,
+	)
+	if messageRelayer, ok := r.messageRelayers[messageRelayerID]; ok {
+		return messageRelayer, ok
+	}
+
+	// Check for a match on sourceBlockchainID and destinationBlockchainID, with any originSenderAddress and any destinationAddress
+	messageRelayerID = database.CalculateRelayerID(
+		sourceBlockchainID,
+		destinationBlockchainID,
+		database.AllAllowedAddress,
+		database.AllAllowedAddress,
+	)
+	messageRelayer, ok := r.messageRelayers[messageRelayerID]
+	return messageRelayer, ok
+}
+
 // RelayMessage relays a single warp message to the destination chain. Warp message relay requests from the same origin chain are processed serially
 func (r *Relayer) RelayMessage(warpLogInfo *vmtypes.WarpLogInfo, storeProcessedHeight bool) error {
 	r.logger.Info(
 		"Relaying message",
-		zap.String("blockchainID", r.sourceBlockchainID.String()),
+		zap.String("blockchainID", r.sourceBlockchain.GetBlockchainID().String()),
 	)
 	// Unpack the VM message bytes into a Warp message
 	unsignedMessage, err := r.contractMessage.UnpackWarpMessage(warpLogInfo.UnsignedMsgBytes)
@@ -380,7 +358,7 @@ func (r *Relayer) RelayMessage(warpLogInfo *vmtypes.WarpLogInfo, storeProcessedH
 
 	r.logger.Info(
 		"Unpacked warp message",
-		zap.String("blockchainID", r.sourceBlockchainID.String()),
+		zap.String("blockchainID", r.sourceBlockchain.GetBlockchainID().String()),
 		zap.String("warpMessageID", unsignedMessage.ID().String()),
 	)
 
@@ -396,6 +374,7 @@ func (r *Relayer) RelayMessage(warpLogInfo *vmtypes.WarpLogInfo, storeProcessedH
 		return nil
 	}
 
+	// Fetch the message delivery data
 	destinationBlockchainID, err := messageManager.GetDestinationBlockchainID(unsignedMessage)
 	if err != nil {
 		r.logger.Error(
@@ -405,34 +384,48 @@ func (r *Relayer) RelayMessage(warpLogInfo *vmtypes.WarpLogInfo, storeProcessedH
 		return err
 	}
 
-	// Check that the destination chain ID is supported
-	if !r.CheckSupportedDestination(destinationBlockchainID) {
-		r.logger.Debug(
-			"Message destination chain ID not supported. Not relaying.",
-			zap.String("blockchainID", r.sourceBlockchainID.String()),
-			zap.String("destinationBlockchainID", destinationBlockchainID.String()),
-		)
-		return nil
-	}
-
-	// Create and run the message relayer to attempt to deliver the message to the destination chain
-	messageRelayer, err := newMessageRelayer(r, unsignedMessage, destinationBlockchainID)
+	originSenderAddress, err := messageManager.GetOriginSenderAddress(unsignedMessage)
 	if err != nil {
 		r.logger.Error(
-			"Failed to create message relayer",
+			"Failed to get origin sender address",
+			zap.Error(err),
+		)
+		return err
+	}
+	destinationAddress, err := messageManager.GetDestinationAddress(unsignedMessage)
+	if err != nil {
+		r.logger.Error(
+			"Failed to get destination address",
 			zap.Error(err),
 		)
 		return err
 	}
 
+	messageRelayer, ok := r.getMessageRelayer(
+		r.sourceBlockchain.GetBlockchainID(),
+		destinationBlockchainID,
+		originSenderAddress,
+		destinationAddress,
+	)
+	if !ok {
+		r.logger.Error(
+			"Message relayer not found",
+			zap.String("blockchainID", r.sourceBlockchain.GetBlockchainID().String()),
+			zap.String("destinationBlockchainID", destinationBlockchainID.String()),
+			zap.String("originSenderAddress", originSenderAddress.String()),
+			zap.String("destinationAddress", destinationAddress.String()),
+		)
+		return fmt.Errorf("message relayer not found")
+	}
+
 	// Relay the message to the destination. Messages from a given source chain must be processed in serial in order to
 	// guarantee that the previous block (n-1) is fully processed by the relayer when processing a given log from block n.
 	// TODO: Add a config option to use the Warp API, instead of hardcoding to the app request network here
-	err = messageRelayer.relayMessage(unsignedMessage, r.currentRequestID, messageManager, true)
+	err = messageRelayer.relayMessage(unsignedMessage, r.currentRequestID, messageManager, storeProcessedHeight, warpLogInfo.BlockNumber, true)
 	if err != nil {
 		r.logger.Error(
 			"Failed to run message relayer",
-			zap.String("blockchainID", r.sourceBlockchainID.String()),
+			zap.String("blockchainID", r.sourceBlockchain.GetBlockchainID().String()),
 			zap.String("warpMessageID", unsignedMessage.ID().String()),
 			zap.Error(err),
 		)
@@ -441,67 +434,5 @@ func (r *Relayer) RelayMessage(warpLogInfo *vmtypes.WarpLogInfo, storeProcessedH
 
 	// Increment the request ID for the next message relay request
 	r.currentRequestID++
-
-	if !storeProcessedHeight {
-		return nil
-	}
-
-	// Update the database with the latest processed block height
-	return r.storeLatestBlockHeight(warpLogInfo.BlockNumber)
-}
-
-// Returns whether destinationBlockchainID is a supported destination.
-func (r *Relayer) CheckSupportedDestination(destinationBlockchainID ids.ID) bool {
-	return r.supportedDestinations.Contains(destinationBlockchainID)
-}
-
-// Get the latest processed block height from the database.
-// Note that there may be unrelayed messages in the latest processed block
-// because it is updated as soon as a single message from that block is relayed,
-// and there may be multiple message in the same block.
-func (r *Relayer) getLatestProcessedBlockHeight() (uint64, error) {
-	latestProcessedBlockData, err := r.db.Get(r.sourceBlockchainID, []byte(database.LatestProcessedBlockKey))
-	if err != nil {
-		return 0, err
-	}
-	latestProcessedBlock, err := strconv.ParseUint(string(latestProcessedBlockData), 10, 64)
-	if err != nil {
-		return 0, err
-	}
-	return latestProcessedBlock, nil
-}
-
-// Store the block height in the database. Does not check against the current latest processed block height.
-func (r *Relayer) storeBlockHeight(height uint64) error {
-	return r.db.Put(r.sourceBlockchainID, []byte(database.LatestProcessedBlockKey), []byte(strconv.FormatUint(height, 10)))
-}
-
-// Stores the block height in the database if it is greater than the current latest processed block height.
-func (r *Relayer) storeLatestBlockHeight(height uint64) error {
-	// First, check that the stored height is less than the current block height
-	// This is necessary because the relayer may be processing blocks out of order on startup
-	latestProcessedBlock, err := r.getLatestProcessedBlockHeight()
-	if err != nil && !errors.Is(err, database.ErrChainNotFound) && !errors.Is(err, database.ErrKeyNotFound) {
-		r.logger.Error(
-			"Encountered an unknown error while getting latest processed block from database",
-			zap.String("blockchainID", r.sourceBlockchainID.String()),
-			zap.Error(err),
-		)
-		return err
-	}
-
-	// An unhandled error at this point indicates the DB does not store the block data for the chain,
-	// so we write unconditionally in that case. Otherwise, we only overwrite if the new height is greater
-	// than the stored height.
-	if err != nil || height > latestProcessedBlock {
-		err = r.storeBlockHeight(height)
-		if err != nil {
-			r.logger.Error(
-				fmt.Sprintf("failed to put %s into database", database.LatestProcessedBlockKey),
-				zap.Error(err),
-			)
-		}
-		return err
-	}
 	return nil
 }

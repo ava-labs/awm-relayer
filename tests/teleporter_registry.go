@@ -83,6 +83,7 @@ func TeleporterRegistry(network interfaces.LocalNetwork) {
 	//
 	relayerConfig := testUtils.CreateDefaultRelayerConfig(
 		[]interfaces.SubnetTestInfo{cChainInfo},
+		[]interfaces.SubnetTestInfo{cChainInfo},
 		teleporterContractAddress,
 		fundedAddress,
 		relayerKey,
@@ -96,7 +97,7 @@ func TeleporterRegistry(network interfaces.LocalNetwork) {
 			DestinationAddress:      cChainInfo.TeleporterRegistryAddress.Hex(),
 		},
 	}
-	relayerConfigPath := writeRelayerConfig(relayerConfig)
+	relayerConfigPath := testUtils.WriteRelayerConfig(relayerConfig, testUtils.DefaultRelayerCfgFname)
 	//
 	// Run the Relayer. On startup, we should deliver the message provided in the config
 	//

@@ -49,16 +49,17 @@ func ManualMessage(network interfaces.LocalNetwork) {
 
 	log.Info("Sending two teleporter messages on subnet A")
 	// This message will be delivered by the relayer
-	receipt1, _, id1 := sendBasicTeleporterMessage(ctx, subnetAInfo, subnetBInfo, fundedKey, fundedAddress)
+	receipt1, _, id1 := testUtils.SendBasicTeleporterMessage(ctx, subnetAInfo, subnetBInfo, fundedKey, fundedAddress)
 	msg1 := getWarpMessageFromLog(ctx, receipt1, subnetAInfo)
 
 	// This message will not be delivered by the relayer
-	_, _, id2 := sendBasicTeleporterMessage(ctx, subnetAInfo, subnetBInfo, fundedKey, fundedAddress)
+	_, _, id2 := testUtils.SendBasicTeleporterMessage(ctx, subnetAInfo, subnetBInfo, fundedKey, fundedAddress)
 
 	//
 	// Set up relayer config to deliver one of the two previously sent messages
 	//
 	relayerConfig := testUtils.CreateDefaultRelayerConfig(
+		[]interfaces.SubnetTestInfo{subnetAInfo, subnetBInfo},
 		[]interfaces.SubnetTestInfo{subnetAInfo, subnetBInfo},
 		teleporterContractAddress,
 		fundedAddress,
@@ -74,7 +75,7 @@ func ManualMessage(network interfaces.LocalNetwork) {
 		},
 	}
 
-	relayerConfigPath := writeRelayerConfig(relayerConfig)
+	relayerConfigPath := testUtils.WriteRelayerConfig(relayerConfig, testUtils.DefaultRelayerCfgFname)
 
 	//
 	// Run the Relayer. On startup, we should deliver the message provided in the config

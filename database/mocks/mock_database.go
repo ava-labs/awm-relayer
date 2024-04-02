@@ -11,7 +11,8 @@ package mocks
 import (
 	reflect "reflect"
 
-	ids "github.com/ava-labs/avalanchego/ids"
+	database "github.com/ava-labs/awm-relayer/database"
+	common "github.com/ethereum/go-ethereum/common"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -39,30 +40,30 @@ func (m *MockRelayerDatabase) EXPECT() *MockRelayerDatabaseMockRecorder {
 }
 
 // Get mocks base method.
-func (m *MockRelayerDatabase) Get(blockchainID ids.ID, key []byte) ([]byte, error) {
+func (m *MockRelayerDatabase) Get(relayerID common.Hash, key database.DataKey) ([]byte, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Get", blockchainID, key)
+	ret := m.ctrl.Call(m, "Get", relayerID, key)
 	ret0, _ := ret[0].([]byte)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Get indicates an expected call of Get.
-func (mr *MockRelayerDatabaseMockRecorder) Get(blockchainID, key any) *gomock.Call {
+func (mr *MockRelayerDatabaseMockRecorder) Get(relayerID, key any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockRelayerDatabase)(nil).Get), blockchainID, key)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockRelayerDatabase)(nil).Get), relayerID, key)
 }
 
 // Put mocks base method.
-func (m *MockRelayerDatabase) Put(blockchainID ids.ID, key, value []byte) error {
+func (m *MockRelayerDatabase) Put(relayerID common.Hash, key database.DataKey, value []byte) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Put", blockchainID, key, value)
+	ret := m.ctrl.Call(m, "Put", relayerID, key, value)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Put indicates an expected call of Put.
-func (mr *MockRelayerDatabaseMockRecorder) Put(blockchainID, key, value any) *gomock.Call {
+func (mr *MockRelayerDatabaseMockRecorder) Put(relayerID, key, value any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Put", reflect.TypeOf((*MockRelayerDatabase)(nil).Put), blockchainID, key, value)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Put", reflect.TypeOf((*MockRelayerDatabase)(nil).Put), relayerID, key, value)
 }

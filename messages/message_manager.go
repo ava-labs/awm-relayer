@@ -31,6 +31,12 @@ type MessageManager interface {
 
 	// GetDestinationBlockchainID returns the destination chain ID of the destination chain for the given message
 	GetDestinationBlockchainID(unsignedMessage *warp.UnsignedMessage) (ids.ID, error)
+
+	// GetOriginSenderAddress returns the address of the sender on the source blockchain
+	GetOriginSenderAddress(unsignedMessage *warp.UnsignedMessage) (common.Address, error)
+
+	// GetDestinationAddress returns the address of the recipient on the destination blockchain
+	GetDestinationAddress(unsignedMessage *warp.UnsignedMessage) (common.Address, error)
 }
 
 // NewMessageManager constructs a MessageManager for a particular message protocol, defined by the message protocol address and config

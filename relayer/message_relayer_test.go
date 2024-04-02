@@ -1,81 +1,24 @@
-// Copyright (C) 2023, Ava Labs, Inc. All rights reserved.
-// See the file LICENSE for licensing terms.
-
 package relayer
 
 import (
 	"fmt"
-	"os"
 	"strconv"
 	"testing"
 
-	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/utils/logging"
-	"github.com/ava-labs/avalanchego/utils/set"
 	"github.com/ava-labs/awm-relayer/database"
 	mock_database "github.com/ava-labs/awm-relayer/database/mocks"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 )
 
-var id1 ids.ID = ids.GenerateTestID()
-var id2 ids.ID = ids.GenerateTestID()
+func makeMessageRelayerWithMockDatabase(t *testing.T) (*messageRelayer, *mock_database.MockRelayerDatabase) {
+	db := mock_database.NewMockRelayerDatabase(gomock.NewController(t))
 
-func makeRelayerWithMockDatabase(t *testing.T) (*Relayer, *mock_database.MockRelayerDatabase) {
-	mockDatabase := mock_database.NewMockRelayerDatabase(gomock.NewController(t))
-
-	blockchainID, err := ids.FromString("S4mMqUXe7vHsGiRAma6bv3CKnyaLssyAxmQ2KvFpX1KEvfFCD")
-	require.NoError(t, err)
-
-	logger := logging.NewLogger(
-		"awm-relayer-test",
-		logging.NewWrappedCore(
-			logging.Info,
-			os.Stdout,
-			logging.JSON.ConsoleEncoder(),
-		),
-	)
-
-	return &Relayer{
-		sourceBlockchainID: blockchainID,
-		db:                 mockDatabase,
-		logger:             logger,
-	}, mockDatabase
-}
-
-func TestCheckSupportedDestination(t *testing.T) {
-	testCases := []struct {
-		name                    string
-		relayer                 Relayer
-		destinationBlockchainID ids.ID
-		expectedResult          bool
-	}{
-		{
-			name: "explicitly supported destination",
-			relayer: Relayer{
-				supportedDestinations: set.Set[ids.ID]{
-					id1: {},
-				},
-			},
-			destinationBlockchainID: id1,
-			expectedResult:          true,
-		},
-		{
-			name: "unsupported destination",
-			relayer: Relayer{
-				supportedDestinations: set.Set[ids.ID]{
-					id1: {},
-				},
-			},
-			destinationBlockchainID: id2,
-			expectedResult:          false,
-		},
-	}
-
-	for _, testCase := range testCases {
-		result := testCase.relayer.CheckSupportedDestination(testCase.destinationBlockchainID)
-		require.Equal(t, testCase.expectedResult, result, fmt.Sprintf("test failed: %s", testCase.name))
-	}
+	return &messageRelayer{
+		logger: logging.NoLog{},
+		db:     db,
+	}, db
 }
 
 func TestCalculateStartingBlockHeight(t *testing.T) {
@@ -126,10 +69,10 @@ func TestCalculateStartingBlockHeight(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
-		relayerUnderTest, db := makeRelayerWithMockDatabase(t)
+		relayerUnderTest, db := makeMessageRelayerWithMockDatabase(t)
 		db.
 			EXPECT().
-			Get(gomock.Any(), []byte(database.LatestProcessedBlockKey)).
+			Get(gomock.Any(), database.LatestProcessedBlockKey).
 			Return([]byte(strconv.FormatUint(testCase.dbBlock, 10)), testCase.dbError).
 			Times(1)
 		ret, err := relayerUnderTest.calculateStartingBlockHeight(testCase.cfgBlock)

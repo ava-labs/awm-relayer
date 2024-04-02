@@ -21,43 +21,8 @@ import (
 )
 
 var (
-	testSubnetID      string = "2TGBXcnwx5PqiXWiqxAKUaNSqDguXNh1mxnp82jui68hxJSZAx"
-	testBlockchainID  string = "S4mMqUXe7vHsGiRAma6bv3CKnyaLssyAxmQ2KvFpX1KEvfFCD"
-	testBlockchainID2 string = "291etJW5EpagFY94v1JraFy8vLFYXcCnWKJ6Yz9vrjfPjCF4QL"
-	testAddress       string = "0xd81545385803bCD83bd59f58Ba2d2c0562387F83"
-	testValidConfig          = Config{
-		LogLevel:     "info",
-		PChainAPIURL: "http://test.avax.network",
-		InfoAPIURL:   "http://test.avax.network",
-		SourceBlockchains: []*SourceBlockchain{
-			{
-				RPCEndpoint:  fmt.Sprintf("http://test.avax.network/ext/bc/%s/rpc", testBlockchainID),
-				WSEndpoint:   fmt.Sprintf("ws://test.avax.network/ext/bc/%s/ws", testBlockchainID),
-				BlockchainID: testBlockchainID,
-				SubnetID:     testSubnetID,
-				VM:           "evm",
-				MessageContracts: map[string]MessageProtocolConfig{
-					testAddress: {
-						MessageFormat: TELEPORTER.String(),
-					},
-				},
-			},
-		},
-		DestinationBlockchains: []*DestinationBlockchain{
-			{
-				RPCEndpoint:       fmt.Sprintf("http://test.avax.network/ext/bc/%s/rpc", testBlockchainID),
-				BlockchainID:      testBlockchainID,
-				SubnetID:          testSubnetID,
-				VM:                "evm",
-				AccountPrivateKey: "0x56289e99c94b6912bfc12adc093c9b51124f0dc54ac7a766b2bc5ccf558d8027",
-			},
-		},
-	}
-	testPk1 string = "0xabc89e99c94b6912bfc12adc093c9b51124f0dc54ac7a766b2bc5ccf558d8abc"
-	testPk2 string = "0x12389e99c94b6912bfc12adc093c9b51124f0dc54ac7a766b2bc5ccf558d8123"
-
 	awsRegion string = "us-west-2"
-	kmsKey1          = "test-kms-id1"
+	kmsKey1   string = "test-kms-id1"
 )
 
 // GetRelayerAccountPrivateKey tests. Individual cases must be run in their own functions
@@ -103,15 +68,15 @@ func runConfigModifierEnvVarTest(t *testing.T, testCase configMondifierEnvVarTes
 
 func TestGetRelayerAccountPrivateKey_set_pk_in_config(t *testing.T) {
 	testCase := configMondifierEnvVarTestCase{
-		baseConfig:          testValidConfig,
+		baseConfig:          TestValidConfig,
 		configModifier:      func(c Config) Config { return c },
 		envSetter:           func() {},
 		expectedOverwritten: false,
 		resultVerifier: func(c Config) bool {
 			// All destination subnets should have the default private key
 			for i, subnet := range c.DestinationBlockchains {
-				if subnet.AccountPrivateKey != utils.SanitizeHexString(testValidConfig.DestinationBlockchains[i].AccountPrivateKey) {
-					fmt.Printf("expected: %s, got: %s\n", utils.SanitizeHexString(testValidConfig.DestinationBlockchains[i].AccountPrivateKey), subnet.AccountPrivateKey)
+				if subnet.AccountPrivateKey != utils.SanitizeHexString(TestValidConfig.DestinationBlockchains[i].AccountPrivateKey) {
+					fmt.Printf("expected: %s, got: %s\n", utils.SanitizeHexString(TestValidConfig.DestinationBlockchains[i].AccountPrivateKey), subnet.AccountPrivateKey)
 					return false
 				}
 			}
@@ -123,7 +88,7 @@ func TestGetRelayerAccountPrivateKey_set_pk_in_config(t *testing.T) {
 
 func TestGetRelayerAccountPrivateKey_set_pk_with_subnet_env(t *testing.T) {
 	testCase := configMondifierEnvVarTestCase{
-		baseConfig: testValidConfig,
+		baseConfig: TestValidConfig,
 		configModifier: func(c Config) Config {
 			// Add a second destination subnet. This PK should NOT be overwritten
 			newSubnet := *c.DestinationBlockchains[0]
@@ -134,7 +99,7 @@ func TestGetRelayerAccountPrivateKey_set_pk_with_subnet_env(t *testing.T) {
 		},
 		envSetter: func() {
 			// Overwrite the PK for the first subnet using an env var
-			varName := fmt.Sprintf("%s_%s", accountPrivateKeyEnvVarName, testValidConfig.DestinationBlockchains[0].BlockchainID)
+			varName := fmt.Sprintf("%s_%s", accountPrivateKeyEnvVarName, TestValidConfig.DestinationBlockchains[0].BlockchainID)
 			t.Setenv(varName, testPk2)
 		},
 		expectedOverwritten: true,
@@ -155,7 +120,7 @@ func TestGetRelayerAccountPrivateKey_set_pk_with_subnet_env(t *testing.T) {
 }
 func TestGetRelayerAccountPrivateKey_set_pk_with_global_env(t *testing.T) {
 	testCase := configMondifierEnvVarTestCase{
-		baseConfig: testValidConfig,
+		baseConfig: TestValidConfig,
 		configModifier: func(c Config) Config {
 			// Add a second destination subnet. This PK SHOULD be overwritten
 			newSubnet := *c.DestinationBlockchains[0]
@@ -184,7 +149,7 @@ func TestGetRelayerAccountPrivateKey_set_pk_with_global_env(t *testing.T) {
 }
 
 func TestEitherKMSOrAccountPrivateKey(t *testing.T) {
-	dstCfg := *testValidConfig.DestinationBlockchains[0]
+	dstCfg := *TestValidConfig.DestinationBlockchains[0]
 	// Zero out all fields under test
 	dstCfg.AccountPrivateKey = ""
 	dstCfg.KMSKeyID = ""
@@ -381,12 +346,16 @@ func TestGetWarpQuorum(t *testing.T) {
 
 func TestValidateSourceBlockchain(t *testing.T) {
 	validSourceCfg := SourceBlockchain{
-		BlockchainID:          testBlockchainID,
-		RPCEndpoint:           fmt.Sprintf("http://test.avax.network/ext/bc/%s/rpc", testBlockchainID),
-		WSEndpoint:            fmt.Sprintf("ws://test.avax.network/ext/bc/%s/ws", testBlockchainID),
-		SubnetID:              testSubnetID,
-		VM:                    "evm",
-		SupportedDestinations: []string{testBlockchainID},
+		BlockchainID: testBlockchainID,
+		RPCEndpoint:  fmt.Sprintf("http://test.avax.network/ext/bc/%s/rpc", testBlockchainID),
+		WSEndpoint:   fmt.Sprintf("ws://test.avax.network/ext/bc/%s/ws", testBlockchainID),
+		SubnetID:     testSubnetID,
+		VM:           "evm",
+		SupportedDestinations: []*SupportedDestination{
+			{
+				BlockchainID: testBlockchainID,
+			},
+		},
 		MessageContracts: map[string]MessageProtocolConfig{
 			testAddress: {
 				MessageFormat: TELEPORTER.String(),
@@ -451,7 +420,14 @@ func TestValidateSourceBlockchain(t *testing.T) {
 			for _, idStr := range testCase.expectedSupportedDestinations {
 				id, err := ids.FromString(idStr)
 				require.NoError(t, err)
-				require.True(t, sourceSubnet.supportedDestinations.Contains(id))
+				require.True(t, func() bool {
+					for _, dest := range sourceSubnet.SupportedDestinations {
+						if dest.GetBlockchainID() == id {
+							return true
+						}
+					}
+					return false
+				}())
 			}
 		})
 	}

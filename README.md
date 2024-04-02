@@ -147,11 +147,11 @@ The relayer is configured via a JSON file, the path to which is passed in via th
 
   `"source-blockchain-id": string`
 
-  - cb58-encoded Blockchain ID of the source Subnet.
+  - cb58-encoded blockchain ID of the source blockchain.
 
   `"destination-blockchain-id": string`
 
-  - cb58-encoded Blockchain ID of the destination Subnet.
+  - cb58-encoded blockchain ID of the destination blockchain.
 
   `"source-address": string`
 
@@ -163,7 +163,7 @@ The relayer is configured via a JSON file, the path to which is passed in via th
 
 `"source-blockchains": []SourceBlockchains`
 
-- The list of source Subnets to support. Each `SourceBlockchain` has the following configuration:
+- The list of source blockchains to support. Each `SourceBlockchain` has the following configuration:
 
   `"subnet-id": string`
 
@@ -171,35 +171,39 @@ The relayer is configured via a JSON file, the path to which is passed in via th
 
   `"blockchain-id": string`
 
-  - cb58-encoded Blockchain ID.
+  - cb58-encoded blockchain ID.
 
   `"vm": string`
 
-  - The VM type of the source Subnet.
+  - The VM type of the source blockchain.
 
   `"rpc-endpoint": string`
 
-  - The RPC endpoint of the source Subnet's API node.
+  - The RPC endpoint of the source blockchain's API node.
 
   `"ws-endpoint": string`
 
-  - The WebSocket endpoint of the source Subnet's API node.
+  - The WebSocket endpoint of the source blockchain's API node.
 
   `"message-contracts": map[string]MessageProtocolConfig`
 
   - Map of contract addresses to the config options of the protocol at that address. Each `MessageProtocolConfig` consists of a unique `message-format` name, and the raw JSON `settings`.
 
-  `"supported-destinations": []string`
+  `"supported-destinations": []SupportedDestination`
 
-  - List of destination blockchain IDs that the source blockchain supports. If empty, then all destinations are supported.
+  - List of destinations that the source blockchain supports. Each `SupportedDestination` consists of a destination blockchain ID, and a list of addresses on that destination blockchain that the relayer supports delivering Warp messages to. The destination address is defined by the message protocol. For example, it could be the address called from the message protocol contract. If no supported addresses are provided, all addresses are allowed on that blockchain. If `supported-destinations` is empty, then all destination blockchains (and therefore all addresses on those destination blockchains) are supported.
 
   `"process-historical-blocks-from-height": unsigned integer`
 
-  - The block height at which to back-process transactions from the source Subnet. If the database already contains a later block height for the source Subnet, then that will be used instead. Must be non-zero. Will only be used if `process-missed-blocks` is set to `true`.
+  - The block height at which to back-process transactions from the source blockchain. If the database already contains a later block height for the source blockchain, then that will be used instead. Must be non-zero. Will only be used if `process-missed-blocks` is set to `true`.
+
+  `"allowed-origin-sender-addresses": []string`
+
+  - List of addresses on this source blockchain to relay Warp messages from. The sending address is defined by the message protocol. For example, it could be defined as the EOA that initiates the transaction, or the address that calls the message protocol contract. If empty, then all addresses are allowed.
 
 `"destination-blockchains": []DestinationBlockchains`
 
-- The list of destination Subnets to support. Each `DestinationBlockchain` has the following configuration:
+- The list of destination blockchains to support. Each `DestinationBlockchain` has the following configuration:
 
   `"subnet-id": string`
 
@@ -207,28 +211,28 @@ The relayer is configured via a JSON file, the path to which is passed in via th
 
   `"blockchain-id": string`
 
-  - cb58-encoded Blockchain ID.
+  - cb58-encoded blockchain ID.
 
   `"vm": string`
 
-  - The VM type of the source Subnet.
+  - The VM type of the source blockchain.
 
   `"rpc-endpoint": string`
 
-  - The RPC endpoint of the destination Subnet's API node.
+  - The RPC endpoint of the destination blockchains's API node.
 
   `"account-private-key": string`
 
-  - The hex-encoded private key to use for signing transactions on the destination Subnet. May be provided by the environment variable `ACCOUNT_PRIVATE_KEY`. Each `destination-subnet` may use a separate private key by appending the blockchain ID to the private key environment variable name, for example `ACCOUNT_PRIVATE_KEY_11111111111111111111111111111111LpoYY`. Only one of `account-private-key` or `kms-key-id` should be provided.
+  - The hex-encoded private key to use for signing transactions on the destination blockchain. May be provided by the environment variable `ACCOUNT_PRIVATE_KEY`. Each `destination-subnet` may use a separate private key by appending the cb58 encoded blockchain ID to the private key environment variable name, for example `ACCOUNT_PRIVATE_KEY_11111111111111111111111111111111LpoYY`
 
   `"kms-key-id": string`
 
-  - The ID of the KMS key to use for signing transactions on the destination Subnet. May be provided by the environment variable `KMS_KEY_ID`. Only one of `account-private-key` or `kms-key-id` should be provided. If `kms-key-id` is provided, then `kms-aws-region` is required.
+  - The ID of the KMS key to use for signing transactions on the destination blockchain. Only one of `account-private-key` or `kms-key-id` should be provided. If `kms-key-id` is provided, then `kms-aws-region` is required.
 
   `"kms-aws-region": string`
 
-  - The AWS region in which the KMS key is located. May be provided by the environment variable `AWS_REGION`. Required if `kms-key-id` is provided.
-
+  - The AWS region in which the KMS key is located. Required if `kms-key-id` is provided.
+  
 ## Architecture
 
 ### Components
@@ -238,12 +242,14 @@ The relayer consists of the following components:
 - At the global level:
   - P2P app network: issues signature `AppRequests`
   - P-Chain client: gets the validators for a Subnet
-  - JSON database: stores latest processed block for each source Subnet
-- Per Source Subnet
+  - JSON database: stores latest processed block for each Application Relayer
+- Per Source Blockchain
   - Subscriber: listens for logs pertaining to cross-chain message transactions
   - Source RPC client: queries for missed blocks on startup
-- Per Destination Subnet
+- Per Destination Blockchain
   - Destination RPC client: broadcasts transactions to the destination
+- Application Relayers
+  - Relay messages from a specific source blockchain and source address to a specific destination blockchain and destination address
 
 ### Data Flow
 

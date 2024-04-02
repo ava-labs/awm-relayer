@@ -280,11 +280,12 @@ func (n *AppRequestNetwork) connectToNonPrimaryNetworkPeers(cfg *config.Config, 
 		)
 		return err
 	}
-	for _, destinationBlockchainID := range sourceBlockchain.GetSupportedDestinations().List() {
-		if ok, quorum, err := n.checkForSufficientConnectedStake(cfg, connectedValidators, destinationBlockchainID); !ok {
+	for _, destination := range sourceBlockchain.SupportedDestinations {
+		blockchainID := destination.GetBlockchainID()
+		if ok, quorum, err := n.checkForSufficientConnectedStake(cfg, connectedValidators, blockchainID); !ok {
 			n.logger.Error(
 				"Failed to connect to a threshold of stake",
-				zap.String("destinationBlockchainID", destinationBlockchainID.String()),
+				zap.String("destinationBlockchainID", blockchainID.String()),
 				zap.Uint64("connectedWeight", connectedValidators.ConnectedWeight),
 				zap.Uint64("totalValidatorWeight", connectedValidators.TotalValidatorWeight),
 				zap.Any("warpQuorum", quorum),
@@ -297,8 +298,9 @@ func (n *AppRequestNetwork) connectToNonPrimaryNetworkPeers(cfg *config.Config, 
 
 // Connect to the validators of the destination blockchains. Verify that we have connected to a threshold of stake for each blockchain.
 func (n *AppRequestNetwork) connectToPrimaryNetworkPeers(cfg *config.Config, sourceBlockchain *config.SourceBlockchain) error {
-	for _, destinationBlockchainID := range sourceBlockchain.GetSupportedDestinations().List() {
-		subnetID := cfg.GetSubnetID(destinationBlockchainID)
+	for _, destination := range sourceBlockchain.SupportedDestinations {
+		blockchainID := destination.GetBlockchainID()
+		subnetID := cfg.GetSubnetID(blockchainID)
 		connectedValidators, err := n.ConnectToCanonicalValidators(subnetID)
 		if err != nil {
 			n.logger.Error(
@@ -309,10 +311,10 @@ func (n *AppRequestNetwork) connectToPrimaryNetworkPeers(cfg *config.Config, sou
 			return err
 		}
 
-		if ok, quorum, err := n.checkForSufficientConnectedStake(cfg, connectedValidators, destinationBlockchainID); !ok {
+		if ok, quorum, err := n.checkForSufficientConnectedStake(cfg, connectedValidators, blockchainID); !ok {
 			n.logger.Error(
 				"Failed to connect to a threshold of stake",
-				zap.String("destinationBlockchainID", destinationBlockchainID.String()),
+				zap.String("destinationBlockchainID", blockchainID.String()),
 				zap.Uint64("connectedWeight", connectedValidators.ConnectedWeight),
 				zap.Uint64("totalValidatorWeight", connectedValidators.TotalValidatorWeight),
 				zap.Any("warpQuorum", quorum),
