@@ -18,7 +18,7 @@ type Signer interface {
 
 func NewSigner(destinationBlockchain *config.DestinationBlockchain) (Signer, error) {
 	if destinationBlockchain.AccountPrivateKey == "" {
-		return NewKMSSigner(destinationBlockchain.AWSRegion, destinationBlockchain.KMSKeyID)
+		return NewKMSSigner(destinationBlockchain.KMSAWSRegion, destinationBlockchain.KMSKeyID)
 	}
 	return NewTxSigner(destinationBlockchain)
 }

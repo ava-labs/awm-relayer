@@ -78,7 +78,7 @@ type DestinationBlockchain struct {
 	VM                string `mapstructure:"vm" json:"vm"`
 	RPCEndpoint       string `mapstructure:"rpc-endpoint" json:"rpc-endpoint"`
 	KMSKeyID          string `mapstructure:"kms-key-id" json:"kms-key-id"`
-	AWSRegion         string `mapstructure:"aws-region" json:"aws-region"`
+	KMSAWSRegion      string `mapstructure:"kms-aws-region" json:"kms-aws-region"`
 	AccountPrivateKey string `mapstructure:"account-private-key" json:"account-private-key"`
 
 	// Fetched from the chain after startup
@@ -161,11 +161,11 @@ func BuildConfig(v *viper.Viper) (Config, bool, error) {
 			cfg.DestinationBlockchains[i].KMSKeyID = keyID
 		}
 	}
-	awsRegion := v.GetString(AWSRegionKey)
+	awsRegion := v.GetString(KMSAWSRegionKey)
 	if awsRegion != "" {
 		optionOverwritten = true
 		for i := range cfg.DestinationBlockchains {
-			cfg.DestinationBlockchains[i].AWSRegion = awsRegion
+			cfg.DestinationBlockchains[i].KMSAWSRegion = awsRegion
 		}
 	}
 
@@ -493,7 +493,7 @@ func (s *DestinationBlockchain) Validate() error {
 		return fmt.Errorf("invalid relayer broadcast URL: %w", err)
 	}
 	if s.KMSKeyID != "" {
-		if s.AWSRegion == "" {
+		if s.KMSAWSRegion == "" {
 			return errors.New("KMS key ID provided without an AWS region")
 		}
 		if s.AccountPrivateKey != "" {

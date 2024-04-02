@@ -189,7 +189,7 @@ func TestEitherKMSOrAccountPrivateKey(t *testing.T) {
 	// Zero out all fields under test
 	dstCfg.AccountPrivateKey = ""
 	dstCfg.KMSKeyID = ""
-	dstCfg.AWSRegion = ""
+	dstCfg.KMSAWSRegion = ""
 
 	testCases := []struct {
 		name   string
@@ -201,7 +201,7 @@ func TestEitherKMSOrAccountPrivateKey(t *testing.T) {
 			dstCfg: func() DestinationBlockchain {
 				cfg := dstCfg
 				cfg.KMSKeyID = kmsKey1
-				cfg.AWSRegion = awsRegion
+				cfg.KMSAWSRegion = awsRegion
 				return cfg
 			},
 			valid: true,
@@ -227,7 +227,7 @@ func TestEitherKMSOrAccountPrivateKey(t *testing.T) {
 			dstCfg: func() DestinationBlockchain {
 				cfg := dstCfg
 				cfg.KMSKeyID = kmsKey1
-				cfg.AWSRegion = awsRegion
+				cfg.KMSAWSRegion = awsRegion
 				cfg.AccountPrivateKey = "0x56289e99c94b6912bfc12adc093c9b51124f0dc54ac7a766b2bc5ccf558d8027"
 				return cfg
 			},
@@ -260,7 +260,7 @@ func TestGetRelayerKMSID_set_kmd_id_with_global_env(t *testing.T) {
 		configModifier: func(c Config) Config {
 			c.DestinationBlockchains[0].AccountPrivateKey = ""
 			c.DestinationBlockchains[0].KMSKeyID = kmsKey2
-			c.DestinationBlockchains[0].AWSRegion = awsRegion
+			c.DestinationBlockchains[0].KMSAWSRegion = awsRegion
 			// Add a second destination subnet. This KMS ID SHOULD be overwritten
 			newSubnet := *c.DestinationBlockchains[0]
 			newSubnet.BlockchainID = testBlockchainID2

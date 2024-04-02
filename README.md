@@ -223,9 +223,9 @@ The relayer is configured via a JSON file, the path to which is passed in via th
 
   `"kms-key-id": string`
 
-  - The ID of the KMS key to use for signing transactions on the destination Subnet. May be provided by the environment variable `KMS_KEY_ID`. Only one of `account-private-key` or `kms-key-id` should be provided. If `kms-key-id` is provided, then `aws-region` is required.
+  - The ID of the KMS key to use for signing transactions on the destination Subnet. May be provided by the environment variable `KMS_KEY_ID`. Only one of `account-private-key` or `kms-key-id` should be provided. If `kms-key-id` is provided, then `kms-aws-region` is required.
 
-  `"aws-region": string`
+  `"kms-aws-region": string`
 
   - The AWS region in which the KMS key is located. May be provided by the environment variable `AWS_REGION`. Required if `kms-key-id` is provided.
 
