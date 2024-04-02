@@ -8,7 +8,7 @@ import (
 	"context"
 	"encoding/asn1"
 	"encoding/hex"
-	"errors"
+	"fmt"
 	"log"
 	"math/big"
 
@@ -19,6 +19,21 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 )
+
+type asn1EcPublicKey struct {
+	EcPublicKeyInfo asn1EcPublicKeyInfo
+	PublicKey       asn1.BitString
+}
+
+type asn1EcPublicKeyInfo struct {
+	Algorithm  asn1.ObjectIdentifier
+	Parameters asn1.ObjectIdentifier
+}
+
+type asn1EcSig struct {
+	R asn1.RawValue
+	S asn1.RawValue
+}
 
 var _ Signer = &KMSSigner{}
 
@@ -44,12 +59,12 @@ func NewKMSSigner(region, keyID string) (*KMSSigner, error) {
 
 func (s *KMSSigner) SignTx(tx *types.Transaction, evmChainID *big.Int) (*types.Transaction, error) {
 	signer := types.LatestSignerForChainID(evmChainID)
-	h := signer.Hash(tx)
+	h := signer.Hash(tx).Bytes()
 	signInput := kms.SignInput{
 		KeyId:            aws.String(s.keyID),
 		SigningAlgorithm: "ECDSA_SHA_256",
 		MessageType:      "DIGEST",
-		Message:          h[:],
+		Message:          h,
 	}
 
 	// Sign the hash of the transaction via KMS. The returned signature contains the R and S values in ASN.1 format
@@ -57,10 +72,7 @@ func (s *KMSSigner) SignTx(tx *types.Transaction, evmChainID *big.Int) (*types.T
 	if err != nil {
 		return nil, err
 	}
-	var sigAsn1 struct {
-		R asn1.RawValue
-		S asn1.RawValue
-	}
+	var sigAsn1 asn1EcSig
 	_, err = asn1.Unmarshal(signOutput.Signature, &sigAsn1)
 	if err != nil {
 		return nil, err
@@ -73,8 +85,13 @@ func (s *KMSSigner) SignTx(tx *types.Transaction, evmChainID *big.Int) (*types.T
 	if err != nil {
 		return nil, err
 	}
+	var asn1pubk asn1EcPublicKey
+	_, err = asn1.Unmarshal(pubKey.PublicKey, &asn1pubk)
+	if err != nil {
+		return nil, err
+	}
 
-	sigBytes, err := getEthereumSignature(pubKey.PublicKey, h[:], sigAsn1.R.Bytes, sigAsn1.S.Bytes)
+	sigBytes, err := getEthereumSignature(asn1pubk.PublicKey.Bytes, h, sigAsn1.R.Bytes, sigAsn1.S.Bytes)
 	if err != nil {
 		return nil, err
 	}
@@ -99,6 +116,7 @@ func getEthereumSignature(expectedPublicKeyBytes []byte, txHash []byte, r []byte
 	if err != nil {
 		return nil, err
 	}
+	s0 := hex.EncodeToString(recoveredPublicKeyBytes)
 
 	if hex.EncodeToString(recoveredPublicKeyBytes) != hex.EncodeToString(expectedPublicKeyBytes) {
 		signature = append(rsSignature, []byte{1}...)
@@ -106,9 +124,11 @@ func getEthereumSignature(expectedPublicKeyBytes []byte, txHash []byte, r []byte
 		if err != nil {
 			return nil, err
 		}
-
+		s1 := hex.EncodeToString(recoveredPublicKeyBytes)
+		s2 := hex.EncodeToString(expectedPublicKeyBytes)
 		if hex.EncodeToString(recoveredPublicKeyBytes) != hex.EncodeToString(expectedPublicKeyBytes) {
-			return nil, errors.New("cannot reconstruct public key from sig")
+			// return nil, errors.New("cannot reconstruct public key from sig")
+			return nil, fmt.Errorf("s0=%s s1=%s s3=%s", s0, s1, s2)
 		}
 	}
 
