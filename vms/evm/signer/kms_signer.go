@@ -28,17 +28,17 @@ const (
 	messageType      = "DIGEST"
 )
 
-type asn1EcPublicKey struct {
-	EcPublicKeyInfo asn1EcPublicKeyInfo
+type asn1ECPublicKey struct {
+	EcPublicKeyInfo asn1ECPublicKeyInfo
 	PublicKey       asn1.BitString
 }
 
-type asn1EcPublicKeyInfo struct {
+type asn1ECPublicKeyInfo struct {
 	Algorithm  asn1.ObjectIdentifier
 	Parameters asn1.ObjectIdentifier
 }
 
-type asn1EcSig struct {
+type asn1ECSig struct {
 	R asn1.RawValue
 	S asn1.RawValue
 }
@@ -69,7 +69,7 @@ func NewKMSSigner(region, keyID string) (*KMSSigner, error) {
 	if err != nil {
 		return nil, err
 	}
-	var asn1pubk asn1EcPublicKey
+	var asn1pubk asn1ECPublicKey
 	_, err = asn1.Unmarshal(kmsPubKey.PublicKey, &asn1pubk)
 	if err != nil {
 		return nil, err
@@ -104,7 +104,7 @@ func (s *KMSSigner) SignTx(tx *types.Transaction, evmChainID *big.Int) (*types.T
 	if err != nil {
 		return nil, err
 	}
-	var sigAsn1 asn1EcSig
+	var sigAsn1 asn1ECSig
 	_, err = asn1.Unmarshal(signOutput.Signature, &sigAsn1)
 	if err != nil {
 		return nil, err
