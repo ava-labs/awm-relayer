@@ -5,11 +5,11 @@ package signer
 
 import (
 	"crypto/ecdsa"
-	"errors"
 	"math/big"
 	"testing"
 
 	"github.com/ava-labs/awm-relayer/config"
+	"github.com/ava-labs/awm-relayer/utils"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 )
@@ -49,7 +49,7 @@ func TestNewTxSigner(t *testing.T) {
 					D: big.NewInt(-5567472993773453273),
 				},
 				addr: common.HexToAddress("0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC"),
-				err:  errors.New("invalid hex character 'i' in private key"),
+				err:  utils.ErrInvalidPrivateKeyHex,
 			},
 		},
 	}

@@ -17,6 +17,8 @@ var (
 	// Errors
 	ErrNilInput = errors.New("nil input")
 	ErrTooLarge = errors.New("exceeds uint256 maximum value")
+	// Generic private key parsing error used to obfuscate the actual error
+	ErrInvalidPrivateKeyHex = errors.New("invalid account private key hex string")
 )
 
 //

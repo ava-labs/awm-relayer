@@ -26,7 +26,7 @@ type TxSigner struct {
 func NewTxSigner(destinationBlockchain *config.DestinationBlockchain) (*TxSigner, error) {
 	pk, err := crypto.HexToECDSA(utils.SanitizeHexString(destinationBlockchain.AccountPrivateKey))
 	if err != nil {
-		return nil, errors.New("invalid account private key hex string")
+		return nil, utils.ErrInvalidPrivateKeyHex
 	}
 
 	// Explicitly zero the private key when it is gc'd

@@ -535,7 +535,7 @@ func (s *DestinationBlockchain) Validate() error {
 		}
 	} else {
 		if _, err := crypto.HexToECDSA(utils.SanitizeHexString(s.AccountPrivateKey)); err != nil {
-			return errors.New("invalid account private key hex string")
+			return utils.ErrInvalidPrivateKeyHex
 		}
 	}
 
