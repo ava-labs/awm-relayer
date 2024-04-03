@@ -4,11 +4,8 @@
 package config
 
 import (
-	"crypto/ecdsa"
 	"encoding/json"
-	"errors"
 	"fmt"
-	"math/big"
 	"os"
 	"path/filepath"
 	"testing"
@@ -19,79 +16,18 @@ import (
 	mock_ethclient "github.com/ava-labs/awm-relayer/vms/evm/mocks"
 	"github.com/ava-labs/subnet-evm/params"
 	"github.com/ava-labs/subnet-evm/precompile/contracts/warp"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 )
 
-func TestGetRelayerAccountInfo(t *testing.T) {
-	type retStruct struct {
-		pk   *ecdsa.PrivateKey
-		addr common.Address
-		err  error
-	}
-
-	testCases := []struct {
-		name           string
-		s              DestinationBlockchain
-		expectedResult retStruct
-	}{
-		{
-			name: "valid",
-			s: DestinationBlockchain{
-				AccountPrivateKey: "56289e99c94b6912bfc12adc093c9b51124f0dc54ac7a766b2bc5ccf558d8027",
-			},
-			expectedResult: retStruct{
-				pk: &ecdsa.PrivateKey{
-					D: big.NewInt(-5567472993773453273),
-				},
-				addr: common.HexToAddress("0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC"),
-				err:  nil,
-			},
-		},
-		{
-			name: "invalid 0x prefix",
-			s: DestinationBlockchain{
-				AccountPrivateKey: "0x56289e99c94b6912bfc12adc093c9b51124f0dc54ac7a766b2bc5ccf558d8027",
-			},
-			expectedResult: retStruct{
-				pk: &ecdsa.PrivateKey{
-					D: big.NewInt(-5567472993773453273),
-				},
-				addr: common.HexToAddress("0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC"),
-				err:  errors.New("invalid hex character 'x' in private key"),
-			},
-		},
-		{
-			name: "invalid private key",
-			s: DestinationBlockchain{
-				AccountPrivateKey: "invalid56289e99c94b6912bfc12adc093c9b51124f0dc54ac7a766b2bc5ccf558d8027",
-			},
-			expectedResult: retStruct{
-				pk: &ecdsa.PrivateKey{
-					D: big.NewInt(-5567472993773453273),
-				},
-				addr: common.HexToAddress("0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC"),
-				err:  errors.New("invalid hex character 'i' in private key"),
-			},
-		},
-	}
-
-	for _, testCase := range testCases {
-		t.Run(testCase.name, func(t *testing.T) {
-			pk, addr, err := testCase.s.GetRelayerAccountInfo()
-			require.Equal(t, testCase.expectedResult.err, err)
-			if err == nil {
-				require.Equal(t, testCase.expectedResult.pk.D.Int64(), pk.D.Int64())
-				require.Equal(t, testCase.expectedResult.addr, addr)
-			}
-		})
-	}
-}
+var (
+	awsRegion string = "us-west-2"
+	kmsKey1   string = "test-kms-id1"
+)
 
 // GetRelayerAccountPrivateKey tests. Individual cases must be run in their own functions
 // because they modify the environment variables.
-type getRelayerAccountPrivateKeyTestCase struct {
+type configMondifierEnvVarTestCase struct {
 	baseConfig          Config
 	configModifier      func(Config) Config
 	flags               []string
@@ -100,8 +36,15 @@ type getRelayerAccountPrivateKeyTestCase struct {
 	resultVerifier      func(Config) bool
 }
 
+// setups config json file and writes content
+func setupConfigJSON(t *testing.T, rootPath string, value string) string {
+	configFilePath := filepath.Join(rootPath, "config.json")
+	require.NoError(t, os.WriteFile(configFilePath, []byte(value), 0o600))
+	return configFilePath
+}
+
 // Sets up the config file temporary environment and runs the test case.
-func runGetRelayerAccountPrivateKeyTest(t *testing.T, testCase getRelayerAccountPrivateKeyTestCase) {
+func runConfigModifierEnvVarTest(t *testing.T, testCase configMondifierEnvVarTestCase) {
 	root := t.TempDir()
 
 	cfg := testCase.configModifier(testCase.baseConfig)
@@ -124,7 +67,7 @@ func runGetRelayerAccountPrivateKeyTest(t *testing.T, testCase getRelayerAccount
 }
 
 func TestGetRelayerAccountPrivateKey_set_pk_in_config(t *testing.T) {
-	testCase := getRelayerAccountPrivateKeyTestCase{
+	testCase := configMondifierEnvVarTestCase{
 		baseConfig:          TestValidConfig,
 		configModifier:      func(c Config) Config { return c },
 		envSetter:           func() {},
@@ -140,11 +83,11 @@ func TestGetRelayerAccountPrivateKey_set_pk_in_config(t *testing.T) {
 			return true
 		},
 	}
-	runGetRelayerAccountPrivateKeyTest(t, testCase)
+	runConfigModifierEnvVarTest(t, testCase)
 }
 
 func TestGetRelayerAccountPrivateKey_set_pk_with_subnet_env(t *testing.T) {
-	testCase := getRelayerAccountPrivateKeyTestCase{
+	testCase := configMondifierEnvVarTestCase{
 		baseConfig: TestValidConfig,
 		configModifier: func(c Config) Config {
 			// Add a second destination subnet. This PK should NOT be overwritten
@@ -173,10 +116,10 @@ func TestGetRelayerAccountPrivateKey_set_pk_with_subnet_env(t *testing.T) {
 			return true
 		},
 	}
-	runGetRelayerAccountPrivateKeyTest(t, testCase)
+	runConfigModifierEnvVarTest(t, testCase)
 }
 func TestGetRelayerAccountPrivateKey_set_pk_with_global_env(t *testing.T) {
-	testCase := getRelayerAccountPrivateKeyTestCase{
+	testCase := configMondifierEnvVarTestCase{
 		baseConfig: TestValidConfig,
 		configModifier: func(c Config) Config {
 			// Add a second destination subnet. This PK SHOULD be overwritten
@@ -202,29 +145,79 @@ func TestGetRelayerAccountPrivateKey_set_pk_with_global_env(t *testing.T) {
 			return true
 		},
 	}
-	runGetRelayerAccountPrivateKeyTest(t, testCase)
+	runConfigModifierEnvVarTest(t, testCase)
 }
 
-// setups config json file and writes content
-func setupConfigJSON(t *testing.T, rootPath string, value string) string {
-	configFilePath := filepath.Join(rootPath, "config.json")
-	require.NoError(t, os.WriteFile(configFilePath, []byte(value), 0o600))
-	return configFilePath
-}
+func TestEitherKMSOrAccountPrivateKey(t *testing.T) {
+	dstCfg := *TestValidConfig.DestinationBlockchains[0]
+	// Zero out all fields under test
+	dstCfg.AccountPrivateKey = ""
+	dstCfg.KMSKeyID = ""
+	dstCfg.KMSAWSRegion = ""
 
-func TestGetRelayerAccountInfoSkipChainConfigCheckCompatible(t *testing.T) {
-	accountPrivateKey := "56289e99c94b6912bfc12adc093c9b51124f0dc54ac7a766b2bc5ccf558d8027"
-	expectedAddress := "0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC"
-
-	info := DestinationBlockchain{
-		AccountPrivateKey: accountPrivateKey,
+	testCases := []struct {
+		name   string
+		dstCfg func() DestinationBlockchain
+		valid  bool
+	}{
+		{
+			name: "kms supplied",
+			dstCfg: func() DestinationBlockchain {
+				cfg := dstCfg
+				cfg.KMSKeyID = kmsKey1
+				cfg.KMSAWSRegion = awsRegion
+				return cfg
+			},
+			valid: true,
+		},
+		{
+			name: "account private key supplied",
+			dstCfg: func() DestinationBlockchain {
+				cfg := dstCfg
+				cfg.AccountPrivateKey = "56289e99c94b6912bfc12adc093c9b51124f0dc54ac7a766b2bc5ccf558d8027"
+				return cfg
+			},
+			valid: true,
+		},
+		{
+			name: "neither supplied",
+			dstCfg: func() DestinationBlockchain {
+				return dstCfg
+			},
+			valid: false,
+		},
+		{
+			name: "both supplied",
+			dstCfg: func() DestinationBlockchain {
+				cfg := dstCfg
+				cfg.KMSKeyID = kmsKey1
+				cfg.KMSAWSRegion = awsRegion
+				cfg.AccountPrivateKey = "0x56289e99c94b6912bfc12adc093c9b51124f0dc54ac7a766b2bc5ccf558d8027"
+				return cfg
+			},
+			valid: false,
+		},
+		{
+			name: "missing aws region",
+			dstCfg: func() DestinationBlockchain {
+				cfg := dstCfg
+				cfg.KMSKeyID = kmsKey1
+				// Missing AWS region
+				return cfg
+			},
+			valid: false,
+		},
 	}
-	_, address, err := info.GetRelayerAccountInfo()
-
-	require.NoError(t, err)
-	require.Equal(t, expectedAddress, address.String())
+	for _, testCase := range testCases {
+		dstCfg := testCase.dstCfg()
+		err := dstCfg.Validate()
+		if testCase.valid {
+			require.NoError(t, err)
+		} else {
+			require.Error(t, err)
+		}
+	}
 }
-
 func TestGetWarpQuorum(t *testing.T) {
 	blockchainID, err := ids.FromString("p433wpuXyJiDhyazPYyZMJeaoPSW76CBZ2x7wrVPLgvokotXz")
 	require.NoError(t, err)
