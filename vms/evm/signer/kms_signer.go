@@ -120,25 +120,36 @@ func (s *KMSSigner) Address() common.Address {
 // and is reproduced here under welthee's MIT license
 func (s *KMSSigner) getEthereumSignature(txHash []byte, rBytes []byte, sBytes []byte) ([]byte, error) {
 	rsSignature := append(adjustSignatureLength(rBytes), adjustSignatureLength(sBytes)...)
-	signature := append(rsSignature, []byte{0}...)
 
-	recoveredPublicKeyBytes, err := crypto.Ecrecover(txHash, signature)
-	if err != nil {
+	// Check if the public key can be reconstructed with v=0
+	if signature, err := s.checkRSVSignature(txHash, rsSignature, 0); signature != nil {
+		return signature, nil
+	} else if err != nil {
 		return nil, err
 	}
 
-	if !bytes.Equal(recoveredPublicKeyBytes, s.pubKey) {
-		signature = append(rsSignature, []byte{1}...)
-		recoveredPublicKeyBytes, err = crypto.Ecrecover(txHash, signature)
-		if err != nil {
-			return nil, err
-		}
-		if !bytes.Equal(recoveredPublicKeyBytes, s.pubKey) {
-			return nil, errors.New("cannot reconstruct public key from sig")
-		}
+	// Check if the public key can be reconstructed with v=1
+	if signature, err := s.checkRSVSignature(txHash, rsSignature, 1); signature != nil {
+		return signature, nil
+	} else if err != nil {
+		return nil, err
 	}
 
-	return signature, nil
+	return nil, errors.New("cannot reconstruct public key from sig")
+}
+
+// Checks if the public key can be reconstructed from the signature with the given v value
+// Returns a non-nil signature if the public key can be reconstructed, nil if it cannot
+func (s *KMSSigner) checkRSVSignature(txHash []byte, rsSignature []byte, v uint8) ([]byte, error) {
+	signature := append(rsSignature, []byte{v}...)
+	pubKey, err := crypto.Ecrecover(txHash, signature)
+	if err != nil {
+		return nil, err
+	}
+	if bytes.Equal(pubKey, s.pubKey) {
+		return signature, nil
+	}
+	return nil, nil
 }
 
 // Trim null bytes and pad with zeros to 32 bytes
