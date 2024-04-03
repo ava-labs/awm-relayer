@@ -41,6 +41,7 @@ type destinationClient struct {
 	lock                    *sync.Mutex
 	destinationBlockchainID ids.ID
 	signer                  signer.Signer
+	evmChainID              *big.Int
 	currentNonce            uint64
 	logger                  logging.Logger
 }
@@ -83,11 +84,21 @@ func NewDestinationClient(logger logging.Logger, destinationBlockchain *config.D
 		return nil, err
 	}
 
+	evmChainID, err := client.ChainID(context.Background())
+	if err != nil {
+		logger.Error(
+			"Failed to get chain ID from destination chain endpoint",
+			zap.Error(err),
+		)
+		return nil, err
+	}
+
 	return &destinationClient{
 		client:                  client,
 		lock:                    new(sync.Mutex),
 		destinationBlockchainID: destinationID,
 		signer:                  sgnr,
+		evmChainID:              evmChainID,
 		currentNonce:            nonce,
 		logger:                  logger,
 	}, nil
@@ -126,18 +137,9 @@ func (c *destinationClient) SendTx(signedMessage *avalancheWarp.Message,
 	gasFeeCap := baseFee.Mul(baseFee, big.NewInt(BaseFeeFactor))
 	gasFeeCap.Add(gasFeeCap, big.NewInt(MaxPriorityFeePerGas))
 
-	evmChainID, err := c.client.ChainID(context.Background())
-	if err != nil {
-		c.logger.Error(
-			"Failed to get chain ID from destination chain endpoint",
-			zap.Error(err),
-		)
-		return err
-	}
-
 	// Construct the actual transaction to broadcast on the destination chain
 	tx := predicateutils.NewPredicateTx(
-		evmChainID,
+		c.evmChainID,
 		c.currentNonce,
 		&to,
 		gasLimit,
@@ -151,7 +153,7 @@ func (c *destinationClient) SendTx(signedMessage *avalancheWarp.Message,
 	)
 
 	// Sign and send the transaction on the destination chain
-	signedTx, err := c.signer.SignTx(tx, evmChainID)
+	signedTx, err := c.signer.SignTx(tx, c.evmChainID)
 	if err != nil {
 		c.logger.Error(
 			"Failed to sign transaction",
