@@ -9,11 +9,13 @@ import (
 	"strings"
 
 	"github.com/ava-labs/avalanchego/ids"
+	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/awm-relayer/config"
 	"github.com/ava-labs/awm-relayer/utils"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 )
 
 var (
@@ -43,6 +45,30 @@ func (k DataKey) String() string {
 type RelayerDatabase interface {
 	Get(relayerID common.Hash, key DataKey) ([]byte, error)
 	Put(relayerID common.Hash, key DataKey, value []byte) error
+}
+
+func NewDatabase(logger logging.Logger, cfg *config.Config) (RelayerDatabase, error) {
+	if cfg.RedisURL != "" {
+		db, err := NewRedisDatabase(logger, cfg.RedisURL, GetConfigRelayerIDs(cfg))
+		if err != nil {
+			logger.Error(
+				"Failed to create Redis database",
+				zap.Error(err),
+			)
+			return nil, err
+		}
+		return db, nil
+	} else {
+		db, err := NewJSONFileStorage(logger, cfg.StorageLocation, GetConfigRelayerIDs(cfg))
+		if err != nil {
+			logger.Error(
+				"Failed to create JSON database",
+				zap.Error(err),
+			)
+			return nil, err
+		}
+		return db, nil
+	}
 }
 
 // Returns true if an error returned by a RelayerDatabase indicates the requested key was not found

@@ -169,25 +169,13 @@ func main() {
 	}
 
 	// Initialize the database
-	var db database.RelayerDatabase
-	if cfg.RedisURL != "" {
-		db, err = database.NewRedisDatabase(logger, cfg.RedisURL, database.GetConfigRelayerIDs(&cfg))
-		if err != nil {
-			logger.Error(
-				"Failed to create Redis database",
-				zap.Error(err),
-			)
-			panic(err)
-		}
-	} else {
-		db, err = database.NewJSONFileStorage(logger, cfg.StorageLocation, database.GetConfigRelayerIDs(&cfg))
-		if err != nil {
-			logger.Error(
-				"Failed to create JSON database",
-				zap.Error(err),
-			)
-			panic(err)
-		}
+	db, err := database.NewDatabase(logger, &cfg)
+	if err != nil {
+		logger.Error(
+			"Failed to create database",
+			zap.Error(err),
+		)
+		panic(err)
 	}
 
 	manualWarpMessages := make(map[ids.ID][]*vmtypes.WarpLogInfo)
@@ -279,7 +267,7 @@ func runRelayer(
 		cfg,
 	)
 	if err != nil {
-		return fmt.Errorf("Failed to create relayer instance: %w", err)
+		return fmt.Errorf("failed to create relayer instance: %w", err)
 	}
 	logger.Info(
 		"Created relayer",
