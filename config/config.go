@@ -128,6 +128,7 @@ type Config struct {
 	PChainAPIURL    string `mapstructure:"p-chain-api-url" json:"p-chain-api-url"`
 	InfoAPIURL      string `mapstructure:"info-api-url" json:"info-api-url"`
 	StorageLocation string `mapstructure:"storage-location" json:"storage-location"`
+	RedisURL        string `mapstructure:"redis-url" json:"redis-url"`
 	APIPort         uint16 `mapstructure:"api-port" json:"api-port"`
 	MetricsPort     uint16 `mapstructure:"metrics-port" json:"metrics-port"`
 
@@ -174,6 +175,7 @@ func BuildConfig(v *viper.Viper) (Config, bool, error) {
 	cfg.PChainAPIURL = v.GetString(PChainAPIURLKey)
 	cfg.InfoAPIURL = v.GetString(InfoAPIURLKey)
 	cfg.StorageLocation = v.GetString(StorageLocationKey)
+	cfg.RedisURL = v.GetString(RedisURLKey)
 	cfg.ProcessMissedBlocks = v.GetBool(ProcessMissedBlocksKey)
 	cfg.APIPort = v.GetUint16(APIPortKey)
 	cfg.MetricsPort = v.GetUint16(MetricsPortKey)

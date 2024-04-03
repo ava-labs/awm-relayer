@@ -169,7 +169,7 @@ func main() {
 	}
 
 	// Initialize the database
-	db, err := database.NewJSONFileStorage(logger, cfg.StorageLocation, database.GetConfigRelayerIDs(&cfg))
+	db, err := database.NewDatabase(logger, &cfg)
 	if err != nil {
 		logger.Error(
 			"Failed to create database",
@@ -267,7 +267,7 @@ func runRelayer(
 		cfg,
 	)
 	if err != nil {
-		return fmt.Errorf("Failed to create relayer instance: %w", err)
+		return fmt.Errorf("failed to create relayer instance: %w", err)
 	}
 	logger.Info(
 		"Created relayer",
