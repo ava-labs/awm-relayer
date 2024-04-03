@@ -5,6 +5,7 @@ package signer
 
 import (
 	"crypto/ecdsa"
+	"errors"
 	"math/big"
 	"runtime"
 
@@ -25,7 +26,7 @@ type TxSigner struct {
 func NewTxSigner(destinationBlockchain *config.DestinationBlockchain) (*TxSigner, error) {
 	pk, err := crypto.HexToECDSA(utils.SanitizeHexString(destinationBlockchain.AccountPrivateKey))
 	if err != nil {
-		return nil, err
+		return nil, errors.New("invalid account private key hex string")
 	}
 
 	// Explicitly zero the private key when it is gc'd
@@ -43,7 +44,12 @@ func NewTxSigner(destinationBlockchain *config.DestinationBlockchain) (*TxSigner
 
 func (s *TxSigner) SignTx(tx *types.Transaction, evmChainID *big.Int) (*types.Transaction, error) {
 	signer := types.LatestSignerForChainID(evmChainID)
-	return types.SignTx(tx, signer, s.pk)
+	tx, err := types.SignTx(tx, signer, s.pk)
+	if err != nil {
+		// Do not return the emitted error, as that function call handles the private key
+		return nil, errors.New("failed to sign transaction")
+	}
+	return tx, nil
 }
 
 func (s *TxSigner) Address() common.Address {
