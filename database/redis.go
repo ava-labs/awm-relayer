@@ -1,3 +1,6 @@
+// Copyright (C) 2024, Ava Labs, Inc. All rights reserved.
+// See the file LICENSE for licensing terms.
+
 package database
 
 import (
@@ -9,6 +12,8 @@ import (
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 )
+
+var _ RelayerDatabase = &RedisDatabase{}
 
 type RedisDatabase struct {
 	logger logging.Logger
