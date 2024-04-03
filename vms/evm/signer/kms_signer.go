@@ -7,8 +7,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/asn1"
-	"encoding/hex"
-	"fmt"
+	"errors"
 	"log"
 	"math/big"
 
@@ -39,6 +38,8 @@ var _ Signer = &KMSSigner{}
 
 type KMSSigner struct {
 	keyID  string
+	pubKey []byte
+	eoa    common.Address
 	client *kms.Client
 }
 
@@ -51,9 +52,31 @@ func NewKMSSigner(region, keyID string) (*KMSSigner, error) {
 		log.Fatal(err)
 	}
 	kmsClient := kms.NewFromConfig(awsCfg)
+
+	// Retrieve the public key directly from KMS so that we can construct the correct EIP-155 signature
+	kmsPubKey, err := kmsClient.GetPublicKey(context.Background(), &kms.GetPublicKeyInput{
+		KeyId: aws.String(keyID),
+	})
+	if err != nil {
+		return nil, err
+	}
+	var asn1pubk asn1EcPublicKey
+	_, err = asn1.Unmarshal(kmsPubKey.PublicKey, &asn1pubk)
+	if err != nil {
+		return nil, err
+	}
+
+	pubKey, err := crypto.UnmarshalPubkey(asn1pubk.PublicKey.Bytes)
+	if err != nil {
+		return nil, err
+	}
+	eoa := crypto.PubkeyToAddress(*pubKey)
+
 	return &KMSSigner{
 		keyID:  keyID,
 		client: kmsClient,
+		pubKey: asn1pubk.PublicKey.Bytes,
+		eoa:    eoa,
 	}, nil
 }
 
@@ -78,20 +101,7 @@ func (s *KMSSigner) SignTx(tx *types.Transaction, evmChainID *big.Int) (*types.T
 		return nil, err
 	}
 
-	// Retrieve the public key directly from KMS so that we can construct the correct EIP-155 signature
-	pubKey, err := s.client.GetPublicKey(context.Background(), &kms.GetPublicKeyInput{
-		KeyId: aws.String(s.keyID),
-	})
-	if err != nil {
-		return nil, err
-	}
-	var asn1pubk asn1EcPublicKey
-	_, err = asn1.Unmarshal(pubKey.PublicKey, &asn1pubk)
-	if err != nil {
-		return nil, err
-	}
-
-	sigBytes, err := getEthereumSignature(asn1pubk.PublicKey.Bytes, h, sigAsn1.R.Bytes, sigAsn1.S.Bytes)
+	sigBytes, err := s.getEthereumSignature(h, sigAsn1.R.Bytes, sigAsn1.S.Bytes)
 	if err != nil {
 		return nil, err
 	}
@@ -99,7 +109,7 @@ func (s *KMSSigner) SignTx(tx *types.Transaction, evmChainID *big.Int) (*types.T
 }
 
 func (s *KMSSigner) Address() common.Address {
-	return common.Address{}
+	return s.eoa
 }
 
 // Recover the EIP-155 signature from the KMS signature
@@ -108,27 +118,23 @@ func (s *KMSSigner) Address() common.Address {
 //
 // This function is adapted from https://github.com/welthee/go-ethereum-aws-kms-tx-signer
 // and is reproduced here under welthee's MIT license
-func getEthereumSignature(expectedPublicKeyBytes []byte, txHash []byte, r []byte, s []byte) ([]byte, error) {
-	rsSignature := append(adjustSignatureLength(r), adjustSignatureLength(s)...)
+func (s *KMSSigner) getEthereumSignature(txHash []byte, rBytes []byte, sBytes []byte) ([]byte, error) {
+	rsSignature := append(adjustSignatureLength(rBytes), adjustSignatureLength(sBytes)...)
 	signature := append(rsSignature, []byte{0}...)
 
 	recoveredPublicKeyBytes, err := crypto.Ecrecover(txHash, signature)
 	if err != nil {
 		return nil, err
 	}
-	s0 := hex.EncodeToString(recoveredPublicKeyBytes)
 
-	if hex.EncodeToString(recoveredPublicKeyBytes) != hex.EncodeToString(expectedPublicKeyBytes) {
+	if !bytes.Equal(recoveredPublicKeyBytes, s.pubKey) {
 		signature = append(rsSignature, []byte{1}...)
 		recoveredPublicKeyBytes, err = crypto.Ecrecover(txHash, signature)
 		if err != nil {
 			return nil, err
 		}
-		s1 := hex.EncodeToString(recoveredPublicKeyBytes)
-		s2 := hex.EncodeToString(expectedPublicKeyBytes)
-		if hex.EncodeToString(recoveredPublicKeyBytes) != hex.EncodeToString(expectedPublicKeyBytes) {
-			// return nil, errors.New("cannot reconstruct public key from sig")
-			return nil, fmt.Errorf("s0=%s s1=%s s3=%s", s0, s1, s2)
+		if !bytes.Equal(recoveredPublicKeyBytes, s.pubKey) {
+			return nil, errors.New("cannot reconstruct public key from sig")
 		}
 	}
 
