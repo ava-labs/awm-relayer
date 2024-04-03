@@ -9,6 +9,7 @@ import (
 	"runtime"
 
 	"github.com/ava-labs/awm-relayer/config"
+	"github.com/ava-labs/awm-relayer/utils"
 	"github.com/ava-labs/subnet-evm/core/types"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -22,7 +23,7 @@ type TxSigner struct {
 }
 
 func NewTxSigner(destinationBlockchain *config.DestinationBlockchain) (*TxSigner, error) {
-	pk, err := crypto.HexToECDSA(destinationBlockchain.AccountPrivateKey)
+	pk, err := crypto.HexToECDSA(utils.SanitizeHexString(destinationBlockchain.AccountPrivateKey))
 	if err != nil {
 		return nil, err
 	}

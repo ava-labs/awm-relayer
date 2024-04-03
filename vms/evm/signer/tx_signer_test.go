@@ -40,19 +40,6 @@ func TestNewTxSigner(t *testing.T) {
 			},
 		},
 		{
-			name: "invalid 0x prefix",
-			dst: config.DestinationBlockchain{
-				AccountPrivateKey: "0x56289e99c94b6912bfc12adc093c9b51124f0dc54ac7a766b2bc5ccf558d8027",
-			},
-			expectedResult: retStruct{
-				pk: &ecdsa.PrivateKey{
-					D: big.NewInt(-5567472993773453273),
-				},
-				addr: common.HexToAddress("0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC"),
-				err:  errors.New("invalid hex character 'x' in private key"),
-			},
-		},
-		{
 			name: "invalid private key",
 			dst: config.DestinationBlockchain{
 				AccountPrivateKey: "invalid56289e99c94b6912bfc12adc093c9b51124f0dc54ac7a766b2bc5ccf558d8027",

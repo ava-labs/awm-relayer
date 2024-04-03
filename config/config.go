@@ -534,7 +534,7 @@ func (s *DestinationBlockchain) Validate() error {
 			return errors.New("only one of account private key or KMS key ID can be provided")
 		}
 	} else {
-		if _, err := crypto.HexToECDSA(s.AccountPrivateKey); err != nil {
+		if _, err := crypto.HexToECDSA(utils.SanitizeHexString(s.AccountPrivateKey)); err != nil {
 			return fmt.Errorf("invalid account private key hex string: %w", err)
 		}
 	}
