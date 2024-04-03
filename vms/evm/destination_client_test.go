@@ -51,14 +51,6 @@ func TestSendTx(t *testing.T) {
 			sendTransactionTimes:  1,
 		},
 		{
-			name:                  "invalid chainID",
-			chainIDErr:            testError,
-			chainIDTimes:          1,
-			estimateBaseFeeTimes:  1,
-			suggestGasTipCapTimes: 1,
-			expectError:           true,
-		},
-		{
 			name:                 "invalid estimateBaseFee",
 			estimateBaseFeeErr:   testError,
 			estimateBaseFeeTimes: 1,
@@ -87,10 +79,11 @@ func TestSendTx(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			mockClient := mock_ethclient.NewMockClient(ctrl)
 			destinationClient := &destinationClient{
-				lock:   &sync.Mutex{},
-				logger: logging.NoLog{},
-				client: mockClient,
-				signer: txSigner,
+				lock:       &sync.Mutex{},
+				logger:     logging.NoLog{},
+				client:     mockClient,
+				evmChainID: big.NewInt(5),
+				signer:     txSigner,
 			}
 			warpMsg := &avalancheWarp.Message{}
 			toAddress := "0x27aE10273D17Cd7e80de8580A51f476960626e5f"
@@ -98,7 +91,6 @@ func TestSendTx(t *testing.T) {
 			gomock.InOrder(
 				mockClient.EXPECT().EstimateBaseFee(gomock.Any()).Return(new(big.Int), test.estimateBaseFeeErr).Times(test.estimateBaseFeeTimes),
 				mockClient.EXPECT().SuggestGasTipCap(gomock.Any()).Return(new(big.Int), test.suggestGasTipCapErr).Times(test.suggestGasTipCapTimes),
-				mockClient.EXPECT().ChainID(gomock.Any()).Return(new(big.Int), test.chainIDErr).Times(test.chainIDTimes),
 				mockClient.EXPECT().SendTransaction(gomock.Any(), gomock.Any()).Return(test.sendTransactionErr).Times(test.sendTransactionTimes),
 			)
 
