@@ -23,7 +23,11 @@ type RedisDatabase struct {
 func NewRedisDatabase(logger logging.Logger, redisURL string, relayerIDs []RelayerID) (*RedisDatabase, error) {
 	opts, err := redis.ParseURL(redisURL)
 	if err != nil {
-		logger.Error("Failed to parse Redis URL", zap.Error(err), zap.String("url", redisURL))
+		logger.Error(
+			"Failed to parse Redis URL",
+			zap.String("url", redisURL),
+			zap.Error(err),
+		)
 		return nil, err
 	}
 
