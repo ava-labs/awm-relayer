@@ -33,7 +33,7 @@ func NewRedisDatabase(logger logging.Logger, redisURL string, relayerIDs []Relay
 
 	// Create a new Redis client.
 	// The server address, password, db index, and protocol version are extracted from the URL
-	// Request timeouts use the default value of 3 seconds
+	// If not provided in the URL, request timeouts use the default value of 3 seconds
 	client := redis.NewClient(opts)
 	return &RedisDatabase{
 		logger: logger,
