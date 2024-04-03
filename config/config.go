@@ -5,7 +5,6 @@ package config
 
 import (
 	"context"
-	"crypto/ecdsa"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -30,7 +29,6 @@ import (
 )
 
 const (
-	relayerPrivateKeyBytes      = 32
 	accountPrivateKeyEnvVarName = "ACCOUNT_PRIVATE_KEY"
 	cChainIdentifierString      = "C"
 	warpConfigKey               = "warpConfig"
@@ -106,6 +104,8 @@ type DestinationBlockchain struct {
 	BlockchainID      string `mapstructure:"blockchain-id" json:"blockchain-id"`
 	VM                string `mapstructure:"vm" json:"vm"`
 	RPCEndpoint       string `mapstructure:"rpc-endpoint" json:"rpc-endpoint"`
+	KMSKeyID          string `mapstructure:"kms-key-id" json:"kms-key-id"`
+	KMSAWSRegion      string `mapstructure:"kms-aws-region" json:"kms-aws-region"`
 	AccountPrivateKey string `mapstructure:"account-private-key" json:"account-private-key"`
 
 	// Fetched from the chain after startup
@@ -528,13 +528,17 @@ func (s *DestinationBlockchain) Validate() error {
 	if _, err := url.ParseRequestURI(s.RPCEndpoint); err != nil {
 		return fmt.Errorf("invalid relayer broadcast URL: %w", err)
 	}
-
-	if len(s.AccountPrivateKey) != relayerPrivateKeyBytes*2 {
-		return errors.New("invalid account private key hex string")
-	}
-
-	if _, err := hex.DecodeString(s.AccountPrivateKey); err != nil {
-		return fmt.Errorf("invalid account private key hex string: %w", err)
+	if s.KMSKeyID != "" {
+		if s.KMSAWSRegion == "" {
+			return errors.New("KMS key ID provided without an AWS region")
+		}
+		if s.AccountPrivateKey != "" {
+			return errors.New("only one of account private key or KMS key ID can be provided")
+		}
+	} else {
+		if _, err := crypto.HexToECDSA(utils.SanitizeHexString(s.AccountPrivateKey)); err != nil {
+			return utils.ErrInvalidPrivateKeyHex
+		}
 	}
 
 	// Validate the VM specific settings
@@ -588,16 +592,6 @@ func (s *DestinationBlockchain) initializeWarpQuorum() error {
 
 	s.warpQuorum = quorum
 	return nil
-}
-
-// Get the private key and derive the wallet address from a relayer's configured private key for a given destination subnet.
-func (s *DestinationBlockchain) GetRelayerAccountInfo() (*ecdsa.PrivateKey, common.Address, error) {
-	pk, err := crypto.HexToECDSA(s.AccountPrivateKey)
-	if err != nil {
-		return nil, common.Address{}, err
-	}
-
-	return pk, crypto.PubkeyToAddress(pk.PublicKey), nil
 }
 
 //
