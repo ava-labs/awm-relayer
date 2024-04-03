@@ -19,6 +19,15 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 )
 
+// Some of the code in this file is adapted from https://github.com/welthee/go-ethereum-aws-kms-tx-signer
+// and is reproduced here under welthee's MIT license
+
+const (
+	signingAlgorithm = "ECDSA_SHA_256"
+	signatureLength  = 64
+	messageType      = "DIGEST"
+)
+
 type asn1EcPublicKey struct {
 	EcPublicKeyInfo asn1EcPublicKeyInfo
 	PublicKey       asn1.BitString
@@ -85,8 +94,8 @@ func (s *KMSSigner) SignTx(tx *types.Transaction, evmChainID *big.Int) (*types.T
 	h := signer.Hash(tx).Bytes()
 	signInput := kms.SignInput{
 		KeyId:            aws.String(s.keyID),
-		SigningAlgorithm: "ECDSA_SHA_256",
-		MessageType:      "DIGEST",
+		SigningAlgorithm: signingAlgorithm,
+		MessageType:      messageType,
 		Message:          h,
 	}
 
@@ -115,11 +124,11 @@ func (s *KMSSigner) Address() common.Address {
 // Recover the EIP-155 signature from the KMS signature
 // KMS returns the signature in ASN.1 format, but the EIP-155 signature is in R || S || V format,
 // so we need to test both V = 0 and V = 1 against the recovered public key
-//
-// This function is adapted from https://github.com/welthee/go-ethereum-aws-kms-tx-signer
-// and is reproduced here under welthee's MIT license
 func (s *KMSSigner) getEthereumSignature(txHash []byte, rBytes []byte, sBytes []byte) ([]byte, error) {
 	rsSignature := append(adjustSignatureLength(rBytes), adjustSignatureLength(sBytes)...)
+	if len(rsSignature) != signatureLength {
+		return nil, errors.New("rs signature length is not 64 bytes")
+	}
 
 	// Check if the public key can be reconstructed with v=0
 	if signature, err := s.checkRSVSignature(txHash, rsSignature, 0); signature != nil {
@@ -153,14 +162,15 @@ func (s *KMSSigner) checkRSVSignature(txHash []byte, rsSignature []byte, v uint8
 }
 
 // Trim null bytes and pad with zeros to 32 bytes
-//
-// This function is adapted from https://github.com/welthee/go-ethereum-aws-kms-tx-signer
-// and is reproduced here under welthee's MIT license
 func adjustSignatureLength(buffer []byte) []byte {
-	buffer = bytes.TrimLeft(buffer, "\x00")
-	for len(buffer) < 32 {
-		zeroBuf := []byte{0}
-		buffer = append(zeroBuf, buffer...)
+	if len(buffer) > 32 {
+		buffer = bytes.TrimLeft(buffer, "\x00")
+	}
+
+	// pad to 32 bytes
+	pad := 32 - len(buffer)
+	if pad > 0 {
+		buffer = append(bytes.Repeat([]byte{0}, pad), buffer...)
 	}
 	return buffer
 }
