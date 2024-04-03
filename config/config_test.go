@@ -198,7 +198,7 @@ func TestEitherKMSOrAccountPrivateKey(t *testing.T) {
 			valid: false,
 		},
 		{
-			name: "invalid kms",
+			name: "missing aws region",
 			dstCfg: func() DestinationBlockchain {
 				cfg := dstCfg
 				cfg.KMSKeyID = kmsKey1
