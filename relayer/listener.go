@@ -234,7 +234,7 @@ func (lstnr *Listener) ProcessLogs(ctx context.Context) error {
 			// This is because during the catch-up process, we cannot guarantee the order
 			// of live messages relative to catch-up messages, whereas we know that catch-up
 			// messages will always be ordered relative to each other.
-			err := lstnr.RelayMessage(&txLog, doneCatchingUp || txLog.IsCatchUpMessage)
+			err := lstnr.RouteMessage(&txLog, doneCatchingUp || txLog.IsCatchUpMessage)
 			if err != nil {
 				lstnr.logger.Error(
 					"Error relaying message",
@@ -341,8 +341,8 @@ func (lstnr *Listener) getApplicationRelayer(
 	return applicationRelayer, ok
 }
 
-// RelayMessage relays a single warp message to the destination chain. Warp message relay requests from the same origin chain are processed serially
-func (lstnr *Listener) RelayMessage(warpLogInfo *vmtypes.WarpLogInfo, storeProcessedHeight bool) error {
+// RouteMessage relays a single warp message to the destination chain. Warp message relay requests from the same origin chain are processed serially
+func (lstnr *Listener) RouteMessage(warpLogInfo *vmtypes.WarpLogInfo, storeProcessedHeight bool) error {
 	lstnr.logger.Info(
 		"Relaying message",
 		zap.String("blockchainID", lstnr.sourceBlockchain.GetBlockchainID().String()),

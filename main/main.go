@@ -281,7 +281,7 @@ func runRelayer(
 			zap.String("blockchainID", sourceSubnetInfo.BlockchainID),
 			zap.String("warpMessageBytes", hex.EncodeToString(warpMessage.UnsignedMsgBytes)),
 		)
-		err := listener.RelayMessage(warpMessage, false)
+		err := listener.RouteMessage(warpMessage, false)
 		if err != nil {
 			logger.Error(
 				"Failed to relay manual Warp message. Continuing.",
