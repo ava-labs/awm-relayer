@@ -152,7 +152,7 @@ func main() {
 	metrics, err := relayer.NewApplicationRelayerMetrics(registerer)
 	if err != nil {
 		logger.Error(
-			"Failed to create message relayer metrics",
+			"Failed to create application relayer metrics",
 			zap.Error(err),
 		)
 		panic(err)
