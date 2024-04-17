@@ -145,7 +145,7 @@ func NewListener(
 	}
 
 	if lstnr.globalConfig.ProcessMissedBlocks {
-		height, err := lstnr.calculateListenerStartingBlockHeight(sourceBlockchain.ProcessHistoricalBlocksFromHeight)
+		height, err := lstnr.calculateStartingBlockHeight(sourceBlockchain.ProcessHistoricalBlocksFromHeight)
 		if err != nil {
 			logger.Error(
 				"Failed to calculate starting block height on startup",
@@ -177,7 +177,8 @@ func NewListener(
 	return &lstnr, nil
 }
 
-func (lstnr *Listener) calculateListenerStartingBlockHeight(processHistoricalBlocksFromHeight uint64) (uint64, error) {
+// Calculates the listener's starting block height as the minimum of all of the composed application relayer starting block heights
+func (lstnr *Listener) calculateStartingBlockHeight(processHistoricalBlocksFromHeight uint64) (uint64, error) {
 	minHeight := uint64(0)
 	for _, relayer := range lstnr.applicationRelayers {
 		height, err := relayer.calculateStartingBlockHeight(processHistoricalBlocksFromHeight)
