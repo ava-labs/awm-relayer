@@ -253,7 +253,7 @@ func runRelayer(
 		zap.String("originBlockchainID", sourceSubnetInfo.BlockchainID),
 	)
 
-	relayer, err := relayer.NewRelayer(
+	listener, err := relayer.NewListener(
 		logger,
 		metrics,
 		db,
@@ -267,10 +267,10 @@ func runRelayer(
 		cfg,
 	)
 	if err != nil {
-		return fmt.Errorf("failed to create relayer instance: %w", err)
+		return fmt.Errorf("failed to create listener instance: %w", err)
 	}
 	logger.Info(
-		"Created relayer",
+		"Created listener",
 		zap.String("blockchainID", sourceSubnetInfo.BlockchainID),
 	)
 
@@ -281,7 +281,7 @@ func runRelayer(
 			zap.String("blockchainID", sourceSubnetInfo.BlockchainID),
 			zap.String("warpMessageBytes", hex.EncodeToString(warpMessage.UnsignedMsgBytes)),
 		)
-		err := relayer.RelayMessage(warpMessage, false)
+		err := listener.RelayMessage(warpMessage, false)
 		if err != nil {
 			logger.Error(
 				"Failed to relay manual Warp message. Continuing.",
@@ -293,13 +293,13 @@ func runRelayer(
 	}
 
 	logger.Info(
-		"Relayer initialized. Listening for messages to relay.",
+		"Listener initialized. Listening for messages to relay.",
 		zap.String("originBlockchainID", sourceSubnetInfo.BlockchainID),
 	)
 
 	// Wait for logs from the subscribed node
 	// Will only return on error or context cancellation
-	return relayer.ProcessLogs(ctx)
+	return listener.ProcessLogs(ctx)
 }
 
 func startMetricsServer(logger logging.Logger, gatherer prometheus.Gatherer, port uint16) {
