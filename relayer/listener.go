@@ -363,7 +363,7 @@ func (lstnr *Listener) RelayMessage(warpLogInfo *vmtypes.WarpLogInfo, storeProce
 		zap.String("warpMessageID", unsignedMessage.ID().String()),
 	)
 
-	// Check that the warp message is from a support message protocol contract address.
+	// Check that the warp message is from a supported message protocol contract address.
 	messageManager, supportedMessageProtocol := lstnr.messageManagers[warpLogInfo.SourceAddress]
 	if !supportedMessageProtocol {
 		// Do not return an error here because it is expected for there to be messages from other contracts
@@ -371,6 +371,7 @@ func (lstnr *Listener) RelayMessage(warpLogInfo *vmtypes.WarpLogInfo, storeProce
 		lstnr.logger.Debug(
 			"Warp message from unsupported message protocol address. Not relaying.",
 			zap.String("protocolAddress", warpLogInfo.SourceAddress.Hex()),
+			zap.String("warpMessageID", unsignedMessage.ID().String()),
 		)
 		return nil
 	}
@@ -409,14 +410,15 @@ func (lstnr *Listener) RelayMessage(warpLogInfo *vmtypes.WarpLogInfo, storeProce
 		destinationAddress,
 	)
 	if !ok {
-		lstnr.logger.Error(
-			"Application relayer not found",
+		lstnr.logger.Debug(
+			"Application relayer not found. Skipping message relay.",
 			zap.String("blockchainID", lstnr.sourceBlockchain.GetBlockchainID().String()),
 			zap.String("destinationBlockchainID", destinationBlockchainID.String()),
 			zap.String("originSenderAddress", originSenderAddress.String()),
 			zap.String("destinationAddress", destinationAddress.String()),
+			zap.String("warpMessageID", unsignedMessage.ID().String()),
 		)
-		return fmt.Errorf("application relayer not found")
+		return nil
 	}
 
 	// Relay the message to the destination. Messages from a given source chain must be processed in serial in order to
