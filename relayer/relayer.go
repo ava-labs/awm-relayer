@@ -34,23 +34,23 @@ const (
 
 // Relayer handles all messages sent from a given source chain
 type Relayer struct {
-	Subscriber        vms.Subscriber
-	pChainClient      platformvm.Client
-	currentRequestID  uint32
-	responseChan      chan message.InboundMessage
-	contractMessage   vms.ContractMessage
-	messageManagers   map[common.Address]messages.MessageManager
-	logger            logging.Logger
-	sourceBlockchain  config.SourceBlockchain
-	catchUpResultChan chan bool
-	healthStatus      *atomic.Bool
-	globalConfig      *config.Config
-	messageRelayers   map[common.Hash]*messageRelayer
+	Subscriber          vms.Subscriber
+	pChainClient        platformvm.Client
+	currentRequestID    uint32
+	responseChan        chan message.InboundMessage
+	contractMessage     vms.ContractMessage
+	messageManagers     map[common.Address]messages.MessageManager
+	logger              logging.Logger
+	sourceBlockchain    config.SourceBlockchain
+	catchUpResultChan   chan bool
+	healthStatus        *atomic.Bool
+	globalConfig        *config.Config
+	applicationRelayers map[common.Hash]*applicationRelayer
 }
 
 func NewRelayer(
 	logger logging.Logger,
-	metrics *MessageRelayerMetrics,
+	metrics *ApplicationRelayerMetrics,
 	db database.RelayerDatabase,
 	sourceBlockchain config.SourceBlockchain,
 	pChainClient platformvm.Client,
@@ -86,10 +86,10 @@ func NewRelayer(
 	// scenario.
 	catchUpResultChan := make(chan bool, 1)
 
-	// Create the message relayers
-	messageRelayers := make(map[common.Hash]*messageRelayer)
+	// Create the application relayers
+	applicationRelayers := make(map[common.Hash]*applicationRelayer)
 	for _, relayerID := range database.GetSourceBlockchainRelayerIDs(&sourceBlockchain) {
-		messageRelayer, err := newMessageRelayer(
+		applicationRelayer, err := newApplicationRelayer(
 			logger,
 			metrics,
 			network,
@@ -102,13 +102,13 @@ func NewRelayer(
 		)
 		if err != nil {
 			logger.Error(
-				"Failed to create message relayer",
+				"Failed to create application relayer",
 				zap.String("relayerID", relayerID.ID.String()),
 				zap.Error(err),
 			)
 			return nil, err
 		}
-		messageRelayers[relayerID.ID] = messageRelayer
+		applicationRelayers[relayerID.ID] = applicationRelayer
 	}
 
 	logger.Info(
@@ -119,18 +119,18 @@ func NewRelayer(
 		zap.String("blockchainIDHex", sourceBlockchain.GetBlockchainID().Hex()),
 	)
 	r := Relayer{
-		Subscriber:        sub,
-		pChainClient:      pChainClient,
-		currentRequestID:  rand.Uint32(), // Initialize to a random value to mitigate requestID collision
-		responseChan:      responseChan,
-		contractMessage:   vms.NewContractMessage(logger, sourceBlockchain),
-		messageManagers:   messageManagers,
-		logger:            logger,
-		sourceBlockchain:  sourceBlockchain,
-		catchUpResultChan: catchUpResultChan,
-		healthStatus:      relayerHealth,
-		globalConfig:      cfg,
-		messageRelayers:   messageRelayers,
+		Subscriber:          sub,
+		pChainClient:        pChainClient,
+		currentRequestID:    rand.Uint32(), // Initialize to a random value to mitigate requestID collision
+		responseChan:        responseChan,
+		contractMessage:     vms.NewContractMessage(logger, sourceBlockchain),
+		messageManagers:     messageManagers,
+		logger:              logger,
+		sourceBlockchain:    sourceBlockchain,
+		catchUpResultChan:   catchUpResultChan,
+		healthStatus:        relayerHealth,
+		globalConfig:        cfg,
+		applicationRelayers: applicationRelayers,
 	}
 
 	// Open the subscription. We must do this before processing any missed messages, otherwise we may miss an incoming message
@@ -179,7 +179,7 @@ func NewRelayer(
 
 func (r *Relayer) calculateListenerStartingBlockHeight(processHistoricalBlocksFromHeight uint64) (uint64, error) {
 	minHeight := uint64(0)
-	for _, relayer := range r.messageRelayers {
+	for _, relayer := range r.applicationRelayers {
 		height, err := relayer.calculateStartingBlockHeight(processHistoricalBlocksFromHeight)
 		if err != nil {
 			return 0, err
@@ -192,7 +192,7 @@ func (r *Relayer) calculateListenerStartingBlockHeight(processHistoricalBlocksFr
 }
 
 func (r *Relayer) setAllProcessedBlockHeightsToLatest() error {
-	for _, relayer := range r.messageRelayers {
+	for _, relayer := range r.applicationRelayers {
 		_, err := relayer.setProcessedBlockHeightToLatest()
 		if err != nil {
 			return err
@@ -284,60 +284,60 @@ func (r *Relayer) ReconnectToSubscriber() error {
 	return nil
 }
 
-// Fetch the appropriate message relayer
+// Fetch the appropriate application relayer
 // Checks for the following registered keys. At most one of these keys should be registered.
 // 1. An exact match on sourceBlockchainID, destinationBlockchainID, originSenderAddress, and destinationAddress
 // 2. A match on sourceBlockchainID and destinationBlockchainID, with a specific originSenderAddress and any destinationAddress
 // 3. A match on sourceBlockchainID and destinationBlockchainID, with any originSenderAddress and a specific destinationAddress
 // 4. A match on sourceBlockchainID and destinationBlockchainID, with any originSenderAddress and any destinationAddress
-func (r *Relayer) getMessageRelayer(
+func (r *Relayer) getApplicationRelayer(
 	sourceBlockchainID ids.ID,
 	destinationBlockchainID ids.ID,
 	originSenderAddress common.Address,
 	destinationAddress common.Address,
-) (*messageRelayer, bool) {
+) (*applicationRelayer, bool) {
 	// Check for an exact match
-	messageRelayerID := database.CalculateRelayerID(
+	applicationRelayerID := database.CalculateRelayerID(
 		sourceBlockchainID,
 		destinationBlockchainID,
 		originSenderAddress,
 		destinationAddress,
 	)
-	if messageRelayer, ok := r.messageRelayers[messageRelayerID]; ok {
-		return messageRelayer, ok
+	if applicationRelayer, ok := r.applicationRelayers[applicationRelayerID]; ok {
+		return applicationRelayer, ok
 	}
 
 	// Check for a match on sourceBlockchainID and destinationBlockchainID, with a specific originSenderAddress and any destinationAddress
-	messageRelayerID = database.CalculateRelayerID(
+	applicationRelayerID = database.CalculateRelayerID(
 		sourceBlockchainID,
 		destinationBlockchainID,
 		originSenderAddress,
 		database.AllAllowedAddress,
 	)
-	if messageRelayer, ok := r.messageRelayers[messageRelayerID]; ok {
-		return messageRelayer, ok
+	if applicationRelayer, ok := r.applicationRelayers[applicationRelayerID]; ok {
+		return applicationRelayer, ok
 	}
 
 	// Check for a match on sourceBlockchainID and destinationBlockchainID, with any originSenderAddress and a specific destinationAddress
-	messageRelayerID = database.CalculateRelayerID(
+	applicationRelayerID = database.CalculateRelayerID(
 		sourceBlockchainID,
 		destinationBlockchainID,
 		database.AllAllowedAddress,
 		destinationAddress,
 	)
-	if messageRelayer, ok := r.messageRelayers[messageRelayerID]; ok {
-		return messageRelayer, ok
+	if applicationRelayer, ok := r.applicationRelayers[applicationRelayerID]; ok {
+		return applicationRelayer, ok
 	}
 
 	// Check for a match on sourceBlockchainID and destinationBlockchainID, with any originSenderAddress and any destinationAddress
-	messageRelayerID = database.CalculateRelayerID(
+	applicationRelayerID = database.CalculateRelayerID(
 		sourceBlockchainID,
 		destinationBlockchainID,
 		database.AllAllowedAddress,
 		database.AllAllowedAddress,
 	)
-	messageRelayer, ok := r.messageRelayers[messageRelayerID]
-	return messageRelayer, ok
+	applicationRelayer, ok := r.applicationRelayers[applicationRelayerID]
+	return applicationRelayer, ok
 }
 
 // RelayMessage relays a single warp message to the destination chain. Warp message relay requests from the same origin chain are processed serially
@@ -401,7 +401,7 @@ func (r *Relayer) RelayMessage(warpLogInfo *vmtypes.WarpLogInfo, storeProcessedH
 		return err
 	}
 
-	messageRelayer, ok := r.getMessageRelayer(
+	applicationRelayer, ok := r.getApplicationRelayer(
 		r.sourceBlockchain.GetBlockchainID(),
 		destinationBlockchainID,
 		originSenderAddress,
@@ -409,22 +409,22 @@ func (r *Relayer) RelayMessage(warpLogInfo *vmtypes.WarpLogInfo, storeProcessedH
 	)
 	if !ok {
 		r.logger.Error(
-			"Message relayer not found",
+			"Application relayer not found",
 			zap.String("blockchainID", r.sourceBlockchain.GetBlockchainID().String()),
 			zap.String("destinationBlockchainID", destinationBlockchainID.String()),
 			zap.String("originSenderAddress", originSenderAddress.String()),
 			zap.String("destinationAddress", destinationAddress.String()),
 		)
-		return fmt.Errorf("message relayer not found")
+		return fmt.Errorf("application relayer not found")
 	}
 
 	// Relay the message to the destination. Messages from a given source chain must be processed in serial in order to
 	// guarantee that the previous block (n-1) is fully processed by the relayer when processing a given log from block n.
 	// TODO: Add a config option to use the Warp API, instead of hardcoding to the app request network here
-	err = messageRelayer.relayMessage(unsignedMessage, r.currentRequestID, messageManager, storeProcessedHeight, warpLogInfo.BlockNumber, true)
+	err = applicationRelayer.relayMessage(unsignedMessage, r.currentRequestID, messageManager, storeProcessedHeight, warpLogInfo.BlockNumber, true)
 	if err != nil {
 		r.logger.Error(
-			"Failed to run message relayer",
+			"Failed to run application relayer",
 			zap.String("blockchainID", r.sourceBlockchain.GetBlockchainID().String()),
 			zap.String("warpMessageID", unsignedMessage.ID().String()),
 			zap.Error(err),

@@ -1,6 +1,7 @@
 {
   "info-api-url": "https://api.avax-test.network",
   "p-chain-api-url": "https://api.avax-test.network",
+  "log-level": "debug",
   "source-blockchains": [
     {
       "subnet-id": "11111111111111111111111111111111LpoYY",
@@ -9,10 +10,10 @@
       "rpc-endpoint": "https://api.avax-test.network/ext/bc/C/rpc",
       "ws-endpoint": "wss://api.avax-test.network/ext/bc/C/ws",
       "message-contracts": {
-        "0x253b2784c75e510dD0fF1da844684a1aC0aa5fcf": {
+        "0xF7cBd95f1355f0d8d659864b92e2e9fbfaB786f7": {
           "message-format": "teleporter",
           "settings": {
-            "reward-address": "0x5072..."
+            "reward-address": "0x253b2784c75e510dD0fF1da844684a1aC0aa5fcf"
           }
         }
       }
@@ -24,7 +25,8 @@
       "blockchain-id": "2D8RG4UpSXbPbvPCAWppNJyqTG2i2CAXSkTgmTBBvs7GKNZjsY",
       "vm":"evm",
       "rpc-endpoint": "https://subnets.avax.network/dispatch/testnet/rpc",
-      "account-private-key": "0x7493..."
+      "kms-key-id": "ce69c9f8-994f-4096-b354-e2fc899c8af9",
+      "kms-aws-region": "us-east-1"
     }
   ]
 }

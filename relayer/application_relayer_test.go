@@ -12,10 +12,10 @@ import (
 	"go.uber.org/mock/gomock"
 )
 
-func makeMessageRelayerWithMockDatabase(t *testing.T) (*messageRelayer, *mock_database.MockRelayerDatabase) {
+func makeApplicationRelayerWithMockDatabase(t *testing.T) (*applicationRelayer, *mock_database.MockRelayerDatabase) {
 	db := mock_database.NewMockRelayerDatabase(gomock.NewController(t))
 
-	return &messageRelayer{
+	return &applicationRelayer{
 		logger: logging.NoLog{},
 		db:     db,
 	}, db
@@ -69,7 +69,7 @@ func TestCalculateStartingBlockHeight(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
-		relayerUnderTest, db := makeMessageRelayerWithMockDatabase(t)
+		relayerUnderTest, db := makeApplicationRelayerWithMockDatabase(t)
 		db.
 			EXPECT().
 			Get(gomock.Any(), database.LatestProcessedBlockKey).

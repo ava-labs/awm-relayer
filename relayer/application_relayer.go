@@ -51,13 +51,13 @@ var (
 	errNotEnoughConnectedStake = errors.New("failed to connect to a threshold of stake")
 )
 
-// messageRelayers are created for each warp message to be relayed.
+// applicationRelayers are created for each warp message to be relayed.
 // They collect signatures from validators, aggregate them,
 // and send the signed warp message to the destination chain.
-// Each messageRelayer runs in its own goroutine.
-type messageRelayer struct {
+// Each applicationRelayer runs in its own goroutine.
+type applicationRelayer struct {
 	logger           logging.Logger
-	metrics          *MessageRelayerMetrics
+	metrics          *ApplicationRelayerMetrics
 	network          *peers.AppRequestNetwork
 	messageCreator   message.Creator
 	responseChan     chan message.InboundMessage
@@ -68,9 +68,9 @@ type messageRelayer struct {
 	db               database.RelayerDatabase
 }
 
-func newMessageRelayer(
+func newApplicationRelayer(
 	logger logging.Logger,
-	metrics *MessageRelayerMetrics,
+	metrics *ApplicationRelayerMetrics,
 	network *peers.AppRequestNetwork,
 	messageCreator message.Creator,
 	responseChan chan message.InboundMessage,
@@ -78,7 +78,7 @@ func newMessageRelayer(
 	db database.RelayerDatabase,
 	sourceBlockchain config.SourceBlockchain,
 	cfg *config.Config,
-) (*messageRelayer, error) {
+) (*applicationRelayer, error) {
 	quorum, err := cfg.GetWarpQuorum(relayerID.DestinationBlockchainID)
 	if err != nil {
 		logger.Error(
@@ -96,7 +96,7 @@ func newMessageRelayer(
 		// Otherwise, the source subnet signs the message.
 		signingSubnet = sourceBlockchain.GetSubnetID()
 	}
-	return &messageRelayer{
+	return &applicationRelayer{
 		logger:           logger,
 		metrics:          metrics,
 		network:          network,
@@ -110,7 +110,7 @@ func newMessageRelayer(
 	}, nil
 }
 
-func (r *messageRelayer) relayMessage(
+func (r *applicationRelayer) relayMessage(
 	unsignedMessage *avalancheWarp.UnsignedMessage,
 	requestID uint32,
 	messageManager messages.MessageManager,
@@ -188,7 +188,7 @@ func (r *messageRelayer) relayMessage(
 // createSignedMessage fetches the signed Warp message from the source chain via RPC.
 // Each VM may implement their own RPC method to construct the aggregate signature, which
 // will need to be accounted for here.
-func (r *messageRelayer) createSignedMessage(unsignedMessage *avalancheWarp.UnsignedMessage) (*avalancheWarp.Message, error) {
+func (r *applicationRelayer) createSignedMessage(unsignedMessage *avalancheWarp.UnsignedMessage) (*avalancheWarp.Message, error) {
 	r.logger.Info("Fetching aggregate signature from the source chain validators via API")
 	// TODO: To properly support this, we should provide a dedicated Warp API endpoint in the config
 	uri := utils.StripFromString(r.sourceBlockchain.RPCEndpoint, "/ext")
@@ -249,7 +249,7 @@ func (r *messageRelayer) createSignedMessage(unsignedMessage *avalancheWarp.Unsi
 }
 
 // createSignedMessageAppRequest collects signatures from nodes by directly querying them via AppRequest, then aggregates the signatures, and constructs the signed warp message.
-func (r *messageRelayer) createSignedMessageAppRequest(unsignedMessage *avalancheWarp.UnsignedMessage, requestID uint32) (*avalancheWarp.Message, error) {
+func (r *applicationRelayer) createSignedMessageAppRequest(unsignedMessage *avalancheWarp.UnsignedMessage, requestID uint32) (*avalancheWarp.Message, error) {
 	r.logger.Info("Fetching aggregate signature from the source chain validators via AppRequest")
 	connectedValidators, err := r.network.ConnectToCanonicalValidators(r.signingSubnetID)
 	if err != nil {
@@ -370,7 +370,7 @@ func (r *messageRelayer) createSignedMessageAppRequest(unsignedMessage *avalanch
 		if responsesExpected > 0 {
 			// Handle the responses. For each response, we need to call response.OnFinishedHandling() exactly once.
 			// Wrap the loop body in an anonymous function so that we do so on each loop iteration
-			// TODO: In order to run this concurrently, we need to route to each message relayer from the relayer responseChan
+			// TODO: In order to run this concurrently, we need to route to each application relayer from the relayer responseChan
 			for response := range r.responseChan {
 				r.logger.Debug(
 					"Processing response from node",
@@ -490,7 +490,7 @@ func (r *messageRelayer) createSignedMessageAppRequest(unsignedMessage *avalanch
 
 // isValidSignatureResponse tries to generate a signature from the peer.AsyncResponse, then verifies the signature against the node's public key.
 // If we are unable to generate the signature or verify correctly, false will be returned to indicate no valid signature was found in response.
-func (r *messageRelayer) isValidSignatureResponse(
+func (r *applicationRelayer) isValidSignatureResponse(
 	unsignedMessage *avalancheWarp.UnsignedMessage,
 	response message.InboundMessage,
 	pubKey *bls.PublicKey,
@@ -555,7 +555,7 @@ func (r *messageRelayer) isValidSignatureResponse(
 
 // aggregateSignatures constructs a BLS aggregate signature from the collected validator signatures. Also returns a bit set representing the
 // validators that are represented in the aggregate signature. The bit set is in canonical validator order.
-func (r *messageRelayer) aggregateSignatures(signatureMap map[int]blsSignatureBuf) (*bls.Signature, set.Bits, error) {
+func (r *applicationRelayer) aggregateSignatures(signatureMap map[int]blsSignatureBuf) (*bls.Signature, set.Bits, error) {
 	// Aggregate the signatures
 	signatures := make([]*bls.Signature, 0, len(signatureMap))
 	vdrBitSet := set.NewBits()
@@ -598,7 +598,7 @@ func (r *messageRelayer) aggregateSignatures(signatureMap map[int]blsSignatureBu
 // 3) The database does not contain any information for the chain.
 //   - In this case, we return the configured processHistoricalBlocksFromHeight if it is set, otherwise
 //     we return the chain head.
-func (r *messageRelayer) calculateStartingBlockHeight(processHistoricalBlocksFromHeight uint64) (uint64, error) {
+func (r *applicationRelayer) calculateStartingBlockHeight(processHistoricalBlocksFromHeight uint64) (uint64, error) {
 	latestProcessedBlock, err := r.getLatestProcessedBlockHeight()
 	if database.IsKeyNotFoundError(err) {
 		// The database does not contain the latest processed block data for the chain,
@@ -638,7 +638,7 @@ func (r *messageRelayer) calculateStartingBlockHeight(processHistoricalBlocksFro
 }
 
 // Gets the height of the chain head, writes it to the database, then returns it.
-func (r *messageRelayer) setProcessedBlockHeightToLatest() (uint64, error) {
+func (r *applicationRelayer) setProcessedBlockHeightToLatest() (uint64, error) {
 	ethClient, err := ethclient.Dial(r.sourceBlockchain.RPCEndpoint)
 	if err != nil {
 		r.logger.Error(
@@ -681,7 +681,7 @@ func (r *messageRelayer) setProcessedBlockHeightToLatest() (uint64, error) {
 // Note that there may be unrelayed messages in the latest processed block
 // because it is updated as soon as a single message from that block is relayed,
 // and there may be multiple message in the same block.
-func (r *messageRelayer) getLatestProcessedBlockHeight() (uint64, error) {
+func (r *applicationRelayer) getLatestProcessedBlockHeight() (uint64, error) {
 	latestProcessedBlockData, err := r.db.Get(r.relayerID.ID, database.LatestProcessedBlockKey)
 	if err != nil {
 		return 0, err
@@ -694,12 +694,12 @@ func (r *messageRelayer) getLatestProcessedBlockHeight() (uint64, error) {
 }
 
 // Store the block height in the database. Does not check against the current latest processed block height.
-func (r *messageRelayer) storeBlockHeight(height uint64) error {
+func (r *applicationRelayer) storeBlockHeight(height uint64) error {
 	return r.db.Put(r.relayerID.ID, database.LatestProcessedBlockKey, []byte(strconv.FormatUint(height, 10)))
 }
 
 // Stores the block height in the database if it is greater than the current latest processed block height.
-func (r *messageRelayer) storeLatestBlockHeight(height uint64) error {
+func (r *applicationRelayer) storeLatestBlockHeight(height uint64) error {
 	// First, check that the stored height is less than the current block height
 	// This is necessary because the relayer may be processing blocks out of order on startup
 	latestProcessedBlock, err := r.getLatestProcessedBlockHeight()
@@ -733,7 +733,7 @@ func (r *messageRelayer) storeLatestBlockHeight(height uint64) error {
 // Metrics
 //
 
-func (r *messageRelayer) incSuccessfulRelayMessageCount() {
+func (r *applicationRelayer) incSuccessfulRelayMessageCount() {
 	r.metrics.successfulRelayMessageCount.
 		WithLabelValues(
 			r.relayerID.DestinationBlockchainID.String(),
@@ -741,7 +741,7 @@ func (r *messageRelayer) incSuccessfulRelayMessageCount() {
 			r.sourceBlockchain.GetSubnetID().String()).Inc()
 }
 
-func (r *messageRelayer) incFailedRelayMessageCount(failureReason string) {
+func (r *applicationRelayer) incFailedRelayMessageCount(failureReason string) {
 	r.metrics.failedRelayMessageCount.
 		WithLabelValues(
 			r.relayerID.DestinationBlockchainID.String(),
@@ -750,7 +750,7 @@ func (r *messageRelayer) incFailedRelayMessageCount(failureReason string) {
 			failureReason).Inc()
 }
 
-func (r *messageRelayer) setCreateSignedMessageLatencyMS(latency float64) {
+func (r *applicationRelayer) setCreateSignedMessageLatencyMS(latency float64) {
 	r.metrics.createSignedMessageLatencyMS.
 		WithLabelValues(
 			r.relayerID.DestinationBlockchainID.String(),

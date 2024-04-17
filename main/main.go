@@ -149,7 +149,7 @@ func main() {
 
 	startMetricsServer(logger, gatherer, cfg.MetricsPort)
 
-	metrics, err := relayer.NewMessageRelayerMetrics(registerer)
+	metrics, err := relayer.NewApplicationRelayerMetrics(registerer)
 	if err != nil {
 		logger.Error(
 			"Failed to create message relayer metrics",
@@ -236,7 +236,7 @@ func main() {
 func runRelayer(
 	ctx context.Context,
 	logger logging.Logger,
-	metrics *relayer.MessageRelayerMetrics,
+	metrics *relayer.ApplicationRelayerMetrics,
 	db database.RelayerDatabase,
 	sourceSubnetInfo config.SourceBlockchain,
 	pChainClient platformvm.Client,

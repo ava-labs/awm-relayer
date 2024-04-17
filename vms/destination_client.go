@@ -18,7 +18,7 @@ import (
 )
 
 // DestinationClient is the interface for the destination chain client. Methods that interact with the destination chain
-// should generally be implemented in a thread safe way, as they will be called concurrently by the message relayers.
+// should generally be implemented in a thread safe way, as they will be called concurrently by the application relayers.
 type DestinationClient interface {
 	// SendTx contructs the transaction from warp primitives, and send to the configured destination chain endpoint
 	// TODO: Make generic for any VM.
