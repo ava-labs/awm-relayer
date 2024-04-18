@@ -1,9 +1,11 @@
-// Copyright (C) 2023, Ava Labs, Inc. All rights reserved.
+// Copyright (C) 2024, Ava Labs, Inc. All rights reserved.
 // See the file LICENSE for licensing terms.
 
-package vmtypes
+package types
 
 import (
+	"github.com/ava-labs/avalanchego/vms/platformvm/warp"
+	"github.com/ava-labs/subnet-evm/core/types"
 	"github.com/ethereum/go-ethereum/common"
 )
 
@@ -14,6 +16,11 @@ type WarpLogInfo struct {
 	SourceAddress    common.Address
 	SourceTxID       []byte
 	UnsignedMsgBytes []byte
+	UnsignedMessage  *warp.UnsignedMessage
 	BlockNumber      uint64
-	IsCatchUpMessage bool
+}
+
+type WarpBlockInfo struct {
+	BlockNumber uint64
+	WarpLogs    []types.Log
 }

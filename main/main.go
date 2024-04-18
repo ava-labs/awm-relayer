@@ -23,8 +23,8 @@ import (
 	"github.com/ava-labs/awm-relayer/database"
 	"github.com/ava-labs/awm-relayer/peers"
 	"github.com/ava-labs/awm-relayer/relayer"
+	relayerTypes "github.com/ava-labs/awm-relayer/types"
 	"github.com/ava-labs/awm-relayer/vms"
-	"github.com/ava-labs/awm-relayer/vms/vmtypes"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/atomic"
@@ -178,11 +178,11 @@ func main() {
 		panic(err)
 	}
 
-	manualWarpMessages := make(map[ids.ID][]*vmtypes.WarpLogInfo)
+	manualWarpMessages := make(map[ids.ID][]*relayerTypes.WarpLogInfo)
 	for _, msg := range cfg.ManualWarpMessages {
 		sourceBlockchainID := msg.GetSourceBlockchainID()
 
-		warpLogInfo := vmtypes.WarpLogInfo{
+		warpLogInfo := relayerTypes.WarpLogInfo{
 			SourceAddress:    msg.GetSourceAddress(),
 			UnsignedMsgBytes: msg.GetUnsignedMessageBytes(),
 		}
@@ -245,7 +245,7 @@ func runRelayer(
 	destinationClients map[ids.ID]vms.DestinationClient,
 	messageCreator message.Creator,
 	relayerHealth *atomic.Bool,
-	manualWarpMessages []*vmtypes.WarpLogInfo,
+	manualWarpMessages []*relayerTypes.WarpLogInfo,
 	cfg *config.Config,
 ) error {
 	logger.Info(

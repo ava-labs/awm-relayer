@@ -5,16 +5,14 @@ package evm
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"math/big"
-	"sort"
 	"time"
 
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/awm-relayer/config"
-	"github.com/ava-labs/awm-relayer/vms/vmtypes"
+	relayerTypes "github.com/ava-labs/awm-relayer/types"
 	"github.com/ava-labs/subnet-evm/core/types"
 	"github.com/ava-labs/subnet-evm/ethclient"
 	"github.com/ava-labs/subnet-evm/interfaces"
@@ -31,33 +29,17 @@ const (
 )
 
 // Errors
-var ErrInvalidLog = errors.New("invalid warp message log")
-
-// The filter query used to match logs emitted by the Warp precompile
-var warpFilterQuery = interfaces.FilterQuery{
-	Topics: [][]common.Hash{
-		{warp.WarpABI.Events["SendWarpMessage"].ID},
-		{},
-		{},
-	},
-	Addresses: []common.Address{
-		warp.ContractAddress,
-	},
-}
+var warpPrecompileLogFilter = warp.WarpABI.Events["SendWarpMessage"].ID
 
 // subscriber implements Subscriber
 type subscriber struct {
-	nodeWSURL    string
-	nodeRPCURL   string
+	ethClient    ethclient.Client
 	blockchainID ids.ID
-	logsChan     chan vmtypes.WarpLogInfo
-	evmLog       <-chan types.Log
+	blocksChan   chan relayerTypes.WarpBlockInfo
+	headers      <-chan *types.Header
 	sub          interfaces.Subscription
 
 	logger logging.Logger
-
-	// seams for mock injection:
-	dial func(url string) (ethclient.Client, error)
 }
 
 // NewSubscriber returns a subscriber
@@ -70,50 +52,29 @@ func NewSubscriber(logger logging.Logger, subnetInfo config.SourceBlockchain) *s
 		)
 		return nil
 	}
-
-	logs := make(chan vmtypes.WarpLogInfo, maxClientSubscriptionBuffer)
+	ethClient, err := ethclient.Dial(subnetInfo.WSEndpoint)
+	if err != nil {
+		logger.Error(
+			"Failed to connect to node",
+			zap.String("blockchainID", blockchainID.String()),
+			zap.Error(err),
+		)
+		return nil
+	}
+	blocks := make(chan relayerTypes.WarpBlockInfo, maxClientSubscriptionBuffer)
 
 	return &subscriber{
-		nodeWSURL:    subnetInfo.WSEndpoint,
-		nodeRPCURL:   subnetInfo.RPCEndpoint,
 		blockchainID: blockchainID,
+		ethClient:    ethClient,
 		logger:       logger,
-		logsChan:     logs,
-		dial:         ethclient.Dial,
+		blocksChan:   blocks,
 	}
-}
-
-func (s *subscriber) NewWarpLogInfo(log types.Log, isCatchUpMessage bool) (*vmtypes.WarpLogInfo, error) {
-	if len(log.Topics) != 3 {
-		s.logger.Error(
-			"Log did not have the correct number of topics",
-			zap.Int("numTopics", len(log.Topics)),
-		)
-		return nil, ErrInvalidLog
-	}
-	if log.Topics[0] != warp.WarpABI.Events["SendWarpMessage"].ID {
-		s.logger.Error(
-			"Log topic does not match the SendWarpMessage event type",
-			zap.String("topic", log.Topics[0].String()),
-			zap.String("expectedTopic", warp.WarpABI.Events["SendWarpMessage"].ID.String()),
-		)
-		return nil, ErrInvalidLog
-	}
-
-	return &vmtypes.WarpLogInfo{
-		// BytesToAddress takes the last 20 bytes of the byte array if it is longer than 20 bytes
-		SourceAddress:    common.BytesToAddress(log.Topics[1][:]),
-		SourceTxID:       log.TxHash[:],
-		UnsignedMsgBytes: log.Data,
-		BlockNumber:      log.BlockNumber,
-		IsCatchUpMessage: isCatchUpMessage,
-	}, nil
 }
 
 // forward logs from the concrete log channel to the interface channel
-func (s *subscriber) forwardLogs() {
-	for msgLog := range s.evmLog {
-		messageInfo, err := s.NewWarpLogInfo(msgLog, false)
+func (s *subscriber) forwardBlocks() {
+	for header := range s.headers {
+		blockInfo, err := s.newWarpBlockInfo(header)
 		if err != nil {
 			s.logger.Error(
 				"Invalid log. Continuing.",
@@ -121,7 +82,7 @@ func (s *subscriber) forwardLogs() {
 			)
 			continue
 		}
-		s.logsChan <- *messageInfo
+		s.blocksChan <- *blockInfo
 	}
 }
 
@@ -140,14 +101,9 @@ func (s *subscriber) ProcessFromHeight(height *big.Int, done chan bool) {
 		s.logger.Error("cannot process logs from nil height")
 		done <- false
 	}
-	ethClient, err := s.dial(s.nodeWSURL)
-	if err != nil {
-		s.logger.Error("failed to dial eth client", zap.Error(err))
-		done <- false
-	}
 
 	// Grab the latest block before filtering logs so we don't miss any before updating the db
-	latestBlockHeight, err := ethClient.BlockNumber(context.Background())
+	latestBlockHeight, err := s.ethClient.BlockNumber(context.Background())
 	if err != nil {
 		s.logger.Error(
 			"Failed to get latest block",
@@ -170,7 +126,7 @@ func (s *subscriber) ProcessFromHeight(height *big.Int, done chan bool) {
 			toBlock.Set(bigLatestBlockHeight)
 		}
 
-		err = s.processBlockRange(ethClient, fromBlock, toBlock)
+		err = s.processBlockRange(fromBlock, toBlock)
 		if err != nil {
 			s.logger.Error("failed to process block range", zap.Error(err))
 			done <- false
@@ -179,55 +135,55 @@ func (s *subscriber) ProcessFromHeight(height *big.Int, done chan bool) {
 	done <- true
 }
 
+func (s *subscriber) newWarpBlockInfo(header *types.Header) (*relayerTypes.WarpBlockInfo, error) {
+	// TODONOW: may need to populate WarpBlockInfo with the full block, then filter later
+	var (
+		logs []types.Log
+		err  error
+	)
+	if header.Bloom.Test(warpPrecompileLogFilter[:]) {
+		logs, err = s.ethClient.FilterLogs(context.Background(), interfaces.FilterQuery{
+			Topics:    [][]common.Hash{{warpPrecompileLogFilter}},
+			Addresses: []common.Address{warp.ContractAddress},
+			FromBlock: big.NewInt(int64(header.Number.Uint64())),
+			ToBlock:   big.NewInt(int64(header.Number.Uint64())),
+		})
+		if err != nil {
+			return nil, err
+		}
+	}
+	return &relayerTypes.WarpBlockInfo{
+		BlockNumber: header.Number.Uint64(),
+		WarpLogs:    logs,
+	}, nil
+}
+
 // Filter logs from the latest processed block to the latest block
 // Since initializationFilterQuery does not modify existing fields of warpFilterQuery,
 // we can safely reuse warpFilterQuery with only a shallow copy
 func (s *subscriber) processBlockRange(
-	ethClient ethclient.Client,
 	fromBlock, toBlock *big.Int,
 ) error {
-	initializationFilterQuery := interfaces.FilterQuery{
-		Topics:    warpFilterQuery.Topics,
-		Addresses: warpFilterQuery.Addresses,
-		FromBlock: fromBlock,
-		ToBlock:   toBlock,
-	}
-	logs, err := ethClient.FilterLogs(context.Background(), initializationFilterQuery)
-	if err != nil {
-		s.logger.Error(
-			"Failed to get logs on initialization",
-			zap.String("blockchainID", s.blockchainID.String()),
-			zap.Error(err),
-		)
-		return err
-	}
-
-	// Sort the logs in ascending block order. Order logs by index within blocks
-	sort.SliceStable(logs, func(i, j int) bool {
-		if logs[i].BlockNumber == logs[j].BlockNumber {
-			return logs[i].Index < logs[j].Index
-		}
-		return logs[i].BlockNumber < logs[j].BlockNumber
-	})
-
-	// Queue each of the logs to be processed
-	s.logger.Info(
-		"Processing logs on initialization",
-		zap.String("fromBlockHeight", fromBlock.String()),
-		zap.String("toBlockHeight", toBlock.String()),
-		zap.String("blockchainID", s.blockchainID.String()),
-	)
-	for _, log := range logs {
-		messageInfo, err := s.NewWarpLogInfo(log, true)
+	for i := fromBlock; i.Uint64() <= toBlock.Uint64(); i.Add(i, big.NewInt(1)) {
+		header, err := s.ethClient.HeaderByNumber(context.Background(), i)
 		if err != nil {
 			s.logger.Error(
-				"Invalid log when processing from height. Continuing.",
+				"Failed to get header by number",
 				zap.String("blockchainID", s.blockchainID.String()),
 				zap.Error(err),
 			)
-			continue
+			return err
 		}
-		s.logsChan <- *messageInfo
+		blockInfo, err := s.newWarpBlockInfo(header)
+		if err != nil {
+			s.logger.Error(
+				"Failed to get block info",
+				zap.String("blockchainID", s.blockchainID.String()),
+				zap.Error(err),
+			)
+			return err
+		}
+		s.blocksChan <- *blockInfo
 	}
 	return nil
 }
@@ -242,7 +198,7 @@ func (s *subscriber) Subscribe(maxResubscribeAttempts int) error {
 		if s.sub != nil {
 			s.sub.Unsubscribe()
 		}
-		err := s.dialAndSubscribe()
+		err := s.subscribe()
 		if err == nil {
 			s.logger.Info(
 				"Successfully subscribed",
@@ -269,16 +225,9 @@ func (s *subscriber) Subscribe(maxResubscribeAttempts int) error {
 	return fmt.Errorf("failed to subscribe to node with all %d attempts", maxResubscribeAttempts)
 }
 
-func (s *subscriber) dialAndSubscribe() error {
-	// Dial the configured source chain endpoint
-	// This needs to be a websocket
-	ethClient, err := s.dial(s.nodeWSURL)
-	if err != nil {
-		return err
-	}
-
-	evmLogs := make(chan types.Log, maxClientSubscriptionBuffer)
-	sub, err := ethClient.SubscribeFilterLogs(context.Background(), warpFilterQuery, evmLogs)
+func (s *subscriber) subscribe() error {
+	headers := make(chan *types.Header, maxClientSubscriptionBuffer)
+	sub, err := s.ethClient.SubscribeNewHead(context.Background(), headers)
 	if err != nil {
 		s.logger.Error(
 			"Failed to subscribe to logs",
@@ -287,16 +236,16 @@ func (s *subscriber) dialAndSubscribe() error {
 		)
 		return err
 	}
-	s.evmLog = evmLogs
+	s.headers = headers
 	s.sub = sub
 
-	// Forward logs to the interface channel. Closed when the subscription is cancelled
-	go s.forwardLogs()
+	// Forward blocks to the interface channel. Closed when the subscription is cancelled
+	go s.forwardBlocks()
 	return nil
 }
 
-func (s *subscriber) Logs() <-chan vmtypes.WarpLogInfo {
-	return s.logsChan
+func (s *subscriber) Blocks() <-chan relayerTypes.WarpBlockInfo {
+	return s.blocksChan
 }
 
 func (s *subscriber) Err() <-chan error {

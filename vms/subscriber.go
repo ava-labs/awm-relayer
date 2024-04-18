@@ -8,8 +8,8 @@ import (
 
 	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/awm-relayer/config"
+	relayerTypes "github.com/ava-labs/awm-relayer/types"
 	"github.com/ava-labs/awm-relayer/vms/evm"
-	"github.com/ava-labs/awm-relayer/vms/vmtypes"
 )
 
 // Subscriber subscribes to VM events containing Warp message data. The events written to the
@@ -25,8 +25,8 @@ type Subscriber interface {
 	// by Logs
 	Subscribe(maxResubscribeAttempts int) error
 
-	// Logs returns the channel that the subscription writes events to
-	Logs() <-chan vmtypes.WarpLogInfo
+	// Blocks returns the channel that the subscription writes blocks to
+	Blocks() <-chan relayerTypes.WarpBlockInfo
 
 	// Err returns the channel that the subscription writes errors to
 	// If an error is sent to this channel, the subscription should be closed
