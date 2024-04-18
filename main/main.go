@@ -149,10 +149,10 @@ func main() {
 
 	startMetricsServer(logger, gatherer, cfg.MetricsPort)
 
-	metrics, err := relayer.NewMessageRelayerMetrics(registerer)
+	metrics, err := relayer.NewApplicationRelayerMetrics(registerer)
 	if err != nil {
 		logger.Error(
-			"Failed to create message relayer metrics",
+			"Failed to create application relayer metrics",
 			zap.Error(err),
 		)
 		panic(err)
@@ -236,7 +236,7 @@ func main() {
 func runRelayer(
 	ctx context.Context,
 	logger logging.Logger,
-	metrics *relayer.MessageRelayerMetrics,
+	metrics *relayer.ApplicationRelayerMetrics,
 	db database.RelayerDatabase,
 	sourceSubnetInfo config.SourceBlockchain,
 	pChainClient platformvm.Client,
@@ -253,7 +253,7 @@ func runRelayer(
 		zap.String("originBlockchainID", sourceSubnetInfo.BlockchainID),
 	)
 
-	relayer, err := relayer.NewRelayer(
+	listener, err := relayer.NewListener(
 		logger,
 		metrics,
 		db,
@@ -267,10 +267,10 @@ func runRelayer(
 		cfg,
 	)
 	if err != nil {
-		return fmt.Errorf("failed to create relayer instance: %w", err)
+		return fmt.Errorf("failed to create listener instance: %w", err)
 	}
 	logger.Info(
-		"Created relayer",
+		"Created listener",
 		zap.String("blockchainID", sourceSubnetInfo.BlockchainID),
 	)
 
@@ -281,7 +281,7 @@ func runRelayer(
 			zap.String("blockchainID", sourceSubnetInfo.BlockchainID),
 			zap.String("warpMessageBytes", hex.EncodeToString(warpMessage.UnsignedMsgBytes)),
 		)
-		err := relayer.RelayMessage(warpMessage, false)
+		err := listener.RouteMessage(warpMessage, false)
 		if err != nil {
 			logger.Error(
 				"Failed to relay manual Warp message. Continuing.",
@@ -293,13 +293,13 @@ func runRelayer(
 	}
 
 	logger.Info(
-		"Relayer initialized. Listening for messages to relay.",
+		"Listener initialized. Listening for messages to relay.",
 		zap.String("originBlockchainID", sourceSubnetInfo.BlockchainID),
 	)
 
 	// Wait for logs from the subscribed node
 	// Will only return on error or context cancellation
-	return relayer.ProcessLogs(ctx)
+	return listener.ProcessLogs(ctx)
 }
 
 func startMetricsServer(logger logging.Logger, gatherer prometheus.Gatherer, port uint16) {

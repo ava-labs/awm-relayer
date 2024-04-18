@@ -141,7 +141,7 @@ func (m *messageManager) ShouldSendMessage(unsignedMessage *warp.UnsignedMessage
 	// Get the correct destination client from the global map
 	destinationClient, ok := m.destinationClients[destinationBlockchainID]
 	if !ok {
-		// This shouldn't occur, since we already check this in Relayer.CheckSupportedDestination. Return an error in this case.
+		// This shouldn't occur, since we already check this in Listener.RouteMessage. Return an error in this case.
 		return false, fmt.Errorf("relayer not configured to deliver to destination. destinationBlockchainID=%s", destinationBlockchainID.String())
 	}
 

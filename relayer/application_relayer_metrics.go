@@ -10,16 +10,16 @@ import (
 )
 
 var (
-	ErrFailedToCreateMessageRelayerMetrics = errors.New("failed to create message relayer metrics")
+	ErrFailedToCreateApplicationRelayerMetrics = errors.New("failed to create application relayer metrics")
 )
 
-type MessageRelayerMetrics struct {
+type ApplicationRelayerMetrics struct {
 	successfulRelayMessageCount  *prometheus.CounterVec
 	createSignedMessageLatencyMS *prometheus.GaugeVec
 	failedRelayMessageCount      *prometheus.CounterVec
 }
 
-func NewMessageRelayerMetrics(registerer prometheus.Registerer) (*MessageRelayerMetrics, error) {
+func NewApplicationRelayerMetrics(registerer prometheus.Registerer) (*ApplicationRelayerMetrics, error) {
 	successfulRelayMessageCount := prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "successful_relay_message_count",
@@ -37,7 +37,7 @@ func NewMessageRelayerMetrics(registerer prometheus.Registerer) (*MessageRelayer
 		[]string{"destination_chain_id", "source_chain_id", "source_subnet_id"},
 	)
 	if createSignedMessageLatencyMS == nil {
-		return nil, ErrFailedToCreateMessageRelayerMetrics
+		return nil, ErrFailedToCreateApplicationRelayerMetrics
 	}
 	registerer.MustRegister(createSignedMessageLatencyMS)
 
@@ -49,11 +49,11 @@ func NewMessageRelayerMetrics(registerer prometheus.Registerer) (*MessageRelayer
 		[]string{"destination_chain_id", "source_chain_id", "source_subnet_id", "failure_reason"},
 	)
 	if failedRelayMessageCount == nil {
-		return nil, ErrFailedToCreateMessageRelayerMetrics
+		return nil, ErrFailedToCreateApplicationRelayerMetrics
 	}
 	registerer.MustRegister(failedRelayMessageCount)
 
-	return &MessageRelayerMetrics{
+	return &ApplicationRelayerMetrics{
 		successfulRelayMessageCount:  successfulRelayMessageCount,
 		createSignedMessageLatencyMS: createSignedMessageLatencyMS,
 		failedRelayMessageCount:      failedRelayMessageCount,

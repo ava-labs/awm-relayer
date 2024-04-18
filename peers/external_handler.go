@@ -31,7 +31,7 @@ type RelayerExternalHandler struct {
 	timeoutManager    timer.AdaptiveTimeoutManager
 }
 
-// Create a new RelayerExternalHandler to forward relevant inbound app messages to the respective Teleporter message relayer, as well as handle timeouts.
+// Create a new RelayerExternalHandler to forward relevant inbound app messages to the respective Teleporter application relayer, as well as handle timeouts.
 func NewRelayerExternalHandler(
 	logger logging.Logger,
 	registerer prometheus.Registerer,
@@ -71,7 +71,7 @@ func NewRelayerExternalHandler(
 // For each inboundMessage, OnFinishedHandling must be called exactly once. However, since we handle relayer messages
 // async, we must call OnFinishedHandling manually across all code paths.
 //
-// This diagram illustrates how HandleInbound forwards relevant AppResponses to the corresponding Teleporter message relayer.
+// This diagram illustrates how HandleInbound forwards relevant AppResponses to the corresponding Teleporter application relayer.
 // On startup, one Relayer goroutine is created per source subnet, which listens to the subscriber for cross-chain messages
 // When a cross-chain message is picked up by a Relayer, HandleInbound routes AppResponses traffic to the appropriate Relayer
 func (h *RelayerExternalHandler) HandleInbound(_ context.Context, inboundMessage message.InboundMessage) {
