@@ -222,112 +222,14 @@ func (lstnr *Listener) NewWarpLogInfo(log types.Log) (*relayerTypes.WarpLogInfo,
 		)
 		return nil, ErrInvalidLog
 	}
-	sourceAddress := common.BytesToAddress(log.Topics[1][:])
-	unsignedMessageBytes := log.Data
-
-	// Unpack the VM message bytes into a Warp message
-	unsignedMessage, err := lstnr.contractMessage.UnpackWarpMessage(unsignedMessageBytes)
-	if err != nil {
-		lstnr.logger.Error(
-			"Failed to unpack sender message",
-			zap.Error(err),
-		)
-		return nil, err
-	}
-
-	lstnr.logger.Info(
-		"Unpacked warp message",
-		zap.String("blockchainID", lstnr.sourceBlockchain.GetBlockchainID().String()),
-		zap.String("warpMessageID", unsignedMessage.ID().String()),
-	)
 
 	return &relayerTypes.WarpLogInfo{
 		// BytesToAddress takes the last 20 bytes of the byte array if it is longer than 20 bytes
-		SourceAddress:    sourceAddress,
+		SourceAddress:    common.BytesToAddress(log.Topics[1][:]),
 		SourceTxID:       log.TxHash[:],
-		UnsignedMsgBytes: unsignedMessageBytes,
-		UnsignedMessage:  unsignedMessage,
+		UnsignedMsgBytes: log.Data,
 		BlockNumber:      log.BlockNumber,
 	}, nil
-}
-
-func (lstnr *Listener) extractAppRelayerMessages(blockInfo relayerTypes.WarpBlockInfo) map[*applicationRelayer][]relayerTypes.WarpLogInfo {
-	appRelayerMessages := make(map[*applicationRelayer][]relayerTypes.WarpLogInfo)
-	for _, appRelayer := range lstnr.applicationRelayers {
-		appRelayerMessages[appRelayer] = make([]relayerTypes.WarpLogInfo, 0)
-	}
-	for _, warpLog := range blockInfo.WarpLogs {
-		// TODONOW: how should we treat errors in this loop?
-		warpLogInfo, err := lstnr.NewWarpLogInfo(warpLog)
-		if err != nil {
-			lstnr.logger.Error(
-				"Failed to create warp log info",
-				zap.Error(err),
-			)
-			continue
-		}
-
-		// Check that the warp message is from a supported message protocol contract address.
-		messageManager, supportedMessageProtocol := lstnr.messageManagers[warpLogInfo.SourceAddress]
-		if !supportedMessageProtocol {
-			// TODONOW: we should probably return an error here and have the skip logic in the caller
-			// Do not return an error here because it is expected for there to be messages from other contracts
-			// than just the ones supported by a single listener instance.
-			lstnr.logger.Debug(
-				"Warp message from unsupported message protocol address. Not relaying.",
-				zap.String("protocolAddress", warpLogInfo.SourceAddress.Hex()),
-				zap.String("warpMessageID", warpLogInfo.UnsignedMessage.ID().String()),
-			)
-			continue
-		}
-
-		// Fetch the message delivery data
-		destinationBlockchainID, err := messageManager.GetDestinationBlockchainID(warpLogInfo.UnsignedMessage)
-		if err != nil {
-			lstnr.logger.Error(
-				"Failed to get destination chain ID",
-				zap.Error(err),
-			)
-			return nil
-		}
-
-		originSenderAddress, err := messageManager.GetOriginSenderAddress(warpLogInfo.UnsignedMessage)
-		if err != nil {
-			lstnr.logger.Error(
-				"Failed to get origin sender address",
-				zap.Error(err),
-			)
-			return nil
-		}
-		destinationAddress, err := messageManager.GetDestinationAddress(warpLogInfo.UnsignedMessage)
-		if err != nil {
-			lstnr.logger.Error(
-				"Failed to get destination address",
-				zap.Error(err),
-			)
-			return nil
-		}
-
-		applicationRelayer, ok := lstnr.getApplicationRelayer(
-			lstnr.sourceBlockchain.GetBlockchainID(),
-			destinationBlockchainID,
-			originSenderAddress,
-			destinationAddress,
-		)
-		if !ok {
-			lstnr.logger.Debug(
-				"Application relayer not found. Skipping message relay.",
-				zap.String("blockchainID", lstnr.sourceBlockchain.GetBlockchainID().String()),
-				zap.String("destinationBlockchainID", destinationBlockchainID.String()),
-				zap.String("originSenderAddress", originSenderAddress.String()),
-				zap.String("destinationAddress", destinationAddress.String()),
-				zap.String("warpMessageID", warpLogInfo.UnsignedMessage.ID().String()),
-			)
-			return nil
-		}
-		appRelayerMessages[applicationRelayer] = append(appRelayerMessages[applicationRelayer], *warpLogInfo)
-	}
-	return appRelayerMessages
 }
 
 // Listens to the Subscriber logs channel to process them.
@@ -355,30 +257,25 @@ func (lstnr *Listener) ProcessLogs(ctx context.Context) error {
 				zap.String("originChainId", lstnr.sourceBlockchain.GetBlockchainID().String()),
 				zap.Uint64("blockNumber", block.BlockNumber),
 			)
-			appRelayerMessages := lstnr.extractAppRelayerMessages(block)
-			if appRelayerMessages == nil {
-				continue
-			}
-			for appRelayer, warpLogs := range appRelayerMessages {
-				// Process the warp logs for each application relayer
-				for _, warpLog := range warpLogs {
-					err := appRelayer.relayMessage(
-						warpLog.UnsignedMessage,
-						lstnr.currentRequestID,
-						warpLog.MessageManager,
-						doneCatchingUp,
-						block.BlockNumber,
-						true,
+			for _, warpLog := range block.WarpLogs {
+				// Unpack the log and route the message to the appropriate application relayer
+				warpLogInfo, err := lstnr.NewWarpLogInfo(warpLog)
+				if err != nil {
+					lstnr.logger.Error(
+						"Failed to create warp log info",
+						zap.Error(err),
 					)
-					lstnr.currentRequestID++
-					if err != nil {
-						lstnr.logger.Error(
-							"Failed to run application relayer",
-							zap.String("blockchainID", lstnr.sourceBlockchain.GetBlockchainID().String()),
-							zap.String("warpMessageID", warpLog.UnsignedMessage.ID().String()),
-							zap.Error(err),
-						)
-					}
+					continue
+				}
+
+				err = lstnr.RouteMessage(warpLogInfo, doneCatchingUp || block.IsCatchUpBlock)
+				if err != nil {
+					lstnr.logger.Error(
+						"Error relaying message",
+						zap.String("originChainID", lstnr.sourceBlockchain.GetBlockchainID().String()),
+						zap.Error(err),
+					)
+					continue
 				}
 			}
 		case err := <-lstnr.Subscriber.Err():

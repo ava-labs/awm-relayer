@@ -74,7 +74,7 @@ func NewSubscriber(logger logging.Logger, subnetInfo config.SourceBlockchain) *s
 // forward logs from the concrete log channel to the interface channel
 func (s *subscriber) forwardBlocks() {
 	for header := range s.headers {
-		blockInfo, err := s.newWarpBlockInfo(header)
+		blockInfo, err := s.newWarpBlockInfo(header, false)
 		if err != nil {
 			s.logger.Error(
 				"Invalid log. Continuing.",
@@ -135,7 +135,7 @@ func (s *subscriber) ProcessFromHeight(height *big.Int, done chan bool) {
 	done <- true
 }
 
-func (s *subscriber) newWarpBlockInfo(header *types.Header) (*relayerTypes.WarpBlockInfo, error) {
+func (s *subscriber) newWarpBlockInfo(header *types.Header, isCatchUp bool) (*relayerTypes.WarpBlockInfo, error) {
 	// TODONOW: may need to populate WarpBlockInfo with the full block, then filter later
 	var (
 		logs []types.Log
@@ -153,8 +153,9 @@ func (s *subscriber) newWarpBlockInfo(header *types.Header) (*relayerTypes.WarpB
 		}
 	}
 	return &relayerTypes.WarpBlockInfo{
-		BlockNumber: header.Number.Uint64(),
-		WarpLogs:    logs,
+		BlockNumber:    header.Number.Uint64(),
+		WarpLogs:       logs,
+		IsCatchUpBlock: isCatchUp,
 	}, nil
 }
 
@@ -174,7 +175,7 @@ func (s *subscriber) processBlockRange(
 			)
 			return err
 		}
-		blockInfo, err := s.newWarpBlockInfo(header)
+		blockInfo, err := s.newWarpBlockInfo(header, true)
 		if err != nil {
 			s.logger.Error(
 				"Failed to get block info",
