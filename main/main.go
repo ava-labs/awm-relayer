@@ -170,7 +170,7 @@ func main() {
 		panic(err)
 	}
 
-	// Initialize the database and create the database manager
+	// Initialize the database and database manager
 	db, err := database.NewDatabase(logger, &cfg)
 	if err != nil {
 		logger.Error(
@@ -186,8 +186,12 @@ func main() {
 		ids := database.GetSourceBlockchainRelayerIDs(s)
 		relayerKeys.Add(ids...)
 	}
-	// TODONOW: set the duration in the configuration
-	dbManager := database.NewDatabaseManager(logger, db, time.Second, relayerKeys.List())
+	dbManager := database.NewDatabaseManager(
+		logger,
+		db,
+		time.Duration(cfg.DBWriteIntervalSeconds)*time.Second,
+		relayerKeys.List(),
+	)
 	go dbManager.Run()
 
 	manualWarpMessages := make(map[ids.ID][]*relayerTypes.WarpLogInfo)

@@ -124,13 +124,14 @@ type WarpQuorum struct {
 
 // Top-level configuration
 type Config struct {
-	LogLevel        string `mapstructure:"log-level" json:"log-level"`
-	PChainAPIURL    string `mapstructure:"p-chain-api-url" json:"p-chain-api-url"`
-	InfoAPIURL      string `mapstructure:"info-api-url" json:"info-api-url"`
-	StorageLocation string `mapstructure:"storage-location" json:"storage-location"`
-	RedisURL        string `mapstructure:"redis-url" json:"redis-url"`
-	APIPort         uint16 `mapstructure:"api-port" json:"api-port"`
-	MetricsPort     uint16 `mapstructure:"metrics-port" json:"metrics-port"`
+	LogLevel               string `mapstructure:"log-level" json:"log-level"`
+	PChainAPIURL           string `mapstructure:"p-chain-api-url" json:"p-chain-api-url"`
+	InfoAPIURL             string `mapstructure:"info-api-url" json:"info-api-url"`
+	StorageLocation        string `mapstructure:"storage-location" json:"storage-location"`
+	RedisURL               string `mapstructure:"redis-url" json:"redis-url"`
+	APIPort                uint16 `mapstructure:"api-port" json:"api-port"`
+	MetricsPort            uint16 `mapstructure:"metrics-port" json:"metrics-port"`
+	DBWriteIntervalSeconds uint64 `mapstructure:"db-write-interval-seconds" json:"db-write-interval-seconds"`
 
 	SourceBlockchains      []*SourceBlockchain      `mapstructure:"source-blockchains" json:"source-blockchains"`
 	DestinationBlockchains []*DestinationBlockchain `mapstructure:"destination-blockchains" json:"destination-blockchains"`
@@ -147,6 +148,7 @@ func SetDefaultConfigValues(v *viper.Viper) {
 	v.SetDefault(ProcessMissedBlocksKey, true)
 	v.SetDefault(APIPortKey, 8080)
 	v.SetDefault(MetricsPortKey, 9090)
+	v.SetDefault(DBWriteIntervalSecondsKey, 1)
 }
 
 // BuildConfig constructs the relayer config using Viper.
@@ -179,6 +181,7 @@ func BuildConfig(v *viper.Viper) (Config, bool, error) {
 	cfg.ProcessMissedBlocks = v.GetBool(ProcessMissedBlocksKey)
 	cfg.APIPort = v.GetUint16(APIPortKey)
 	cfg.MetricsPort = v.GetUint16(MetricsPortKey)
+	cfg.DBWriteIntervalSeconds = v.GetUint64(DBWriteIntervalSecondsKey)
 	if err := v.UnmarshalKey(ManualWarpMessagesKey, &cfg.ManualWarpMessages); err != nil {
 		return Config{}, false, fmt.Errorf("failed to unmarshal manual warp messages: %w", err)
 	}

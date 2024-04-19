@@ -141,6 +141,18 @@ The relayer is configured via a JSON file, the path to which is passed in via th
 
 - Whether or not to process missed blocks after restarting. Defaults to `true`. If set to false, the relayer will start processing blocks from the chain head.
 
+`"api-port"`: unsigned integer
+
+- The port on which the relayer will listen for API requests. Defaults to `8080`.
+
+`"metrics-port"`: unsigned integer
+
+- The port on which the relayer will expose Prometheus metrics. Defaults to `9090`.
+
+`"db-write-interval-seconds": unsigned integer`
+
+- The interval at which the relayer will write to the database. Defaults to `1`.
+
 `"manual-warp-messages": []ManualWarpMessage`
 
 - The list of Warp messages to relay on startup, independent of the catch-up mechanism or normal operation. Each `ManualWarpMessage` has the following configuration:
