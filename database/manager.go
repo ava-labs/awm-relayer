@@ -4,6 +4,7 @@
 package database
 
 import (
+	"fmt"
 	"strconv"
 	"sync"
 	"time"
@@ -13,88 +14,20 @@ import (
 )
 
 //
-// KeyManager commits keys to be written to the database in a thread safe manner.
-//
-
-type KeyManager struct {
-	logger                   logging.Logger
-	queuedHeightsLock        *sync.Mutex
-	queuedHeightsAndMessages map[uint64]*messageCounter
-	maxHeightLock            *sync.Mutex
-	maxCommittedHeight       uint64
-	finished                 chan uint64
-}
-
-func NewKeyManager(logger logging.Logger) *KeyManager {
-	return &KeyManager{
-		logger:                   logger,
-		queuedHeightsLock:        &sync.Mutex{},
-		queuedHeightsAndMessages: make(map[uint64]*messageCounter),
-		maxHeightLock:            &sync.Mutex{},
-		finished:                 make(chan uint64),
-	}
-}
-
-// Run listens for finished signals from application relayers, and commits the
-// height once all messages have been processed.
-// This function should only be called once.
-func (km *KeyManager) run() {
-	for height := range km.finished {
-		counter, ok := km.queuedHeightsAndMessages[height]
-		if !ok {
-			continue
-		}
-		counter.processedMessages++
-		if counter.processedMessages == counter.totalMessages {
-			km.commitHeight(height)
-			delete(km.queuedHeightsAndMessages, height)
-		}
-	}
-}
-
-// commitHeight marks a height as eligible to be written to the database.
-func (km *KeyManager) commitHeight(height uint64) {
-	if height > km.maxCommittedHeight {
-		km.logger.Info("DBG: committing height", zap.Uint64("height", height))
-		km.maxCommittedHeight = height
-	}
-}
-
-// PrepareHeight sets the total number of messages to be processed at a given height.
-// Once all messages have been processed, the height is eligible to be committed.
-// It is up to the caller to determine if a height is eligible to be committed.
-// This function is thread safe.
-func (km *KeyManager) prepareHeight(height uint64, totalMessages uint64) {
-	km.logger.Info("DBG: preparing height", zap.Uint64("height", height))
-	if totalMessages == 0 {
-		km.maxHeightLock.Lock()
-		defer km.maxHeightLock.Unlock()
-		km.commitHeight(height)
-		return
-	}
-	km.queuedHeightsLock.Lock()
-	defer km.queuedHeightsLock.Unlock()
-	km.queuedHeightsAndMessages[height] = &messageCounter{
-		totalMessages:     totalMessages,
-		processedMessages: 0,
-	}
-}
-
-//
 // DatabaseManager writes all committed keys to the database on a timer.
 //
 
 type DatabaseManager struct {
 	logger      logging.Logger
-	keyManagers map[RelayerID]*KeyManager
+	keyManagers map[RelayerID]*keyManager
 	interval    time.Duration
 	db          RelayerDatabase
 }
 
 func NewDatabaseManager(logger logging.Logger, db RelayerDatabase, interval time.Duration, keys []RelayerID) *DatabaseManager {
-	keyManagers := make(map[RelayerID]*KeyManager)
+	keyManagers := make(map[RelayerID]*keyManager)
 	for _, key := range keys {
-		keyManager := NewKeyManager(logger)
+		keyManager := newKeyManager(logger)
 		go keyManager.run()
 		keyManagers[key] = keyManager
 	}
@@ -121,7 +54,11 @@ func (dm *DatabaseManager) Run() {
 				if storedHeight >= km.maxCommittedHeight {
 					continue
 				}
-				dm.logger.Info("DBG: db manager writing height", zap.Uint64("height", km.maxCommittedHeight))
+				dm.logger.Debug(
+					"writing height",
+					zap.Uint64("height", km.maxCommittedHeight),
+					zap.String("relayerID", id.ID.String()),
+				)
 				err = dm.db.Put(id.ID, LatestProcessedBlockKey, []byte(strconv.FormatUint(km.maxCommittedHeight, 10)))
 				if err != nil {
 					dm.logger.Error("Failed to write latest processed block height", zap.Error(err))
@@ -136,18 +73,16 @@ func (dm *DatabaseManager) Get(id RelayerID, key DataKey) ([]byte, error) {
 	return dm.db.Get(id.ID, key)
 }
 
-// TODONOW: How should we handle errors here?
-func (dm *DatabaseManager) PrepareHeight(id RelayerID, height uint64, totalMessages uint64) {
-	dm.logger.Info("DBG: db manager preparing height", zap.Uint64("height", height))
+func (dm *DatabaseManager) PrepareHeight(id RelayerID, height uint64, totalMessages uint64) error {
 	km, ok := dm.keyManagers[id]
 	if !ok {
 		dm.logger.Error("Key manager not found", zap.String("relayerID", id.ID.String()))
-		return
+		return fmt.Errorf("key manager not found")
 	}
 	km.prepareHeight(height, totalMessages)
+	return nil
 }
 
-// TODONOW: How should we handle errors here?
 func (dm *DatabaseManager) Finished(id RelayerID, height uint64) {
 	km, ok := dm.keyManagers[id]
 	if !ok {
@@ -156,6 +91,74 @@ func (dm *DatabaseManager) Finished(id RelayerID, height uint64) {
 		return
 	}
 	km.finished <- height
+}
+
+//
+// keyManager commits keys to be written to the database in a thread safe manner.
+//
+
+type keyManager struct {
+	logger                   logging.Logger
+	queuedHeightsLock        *sync.Mutex
+	queuedHeightsAndMessages map[uint64]*messageCounter
+	maxHeightLock            *sync.Mutex
+	maxCommittedHeight       uint64
+	finished                 chan uint64
+}
+
+func newKeyManager(logger logging.Logger) *keyManager {
+	return &keyManager{
+		logger:                   logger,
+		queuedHeightsLock:        &sync.Mutex{},
+		queuedHeightsAndMessages: make(map[uint64]*messageCounter),
+		maxHeightLock:            &sync.Mutex{},
+		finished:                 make(chan uint64),
+	}
+}
+
+// Run listens for finished signals from application relayers, and commits the
+// height once all messages have been processed.
+// This function should only be called once.
+func (km *keyManager) run() {
+	for height := range km.finished {
+		counter, ok := km.queuedHeightsAndMessages[height]
+		if !ok {
+			continue
+		}
+		counter.processedMessages++
+		if counter.processedMessages == counter.totalMessages {
+			km.commitHeight(height)
+			delete(km.queuedHeightsAndMessages, height)
+		}
+	}
+}
+
+// commitHeight marks a height as eligible to be written to the database.
+func (km *keyManager) commitHeight(height uint64) {
+	if height > km.maxCommittedHeight {
+		km.logger.Debug("committing height", zap.Uint64("height", height))
+		km.maxCommittedHeight = height
+	}
+}
+
+// PrepareHeight sets the total number of messages to be processed at a given height.
+// Once all messages have been processed, the height is eligible to be committed.
+// It is up to the caller to determine if a height is eligible to be committed.
+// This function is thread safe.
+func (km *keyManager) prepareHeight(height uint64, totalMessages uint64) {
+	km.logger.Debug("preparing height", zap.Uint64("height", height))
+	if totalMessages == 0 {
+		km.maxHeightLock.Lock()
+		defer km.maxHeightLock.Unlock()
+		km.commitHeight(height)
+		return
+	}
+	km.queuedHeightsLock.Lock()
+	defer km.queuedHeightsLock.Unlock()
+	km.queuedHeightsAndMessages[height] = &messageCounter{
+		totalMessages:     totalMessages,
+		processedMessages: 0,
+	}
 }
 
 // Helper type

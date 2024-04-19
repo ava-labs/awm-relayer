@@ -232,6 +232,9 @@ func (lstnr *Listener) calculateStartingBlockHeight(processHistoricalBlocksFromH
 func (lstnr *Listener) setAllProcessedBlockHeightsToLatest() error {
 	for _, relayer := range lstnr.applicationRelayers {
 		height, err := lstnr.getCurrentHeight()
+		if err != nil {
+			return err
+		}
 		relayer.dbManager.PrepareHeight(relayer.relayerID, height, 0)
 		if err != nil {
 			return err
@@ -291,68 +294,16 @@ func (lstnr *Listener) ProcessLogs(ctx context.Context) error {
 				zap.String("originChainId", lstnr.sourceBlockchain.GetBlockchainID().String()),
 				zap.Uint64("blockNumber", block.BlockNumber),
 			)
-			if doneCatchingUp || block.IsCatchUpBlock {
-				// If we're eligible to write to the database, count the number of messages in the block
-				// that will be processed by each application relayer.
-				expectedMessages := make(map[database.RelayerID]uint64)
-				for _, warpLog := range block.WarpLogs {
-					// TODONOW: consolidate this repeated code
-					warpLogInfo, err := lstnr.NewWarpLogInfo(warpLog)
-					if err != nil {
-						lstnr.logger.Error(
-							"Failed to create warp log info",
-							zap.Error(err),
-						)
-						continue
-					}
-					// Check that the warp message is from a supported message protocol contract address.
-					messageManager, supportedMessageProtocol := lstnr.messageManagers[warpLogInfo.SourceAddress]
-					if !supportedMessageProtocol {
-						// Do not return an error here because it is expected for there to be messages from other contracts
-						// than just the ones supported by a single listener instance.
-						lstnr.logger.Debug(
-							"Warp message from unsupported message protocol address. Not relaying.",
-							zap.String("protocolAddress", warpLogInfo.SourceAddress.Hex()),
-						)
-						continue
-					}
 
-					// Unpack the VM message bytes into a Warp message
-					unsignedMessage, err := lstnr.contractMessage.UnpackWarpMessage(warpLogInfo.UnsignedMsgBytes)
-					if err != nil {
-						lstnr.logger.Error(
-							"Failed to unpack sender message",
-							zap.Error(err),
-						)
-						continue
-					}
-
-					lstnr.logger.Info(
-						"Unpacked warp message",
-						zap.String("blockchainID", lstnr.sourceBlockchain.GetBlockchainID().String()),
-						zap.String("warpMessageID", unsignedMessage.ID().String()),
-					)
-
-					lstnr.logger.Info(
-						"Relaying message",
-						zap.String("blockchainID", lstnr.sourceBlockchain.GetBlockchainID().String()),
-					)
-
-					applicationRelayer, ok := lstnr.getApplicationRelayer(
-						unsignedMessage,
-						messageManager,
-					)
-					if !ok {
-						continue
-					}
-					expectedMessages[applicationRelayer.relayerID]++
-				}
-				for relayerID, totalMessages := range expectedMessages {
-					lstnr.dbManager.PrepareHeight(relayerID, block.BlockNumber, totalMessages)
-				}
-			}
+			// Iterate over the Warp logs in two passes:
+			// The first pass extracts the information needed to relay from the log, but does not initiate relaying
+			// This is so that the number of messages to be processed can be registered with the database before
+			// any messages are processed
+			// The second pass dispatches the messages to the application relayers for processing
+			expectedMessages := make(map[database.RelayerID]uint64)
+			var msgsInfo []parsedMessageInfo
+			isCheckpoint := doneCatchingUp || block.IsCatchUpBlock
 			for _, warpLog := range block.WarpLogs {
-				// Unpack the log and route the message to the appropriate application relayer
 				warpLogInfo, err := lstnr.NewWarpLogInfo(warpLog)
 				if err != nil {
 					lstnr.logger.Error(
@@ -361,8 +312,40 @@ func (lstnr *Listener) ProcessLogs(ctx context.Context) error {
 					)
 					continue
 				}
-
-				err = lstnr.RouteMessage(warpLogInfo)
+				msgInfo, ok, err := lstnr.parseMessage(warpLogInfo)
+				if err != nil {
+					lstnr.logger.Error(
+						"Failed to parse message",
+						zap.String("blockchainID", lstnr.sourceBlockchain.GetBlockchainID().String()),
+						zap.Error(err),
+					)
+					continue
+				}
+				if !ok {
+					lstnr.logger.Debug(
+						"Application relayer not found. Skipping message relay.",
+						zap.String("blockchainID", lstnr.sourceBlockchain.GetBlockchainID().String()),
+					)
+					continue
+				}
+				msgsInfo = append(msgsInfo, msgInfo)
+				expectedMessages[msgInfo.applicationRelayer.relayerID]++
+			}
+			if isCheckpoint {
+				for relayerID, totalMessages := range expectedMessages {
+					err := lstnr.dbManager.PrepareHeight(relayerID, block.BlockNumber, totalMessages)
+					if err != nil {
+						lstnr.logger.Error(
+							"Failed to prepare height",
+							zap.String("relayerID", relayerID.ID.String()),
+							zap.Error(err),
+						)
+						continue
+					}
+				}
+			}
+			for _, msgInfo := range msgsInfo {
+				err := lstnr.dispatchToApplicationRelayer(msgInfo, block.BlockNumber)
 				if err != nil {
 					lstnr.logger.Error(
 						"Error relaying message",
@@ -412,6 +395,29 @@ func (lstnr *Listener) ReconnectToSubscriber() error {
 	// Success
 	lstnr.healthStatus.Store(true)
 	return nil
+}
+
+// RouteMessage relays a single warp message to the destination chain.
+// Warp message relay requests from the same origin chain are processed serially
+func (lstnr *Listener) RouteMessage(warpLogInfo *relayerTypes.WarpLogInfo) error {
+	parsedMessageInfo, ok, err := lstnr.parseMessage(warpLogInfo)
+	if err != nil {
+		lstnr.logger.Error(
+			"Failed to parse message",
+			zap.String("blockchainID", lstnr.sourceBlockchain.GetBlockchainID().String()),
+			zap.Error(err),
+		)
+		return err
+	}
+	if !ok {
+		lstnr.logger.Debug(
+			"Application relayer not found. Skipping message relay.",
+			zap.String("blockchainID", lstnr.sourceBlockchain.GetBlockchainID().String()),
+		)
+		return nil
+	}
+
+	return lstnr.dispatchToApplicationRelayer(parsedMessageInfo, warpLogInfo.BlockNumber)
 }
 
 // Unpacks the Warp message and fetches the appropriate application relayer
@@ -507,8 +513,20 @@ func (lstnr *Listener) getApplicationRelayer(
 	return nil, false
 }
 
-// RouteMessage relays a single warp message to the destination chain. Warp message relay requests from the same origin chain are processed serially
-func (lstnr *Listener) RouteMessage(warpLogInfo *relayerTypes.WarpLogInfo) error {
+// Helper type and function to extract the information needed to relay a message
+// From the raw log information
+type parsedMessageInfo struct {
+	unsignedMessage    *avalancheWarp.UnsignedMessage
+	messageManager     messages.MessageManager
+	applicationRelayer *applicationRelayer
+}
+
+func (lstnr *Listener) parseMessage(warpLogInfo *relayerTypes.WarpLogInfo) (
+	parsedMessageInfo,
+	bool,
+	error,
+) {
+
 	// Check that the warp message is from a supported message protocol contract address.
 	messageManager, supportedMessageProtocol := lstnr.messageManagers[warpLogInfo.SourceAddress]
 	if !supportedMessageProtocol {
@@ -518,7 +536,7 @@ func (lstnr *Listener) RouteMessage(warpLogInfo *relayerTypes.WarpLogInfo) error
 			"Warp message from unsupported message protocol address. Not relaying.",
 			zap.String("protocolAddress", warpLogInfo.SourceAddress.Hex()),
 		)
-		return nil
+		return parsedMessageInfo{}, false, nil
 	}
 
 	// Unpack the VM message bytes into a Warp message
@@ -528,7 +546,7 @@ func (lstnr *Listener) RouteMessage(warpLogInfo *relayerTypes.WarpLogInfo) error
 			"Failed to unpack sender message",
 			zap.Error(err),
 		)
-		return err
+		return parsedMessageInfo{}, false, err
 	}
 
 	lstnr.logger.Info(
@@ -547,24 +565,31 @@ func (lstnr *Listener) RouteMessage(warpLogInfo *relayerTypes.WarpLogInfo) error
 		messageManager,
 	)
 	if !ok {
-		return nil
+		return parsedMessageInfo{}, false, nil
 	}
+	return parsedMessageInfo{
+		unsignedMessage:    unsignedMessage,
+		messageManager:     messageManager,
+		applicationRelayer: applicationRelayer,
+	}, true, nil
+}
 
+func (lstnr *Listener) dispatchToApplicationRelayer(parsedMessageInfo parsedMessageInfo, blockNumber uint64) error {
 	// Relay the message to the destination. Messages from a given source chain must be processed in serial in order to
 	// guarantee that the previous block (n-1) is fully processed by the listener when processing a given log from block n.
 	// TODO: Add a config option to use the Warp API, instead of hardcoding to the app request network here
-	err = applicationRelayer.relayMessage(
-		unsignedMessage,
+	err := parsedMessageInfo.applicationRelayer.relayMessage(
+		parsedMessageInfo.unsignedMessage,
 		lstnr.currentRequestID,
-		messageManager,
-		warpLogInfo.BlockNumber,
+		parsedMessageInfo.messageManager,
+		blockNumber,
 		true,
 	)
 	if err != nil {
 		lstnr.logger.Error(
 			"Failed to run application relayer",
 			zap.String("blockchainID", lstnr.sourceBlockchain.GetBlockchainID().String()),
-			zap.String("warpMessageID", unsignedMessage.ID().String()),
+			zap.String("warpMessageID", parsedMessageInfo.unsignedMessage.ID().String()),
 			zap.Error(err),
 		)
 		return err

@@ -136,7 +136,6 @@ func (s *subscriber) ProcessFromHeight(height *big.Int, done chan bool) {
 }
 
 func (s *subscriber) newWarpBlockInfo(header *types.Header, isCatchUp bool) (*relayerTypes.WarpBlockInfo, error) {
-	// TODONOW: may need to populate WarpBlockInfo with the full block, then filter later
 	var (
 		logs []types.Log
 		err  error
