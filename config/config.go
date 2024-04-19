@@ -239,6 +239,9 @@ func (c *Config) Validate() error {
 	if _, err := url.ParseRequestURI(c.InfoAPIURL); err != nil {
 		return err
 	}
+	if c.DBWriteIntervalSeconds == 0 || c.DBWriteIntervalSeconds > 600 {
+		return errors.New("db-write-interval-seconds must be between 1 and 600")
+	}
 
 	blockchainIDToSubnetID := make(map[ids.ID]ids.ID)
 

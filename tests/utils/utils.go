@@ -170,6 +170,7 @@ func CreateDefaultRelayerConfig(
 		PChainAPIURL:           sourceSubnetsInfo[0].NodeURIs[0],
 		InfoAPIURL:             sourceSubnetsInfo[0].NodeURIs[0],
 		StorageLocation:        StorageLocation,
+		DBWriteIntervalSeconds: 1,
 		ProcessMissedBlocks:    false,
 		SourceBlockchains:      sources,
 		DestinationBlockchains: destinations,
