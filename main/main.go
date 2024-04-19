@@ -10,6 +10,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/alexliesenfeld/health"
 	"github.com/ava-labs/avalanchego/api/info"
@@ -18,6 +19,7 @@ import (
 	"github.com/ava-labs/avalanchego/message"
 	"github.com/ava-labs/avalanchego/utils/constants"
 	"github.com/ava-labs/avalanchego/utils/logging"
+	"github.com/ava-labs/avalanchego/utils/set"
 	"github.com/ava-labs/avalanchego/vms/platformvm"
 	"github.com/ava-labs/awm-relayer/config"
 	"github.com/ava-labs/awm-relayer/database"
@@ -168,7 +170,7 @@ func main() {
 		panic(err)
 	}
 
-	// Initialize the database
+	// Initialize the database and create the database manager
 	db, err := database.NewDatabase(logger, &cfg)
 	if err != nil {
 		logger.Error(
@@ -177,6 +179,16 @@ func main() {
 		)
 		panic(err)
 	}
+
+	// Get all the relayer keys from the configuration
+	relayerKeys := set.NewSet[database.RelayerID](0)
+	for _, s := range cfg.SourceBlockchains {
+		ids := database.GetSourceBlockchainRelayerIDs(s)
+		relayerKeys.Add(ids...)
+	}
+	// TODONOW: set the duration in the configuration
+	dbManager := database.NewDatabaseManager(logger, db, time.Second, relayerKeys.List())
+	go dbManager.Run()
 
 	manualWarpMessages := make(map[ids.ID][]*relayerTypes.WarpLogInfo)
 	for _, msg := range cfg.ManualWarpMessages {
@@ -212,7 +224,7 @@ func main() {
 				ctx,
 				logger,
 				metrics,
-				db,
+				dbManager,
 				*subnetInfo,
 				pChainClient,
 				network,
@@ -237,7 +249,7 @@ func runRelayer(
 	ctx context.Context,
 	logger logging.Logger,
 	metrics *relayer.ApplicationRelayerMetrics,
-	db database.RelayerDatabase,
+	dbManager *database.DatabaseManager,
 	sourceSubnetInfo config.SourceBlockchain,
 	pChainClient platformvm.Client,
 	network *peers.AppRequestNetwork,
@@ -256,7 +268,7 @@ func runRelayer(
 	listener, err := relayer.NewListener(
 		logger,
 		metrics,
-		db,
+		dbManager,
 		sourceSubnetInfo,
 		pChainClient,
 		network,
@@ -281,7 +293,7 @@ func runRelayer(
 			zap.String("blockchainID", sourceSubnetInfo.BlockchainID),
 			zap.String("warpMessageBytes", hex.EncodeToString(warpMessage.UnsignedMsgBytes)),
 		)
-		err := listener.RouteMessage(warpMessage, false)
+		err := listener.RouteMessage(warpMessage)
 		if err != nil {
 			logger.Error(
 				"Failed to relay manual Warp message. Continuing.",

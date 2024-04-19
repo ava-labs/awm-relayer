@@ -187,6 +187,8 @@ func AllowedAddresses(network interfaces.LocalNetwork) {
 	)
 	height1, err := subnetAInfo.RPCClient.BlockNumber(ctx)
 	Expect(err).Should(BeNil())
+	// Sleep for some time to make sure the DB is updated
+	time.Sleep(2 * time.Second)
 	relayerCleanup()
 
 	// Test Relayer 2
@@ -225,6 +227,8 @@ func AllowedAddresses(network interfaces.LocalNetwork) {
 	)
 	height2, err := subnetAInfo.RPCClient.BlockNumber(ctx)
 	Expect(err).Should(BeNil())
+	// Sleep for some time to make sure the DB is updated
+	time.Sleep(2 * time.Second)
 	relayerCleanup()
 
 	// Test Relayer 3
@@ -263,6 +267,8 @@ func AllowedAddresses(network interfaces.LocalNetwork) {
 	)
 	height3, err := subnetAInfo.RPCClient.BlockNumber(ctx)
 	Expect(err).Should(BeNil())
+	// Sleep for some time to make sure the DB is updated
+	time.Sleep(2 * time.Second)
 	relayerCleanup()
 
 	// Test Relayer 4
@@ -301,6 +307,8 @@ func AllowedAddresses(network interfaces.LocalNetwork) {
 	)
 	height4, err := subnetAInfo.RPCClient.BlockNumber(ctx)
 	Expect(err).Should(BeNil())
+	// Sleep for some time to make sure the DB is updated
+	time.Sleep(2 * time.Second)
 	relayerCleanup()
 
 	//
