@@ -21,8 +21,8 @@ import (
 	"github.com/ava-labs/awm-relayer/peers"
 	relayerTypes "github.com/ava-labs/awm-relayer/types"
 	vms "github.com/ava-labs/awm-relayer/vms"
-	"github.com/ava-labs/coreth/ethclient"
 	"github.com/ava-labs/subnet-evm/core/types"
+	"github.com/ava-labs/subnet-evm/ethclient"
 	"github.com/ava-labs/subnet-evm/precompile/contracts/warp"
 	"github.com/ethereum/go-ethereum/common"
 	"go.uber.org/atomic"
@@ -68,7 +68,24 @@ func NewListener(
 	relayerHealth *atomic.Bool,
 	cfg *config.Config,
 ) (*Listener, error) {
-	sub := vms.NewSubscriber(logger, sourceBlockchain)
+	blockchainID, err := ids.FromString(sourceBlockchain.BlockchainID)
+	if err != nil {
+		logger.Error(
+			"Invalid blockchainID provided to subscriber",
+			zap.Error(err),
+		)
+		return nil, err
+	}
+	ethClient, err := ethclient.Dial(sourceBlockchain.WSEndpoint)
+	if err != nil {
+		logger.Error(
+			"Failed to connect to node",
+			zap.String("blockchainID", blockchainID.String()),
+			zap.Error(err),
+		)
+		return nil, err
+	}
+	sub := vms.NewSubscriber(logger, config.ParseVM(sourceBlockchain.VM), blockchainID, ethClient)
 
 	// Create message managers for each supported message protocol
 	messageManagers := make(map[common.Address]messages.MessageManager)
@@ -143,7 +160,7 @@ func NewListener(
 
 	// Open the subscription. We must do this before processing any missed messages, otherwise we may miss an incoming message
 	// in between fetching the latest block and subscribing.
-	err := lstnr.Subscriber.Subscribe(maxSubscribeAttempts)
+	err = lstnr.Subscriber.Subscribe(maxSubscribeAttempts)
 	if err != nil {
 		logger.Error(
 			"Failed to subscribe to node",

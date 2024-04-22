@@ -6,10 +6,12 @@ package vms
 import (
 	"math/big"
 
+	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/awm-relayer/config"
 	relayerTypes "github.com/ava-labs/awm-relayer/types"
 	"github.com/ava-labs/awm-relayer/vms/evm"
+	"github.com/ava-labs/subnet-evm/ethclient"
 )
 
 // Subscriber subscribes to VM events containing Warp message data. The events written to the
@@ -37,10 +39,10 @@ type Subscriber interface {
 }
 
 // NewSubscriber returns a concrete Subscriber according to the VM specified by [subnetInfo]
-func NewSubscriber(logger logging.Logger, subnetInfo config.SourceBlockchain) Subscriber {
-	switch config.ParseVM(subnetInfo.VM) {
+func NewSubscriber(logger logging.Logger, vm config.VM, blockchainID ids.ID, ethClient ethclient.Client) Subscriber {
+	switch vm {
 	case config.EVM:
-		return evm.NewSubscriber(logger, subnetInfo)
+		return evm.NewSubscriber(logger, blockchainID, ethClient)
 	default:
 		return nil
 	}

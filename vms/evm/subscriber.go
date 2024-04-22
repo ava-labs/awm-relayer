@@ -11,7 +11,6 @@ import (
 
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/utils/logging"
-	"github.com/ava-labs/awm-relayer/config"
 	relayerTypes "github.com/ava-labs/awm-relayer/types"
 	"github.com/ava-labs/subnet-evm/core/types"
 	"github.com/ava-labs/subnet-evm/ethclient"
@@ -43,24 +42,7 @@ type subscriber struct {
 }
 
 // NewSubscriber returns a subscriber
-func NewSubscriber(logger logging.Logger, subnetInfo config.SourceBlockchain) *subscriber {
-	blockchainID, err := ids.FromString(subnetInfo.BlockchainID)
-	if err != nil {
-		logger.Error(
-			"Invalid blockchainID provided to subscriber",
-			zap.Error(err),
-		)
-		return nil
-	}
-	ethClient, err := ethclient.Dial(subnetInfo.WSEndpoint)
-	if err != nil {
-		logger.Error(
-			"Failed to connect to node",
-			zap.String("blockchainID", blockchainID.String()),
-			zap.Error(err),
-		)
-		return nil
-	}
+func NewSubscriber(logger logging.Logger, blockchainID ids.ID, ethClient ethclient.Client) *subscriber {
 	blocks := make(chan relayerTypes.WarpBlockInfo, maxClientSubscriptionBuffer)
 
 	return &subscriber{
@@ -164,8 +146,8 @@ func (s *subscriber) newWarpBlockInfo(header *types.Header, isCatchUp bool) (*re
 func (s *subscriber) processBlockRange(
 	fromBlock, toBlock *big.Int,
 ) error {
-	for i := fromBlock; i.Uint64() <= toBlock.Uint64(); i.Add(i, big.NewInt(1)) {
-		header, err := s.ethClient.HeaderByNumber(context.Background(), i)
+	for i := fromBlock.Int64(); i <= toBlock.Int64(); i++ {
+		header, err := s.ethClient.HeaderByNumber(context.Background(), big.NewInt(i))
 		if err != nil {
 			s.logger.Error(
 				"Failed to get header by number",
