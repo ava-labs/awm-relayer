@@ -258,7 +258,9 @@ The relayer consists of the following components:
 - At the global level:
   - P2P app network: issues signature `AppRequests`
   - P-Chain client: gets the validators for a Subnet
-  - JSON database: stores latest processed block for each Application Relayer
+  - Relayer database: stores latest processed block for each Application Relayer
+    - Currently supports Redis and local JSON file storage
+  - Database manager: coordinates database writes from Application Relayers
 - Per Source Blockchain
   - Subscriber: listens for logs pertaining to cross-chain message transactions
   - Source RPC client: queries for missed blocks on startup
