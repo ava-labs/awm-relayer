@@ -207,7 +207,7 @@ The relayer is configured via a JSON file, the path to which is passed in via th
 
   `"supported-destinations": []SupportedDestination`
 
-  - List of destinations that the source blockchain supports. Each `SupportedDestination` consists of a destination blockchain ID, and a list of addresses on that destination blockchain that the relayer supports delivering Warp messages to. The destination address is defined by the message protocol. For example, it could be the address called from the message protocol contract. If no supported addresses are provided, all addresses are allowed on that blockchain. If `supported-destinations` is empty, then all destination blockchains (and therefore all addresses on those destination blockchains) are supported.
+  - List of destinations that the source blockchain supports. Each `SupportedDestination` consists of a cb58-encoded destination blockchain ID (`"blockchain-id"`), and a list of hex-encoded addresses (`"addresses"`) on that destination blockchain that the relayer supports delivering Warp messages to. The destination address is defined by the message protocol. For example, it could be the address called from the message protocol contract. If no supported addresses are provided, all addresses are allowed on that blockchain. If `supported-destinations` is empty, then all destination blockchains (and therefore all addresses on those destination blockchains) are supported.
 
   `"process-historical-blocks-from-height": unsigned integer`
 
