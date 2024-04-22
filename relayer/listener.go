@@ -608,10 +608,9 @@ func (lstnr *Listener) dispatchToApplicationRelayer(parsedMessageInfo parsedMess
 			zap.String("warpMessageID", parsedMessageInfo.unsignedMessage.ID().String()),
 			zap.Error(err),
 		)
-		return err
 	}
 
 	// Increment the request ID for the next message relay request
 	lstnr.currentRequestID++
-	return nil
+	return err
 }
