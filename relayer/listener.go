@@ -543,7 +543,6 @@ func (lstnr *Listener) parseMessage(warpLogInfo *relayerTypes.WarpLogInfo) (
 	bool,
 	error,
 ) {
-
 	// Check that the warp message is from a supported message protocol contract address.
 	messageManager, supportedMessageProtocol := lstnr.messageManagers[warpLogInfo.SourceAddress]
 	if !supportedMessageProtocol {
