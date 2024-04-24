@@ -122,6 +122,7 @@ func (s *subscriber) newWarpBlockInfo(header *types.Header, isCatchUp bool) (*re
 		logs []types.Log
 		err  error
 	)
+	// Check if the block contains warp logs, and fetch them from the client if it does
 	if header.Bloom.Test(warpPrecompileLogFilter[:]) {
 		logs, err = s.ethClient.FilterLogs(context.Background(), interfaces.FilterQuery{
 			Topics:    [][]common.Hash{{warpPrecompileLogFilter}},

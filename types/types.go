@@ -8,18 +8,23 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 )
 
-// WarpLogInfo is provided by the subscription and
-// describes the transaction information emitted by the source chain,
-// including the Warp Message payload bytes
+// WarpBlockInfo describes the block information needed to process Warp messages.
+// It includes any logs that contain Warp messages to relay.
+// WarpBlockInfo instances are populated by the subscriber, and forwared to the
+// listener to process
+type WarpBlockInfo struct {
+	BlockNumber    uint64
+	WarpLogs       []types.Log
+	IsCatchUpBlock bool
+}
+
+// WarpLogInfo describes the transaction information for the Warp message
+// sent on the source chain, and includes the Warp Message payload bytes
+// WarpLogInfo instances are either derived from the logs of a block or
+// from the manual Warp message information provided via configuration
 type WarpLogInfo struct {
 	SourceAddress    common.Address
 	SourceTxID       []byte
 	UnsignedMsgBytes []byte
 	BlockNumber      uint64
-}
-
-type WarpBlockInfo struct {
-	BlockNumber    uint64
-	WarpLogs       []types.Log
-	IsCatchUpBlock bool
 }

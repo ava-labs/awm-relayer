@@ -46,25 +46,37 @@ func (dm *DatabaseManager) Run() {
 	for range time.Tick(dm.interval) {
 		for id, km := range dm.keyManagers {
 			// Ensure we're not writing the default value
-			if km.maxCommittedHeight > 0 {
-				storedHeight, err := getLatestProcessedBlockHeight(dm.db, id)
-				if err != nil && !IsKeyNotFoundError(err) {
-					dm.logger.Error("Failed to get latest processed block height", zap.Error(err))
-					continue
-				}
-				if storedHeight >= km.maxCommittedHeight {
-					continue
-				}
-				dm.logger.Debug(
-					"writing height",
-					zap.Uint64("height", km.maxCommittedHeight),
+			km.maxHeightLock.RLock()
+			currMaxCommittedHeight := km.maxCommittedHeight
+			km.maxHeightLock.RUnlock()
+			if currMaxCommittedHeight == 0 {
+				continue
+			}
+			storedHeight, err := getLatestProcessedBlockHeight(dm.db, id)
+			if err != nil && !IsKeyNotFoundError(err) {
+				dm.logger.Error(
+					"Failed to get latest processed block height",
+					zap.Error(err),
 					zap.String("relayerID", id.ID.String()),
 				)
-				err = dm.db.Put(id.ID, LatestProcessedBlockKey, []byte(strconv.FormatUint(km.maxCommittedHeight, 10)))
-				if err != nil {
-					dm.logger.Error("Failed to write latest processed block height", zap.Error(err))
-					continue
-				}
+				continue
+			}
+			if storedHeight >= currMaxCommittedHeight {
+				continue
+			}
+			dm.logger.Debug(
+				"Writing height",
+				zap.Uint64("height", currMaxCommittedHeight),
+				zap.String("relayerID", id.ID.String()),
+			)
+			err = dm.db.Put(id.ID, LatestProcessedBlockKey, []byte(strconv.FormatUint(currMaxCommittedHeight, 10)))
+			if err != nil {
+				dm.logger.Error(
+					"Failed to write latest processed block height",
+					zap.Error(err),
+					zap.String("relayerID", id.ID.String()),
+				)
+				continue
 			}
 		}
 	}
@@ -87,8 +99,7 @@ func (dm *DatabaseManager) PrepareHeight(id RelayerID, height uint64, totalMessa
 func (dm *DatabaseManager) Finished(id RelayerID, height uint64) {
 	km, ok := dm.keyManagers[id]
 	if !ok {
-		// This is not an error, as this will occur if the database is not eligible for writing
-		dm.logger.Debug("Key manager not found", zap.String("relayerID", id.ID.String()))
+		dm.logger.Error("Key manager not found", zap.String("relayerID", id.ID.String()))
 		return
 	}
 	km.finished <- height
@@ -123,9 +134,9 @@ func (h *intHeap) Pop() any {
 type keyManager struct {
 	logger                   logging.Logger
 	relayerID                RelayerID
-	queuedHeightsLock        *sync.Mutex
+	queuedHeightsLock        *sync.RWMutex
 	queuedHeightsAndMessages map[uint64]*messageCounter
-	maxHeightLock            *sync.Mutex
+	maxHeightLock            *sync.RWMutex
 	maxCommittedHeight       uint64
 	pendingCommits           *intHeap
 	finished                 chan uint64
@@ -137,9 +148,9 @@ func newKeyManager(logger logging.Logger, relayerID RelayerID) *keyManager {
 	return &keyManager{
 		logger:                   logger,
 		relayerID:                relayerID,
-		queuedHeightsLock:        &sync.Mutex{},
+		queuedHeightsLock:        &sync.RWMutex{},
 		queuedHeightsAndMessages: make(map[uint64]*messageCounter),
-		maxHeightLock:            &sync.Mutex{},
+		maxHeightLock:            &sync.RWMutex{},
 		pendingCommits:           h,
 		finished:                 make(chan uint64),
 	}
@@ -150,7 +161,9 @@ func newKeyManager(logger logging.Logger, relayerID RelayerID) *keyManager {
 // This function should only be called once.
 func (km *keyManager) run() {
 	for height := range km.finished {
+		km.queuedHeightsLock.RLock()
 		counter, ok := km.queuedHeightsAndMessages[height]
+		km.queuedHeightsLock.RUnlock()
 		if !ok {
 			km.logger.Error(
 				"Pending height not found",
@@ -170,7 +183,9 @@ func (km *keyManager) run() {
 		)
 		if counter.processedMessages == counter.totalMessages {
 			km.commitHeight(height)
+			km.queuedHeightsLock.Lock()
 			delete(km.queuedHeightsAndMessages, height)
+			km.queuedHeightsLock.Unlock()
 		}
 	}
 }

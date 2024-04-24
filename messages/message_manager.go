@@ -29,14 +29,14 @@ type MessageManager interface {
 	// the VM rules is also passed in, since MessageManager does not assume any particular VM
 	SendMessage(signedMessage *warp.Message, destinationBlockchainID ids.ID) error
 
-	// GetDestinationBlockchainID returns the destination chain ID of the destination chain for the given message
-	GetDestinationBlockchainID(unsignedMessage *warp.UnsignedMessage) (ids.ID, error)
-
-	// GetOriginSenderAddress returns the address of the sender on the source blockchain
-	GetOriginSenderAddress(unsignedMessage *warp.UnsignedMessage) (common.Address, error)
-
-	// GetDestinationAddress returns the address of the recipient on the destination blockchain
-	GetDestinationAddress(unsignedMessage *warp.UnsignedMessage) (common.Address, error)
+	// GetMessageRoutingInfo returns the source chain ID, origin sender address, destination chain ID, and destination address
+	GetMessageRoutingInfo(unsignedMessage *warp.UnsignedMessage) (
+		ids.ID,
+		common.Address,
+		ids.ID,
+		common.Address,
+		error,
+	)
 }
 
 // NewMessageManager constructs a MessageManager for a particular message protocol, defined by the message protocol address and config

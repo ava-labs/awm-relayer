@@ -42,6 +42,7 @@ func (k DataKey) String() string {
 }
 
 // RelayerDatabase is a key-value store for relayer state, with each relayerID maintaining its own state
+// Implementations should be thread-safe
 type RelayerDatabase interface {
 	Get(relayerID common.Hash, key DataKey) ([]byte, error)
 	Put(relayerID common.Hash, key DataKey, value []byte) error
