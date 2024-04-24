@@ -16,9 +16,18 @@ var (
 // Valid configuration objects to be used by tests in external packages
 var (
 	TestValidConfig = Config{
-		LogLevel:     "info",
-		PChainAPIURL: "http://test.avax.network",
-		InfoAPIURL:   "http://test.avax.network",
+		LogLevel: "info",
+		PChainAPI: &PChainAPI{
+			apiClient: apiClient{
+				BaseURL: "http://test.avax.network",
+			},
+			// BaseURL: "http://test.avax.network",
+		},
+		InfoAPI: &InfoAPI{
+			apiClient: apiClient{
+				BaseURL: "http://test.avax.network",
+			},
+		},
 		SourceBlockchains: []*SourceBlockchain{
 			{
 				RPCEndpoint:  fmt.Sprintf("http://test.avax.network/ext/bc/%s/rpc", testBlockchainID),

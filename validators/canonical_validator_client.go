@@ -9,8 +9,10 @@ import (
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/snow/validators"
 	"github.com/ava-labs/avalanchego/utils/logging"
+	"github.com/ava-labs/avalanchego/utils/rpc"
 	"github.com/ava-labs/avalanchego/vms/platformvm"
 	avalancheWarp "github.com/ava-labs/avalanchego/vms/platformvm/warp"
+	"github.com/ava-labs/awm-relayer/config"
 	"go.uber.org/zap"
 )
 
@@ -18,14 +20,16 @@ var _ validators.State = &CanonicalValidatorClient{}
 
 // CanonicalValidatorClient wraps platformvm.Client and implements validators.State
 type CanonicalValidatorClient struct {
-	client platformvm.Client
-	logger logging.Logger
+	client  platformvm.Client
+	options []rpc.Option
+	logger  logging.Logger
 }
 
-func NewCanonicalValidatorClient(logger logging.Logger, client platformvm.Client) *CanonicalValidatorClient {
+func NewCanonicalValidatorClient(logger logging.Logger, api *config.PChainAPI) *CanonicalValidatorClient {
 	return &CanonicalValidatorClient{
-		client: client,
-		logger: logger,
+		client:  api.GetClient(),
+		logger:  logger,
+		options: api.GetOptions(),
 	}
 }
 
@@ -59,15 +63,15 @@ func (v *CanonicalValidatorClient) GetCurrentCanonicalValidatorSet(subnetID ids.
 }
 
 func (v *CanonicalValidatorClient) GetMinimumHeight(ctx context.Context) (uint64, error) {
-	return v.client.GetHeight(ctx)
+	return v.client.GetHeight(ctx, v.options...)
 }
 
 func (v *CanonicalValidatorClient) GetCurrentHeight(ctx context.Context) (uint64, error) {
-	return v.client.GetHeight(ctx)
+	return v.client.GetHeight(ctx, v.options...)
 }
 
 func (v *CanonicalValidatorClient) GetSubnetID(ctx context.Context, blockchainID ids.ID) (ids.ID, error) {
-	return v.client.ValidatedBy(ctx, blockchainID)
+	return v.client.ValidatedBy(ctx, blockchainID, v.options...)
 }
 
 // Gets the current validator set of the given subnet ID, including the validators' BLS public
@@ -84,7 +88,7 @@ func (v *CanonicalValidatorClient) getCurrentValidatorSet(
 	// Get the current subnet validators. These validators are not expected to include
 	// BLS signing information given that addPermissionlessValidatorTx is only used to
 	// add primary network validators.
-	subnetVdrs, err := v.client.GetCurrentValidators(ctx, subnetID, nil)
+	subnetVdrs, err := v.client.GetCurrentValidators(ctx, subnetID, nil, v.options...)
 	if err != nil {
 		return nil, err
 	}
@@ -100,7 +104,7 @@ func (v *CanonicalValidatorClient) getCurrentValidatorSet(
 			Weight: subnetVdr.Weight,
 		}
 	}
-	primaryVdrs, err := v.client.GetCurrentValidators(ctx, ids.Empty, subnetNodeIDs)
+	primaryVdrs, err := v.client.GetCurrentValidators(ctx, ids.Empty, subnetNodeIDs, v.options...)
 	if err != nil {
 		return nil, err
 	}
@@ -142,7 +146,7 @@ func (v *CanonicalValidatorClient) GetValidatorSet(
 ) (map[ids.NodeID]*validators.GetValidatorOutput, error) {
 	// First, attempt to use the "getValidatorsAt" RPC method. This method may not be available on
 	// all API nodes, in which case we can fall back to using "getCurrentValidators" if needed.
-	res, err := v.client.GetValidatorsAt(ctx, subnetID, height)
+	res, err := v.client.GetValidatorsAt(ctx, subnetID, height, v.options...)
 	if err != nil {
 		v.logger.Debug(
 			"P-chain RPC to getValidatorAt returned error. Falling back to getCurrentValidators",

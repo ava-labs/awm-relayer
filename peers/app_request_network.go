@@ -19,7 +19,6 @@ import (
 	"github.com/ava-labs/avalanchego/utils/ips"
 	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/avalanchego/utils/set"
-	"github.com/ava-labs/avalanchego/vms/platformvm"
 	"github.com/ava-labs/avalanchego/vms/platformvm/warp"
 	"github.com/ava-labs/awm-relayer/config"
 	"github.com/ava-labs/awm-relayer/utils"
@@ -47,8 +46,6 @@ func NewNetwork(
 	logLevel logging.Level,
 	registerer prometheus.Registerer,
 	cfg *config.Config,
-	infoClient info.Client,
-	pChainClient platformvm.Client,
 ) (*AppRequestNetwork, map[ids.ID]chan message.InboundMessage, error) {
 	logger := logging.NewLogger(
 		"awm-relayer-p2p",
@@ -59,7 +56,8 @@ func NewNetwork(
 		),
 	)
 
-	networkID, err := infoClient.GetNetworkID(context.Background())
+	infoClient := cfg.InfoAPI.GetClient()
+	networkID, err := infoClient.GetNetworkID(context.Background(), cfg.InfoAPI.GetOptions()...)
 	if err != nil {
 		logger.Error(
 			"Failed to get network ID",
@@ -100,7 +98,7 @@ func NewNetwork(
 		return nil, nil, err
 	}
 
-	validatorClient := validators.NewCanonicalValidatorClient(logger, pChainClient)
+	validatorClient := validators.NewCanonicalValidatorClient(logger, cfg.PChainAPI)
 
 	arNetwork := &AppRequestNetwork{
 		Network:         testNetwork,

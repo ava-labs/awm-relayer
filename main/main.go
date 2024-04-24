@@ -12,13 +12,11 @@ import (
 	"os"
 
 	"github.com/alexliesenfeld/health"
-	"github.com/ava-labs/avalanchego/api/info"
 	"github.com/ava-labs/avalanchego/api/metrics"
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/message"
 	"github.com/ava-labs/avalanchego/utils/constants"
 	"github.com/ava-labs/avalanchego/utils/logging"
-	"github.com/ava-labs/avalanchego/vms/platformvm"
 	"github.com/ava-labs/awm-relayer/config"
 	"github.com/ava-labs/awm-relayer/database"
 	"github.com/ava-labs/awm-relayer/peers"
@@ -70,10 +68,6 @@ func main() {
 	}
 	logger.Info(fmt.Sprintf("Set config options.%s", overwrittenLog))
 
-	// Global P-Chain and Info clients used to get subnet validator sets
-	pChainClient := platformvm.NewClient(cfg.PChainAPIURL)
-	infoClient := info.NewClient(cfg.InfoAPIURL)
-
 	// Initialize all destination clients
 	logger.Info("Initializing destination clients")
 	destinationClients, err := vms.CreateDestinationClients(logger, cfg)
@@ -106,8 +100,6 @@ func main() {
 		networkLogLevel,
 		registerer,
 		&cfg,
-		infoClient,
-		pChainClient,
 	)
 	if err != nil {
 		logger.Error(
@@ -214,7 +206,6 @@ func main() {
 				metrics,
 				db,
 				*subnetInfo,
-				pChainClient,
 				network,
 				responseChans[blockchainID],
 				destinationClients,
@@ -239,7 +230,6 @@ func runRelayer(
 	metrics *relayer.ApplicationRelayerMetrics,
 	db database.RelayerDatabase,
 	sourceSubnetInfo config.SourceBlockchain,
-	pChainClient platformvm.Client,
 	network *peers.AppRequestNetwork,
 	responseChan chan message.InboundMessage,
 	destinationClients map[ids.ID]vms.DestinationClient,
@@ -258,7 +248,6 @@ func runRelayer(
 		metrics,
 		db,
 		sourceSubnetInfo,
-		pChainClient,
 		network,
 		responseChan,
 		destinationClients,

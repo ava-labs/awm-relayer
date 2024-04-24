@@ -11,10 +11,13 @@ import (
 	"net/url"
 	"os"
 
+	"github.com/ava-labs/avalanchego/api/info"
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/utils/constants"
 	"github.com/ava-labs/avalanchego/utils/logging"
+	"github.com/ava-labs/avalanchego/utils/rpc"
 	"github.com/ava-labs/avalanchego/utils/set"
+	"github.com/ava-labs/avalanchego/vms/platformvm"
 	"github.com/ava-labs/awm-relayer/utils"
 
 	"github.com/ava-labs/subnet-evm/ethclient"
@@ -122,16 +125,33 @@ type WarpQuorum struct {
 	QuorumDenominator uint64
 }
 
+type apiClient struct {
+	BaseURL     string            `mapstructure:"base-url" json:"base-url"`
+	QueryParams map[string]string `mapstructure:"query-parameters" json:"query-parameters"`
+
+	options []rpc.Option
+}
+
+type PChainAPI struct {
+	apiClient
+	client platformvm.Client
+}
+
+type InfoAPI struct {
+	apiClient
+	client info.Client
+}
+
 // Top-level configuration
 type Config struct {
 	LogLevel        string `mapstructure:"log-level" json:"log-level"`
-	PChainAPIURL    string `mapstructure:"p-chain-api-url" json:"p-chain-api-url"`
-	InfoAPIURL      string `mapstructure:"info-api-url" json:"info-api-url"`
 	StorageLocation string `mapstructure:"storage-location" json:"storage-location"`
 	RedisURL        string `mapstructure:"redis-url" json:"redis-url"`
 	APIPort         uint16 `mapstructure:"api-port" json:"api-port"`
 	MetricsPort     uint16 `mapstructure:"metrics-port" json:"metrics-port"`
 
+	PChainAPI              *PChainAPI               `mapstructure:"p-chain-api" json:"p-chain-api"`
+	InfoAPI                *InfoAPI                 `mapstructure:"info-api" json:"info-api"`
 	SourceBlockchains      []*SourceBlockchain      `mapstructure:"source-blockchains" json:"source-blockchains"`
 	DestinationBlockchains []*DestinationBlockchain `mapstructure:"destination-blockchains" json:"destination-blockchains"`
 	ProcessMissedBlocks    bool                     `mapstructure:"process-missed-blocks" json:"process-missed-blocks"`
@@ -172,13 +192,17 @@ func BuildConfig(v *viper.Viper) (Config, bool, error) {
 	)
 
 	cfg.LogLevel = v.GetString(LogLevelKey)
-	cfg.PChainAPIURL = v.GetString(PChainAPIURLKey)
-	cfg.InfoAPIURL = v.GetString(InfoAPIURLKey)
 	cfg.StorageLocation = v.GetString(StorageLocationKey)
 	cfg.RedisURL = v.GetString(RedisURLKey)
 	cfg.ProcessMissedBlocks = v.GetBool(ProcessMissedBlocksKey)
 	cfg.APIPort = v.GetUint16(APIPortKey)
 	cfg.MetricsPort = v.GetUint16(MetricsPortKey)
+	if err := v.UnmarshalKey(PChainAPIKey, &cfg.PChainAPI); err != nil {
+		return Config{}, false, fmt.Errorf("failed to unmarshal P-Chain API: %w", err)
+	}
+	if err := v.UnmarshalKey(InfoAPIKey, &cfg.InfoAPI); err != nil {
+		return Config{}, false, fmt.Errorf("failed to unmarshal Info API: %w", err)
+	}
 	if err := v.UnmarshalKey(ManualWarpMessagesKey, &cfg.ManualWarpMessages); err != nil {
 		return Config{}, false, fmt.Errorf("failed to unmarshal manual warp messages: %w", err)
 	}
@@ -230,10 +254,10 @@ func (c *Config) Validate() error {
 	if len(c.DestinationBlockchains) == 0 {
 		return errors.New("relayer not configured to relay to any subnets. A list of destination subnets must be provided in the configuration file")
 	}
-	if _, err := url.ParseRequestURI(c.PChainAPIURL); err != nil {
+	if err := c.PChainAPI.Validate(); err != nil {
 		return err
 	}
-	if _, err := url.ParseRequestURI(c.InfoAPIURL); err != nil {
+	if err := c.InfoAPI.Validate(); err != nil {
 		return err
 	}
 
@@ -406,6 +430,47 @@ func (c *Config) InitializeWarpQuorums() error {
 	}
 
 	return nil
+}
+
+func (a *apiClient) Validate() error {
+	if _, err := url.ParseRequestURI(a.BaseURL); err != nil {
+		return fmt.Errorf("invalid base URL: %w", err)
+	}
+	a.options = make([]rpc.Option, 0, len(a.QueryParams))
+	for key, value := range a.QueryParams {
+		a.options = append(a.options, rpc.WithQueryParam(key, value))
+	}
+	return nil
+}
+
+func (p *PChainAPI) Validate() error {
+	if err := p.apiClient.Validate(); err != nil {
+		return err
+	}
+
+	p.client = platformvm.NewClient(p.BaseURL)
+	return nil
+}
+
+func (i *InfoAPI) Validate() error {
+	if err := i.apiClient.Validate(); err != nil {
+		return err
+	}
+
+	i.client = info.NewClient(i.BaseURL)
+	return nil
+}
+
+func (c *apiClient) GetOptions() []rpc.Option {
+	return c.options
+}
+
+func (p *PChainAPI) GetClient() platformvm.Client {
+	return p.client
+}
+
+func (i *InfoAPI) GetClient() info.Client {
+	return i.client
 }
 
 // Validates the source subnet configuration, including verifying that the supported destinations are present in destinationBlockchainIDs
