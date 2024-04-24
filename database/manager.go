@@ -46,9 +46,9 @@ func (dm *DatabaseManager) Run() {
 	for range time.Tick(dm.interval) {
 		for id, km := range dm.keyManagers {
 			// Ensure we're not writing the default value
-			km.maxHeightLock.RLock()
+			km.lock.RLock()
 			currMaxCommittedHeight := km.maxCommittedHeight
-			km.maxHeightLock.RUnlock()
+			km.lock.RUnlock()
 			if currMaxCommittedHeight == 0 {
 				continue
 			}
@@ -134,9 +134,8 @@ func (h *intHeap) Pop() any {
 type keyManager struct {
 	logger                   logging.Logger
 	relayerID                RelayerID
-	queuedHeightsLock        *sync.RWMutex
 	queuedHeightsAndMessages map[uint64]*messageCounter
-	maxHeightLock            *sync.RWMutex
+	lock                     *sync.RWMutex
 	maxCommittedHeight       uint64
 	pendingCommits           *intHeap
 	finished                 chan uint64
@@ -148,9 +147,8 @@ func newKeyManager(logger logging.Logger, relayerID RelayerID) *keyManager {
 	return &keyManager{
 		logger:                   logger,
 		relayerID:                relayerID,
-		queuedHeightsLock:        &sync.RWMutex{},
 		queuedHeightsAndMessages: make(map[uint64]*messageCounter),
-		maxHeightLock:            &sync.RWMutex{},
+		lock:                     &sync.RWMutex{},
 		pendingCommits:           h,
 		finished:                 make(chan uint64),
 	}
@@ -161,15 +159,15 @@ func newKeyManager(logger logging.Logger, relayerID RelayerID) *keyManager {
 // This function should only be called once.
 func (km *keyManager) run() {
 	for height := range km.finished {
-		km.queuedHeightsLock.RLock()
+		km.lock.Lock()
 		counter, ok := km.queuedHeightsAndMessages[height]
-		km.queuedHeightsLock.RUnlock()
 		if !ok {
 			km.logger.Error(
 				"Pending height not found",
 				zap.Uint64("height", height),
 				zap.String("relayerID", km.relayerID.ID.String()),
 			)
+			km.lock.Unlock()
 			continue
 		}
 
@@ -183,17 +181,15 @@ func (km *keyManager) run() {
 		)
 		if counter.processedMessages == counter.totalMessages {
 			km.commitHeight(height)
-			km.queuedHeightsLock.Lock()
 			delete(km.queuedHeightsAndMessages, height)
-			km.queuedHeightsLock.Unlock()
 		}
+		km.lock.Unlock()
 	}
 }
 
 // commitHeight marks a height as eligible to be written to the database.
+// Assumes km.lock is held
 func (km *keyManager) commitHeight(height uint64) {
-	km.maxHeightLock.Lock()
-	defer km.maxHeightLock.Unlock()
 	if km.maxCommittedHeight == 0 {
 		km.logger.Debug(
 			"Committing initial height",
@@ -233,6 +229,8 @@ func (km *keyManager) commitHeight(height uint64) {
 // It is up to the caller to determine if a height is eligible to be committed.
 // This function is thread safe.
 func (km *keyManager) prepareHeight(height uint64, totalMessages uint64) {
+	km.lock.Lock()
+	defer km.lock.Unlock()
 	km.logger.Debug(
 		"Preparing height",
 		zap.Uint64("height", height),
@@ -243,8 +241,6 @@ func (km *keyManager) prepareHeight(height uint64, totalMessages uint64) {
 		km.commitHeight(height)
 		return
 	}
-	km.queuedHeightsLock.Lock()
-	defer km.queuedHeightsLock.Unlock()
 	km.queuedHeightsAndMessages[height] = &messageCounter{
 		totalMessages:     totalMessages,
 		processedMessages: 0,
