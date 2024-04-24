@@ -306,10 +306,12 @@ func (lstnr *Listener) ProcessLogs(ctx context.Context) error {
 			}
 		case block := <-lstnr.Subscriber.Blocks():
 			// Relay the messages in the block to the destination chains. Continue on failure.
+			isCheckpoint := doneCatchingUp || block.IsCatchUpBlock
 			lstnr.logger.Info(
 				"Processing block",
 				zap.String("originChainId", lstnr.sourceBlockchain.GetBlockchainID().String()),
 				zap.Uint64("blockNumber", block.BlockNumber),
+				zap.Bool("isCheckpoint", isCheckpoint),
 			)
 
 			// Iterate over the Warp logs in two passes:
@@ -319,7 +321,6 @@ func (lstnr *Listener) ProcessLogs(ctx context.Context) error {
 			// The second pass dispatches the messages to the application relayers for processing
 			expectedMessages := make(map[database.RelayerID]uint64)
 			var msgsInfo []parsedMessageInfo
-			isCheckpoint := doneCatchingUp || block.IsCatchUpBlock
 			for _, warpLog := range block.WarpLogs {
 				warpLogInfo, err := lstnr.NewWarpLogInfo(warpLog)
 				if err != nil {
@@ -349,12 +350,16 @@ func (lstnr *Listener) ProcessLogs(ctx context.Context) error {
 				expectedMessages[msgInfo.applicationRelayer.relayerID]++
 			}
 			if isCheckpoint {
-				for relayerID, totalMessages := range expectedMessages {
-					err := lstnr.dbManager.PrepareHeight(relayerID, block.BlockNumber, totalMessages)
+				for _, appRelayer := range lstnr.applicationRelayers {
+					// Prepare the each application relayer's database key with the number
+					// of expected messages. If no messages are found in the above loop, then
+					// totalMessages will be 0
+					totalMessages := expectedMessages[appRelayer.relayerID]
+					err := lstnr.dbManager.PrepareHeight(appRelayer.relayerID, block.BlockNumber, totalMessages)
 					if err != nil {
 						lstnr.logger.Error(
 							"Failed to prepare height",
-							zap.String("relayerID", relayerID.ID.String()),
+							zap.String("relayerID", appRelayer.relayerID.ID.String()),
 							zap.Error(err),
 						)
 						continue

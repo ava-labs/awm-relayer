@@ -20,7 +20,7 @@ import (
 
 var (
 	ErrKeyNotFound              = errors.New("key not found")
-	ErrRelayerIDNotFound        = errors.New("no database entryfor relayer id")
+	ErrRelayerIDNotFound        = errors.New("no database entry for relayer id")
 	ErrDatabaseMisconfiguration = errors.New("database misconfiguration")
 
 	// AllAllowedAddress is used to construct relayer IDs when all addresses are allowed

@@ -3,6 +3,7 @@ package tests
 import (
 	"context"
 	"crypto/ecdsa"
+	"fmt"
 	"strconv"
 	"time"
 
@@ -339,6 +340,15 @@ func AllowedAddresses(network interfaces.LocalNetwork) {
 		subnetBInfo.BlockchainID,
 		allowedAddresses[relayer4AllowedSrcAddressIdx],
 		allowedAddresses[relayer4AllowedDstAddressIdx],
+	)
+	log.Info(
+		fmt.Sprintf(
+			"Checking database state. Relayer IDs: %s, %s, %s, %s",
+			relayerID1.ID.String(),
+			relayerID2.ID.String(),
+			relayerID3.ID.String(),
+			relayerID4.ID.String(),
+		),
 	)
 	relayerKeys := []database.RelayerID{relayerID1, relayerID2, relayerID3, relayerID4}
 	jsonDB, err := database.NewJSONFileStorage(logging.NoLog{}, testUtils.StorageLocation, relayerKeys)
