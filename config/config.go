@@ -125,21 +125,22 @@ type WarpQuorum struct {
 	QuorumDenominator uint64
 }
 
-type apiClient struct {
+// P Chain API configuration, contains the base URL and query parameters
+type PChainAPI struct {
 	BaseURL     string            `mapstructure:"base-url" json:"base-url"`
 	QueryParams map[string]string `mapstructure:"query-parameters" json:"query-parameters"`
 
 	options []rpc.Option
+	client  platformvm.Client
 }
 
-type PChainAPI struct {
-	apiClient
-	client platformvm.Client
-}
-
+// Info API configuration, contains the base URL and query parameters
 type InfoAPI struct {
-	apiClient
-	client info.Client
+	BaseURL     string            `mapstructure:"base-url" json:"base-url"`
+	QueryParams map[string]string `mapstructure:"query-parameters" json:"query-parameters"`
+
+	options []rpc.Option
+	client  info.Client
 }
 
 // Top-level configuration
@@ -432,20 +433,13 @@ func (c *Config) InitializeWarpQuorums() error {
 	return nil
 }
 
-func (a *apiClient) Validate() error {
-	if _, err := url.ParseRequestURI(a.BaseURL); err != nil {
+func (p *PChainAPI) Validate() error {
+	if _, err := url.ParseRequestURI(p.BaseURL); err != nil {
 		return fmt.Errorf("invalid base URL: %w", err)
 	}
-	a.options = make([]rpc.Option, 0, len(a.QueryParams))
-	for key, value := range a.QueryParams {
-		a.options = append(a.options, rpc.WithQueryParam(key, value))
-	}
-	return nil
-}
-
-func (p *PChainAPI) Validate() error {
-	if err := p.apiClient.Validate(); err != nil {
-		return err
+	p.options = make([]rpc.Option, 0, len(p.QueryParams))
+	for key, value := range p.QueryParams {
+		p.options = append(p.options, rpc.WithQueryParam(key, value))
 	}
 
 	p.client = platformvm.NewClient(p.BaseURL)
@@ -453,20 +447,28 @@ func (p *PChainAPI) Validate() error {
 }
 
 func (i *InfoAPI) Validate() error {
-	if err := i.apiClient.Validate(); err != nil {
-		return err
+	if _, err := url.ParseRequestURI(i.BaseURL); err != nil {
+		return fmt.Errorf("invalid base URL: %w", err)
+	}
+	i.options = make([]rpc.Option, 0, len(i.QueryParams))
+	for key, value := range i.QueryParams {
+		i.options = append(i.options, rpc.WithQueryParam(key, value))
 	}
 
 	i.client = info.NewClient(i.BaseURL)
 	return nil
 }
 
-func (c *apiClient) GetOptions() []rpc.Option {
-	return c.options
+func (p *PChainAPI) GetOptions() []rpc.Option {
+	return p.options
 }
 
 func (p *PChainAPI) GetClient() platformvm.Client {
 	return p.client
+}
+
+func (i *InfoAPI) GetOptions() []rpc.Option {
+	return i.options
 }
 
 func (i *InfoAPI) GetClient() info.Client {

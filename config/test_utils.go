@@ -1,5 +1,3 @@
-//go:build testing
-
 package config
 
 import "fmt"
@@ -18,15 +16,10 @@ var (
 	TestValidConfig = Config{
 		LogLevel: "info",
 		PChainAPI: &PChainAPI{
-			apiClient: apiClient{
-				BaseURL: "http://test.avax.network",
-			},
-			// BaseURL: "http://test.avax.network",
+			BaseURL: "http://test.avax.network",
 		},
 		InfoAPI: &InfoAPI{
-			apiClient: apiClient{
-				BaseURL: "http://test.avax.network",
-			},
+			BaseURL: "http://test.avax.network",
 		},
 		SourceBlockchains: []*SourceBlockchain{
 			{
