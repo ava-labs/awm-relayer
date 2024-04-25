@@ -1,3 +1,6 @@
+// Copyright (C) 2024, Ava Labs, Inc. All rights reserved.
+// See the file LICENSE for licensing terms.
+
 package relayer
 
 import (
@@ -7,30 +10,9 @@ import (
 
 	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/awm-relayer/database"
+	"github.com/ava-labs/awm-relayer/utils"
 	"go.uber.org/zap"
 )
-
-// intHeap adapted from https://pkg.go.dev/container/heap#example-package-IntHeap
-type intHeap []uint64
-
-func (h intHeap) Len() int           { return len(h) }
-func (h intHeap) Less(i, j int) bool { return h[i] < h[j] }
-func (h intHeap) Swap(i, j int)      { h[i], h[j] = h[j], h[i] }
-func (h intHeap) Peek() uint64       { return h[0] }
-
-func (h *intHeap) Push(x any) {
-	// Push and Pop use pointer receivers because they modify the slice's length,
-	// not just its contents.
-	*h = append(*h, x.(uint64))
-}
-
-func (h *intHeap) Pop() any {
-	old := *h
-	n := len(old)
-	x := old[n-1]
-	*h = old[0 : n-1]
-	return x
-}
 
 //
 // keyManager commits keys to be written to the database in a thread safe manner.
@@ -44,12 +26,12 @@ type keyManager struct {
 	queuedHeightsAndMessages map[uint64]*messageCounter
 	committedHeight          uint64
 	lock                     *sync.RWMutex
-	pendingCommits           *intHeap
+	pendingCommits           *utils.UInt64Heap
 	finished                 chan uint64
 }
 
 func newKeyManager(logger logging.Logger, database database.RelayerDatabase, writeSignal chan struct{}, relayerID database.RelayerID) *keyManager {
-	h := &intHeap{}
+	h := &utils.UInt64Heap{}
 	heap.Init(h)
 	return &keyManager{
 		logger:                   logger,
