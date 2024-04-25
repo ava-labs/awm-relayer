@@ -67,7 +67,7 @@ func TestCommitHeight(t *testing.T) {
 		heap.Init(test.pendingHeights)
 		cm.pendingCommits = test.pendingHeights
 		cm.committedHeight = test.currentMaxHeight
-		cm.commitHeight(test.commitHeight)
+		cm.stageCommittedHeight(test.commitHeight)
 		require.Equal(t, test.expectedMaxHeight, cm.committedHeight, test.name)
 	}
 }

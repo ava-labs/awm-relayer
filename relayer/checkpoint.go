@@ -116,19 +116,19 @@ func (cm *checkpointManager) handleFinishedRelays() {
 			zap.Uint64("totalMessages", counter.totalMessages),
 		)
 		if counter.processedMessages == counter.totalMessages {
-			cm.stageCommitedHeight(height)
+			cm.stageCommittedHeight(height)
 			delete(cm.queuedHeightsAndMessages, height)
 		}
 		cm.lock.Unlock()
 	}
 }
 
-// stageCommitedHeight queues a height to be written to the database.
+// stageCommittedHeight queues a height to be written to the database.
 // Heights are committed in sequence, so if height is not exactly one
 // greater than the current committedHeight, it is instead cached in memory
 // to potentially be committed later.
 // Requires that cm.lock be held
-func (cm *checkpointManager) stageCommitedHeight(height uint64) {
+func (cm *checkpointManager) stageCommittedHeight(height uint64) {
 	if cm.committedHeight == 0 {
 		cm.logger.Debug(
 			"Committing initial height",
@@ -177,7 +177,7 @@ func (cm *checkpointManager) prepareHeight(height uint64, totalMessages uint64) 
 		zap.String("relayerID", cm.relayerID.ID.String()),
 	)
 	if totalMessages == 0 {
-		cm.stageCommitedHeight(height)
+		cm.stageCommittedHeight(height)
 		return
 	}
 	cm.queuedHeightsAndMessages[height] = &messageCounter{

@@ -14,10 +14,10 @@ import (
 
 func makeApplicationRelayerWithMockDatabase(t *testing.T) (*applicationRelayer, *mock_database.MockRelayerDatabase) {
 	db := mock_database.NewMockRelayerDatabase(gomock.NewController(t))
-	keyManager := newKeyManager(logging.NoLog{}, db, nil, database.RelayerID{})
+	checkpointManager := newCheckpointManager(logging.NoLog{}, db, nil, database.RelayerID{})
 	return &applicationRelayer{
-		logger:     logging.NoLog{},
-		keyManager: keyManager,
+		logger:            logging.NoLog{},
+		checkpointManager: checkpointManager,
 	}, db
 }
 
