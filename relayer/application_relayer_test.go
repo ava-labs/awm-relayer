@@ -15,10 +15,10 @@ import (
 
 func makeApplicationRelayerWithMockDatabase(t *testing.T) (*applicationRelayer, *mock_database.MockRelayerDatabase) {
 	db := mock_database.NewMockRelayerDatabase(gomock.NewController(t))
-	dbManager := database.NewDatabaseManager(logging.NoLog{}, db, 1*time.Second)
+	keyManager := newKeyManager(logging.NoLog{}, db, 1*time.Second, database.RelayerID{})
 	return &applicationRelayer{
-		logger:    logging.NoLog{},
-		dbManager: dbManager,
+		logger:     logging.NoLog{},
+		keyManager: keyManager,
 	}, db
 }
 

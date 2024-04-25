@@ -63,7 +63,6 @@ type applicationRelayer struct {
 	signingSubnetID  ids.ID
 	relayerID        database.RelayerID
 	warpQuorum       config.WarpQuorum
-	dbManager        *database.DatabaseManager
 	keyManager       *keyManager
 }
 
@@ -74,7 +73,7 @@ func newApplicationRelayer(
 	messageCreator message.Creator,
 	responseChan chan message.InboundMessage,
 	relayerID database.RelayerID,
-	dbManager *database.DatabaseManager,
+	db database.RelayerDatabase,
 	sourceBlockchain config.SourceBlockchain,
 	cfg *config.Config,
 ) (*applicationRelayer, error) {
@@ -96,9 +95,8 @@ func newApplicationRelayer(
 		signingSubnet = sourceBlockchain.GetSubnetID()
 	}
 
-	dbManager.RegisterRelayerID(relayerID)
-	keyManager := newKeyManager(logger, dbManager, relayerID)
-	go keyManager.run()
+	keyManager := newKeyManager(logger, db, time.Duration(cfg.DBWriteIntervalSeconds)*time.Second, relayerID)
+	keyManager.run()
 
 	return &applicationRelayer{
 		logger:           logger,
@@ -110,7 +108,6 @@ func newApplicationRelayer(
 		relayerID:        relayerID,
 		signingSubnetID:  signingSubnet,
 		warpQuorum:       quorum,
-		dbManager:        dbManager,
 		keyManager:       keyManager,
 	}, nil
 }
@@ -643,7 +640,7 @@ func (r *applicationRelayer) calculateStartingBlockHeight(processHistoricalBlock
 // because it is updated as soon as a single message from that block is relayed,
 // and there may be multiple message in the same block.
 func (r *applicationRelayer) getLatestProcessedBlockHeight() (uint64, error) {
-	latestProcessedBlockData, err := r.dbManager.Get(r.relayerID, database.LatestProcessedBlockKey)
+	latestProcessedBlockData, err := r.keyManager.database.Get(r.relayerID.ID, database.LatestProcessedBlockKey)
 	if err != nil {
 		return 0, err
 	}

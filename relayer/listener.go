@@ -51,14 +51,13 @@ type Listener struct {
 	catchUpResultChan   chan bool
 	healthStatus        *atomic.Bool
 	globalConfig        *config.Config
-	dbManager           *database.DatabaseManager
 	applicationRelayers map[common.Hash]*applicationRelayer
 }
 
 func NewListener(
 	logger logging.Logger,
 	metrics *ApplicationRelayerMetrics,
-	dbManager *database.DatabaseManager,
+	db database.RelayerDatabase,
 	sourceBlockchain config.SourceBlockchain,
 	pChainClient platformvm.Client,
 	network *peers.AppRequestNetwork,
@@ -120,7 +119,7 @@ func NewListener(
 			messageCreator,
 			responseChan,
 			relayerID,
-			dbManager,
+			db,
 			sourceBlockchain,
 			cfg,
 		)
@@ -154,7 +153,6 @@ func NewListener(
 		catchUpResultChan:   catchUpResultChan,
 		healthStatus:        relayerHealth,
 		globalConfig:        cfg,
-		dbManager:           dbManager,
 		applicationRelayers: applicationRelayers,
 	}
 
@@ -344,6 +342,10 @@ func (lstnr *Listener) ProcessLogs(ctx context.Context) error {
 				msgsInfo = append(msgsInfo, msgInfo)
 				expectedMessages[msgInfo.applicationRelayer.relayerID]++
 			}
+			lstnr.logger.Debug(
+				"Expected messages",
+				zap.Any("expectedMessages", expectedMessages),
+			)
 			for _, appRelayer := range lstnr.applicationRelayers {
 				// Prepare the each application relayer's database key with the number
 				// of expected messages. If no messages are found in the above loop, then

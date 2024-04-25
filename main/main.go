@@ -10,7 +10,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"time"
 
 	"github.com/alexliesenfeld/health"
 	"github.com/ava-labs/avalanchego/api/info"
@@ -19,7 +18,6 @@ import (
 	"github.com/ava-labs/avalanchego/message"
 	"github.com/ava-labs/avalanchego/utils/constants"
 	"github.com/ava-labs/avalanchego/utils/logging"
-	"github.com/ava-labs/avalanchego/utils/set"
 	"github.com/ava-labs/avalanchego/vms/platformvm"
 	"github.com/ava-labs/awm-relayer/config"
 	"github.com/ava-labs/awm-relayer/database"
@@ -180,19 +178,6 @@ func main() {
 		panic(err)
 	}
 
-	// Get all the relayer keys from the configuration
-	relayerKeys := set.NewSet[database.RelayerID](0)
-	for _, s := range cfg.SourceBlockchains {
-		ids := database.GetSourceBlockchainRelayerIDs(s)
-		relayerKeys.Add(ids...)
-	}
-	dbManager := database.NewDatabaseManager(
-		logger,
-		db,
-		time.Duration(cfg.DBWriteIntervalSeconds)*time.Second,
-	)
-	go dbManager.Run()
-
 	manualWarpMessages := make(map[ids.ID][]*relayerTypes.WarpLogInfo)
 	for _, msg := range cfg.ManualWarpMessages {
 		sourceBlockchainID := msg.GetSourceBlockchainID()
@@ -227,7 +212,7 @@ func main() {
 				ctx,
 				logger,
 				metrics,
-				dbManager,
+				db,
 				*subnetInfo,
 				pChainClient,
 				network,
@@ -252,7 +237,7 @@ func runRelayer(
 	ctx context.Context,
 	logger logging.Logger,
 	metrics *relayer.ApplicationRelayerMetrics,
-	dbManager *database.DatabaseManager,
+	db database.RelayerDatabase,
 	sourceSubnetInfo config.SourceBlockchain,
 	pChainClient platformvm.Client,
 	network *peers.AppRequestNetwork,
@@ -271,7 +256,7 @@ func runRelayer(
 	listener, err := relayer.NewListener(
 		logger,
 		metrics,
-		dbManager,
+		db,
 		sourceSubnetInfo,
 		pChainClient,
 		network,

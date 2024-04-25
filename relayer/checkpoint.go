@@ -2,7 +2,9 @@ package relayer
 
 import (
 	"container/heap"
+	"strconv"
 	"sync"
+	"time"
 
 	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/awm-relayer/database"
@@ -37,20 +39,23 @@ func (h *intHeap) Pop() any {
 
 type keyManager struct {
 	logger                   logging.Logger
-	dbManager                *database.DatabaseManager
+	database                 database.RelayerDatabase
+	writeInterval            time.Duration
 	relayerID                database.RelayerID
 	queuedHeightsAndMessages map[uint64]*messageCounter
+	committedHeight          uint64
 	lock                     *sync.RWMutex
 	pendingCommits           *intHeap
 	finished                 chan uint64
 }
 
-func newKeyManager(logger logging.Logger, dbManager *database.DatabaseManager, relayerID database.RelayerID) *keyManager {
+func newKeyManager(logger logging.Logger, database database.RelayerDatabase, writeInterval time.Duration, relayerID database.RelayerID) *keyManager {
 	h := &intHeap{}
 	heap.Init(h)
 	return &keyManager{
 		logger:                   logger,
-		dbManager:                dbManager,
+		database:                 database,
+		writeInterval:            writeInterval,
 		relayerID:                relayerID,
 		queuedHeightsAndMessages: make(map[uint64]*messageCounter),
 		lock:                     &sync.RWMutex{},
@@ -59,10 +64,55 @@ func newKeyManager(logger logging.Logger, dbManager *database.DatabaseManager, r
 	}
 }
 
-// Run listens for finished signals from application relayers, and commits the
+func (km *keyManager) run() {
+	go km.handleFinishedRelays()
+	go km.writeToDatabase()
+}
+
+func (km *keyManager) writeToDatabase() {
+	for range time.Tick(km.writeInterval) {
+		km.lock.RLock()
+		// Ensure we're not writing the default value
+		if km.committedHeight == 0 {
+			km.lock.RUnlock()
+			continue
+		}
+		storedHeight, err := getLatestProcessedBlockHeight(km.database, km.relayerID)
+		if err != nil && !database.IsKeyNotFoundError(err) {
+			km.logger.Error(
+				"Failed to get latest processed block height",
+				zap.Error(err),
+				zap.String("relayerID", km.relayerID.ID.String()),
+			)
+			continue
+		}
+		if storedHeight >= km.committedHeight {
+			km.lock.RUnlock()
+			continue
+		}
+		km.logger.Debug(
+			"Writing height",
+			zap.Uint64("height", km.committedHeight),
+			zap.String("relayerID", km.relayerID.ID.String()),
+		)
+		err = km.database.Put(km.relayerID.ID, database.LatestProcessedBlockKey, []byte(strconv.FormatUint(km.committedHeight, 10)))
+		if err != nil {
+			km.logger.Error(
+				"Failed to write latest processed block height",
+				zap.Error(err),
+				zap.String("relayerID", km.relayerID.ID.String()),
+			)
+			km.lock.RUnlock()
+			continue
+		}
+		km.lock.RUnlock()
+	}
+}
+
+// handleFinishedRelays listens for finished signals from the application relayer, and commits the
 // height once all messages have been processed.
 // This function should only be called once.
-func (km *keyManager) run() {
+func (km *keyManager) handleFinishedRelays() {
 	for height := range km.finished {
 		km.lock.Lock()
 		counter, ok := km.queuedHeightsAndMessages[height]
@@ -93,15 +143,15 @@ func (km *keyManager) run() {
 }
 
 // commitHeight marks a height as eligible to be written to the database.
+// Requires that km.lock be held
 func (km *keyManager) commitHeight(height uint64) {
-	committedHeight := km.dbManager.GetCommittedHeight(km.relayerID)
-	if committedHeight == 0 {
+	if km.committedHeight == 0 {
 		km.logger.Debug(
 			"Committing initial height",
 			zap.Uint64("height", height),
 			zap.String("relayerID", km.relayerID.ID.String()),
 		)
-		km.dbManager.CommitHeight(km.relayerID, height)
+		km.committedHeight = height
 		return
 	}
 
@@ -111,22 +161,21 @@ func (km *keyManager) commitHeight(height uint64) {
 	km.logger.Debug(
 		"Pending committed heights",
 		zap.Any("pendingCommits", km.pendingCommits),
-		zap.Uint64("maxCommittedHeight", committedHeight),
+		zap.Uint64("maxCommittedHeight", km.committedHeight),
 		zap.String("relayerID", km.relayerID.ID.String()),
 	)
 
-	for km.pendingCommits.Peek() == committedHeight+1 {
+	for km.pendingCommits.Peek() == km.committedHeight+1 {
 		h := heap.Pop(km.pendingCommits).(uint64)
 		km.logger.Debug(
 			"Committing height",
 			zap.Uint64("height", height),
 			zap.String("relayerID", km.relayerID.ID.String()),
 		)
-		km.dbManager.CommitHeight(km.relayerID, h)
+		km.committedHeight = h
 		if km.pendingCommits.Len() == 0 {
 			break
 		}
-		committedHeight = km.dbManager.GetCommittedHeight(km.relayerID)
 	}
 }
 
@@ -157,4 +206,17 @@ func (km *keyManager) prepareHeight(height uint64, totalMessages uint64) {
 type messageCounter struct {
 	totalMessages     uint64
 	processedMessages uint64
+}
+
+// Helper function to get the latest processed block height from the database.
+func getLatestProcessedBlockHeight(db database.RelayerDatabase, relayerID database.RelayerID) (uint64, error) {
+	latestProcessedBlockData, err := db.Get(relayerID.ID, database.LatestProcessedBlockKey)
+	if err != nil {
+		return 0, err
+	}
+	latestProcessedBlock, err := strconv.ParseUint(string(latestProcessedBlockData), 10, 64)
+	if err != nil {
+		return 0, err
+	}
+	return latestProcessedBlock, nil
 }

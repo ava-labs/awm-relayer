@@ -3,12 +3,15 @@ package relayer
 import (
 	"container/heap"
 	"testing"
+	"time"
 
 	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/awm-relayer/database"
+	mock_database "github.com/ava-labs/awm-relayer/database/mocks"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 )
 
 func TestCommitHeight(t *testing.T) {
@@ -55,18 +58,16 @@ func TestCommitHeight(t *testing.T) {
 			expectedMaxHeight: 12,
 		},
 	}
-	dbManager := database.NewDatabaseManager(logging.NoLog{}, nil, 0)
+	db := mock_database.NewMockRelayerDatabase(gomock.NewController(t))
 	for _, test := range testCases {
 		id := database.RelayerID{
 			ID: common.BytesToHash(crypto.Keccak256([]byte(test.name))),
 		}
-		dbManager.RegisterRelayerID(id)
-		dbManager.CommitHeight(id, test.currentMaxHeight)
-		km := newKeyManager(logging.NoLog{}, dbManager, id)
+		km := newKeyManager(logging.NoLog{}, db, 1*time.Second, id)
 		heap.Init(test.pendingHeights)
 		km.pendingCommits = test.pendingHeights
-
+		km.committedHeight = test.currentMaxHeight
 		km.commitHeight(test.commitHeight)
-		require.Equal(t, test.expectedMaxHeight, dbManager.GetCommittedHeight(id), test.name)
+		require.Equal(t, test.expectedMaxHeight, km.committedHeight, test.name)
 	}
 }
