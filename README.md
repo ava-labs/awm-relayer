@@ -105,29 +105,45 @@ The relayer binary accepts a path to a JSON configuration file as the sole argum
 
 ### Configuration
 
-The relayer is configured via a JSON file, the path to which is passed in via the `--config-file` command line argument. Top level configuration options are also able to be set via environment variable. To get the environment variable corresponding to a key, upper case the key and change the delimiter from "-" to "_". For example, `LOG_LEVEL` sets the `"log-level"` JSON key. The following configuration options are available:
+The relayer is configured via a JSON file, the path to which is passed in via the `--config-file` command line argument. Top level configuration options are also able to be set via environment variable. To get the environment variable corresponding to a key, upper case the key and change the delimiter from "-" to "\_". For example, `LOG_LEVEL` sets the `"log-level"` JSON key. The following configuration options are available:
 
 `"log-level": "verbo" | "debug" | "info" | "warn" | "error" | "fatal" | "panic"`
 
 - The log level for the relayer. Defaults to `info`.
 
-`"p-chain-api-url": string`
+`"p-chain-api": PChainAPI`
 
-- The URL of the Avalanche P-Chain API node to which the relayer will connect. This API node needs to have the following methods enabled:
-  - platform.getHeight
-  - platform.validatedBy
-  - platform.getValidatorsAt OR platform.getCurrentValidators
+- The configuration for the Avalanche P-Chain API node. The `PChainAPI` object has the following configuration:
 
-`"info-api-url": string`
+  `"base-url": string`
 
-- The URL of the Avalanche Info API node to which the relayer will connect. This API node needs to have the following methods enabled:
+  - The URL of the Avalanche P-Chain API node to which the relayer will connect. This API node needs to have the following methods enabled:
+    - platform.getHeight
+    - platform.validatedBy
+    - platform.getValidatorsAt OR platform.getCurrentValidators
 
-  - info.peers
-  - info.getNetworkID
+  `"query-parameters": map[string]string`
 
-- Additionally, if the Info API node is also a validator, it must have enabled:
-  - info.getNodeID
-  - info.getNodeIP
+  - Additional query parameters to include in the API requests.
+
+`"info-api": InfoAPI`
+
+- The configuration for the Avalanche Info API node. The `InfoAPI` object has the following configuration:
+
+  `"base-url": string`
+
+  - The URL of the Avalanche Info API node to which the relayer will connect. This API node needs to have the following methods enabled:
+
+    - info.peers
+    - info.getNetworkID
+
+  - Additionally, if the Info API node is also a validator, it must have enabled:
+    - info.getNodeID
+    - info.getNodeIP
+
+  `"query-parameters": map[string]string`
+
+  - Additional query parameters to include in the API requests.
 
 `"storage-location": string`
 
@@ -236,7 +252,7 @@ The relayer is configured via a JSON file, the path to which is passed in via th
   `"kms-aws-region": string`
 
   - The AWS region in which the KMS key is located. Required if `kms-key-id` is provided.
-  
+
 ## Architecture
 
 ### Components
