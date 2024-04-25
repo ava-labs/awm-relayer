@@ -8,11 +8,13 @@ SUBNET_EVM_PATH=
 LOCAL=
 DATA_DIRECTORY=
 HELP=
+LOG_LEVEL=
 while [ $# -gt 0 ]; do
     case "$1" in
         -l | --local) LOCAL=true ;;
         -s | --subnet-evm) SUBNET_EVM_PATH=$2 ;;
         -d | --data-dir) DATA_DIRECTORY=$2 ;;
+        -v | --verbose) LOG_LEVEL=debug ;;
         -h | --help) HELP=true ;;
     esac
     shift
@@ -26,6 +28,7 @@ if [ "$HELP" = true ]; then
     echo "  -l, --local                       Run the test locally. Requires --subnet-evm and --data-dir"
     echo "  -s, --subnet-evm <path>           Path to subnet-evm repo"
     echo "  -d, --data-dir <path>             Path to data directory"
+    echo "  -v, --verbose                     Enable debug logs"
     echo "  -h, --help                        Print this help message"
     exit 0
 fi
@@ -66,7 +69,7 @@ ginkgo build ./tests/
 
 # Run the tests
 echo "Running e2e tests $RUN_E2E"
-RUN_E2E=true ./tests/tests.test \
+RUN_E2E=true LOG_LEVEL=${LOG_LEVEL} ./tests/tests.test \
   --ginkgo.vv \
   --ginkgo.label-filter=${GINKGO_LABEL_FILTER:-""} \
   --ginkgo.focus=${GINKGO_FOCUS:-""} 

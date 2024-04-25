@@ -290,7 +290,6 @@ func (lstnr *Listener) NewWarpLogInfo(log types.Log) (*relayerTypes.WarpLogInfo,
 // On subscriber error, attempts to reconnect and errors if unable.
 // Exits if context is cancelled by another goroutine.
 func (lstnr *Listener) ProcessLogs(ctx context.Context) error {
-	doneCatchingUp := false
 	for {
 		select {
 		case catchUpResult := <-lstnr.catchUpResultChan:
@@ -301,17 +300,13 @@ func (lstnr *Listener) ProcessLogs(ctx context.Context) error {
 					zap.String("originChainId", lstnr.sourceBlockchain.GetBlockchainID().String()),
 				)
 				return fmt.Errorf("failed to catch up on historical blocks")
-			} else {
-				doneCatchingUp = true
 			}
 		case block := <-lstnr.Subscriber.Blocks():
 			// Relay the messages in the block to the destination chains. Continue on failure.
-			isCheckpoint := doneCatchingUp || block.IsCatchUpBlock
 			lstnr.logger.Info(
 				"Processing block",
 				zap.String("originChainId", lstnr.sourceBlockchain.GetBlockchainID().String()),
 				zap.Uint64("blockNumber", block.BlockNumber),
-				zap.Bool("isCheckpoint", isCheckpoint),
 			)
 
 			// Iterate over the Warp logs in two passes:
@@ -349,21 +344,19 @@ func (lstnr *Listener) ProcessLogs(ctx context.Context) error {
 				msgsInfo = append(msgsInfo, msgInfo)
 				expectedMessages[msgInfo.applicationRelayer.relayerID]++
 			}
-			if isCheckpoint {
-				for _, appRelayer := range lstnr.applicationRelayers {
-					// Prepare the each application relayer's database key with the number
-					// of expected messages. If no messages are found in the above loop, then
-					// totalMessages will be 0
-					totalMessages := expectedMessages[appRelayer.relayerID]
-					err := lstnr.dbManager.PrepareHeight(appRelayer.relayerID, block.BlockNumber, totalMessages)
-					if err != nil {
-						lstnr.logger.Error(
-							"Failed to prepare height",
-							zap.String("relayerID", appRelayer.relayerID.ID.String()),
-							zap.Error(err),
-						)
-						continue
-					}
+			for _, appRelayer := range lstnr.applicationRelayers {
+				// Prepare the each application relayer's database key with the number
+				// of expected messages. If no messages are found in the above loop, then
+				// totalMessages will be 0
+				totalMessages := expectedMessages[appRelayer.relayerID]
+				err := lstnr.dbManager.PrepareHeight(appRelayer.relayerID, block.BlockNumber, totalMessages)
+				if err != nil {
+					lstnr.logger.Error(
+						"Failed to prepare height",
+						zap.String("relayerID", appRelayer.relayerID.ID.String()),
+						zap.Error(err),
+					)
+					continue
 				}
 			}
 			for _, msgInfo := range msgsInfo {

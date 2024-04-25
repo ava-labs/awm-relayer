@@ -102,8 +102,13 @@ func CreateDefaultRelayerConfig(
 	fundedAddress common.Address,
 	relayerKey *ecdsa.PrivateKey,
 ) config.Config {
+	logLevel := logging.Info
+	if os.Getenv("LOG_LEVEL") == "debug" {
+		logLevel = logging.Debug
+	}
 	log.Info(
 		"Setting up relayer config",
+		"logLevel", logLevel.LowerString(),
 	)
 	// Construct the config values for each subnet
 	sources := make([]*config.SourceBlockchain, len(sourceSubnetsInfo))
@@ -166,7 +171,7 @@ func CreateDefaultRelayerConfig(
 	}
 
 	return config.Config{
-		LogLevel:               logging.Info.LowerString(),
+		LogLevel:               logLevel.LowerString(),
 		PChainAPIURL:           sourceSubnetsInfo[0].NodeURIs[0],
 		InfoAPIURL:             sourceSubnetsInfo[0].NodeURIs[0],
 		StorageLocation:        StorageLocation,

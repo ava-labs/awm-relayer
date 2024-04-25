@@ -56,7 +56,7 @@ func NewSubscriber(logger logging.Logger, blockchainID ids.ID, ethClient ethclie
 // forward logs from the concrete log channel to the interface channel
 func (s *subscriber) forwardBlocks() {
 	for header := range s.headers {
-		blockInfo, err := s.newWarpBlockInfo(header, false)
+		blockInfo, err := s.newWarpBlockInfo(header)
 		if err != nil {
 			s.logger.Error(
 				"Invalid log. Continuing.",
@@ -117,7 +117,7 @@ func (s *subscriber) ProcessFromHeight(height *big.Int, done chan bool) {
 	done <- true
 }
 
-func (s *subscriber) newWarpBlockInfo(header *types.Header, isCatchUp bool) (*relayerTypes.WarpBlockInfo, error) {
+func (s *subscriber) newWarpBlockInfo(header *types.Header) (*relayerTypes.WarpBlockInfo, error) {
 	var (
 		logs []types.Log
 		err  error
@@ -135,9 +135,8 @@ func (s *subscriber) newWarpBlockInfo(header *types.Header, isCatchUp bool) (*re
 		}
 	}
 	return &relayerTypes.WarpBlockInfo{
-		BlockNumber:    header.Number.Uint64(),
-		WarpLogs:       logs,
-		IsCatchUpBlock: isCatchUp,
+		BlockNumber: header.Number.Uint64(),
+		WarpLogs:    logs,
 	}, nil
 }
 
@@ -157,7 +156,7 @@ func (s *subscriber) processBlockRange(
 			)
 			return err
 		}
-		blockInfo, err := s.newWarpBlockInfo(header, true)
+		blockInfo, err := s.newWarpBlockInfo(header)
 		if err != nil {
 			s.logger.Error(
 				"Failed to get block info",

@@ -8,14 +8,12 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 )
 
-// WarpBlockInfo describes the block information needed to process Warp messages.
-// It includes any logs that contain Warp messages to relay.
+// WarpBlockInfo describes the block height and logs needed to process Warp messages.
 // WarpBlockInfo instances are populated by the subscriber, and forwared to the
 // listener to process
 type WarpBlockInfo struct {
-	BlockNumber    uint64
-	WarpLogs       []types.Log
-	IsCatchUpBlock bool
+	BlockNumber uint64
+	WarpLogs    []types.Log
 }
 
 // WarpLogInfo describes the transaction information for the Warp message
