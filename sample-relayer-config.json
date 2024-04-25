@@ -1,6 +1,10 @@
 {
-  "info-api-url": "https://api.avax-test.network",
-  "p-chain-api-url": "https://api.avax-test.network",
+  "info-api": {
+    "base-url": "https://api.avax-test.network"
+  },
+  "p-chain-api": {
+    "base-url": "https://api.avax-test.network"
+  },
   "source-blockchains": [
     {
       "subnet-id": "11111111111111111111111111111111LpoYY",
@@ -22,7 +26,7 @@
     {
       "subnet-id": "7WtoAMPhrmh5KosDUsFL9yTcvw7YSxiKHPpdfs4JsgW47oZT5",
       "blockchain-id": "2D8RG4UpSXbPbvPCAWppNJyqTG2i2CAXSkTgmTBBvs7GKNZjsY",
-      "vm":"evm",
+      "vm": "evm",
       "rpc-endpoint": "https://subnets.avax.network/dispatch/testnet/rpc",
       "account-private-key": "0x7493..."
     }
