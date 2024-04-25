@@ -360,11 +360,16 @@ func (lstnr *Listener) ProcessLogs(ctx context.Context) error {
 				}
 			}
 			for _, msgInfo := range msgsInfo {
+				lstnr.logger.Info(
+					"Relaying message",
+					zap.String("sourceBlockchainID", lstnr.sourceBlockchain.GetBlockchainID().String()),
+					zap.String("warpMessageID", msgInfo.unsignedMessage.ID().String()),
+				)
 				err := lstnr.dispatchToApplicationRelayer(msgInfo, block.BlockNumber)
 				if err != nil {
 					lstnr.logger.Error(
 						"Error relaying message",
-						zap.String("originChainID", lstnr.sourceBlockchain.GetBlockchainID().String()),
+						zap.String("sourceBlockchainID", lstnr.sourceBlockchain.GetBlockchainID().String()),
 						zap.Error(err),
 					)
 					continue
@@ -442,19 +447,12 @@ func (lstnr *Listener) RouteMessage(warpLogInfo *relayerTypes.WarpLogInfo) error
 // 3. A match on sourceBlockchainID and destinationBlockchainID, with any originSenderAddress and a specific destinationAddress
 // 4. A match on sourceBlockchainID and destinationBlockchainID, with any originSenderAddress and any destinationAddress
 func (lstnr *Listener) getApplicationRelayer(
-	unsignedMessage *avalancheWarp.UnsignedMessage,
+	sourceBlockchainID ids.ID,
+	originSenderAddress common.Address,
+	destinationBlockchainID ids.ID,
+	destinationAddress common.Address,
 	messageManager messages.MessageManager,
 ) (*applicationRelayer, bool) {
-	// Fetch the message delivery data
-	sourceBlockchainID, originSenderAddress, destinationBlockchainID, destinationAddress, err := messageManager.GetMessageRoutingInfo(unsignedMessage)
-	if err != nil {
-		lstnr.logger.Error(
-			"Failed to get message routing information",
-			zap.Error(err),
-		)
-		return nil, false
-	}
-
 	// Check for an exact match
 	applicationRelayerID := database.CalculateRelayerID(
 		sourceBlockchainID,
@@ -504,7 +502,6 @@ func (lstnr *Listener) getApplicationRelayer(
 		zap.String("destinationBlockchainID", destinationBlockchainID.String()),
 		zap.String("originSenderAddress", originSenderAddress.String()),
 		zap.String("destinationAddress", destinationAddress.String()),
-		zap.String("warpMessageID", unsignedMessage.ID().String()),
 	)
 	return nil, false
 }
@@ -542,20 +539,30 @@ func (lstnr *Listener) parseMessage(warpLogInfo *relayerTypes.WarpLogInfo) (
 		)
 		return nil, err
 	}
+	// Fetch the message delivery data
+	sourceBlockchainID, originSenderAddress, destinationBlockchainID, destinationAddress, err := messageManager.GetMessageRoutingInfo(unsignedMessage)
+	if err != nil {
+		lstnr.logger.Error(
+			"Failed to get message routing information",
+			zap.Error(err),
+		)
+		return nil, err
+	}
 
 	lstnr.logger.Info(
 		"Unpacked warp message",
-		zap.String("blockchainID", lstnr.sourceBlockchain.GetBlockchainID().String()),
+		zap.String("sourceBlockchainID", sourceBlockchainID.String()),
+		zap.String("originSenderAddress", originSenderAddress.String()),
+		zap.String("destinationBlockchainID", destinationBlockchainID.String()),
+		zap.String("destinationAddress", destinationAddress.String()),
 		zap.String("warpMessageID", unsignedMessage.ID().String()),
 	)
 
-	lstnr.logger.Info(
-		"Relaying message",
-		zap.String("blockchainID", lstnr.sourceBlockchain.GetBlockchainID().String()),
-	)
-
 	applicationRelayer, ok := lstnr.getApplicationRelayer(
-		unsignedMessage,
+		sourceBlockchainID,
+		originSenderAddress,
+		destinationBlockchainID,
+		destinationAddress,
 		messageManager,
 	)
 	if !ok {
