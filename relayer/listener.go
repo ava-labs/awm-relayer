@@ -58,6 +58,7 @@ func NewListener(
 	logger logging.Logger,
 	metrics *ApplicationRelayerMetrics,
 	db database.RelayerDatabase,
+	ticker *database.Ticker,
 	sourceBlockchain config.SourceBlockchain,
 	pChainClient platformvm.Client,
 	network *peers.AppRequestNetwork,
@@ -120,6 +121,7 @@ func NewListener(
 			responseChan,
 			relayerID,
 			db,
+			ticker,
 			sourceBlockchain,
 			cfg,
 		)

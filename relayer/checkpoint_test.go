@@ -3,7 +3,6 @@ package relayer
 import (
 	"container/heap"
 	"testing"
-	"time"
 
 	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/awm-relayer/database"
@@ -63,7 +62,7 @@ func TestCommitHeight(t *testing.T) {
 		id := database.RelayerID{
 			ID: common.BytesToHash(crypto.Keccak256([]byte(test.name))),
 		}
-		km := newKeyManager(logging.NoLog{}, db, 1*time.Second, id)
+		km := newKeyManager(logging.NoLog{}, db, nil, id)
 		heap.Init(test.pendingHeights)
 		km.pendingCommits = test.pendingHeights
 		km.committedHeight = test.currentMaxHeight

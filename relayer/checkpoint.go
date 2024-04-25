@@ -4,7 +4,6 @@ import (
 	"container/heap"
 	"strconv"
 	"sync"
-	"time"
 
 	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/awm-relayer/database"
@@ -40,7 +39,7 @@ func (h *intHeap) Pop() any {
 type keyManager struct {
 	logger                   logging.Logger
 	database                 database.RelayerDatabase
-	writeInterval            time.Duration
+	writeSignal              chan struct{}
 	relayerID                database.RelayerID
 	queuedHeightsAndMessages map[uint64]*messageCounter
 	committedHeight          uint64
@@ -49,13 +48,13 @@ type keyManager struct {
 	finished                 chan uint64
 }
 
-func newKeyManager(logger logging.Logger, database database.RelayerDatabase, writeInterval time.Duration, relayerID database.RelayerID) *keyManager {
+func newKeyManager(logger logging.Logger, database database.RelayerDatabase, writeSignal chan struct{}, relayerID database.RelayerID) *keyManager {
 	h := &intHeap{}
 	heap.Init(h)
 	return &keyManager{
 		logger:                   logger,
 		database:                 database,
-		writeInterval:            writeInterval,
+		writeSignal:              writeSignal,
 		relayerID:                relayerID,
 		queuedHeightsAndMessages: make(map[uint64]*messageCounter),
 		lock:                     &sync.RWMutex{},
@@ -70,7 +69,7 @@ func (km *keyManager) run() {
 }
 
 func (km *keyManager) writeToDatabase() {
-	for range time.Tick(km.writeInterval) {
+	for range km.writeSignal {
 		km.lock.RLock()
 		// Ensure we're not writing the default value
 		if km.committedHeight == 0 {

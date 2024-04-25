@@ -74,6 +74,7 @@ func newApplicationRelayer(
 	responseChan chan message.InboundMessage,
 	relayerID database.RelayerID,
 	db database.RelayerDatabase,
+	ticker *database.Ticker,
 	sourceBlockchain config.SourceBlockchain,
 	cfg *config.Config,
 ) (*applicationRelayer, error) {
@@ -95,7 +96,8 @@ func newApplicationRelayer(
 		signingSubnet = sourceBlockchain.GetSubnetID()
 	}
 
-	keyManager := newKeyManager(logger, db, time.Duration(cfg.DBWriteIntervalSeconds)*time.Second, relayerID)
+	sub := ticker.Subscribe()
+	keyManager := newKeyManager(logger, db, sub, relayerID)
 	keyManager.run()
 
 	return &applicationRelayer{

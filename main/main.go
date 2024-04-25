@@ -178,6 +178,10 @@ func main() {
 		panic(err)
 	}
 
+	// Initialize the global write ticker
+	ticker := database.NewTicker(cfg.DBWriteIntervalSeconds)
+	go ticker.Run()
+
 	manualWarpMessages := make(map[ids.ID][]*relayerTypes.WarpLogInfo)
 	for _, msg := range cfg.ManualWarpMessages {
 		sourceBlockchainID := msg.GetSourceBlockchainID()
@@ -213,6 +217,7 @@ func main() {
 				logger,
 				metrics,
 				db,
+				ticker,
 				*subnetInfo,
 				pChainClient,
 				network,
@@ -238,6 +243,7 @@ func runRelayer(
 	logger logging.Logger,
 	metrics *relayer.ApplicationRelayerMetrics,
 	db database.RelayerDatabase,
+	ticker *database.Ticker,
 	sourceSubnetInfo config.SourceBlockchain,
 	pChainClient platformvm.Client,
 	network *peers.AppRequestNetwork,
@@ -257,6 +263,7 @@ func runRelayer(
 		logger,
 		metrics,
 		db,
+		ticker,
 		sourceSubnetInfo,
 		pChainClient,
 		network,
