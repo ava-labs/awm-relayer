@@ -148,7 +148,7 @@ func SetDefaultConfigValues(v *viper.Viper) {
 	v.SetDefault(ProcessMissedBlocksKey, true)
 	v.SetDefault(APIPortKey, 8080)
 	v.SetDefault(MetricsPortKey, 9090)
-	v.SetDefault(DBWriteIntervalSecondsKey, 1)
+	v.SetDefault(DBWriteIntervalSecondsKey, 10)
 }
 
 // BuildConfig constructs the relayer config using Viper.
