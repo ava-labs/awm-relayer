@@ -54,16 +54,16 @@ var (
 // and send the signed warp message to the destination chain.
 // Each applicationRelayer runs in its own goroutine.
 type applicationRelayer struct {
-	logger           logging.Logger
-	metrics          *ApplicationRelayerMetrics
-	network          *peers.AppRequestNetwork
-	messageCreator   message.Creator
-	responseChan     chan message.InboundMessage
-	sourceBlockchain config.SourceBlockchain
-	signingSubnetID  ids.ID
-	relayerID        database.RelayerID
-	warpQuorum       config.WarpQuorum
-	keyManager       *keyManager
+	logger            logging.Logger
+	metrics           *ApplicationRelayerMetrics
+	network           *peers.AppRequestNetwork
+	messageCreator    message.Creator
+	responseChan      chan message.InboundMessage
+	sourceBlockchain  config.SourceBlockchain
+	signingSubnetID   ids.ID
+	relayerID         database.RelayerID
+	warpQuorum        config.WarpQuorum
+	checkpointManager *checkpointManager
 }
 
 func newApplicationRelayer(
@@ -97,20 +97,20 @@ func newApplicationRelayer(
 	}
 
 	sub := ticker.Subscribe()
-	keyManager := newKeyManager(logger, db, sub, relayerID)
-	keyManager.run()
+	checkpointManager := newCheckpointManager(logger, db, sub, relayerID)
+	checkpointManager.run()
 
 	return &applicationRelayer{
-		logger:           logger,
-		metrics:          metrics,
-		network:          network,
-		messageCreator:   messageCreator,
-		responseChan:     responseChan,
-		sourceBlockchain: sourceBlockchain,
-		relayerID:        relayerID,
-		signingSubnetID:  signingSubnet,
-		warpQuorum:       quorum,
-		keyManager:       keyManager,
+		logger:            logger,
+		metrics:           metrics,
+		network:           network,
+		messageCreator:    messageCreator,
+		responseChan:      responseChan,
+		sourceBlockchain:  sourceBlockchain,
+		relayerID:         relayerID,
+		signingSubnetID:   signingSubnet,
+		warpQuorum:        quorum,
+		checkpointManager: checkpointManager,
 	}, nil
 }
 
@@ -181,7 +181,7 @@ func (r *applicationRelayer) relayMessage(
 	r.incSuccessfulRelayMessageCount()
 
 	// Update the database with the latest processed block height
-	r.keyManager.finished <- blockNumber
+	r.checkpointManager.finished <- blockNumber
 	return nil
 }
 
@@ -642,7 +642,7 @@ func (r *applicationRelayer) calculateStartingBlockHeight(processHistoricalBlock
 // because it is updated as soon as a single message from that block is relayed,
 // and there may be multiple message in the same block.
 func (r *applicationRelayer) getLatestProcessedBlockHeight() (uint64, error) {
-	latestProcessedBlockData, err := r.keyManager.database.Get(r.relayerID.ID, database.LatestProcessedBlockKey)
+	latestProcessedBlockData, err := r.checkpointManager.database.Get(r.relayerID.ID, database.LatestProcessedBlockKey)
 	if err != nil {
 		return 0, err
 	}

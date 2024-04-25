@@ -252,7 +252,7 @@ func (lstnr *Listener) setAllProcessedBlockHeightsToLatest() error {
 		if err != nil {
 			return err
 		}
-		relayer.keyManager.prepareHeight(height, 0)
+		relayer.checkpointManager.prepareHeight(height, 0)
 		if err != nil {
 			return err
 		}
@@ -353,7 +353,7 @@ func (lstnr *Listener) ProcessLogs(ctx context.Context) error {
 				// of expected messages. If no messages are found in the above loop, then
 				// totalMessages will be 0
 				totalMessages := expectedMessages[appRelayer.relayerID]
-				appRelayer.keyManager.prepareHeight(block.BlockNumber, totalMessages)
+				appRelayer.checkpointManager.prepareHeight(block.BlockNumber, totalMessages)
 			}
 			for _, msgInfo := range msgsInfo {
 				lstnr.logger.Info(

@@ -15,10 +15,10 @@ import (
 )
 
 //
-// keyManager commits keys to be written to the database in a thread safe manner.
+// checkpointManager commits keys to be written to the database in a thread safe manner.
 //
 
-type keyManager struct {
+type checkpointManager struct {
 	logger                   logging.Logger
 	database                 database.RelayerDatabase
 	writeSignal              chan struct{}
@@ -30,10 +30,10 @@ type keyManager struct {
 	finished                 chan uint64
 }
 
-func newKeyManager(logger logging.Logger, database database.RelayerDatabase, writeSignal chan struct{}, relayerID database.RelayerID) *keyManager {
+func newCheckpointManager(logger logging.Logger, database database.RelayerDatabase, writeSignal chan struct{}, relayerID database.RelayerID) *checkpointManager {
 	h := &utils.UInt64Heap{}
 	heap.Init(h)
-	return &keyManager{
+	return &checkpointManager{
 		logger:                   logger,
 		database:                 database,
 		writeSignal:              writeSignal,
@@ -45,116 +45,119 @@ func newKeyManager(logger logging.Logger, database database.RelayerDatabase, wri
 	}
 }
 
-func (km *keyManager) run() {
-	go km.handleFinishedRelays()
-	go km.writeToDatabase()
+func (cm *checkpointManager) run() {
+	go cm.handleFinishedRelays()
+	go cm.writeToDatabase()
 }
 
-func (km *keyManager) writeToDatabase() {
-	for range km.writeSignal {
-		km.lock.RLock()
+func (cm *checkpointManager) writeToDatabase() {
+	for range cm.writeSignal {
+		cm.lock.RLock()
 		// Ensure we're not writing the default value
-		if km.committedHeight == 0 {
-			km.lock.RUnlock()
+		if cm.committedHeight == 0 {
+			cm.lock.RUnlock()
 			continue
 		}
-		storedHeight, err := getLatestProcessedBlockHeight(km.database, km.relayerID)
+		storedHeight, err := getLatestProcessedBlockHeight(cm.database, cm.relayerID)
 		if err != nil && !database.IsKeyNotFoundError(err) {
-			km.logger.Error(
+			cm.logger.Error(
 				"Failed to get latest processed block height",
 				zap.Error(err),
-				zap.String("relayerID", km.relayerID.ID.String()),
+				zap.String("relayerID", cm.relayerID.ID.String()),
 			)
 			continue
 		}
-		if storedHeight >= km.committedHeight {
-			km.lock.RUnlock()
+		if storedHeight >= cm.committedHeight {
+			cm.lock.RUnlock()
 			continue
 		}
-		km.logger.Debug(
+		cm.logger.Debug(
 			"Writing height",
-			zap.Uint64("height", km.committedHeight),
-			zap.String("relayerID", km.relayerID.ID.String()),
+			zap.Uint64("height", cm.committedHeight),
+			zap.String("relayerID", cm.relayerID.ID.String()),
 		)
-		err = km.database.Put(km.relayerID.ID, database.LatestProcessedBlockKey, []byte(strconv.FormatUint(km.committedHeight, 10)))
+		err = cm.database.Put(cm.relayerID.ID, database.LatestProcessedBlockKey, []byte(strconv.FormatUint(cm.committedHeight, 10)))
 		if err != nil {
-			km.logger.Error(
+			cm.logger.Error(
 				"Failed to write latest processed block height",
 				zap.Error(err),
-				zap.String("relayerID", km.relayerID.ID.String()),
+				zap.String("relayerID", cm.relayerID.ID.String()),
 			)
-			km.lock.RUnlock()
+			cm.lock.RUnlock()
 			continue
 		}
-		km.lock.RUnlock()
+		cm.lock.RUnlock()
 	}
 }
 
 // handleFinishedRelays listens for finished signals from the application relayer, and commits the
 // height once all messages have been processed.
 // This function should only be called once.
-func (km *keyManager) handleFinishedRelays() {
-	for height := range km.finished {
-		km.lock.Lock()
-		counter, ok := km.queuedHeightsAndMessages[height]
+func (cm *checkpointManager) handleFinishedRelays() {
+	for height := range cm.finished {
+		cm.lock.Lock()
+		counter, ok := cm.queuedHeightsAndMessages[height]
 		if !ok {
-			km.logger.Error(
+			cm.logger.Error(
 				"Pending height not found",
 				zap.Uint64("height", height),
-				zap.String("relayerID", km.relayerID.ID.String()),
+				zap.String("relayerID", cm.relayerID.ID.String()),
 			)
-			km.lock.Unlock()
+			cm.lock.Unlock()
 			continue
 		}
 
 		counter.processedMessages++
-		km.logger.Debug(
+		cm.logger.Debug(
 			"Received finished signal",
 			zap.Uint64("height", height),
-			zap.String("relayerID", km.relayerID.ID.String()),
+			zap.String("relayerID", cm.relayerID.ID.String()),
 			zap.Uint64("processedMessages", counter.processedMessages),
 			zap.Uint64("totalMessages", counter.totalMessages),
 		)
 		if counter.processedMessages == counter.totalMessages {
-			km.commitHeight(height)
-			delete(km.queuedHeightsAndMessages, height)
+			cm.stageCommitedHeight(height)
+			delete(cm.queuedHeightsAndMessages, height)
 		}
-		km.lock.Unlock()
+		cm.lock.Unlock()
 	}
 }
 
-// commitHeight marks a height as eligible to be written to the database.
-// Requires that km.lock be held
-func (km *keyManager) commitHeight(height uint64) {
-	if km.committedHeight == 0 {
-		km.logger.Debug(
+// stageCommitedHeight queues a height to be written to the database.
+// Heights are committed in sequence, so if height is not exactly one
+// greater than the current committedHeight, it is instead cached in memory
+// to potentially be committed later.
+// Requires that cm.lock be held
+func (cm *checkpointManager) stageCommitedHeight(height uint64) {
+	if cm.committedHeight == 0 {
+		cm.logger.Debug(
 			"Committing initial height",
 			zap.Uint64("height", height),
-			zap.String("relayerID", km.relayerID.ID.String()),
+			zap.String("relayerID", cm.relayerID.ID.String()),
 		)
-		km.committedHeight = height
+		cm.committedHeight = height
 		return
 	}
 
 	// First push the height onto the pending commits min heap
 	// This will ensure that the heights are committed in order
-	heap.Push(km.pendingCommits, height)
-	km.logger.Debug(
+	heap.Push(cm.pendingCommits, height)
+	cm.logger.Debug(
 		"Pending committed heights",
-		zap.Any("pendingCommits", km.pendingCommits),
-		zap.Uint64("maxCommittedHeight", km.committedHeight),
-		zap.String("relayerID", km.relayerID.ID.String()),
+		zap.Any("pendingCommits", cm.pendingCommits),
+		zap.Uint64("maxCommittedHeight", cm.committedHeight),
+		zap.String("relayerID", cm.relayerID.ID.String()),
 	)
 
-	for km.pendingCommits.Peek() == km.committedHeight+1 {
-		h := heap.Pop(km.pendingCommits).(uint64)
-		km.logger.Debug(
+	for cm.pendingCommits.Peek() == cm.committedHeight+1 {
+		h := heap.Pop(cm.pendingCommits).(uint64)
+		cm.logger.Debug(
 			"Committing height",
 			zap.Uint64("height", height),
-			zap.String("relayerID", km.relayerID.ID.String()),
+			zap.String("relayerID", cm.relayerID.ID.String()),
 		)
-		km.committedHeight = h
-		if km.pendingCommits.Len() == 0 {
+		cm.committedHeight = h
+		if cm.pendingCommits.Len() == 0 {
 			break
 		}
 	}
@@ -164,20 +167,20 @@ func (km *keyManager) commitHeight(height uint64) {
 // Once all messages have been processed, the height is eligible to be committed.
 // It is up to the caller to determine if a height is eligible to be committed.
 // This function is thread safe.
-func (km *keyManager) prepareHeight(height uint64, totalMessages uint64) {
-	km.lock.Lock()
-	defer km.lock.Unlock()
-	km.logger.Debug(
+func (cm *checkpointManager) prepareHeight(height uint64, totalMessages uint64) {
+	cm.lock.Lock()
+	defer cm.lock.Unlock()
+	cm.logger.Debug(
 		"Preparing height",
 		zap.Uint64("height", height),
 		zap.Uint64("totalMessages", totalMessages),
-		zap.String("relayerID", km.relayerID.ID.String()),
+		zap.String("relayerID", cm.relayerID.ID.String()),
 	)
 	if totalMessages == 0 {
-		km.commitHeight(height)
+		cm.stageCommitedHeight(height)
 		return
 	}
-	km.queuedHeightsAndMessages[height] = &messageCounter{
+	cm.queuedHeightsAndMessages[height] = &messageCounter{
 		totalMessages:     totalMessages,
 		processedMessages: 0,
 	}

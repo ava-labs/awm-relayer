@@ -7,6 +7,7 @@ import (
 	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/awm-relayer/database"
 	mock_database "github.com/ava-labs/awm-relayer/database/mocks"
+	"github.com/ava-labs/awm-relayer/utils"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/require"
@@ -18,42 +19,42 @@ func TestCommitHeight(t *testing.T) {
 		name              string
 		currentMaxHeight  uint64
 		commitHeight      uint64
-		pendingHeights    *intHeap
+		pendingHeights    *utils.UInt64Heap
 		expectedMaxHeight uint64
 	}{
 		{
 			name:              "commit height is the next height",
 			currentMaxHeight:  10,
 			commitHeight:      11,
-			pendingHeights:    &intHeap{},
+			pendingHeights:    &utils.UInt64Heap{},
 			expectedMaxHeight: 11,
 		},
 		{
 			name:              "commit height is the next height with pending heights",
 			currentMaxHeight:  10,
 			commitHeight:      11,
-			pendingHeights:    &intHeap{12, 13},
+			pendingHeights:    &utils.UInt64Heap{12, 13},
 			expectedMaxHeight: 13,
 		},
 		{
 			name:              "commit height is not the next height",
 			currentMaxHeight:  10,
 			commitHeight:      12,
-			pendingHeights:    &intHeap{},
+			pendingHeights:    &utils.UInt64Heap{},
 			expectedMaxHeight: 10,
 		},
 		{
 			name:              "commit height is not the next height with pending heights",
 			currentMaxHeight:  10,
 			commitHeight:      12,
-			pendingHeights:    &intHeap{13, 14},
+			pendingHeights:    &utils.UInt64Heap{13, 14},
 			expectedMaxHeight: 10,
 		},
 		{
 			name:              "commit height is not the next height with next height pending",
 			currentMaxHeight:  10,
 			commitHeight:      12,
-			pendingHeights:    &intHeap{11},
+			pendingHeights:    &utils.UInt64Heap{11},
 			expectedMaxHeight: 12,
 		},
 	}
@@ -62,11 +63,11 @@ func TestCommitHeight(t *testing.T) {
 		id := database.RelayerID{
 			ID: common.BytesToHash(crypto.Keccak256([]byte(test.name))),
 		}
-		km := newKeyManager(logging.NoLog{}, db, nil, id)
+		cm := newCheckpointManager(logging.NoLog{}, db, nil, id)
 		heap.Init(test.pendingHeights)
-		km.pendingCommits = test.pendingHeights
-		km.committedHeight = test.currentMaxHeight
-		km.commitHeight(test.commitHeight)
-		require.Equal(t, test.expectedMaxHeight, km.committedHeight, test.name)
+		cm.pendingCommits = test.pendingHeights
+		cm.committedHeight = test.currentMaxHeight
+		cm.commitHeight(test.commitHeight)
+		require.Equal(t, test.expectedMaxHeight, cm.committedHeight, test.name)
 	}
 }
