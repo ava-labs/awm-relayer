@@ -64,6 +64,7 @@ type applicationRelayer struct {
 	relayerID        database.RelayerID
 	warpQuorum       config.WarpQuorum
 	dbManager        *database.DatabaseManager
+	keyManager       *keyManager
 }
 
 func newApplicationRelayer(
@@ -94,6 +95,11 @@ func newApplicationRelayer(
 		// Otherwise, the source subnet signs the message.
 		signingSubnet = sourceBlockchain.GetSubnetID()
 	}
+
+	dbManager.RegisterRelayerID(relayerID)
+	keyManager := newKeyManager(logger, dbManager, relayerID)
+	go keyManager.run()
+
 	return &applicationRelayer{
 		logger:           logger,
 		metrics:          metrics,
@@ -105,6 +111,7 @@ func newApplicationRelayer(
 		signingSubnetID:  signingSubnet,
 		warpQuorum:       quorum,
 		dbManager:        dbManager,
+		keyManager:       keyManager,
 	}, nil
 }
 
@@ -175,7 +182,7 @@ func (r *applicationRelayer) relayMessage(
 	r.incSuccessfulRelayMessageCount()
 
 	// Update the database with the latest processed block height
-	r.dbManager.Finished(r.relayerID, blockNumber)
+	r.keyManager.finished <- blockNumber
 	return nil
 }
 

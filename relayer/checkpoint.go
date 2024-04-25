@@ -1,0 +1,160 @@
+package relayer
+
+import (
+	"container/heap"
+	"sync"
+
+	"github.com/ava-labs/avalanchego/utils/logging"
+	"github.com/ava-labs/awm-relayer/database"
+	"go.uber.org/zap"
+)
+
+// intHeap adapted from https://pkg.go.dev/container/heap#example-package-IntHeap
+type intHeap []uint64
+
+func (h intHeap) Len() int           { return len(h) }
+func (h intHeap) Less(i, j int) bool { return h[i] < h[j] }
+func (h intHeap) Swap(i, j int)      { h[i], h[j] = h[j], h[i] }
+func (h intHeap) Peek() uint64       { return h[0] }
+
+func (h *intHeap) Push(x any) {
+	// Push and Pop use pointer receivers because they modify the slice's length,
+	// not just its contents.
+	*h = append(*h, x.(uint64))
+}
+
+func (h *intHeap) Pop() any {
+	old := *h
+	n := len(old)
+	x := old[n-1]
+	*h = old[0 : n-1]
+	return x
+}
+
+//
+// keyManager commits keys to be written to the database in a thread safe manner.
+//
+
+type keyManager struct {
+	logger                   logging.Logger
+	dbManager                *database.DatabaseManager
+	relayerID                database.RelayerID
+	queuedHeightsAndMessages map[uint64]*messageCounter
+	lock                     *sync.RWMutex
+	pendingCommits           *intHeap
+	finished                 chan uint64
+}
+
+func newKeyManager(logger logging.Logger, dbManager *database.DatabaseManager, relayerID database.RelayerID) *keyManager {
+	h := &intHeap{}
+	heap.Init(h)
+	return &keyManager{
+		logger:                   logger,
+		dbManager:                dbManager,
+		relayerID:                relayerID,
+		queuedHeightsAndMessages: make(map[uint64]*messageCounter),
+		lock:                     &sync.RWMutex{},
+		pendingCommits:           h,
+		finished:                 make(chan uint64),
+	}
+}
+
+// Run listens for finished signals from application relayers, and commits the
+// height once all messages have been processed.
+// This function should only be called once.
+func (km *keyManager) run() {
+	for height := range km.finished {
+		km.lock.Lock()
+		counter, ok := km.queuedHeightsAndMessages[height]
+		if !ok {
+			km.logger.Error(
+				"Pending height not found",
+				zap.Uint64("height", height),
+				zap.String("relayerID", km.relayerID.ID.String()),
+			)
+			km.lock.Unlock()
+			continue
+		}
+
+		counter.processedMessages++
+		km.logger.Debug(
+			"Received finished signal",
+			zap.Uint64("height", height),
+			zap.String("relayerID", km.relayerID.ID.String()),
+			zap.Uint64("processedMessages", counter.processedMessages),
+			zap.Uint64("totalMessages", counter.totalMessages),
+		)
+		if counter.processedMessages == counter.totalMessages {
+			km.commitHeight(height)
+			delete(km.queuedHeightsAndMessages, height)
+		}
+		km.lock.Unlock()
+	}
+}
+
+// commitHeight marks a height as eligible to be written to the database.
+func (km *keyManager) commitHeight(height uint64) {
+	committedHeight := km.dbManager.GetCommittedHeight(km.relayerID)
+	if committedHeight == 0 {
+		km.logger.Debug(
+			"Committing initial height",
+			zap.Uint64("height", height),
+			zap.String("relayerID", km.relayerID.ID.String()),
+		)
+		km.dbManager.CommitHeight(km.relayerID, height)
+		return
+	}
+
+	// First push the height onto the pending commits min heap
+	// This will ensure that the heights are committed in order
+	heap.Push(km.pendingCommits, height)
+	km.logger.Debug(
+		"Pending committed heights",
+		zap.Any("pendingCommits", km.pendingCommits),
+		zap.Uint64("maxCommittedHeight", committedHeight),
+		zap.String("relayerID", km.relayerID.ID.String()),
+	)
+
+	for km.pendingCommits.Peek() == committedHeight+1 {
+		h := heap.Pop(km.pendingCommits).(uint64)
+		km.logger.Debug(
+			"Committing height",
+			zap.Uint64("height", height),
+			zap.String("relayerID", km.relayerID.ID.String()),
+		)
+		km.dbManager.CommitHeight(km.relayerID, h)
+		if km.pendingCommits.Len() == 0 {
+			break
+		}
+		committedHeight = km.dbManager.GetCommittedHeight(km.relayerID)
+	}
+}
+
+// PrepareHeight sets the total number of messages to be processed at a given height.
+// Once all messages have been processed, the height is eligible to be committed.
+// It is up to the caller to determine if a height is eligible to be committed.
+// This function is thread safe.
+func (km *keyManager) prepareHeight(height uint64, totalMessages uint64) {
+	km.lock.Lock()
+	defer km.lock.Unlock()
+	km.logger.Debug(
+		"Preparing height",
+		zap.Uint64("height", height),
+		zap.Uint64("totalMessages", totalMessages),
+		zap.String("relayerID", km.relayerID.ID.String()),
+	)
+	if totalMessages == 0 {
+		km.commitHeight(height)
+		return
+	}
+	km.queuedHeightsAndMessages[height] = &messageCounter{
+		totalMessages:     totalMessages,
+		processedMessages: 0,
+	}
+}
+
+// Helper type
+type messageCounter struct {
+	totalMessages     uint64
+	processedMessages uint64
+}

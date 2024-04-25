@@ -190,7 +190,6 @@ func main() {
 		logger,
 		db,
 		time.Duration(cfg.DBWriteIntervalSeconds)*time.Second,
-		relayerKeys.List(),
 	)
 	go dbManager.Run()
 

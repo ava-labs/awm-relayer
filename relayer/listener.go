@@ -252,7 +252,7 @@ func (lstnr *Listener) setAllProcessedBlockHeightsToLatest() error {
 		if err != nil {
 			return err
 		}
-		relayer.dbManager.PrepareHeight(relayer.relayerID, height, 0)
+		relayer.keyManager.prepareHeight(height, 0)
 		if err != nil {
 			return err
 		}
@@ -349,15 +349,7 @@ func (lstnr *Listener) ProcessLogs(ctx context.Context) error {
 				// of expected messages. If no messages are found in the above loop, then
 				// totalMessages will be 0
 				totalMessages := expectedMessages[appRelayer.relayerID]
-				err := lstnr.dbManager.PrepareHeight(appRelayer.relayerID, block.BlockNumber, totalMessages)
-				if err != nil {
-					lstnr.logger.Error(
-						"Failed to prepare height",
-						zap.String("relayerID", appRelayer.relayerID.ID.String()),
-						zap.Error(err),
-					)
-					continue
-				}
+				appRelayer.keyManager.prepareHeight(block.BlockNumber, totalMessages)
 			}
 			for _, msgInfo := range msgsInfo {
 				lstnr.logger.Info(

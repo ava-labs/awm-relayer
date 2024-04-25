@@ -1,10 +1,13 @@
-package database
+package relayer
 
 import (
 	"container/heap"
 	"testing"
 
 	"github.com/ava-labs/avalanchego/utils/logging"
+	"github.com/ava-labs/awm-relayer/database"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/require"
 )
 
@@ -52,14 +55,18 @@ func TestCommitHeight(t *testing.T) {
 			expectedMaxHeight: 12,
 		},
 	}
-
+	dbManager := database.NewDatabaseManager(logging.NoLog{}, nil, 0)
 	for _, test := range testCases {
-		km := newKeyManager(logging.NoLog{}, RelayerID{})
+		id := database.RelayerID{
+			ID: common.BytesToHash(crypto.Keccak256([]byte(test.name))),
+		}
+		dbManager.RegisterRelayerID(id)
+		dbManager.CommitHeight(id, test.currentMaxHeight)
+		km := newKeyManager(logging.NoLog{}, dbManager, id)
 		heap.Init(test.pendingHeights)
 		km.pendingCommits = test.pendingHeights
-		km.maxCommittedHeight = test.currentMaxHeight
 
 		km.commitHeight(test.commitHeight)
-		require.Equal(t, test.expectedMaxHeight, km.maxCommittedHeight, test.name)
+		require.Equal(t, test.expectedMaxHeight, dbManager.GetCommittedHeight(id), test.name)
 	}
 }
