@@ -1,3 +1,5 @@
+//go:build testing
+
 package config
 
 import "fmt"
@@ -9,6 +11,8 @@ var (
 	testAddress       string = "0xd81545385803bCD83bd59f58Ba2d2c0562387F83"
 	testPk1           string = "0xabc89e99c94b6912bfc12adc093c9b51124f0dc54ac7a766b2bc5ccf558d8abc"
 	testPk2           string = "0x12389e99c94b6912bfc12adc093c9b51124f0dc54ac7a766b2bc5ccf558d8123"
+	queryParamKey1    string = "key1"
+	queryParamVal1    string = "val1"
 )
 
 // Valid configuration objects to be used by tests in external packages
@@ -17,6 +21,9 @@ var (
 		LogLevel: "info",
 		PChainAPI: &PChainAPI{
 			BaseURL: "http://test.avax.network",
+			QueryParams: map[string]string{
+				queryParamKey1: queryParamVal1,
+			},
 		},
 		InfoAPI: &InfoAPI{
 			BaseURL: "http://test.avax.network",
