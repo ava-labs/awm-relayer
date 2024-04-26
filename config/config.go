@@ -11,13 +11,10 @@ import (
 	"net/url"
 	"os"
 
-	"github.com/ava-labs/avalanchego/api/info"
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/utils/constants"
 	"github.com/ava-labs/avalanchego/utils/logging"
-	"github.com/ava-labs/avalanchego/utils/rpc"
 	"github.com/ava-labs/avalanchego/utils/set"
-	"github.com/ava-labs/avalanchego/vms/platformvm"
 	"github.com/ava-labs/awm-relayer/utils"
 
 	"github.com/ava-labs/subnet-evm/ethclient"
@@ -125,22 +122,10 @@ type WarpQuorum struct {
 	QuorumDenominator uint64
 }
 
-// P Chain API configuration, contains the base URL and query parameters
-type PChainAPI struct {
+// API configuration containing the base URL and query parameters
+type APIConfig struct {
 	BaseURL     string            `mapstructure:"base-url" json:"base-url"`
 	QueryParams map[string]string `mapstructure:"query-parameters" json:"query-parameters"`
-
-	options []rpc.Option
-	client  platformvm.Client
-}
-
-// Info API configuration, contains the base URL and query parameters
-type InfoAPI struct {
-	BaseURL     string            `mapstructure:"base-url" json:"base-url"`
-	QueryParams map[string]string `mapstructure:"query-parameters" json:"query-parameters"`
-
-	options []rpc.Option
-	client  info.Client
 }
 
 // Top-level configuration
@@ -151,8 +136,8 @@ type Config struct {
 	APIPort         uint16 `mapstructure:"api-port" json:"api-port"`
 	MetricsPort     uint16 `mapstructure:"metrics-port" json:"metrics-port"`
 
-	PChainAPI              *PChainAPI               `mapstructure:"p-chain-api" json:"p-chain-api"`
-	InfoAPI                *InfoAPI                 `mapstructure:"info-api" json:"info-api"`
+	PChainAPI              *APIConfig               `mapstructure:"p-chain-api" json:"p-chain-api"`
+	InfoAPI                *APIConfig               `mapstructure:"info-api" json:"info-api"`
 	SourceBlockchains      []*SourceBlockchain      `mapstructure:"source-blockchains" json:"source-blockchains"`
 	DestinationBlockchains []*DestinationBlockchain `mapstructure:"destination-blockchains" json:"destination-blockchains"`
 	ProcessMissedBlocks    bool                     `mapstructure:"process-missed-blocks" json:"process-missed-blocks"`
@@ -433,46 +418,11 @@ func (c *Config) InitializeWarpQuorums() error {
 	return nil
 }
 
-func (p *PChainAPI) Validate() error {
-	if _, err := url.ParseRequestURI(p.BaseURL); err != nil {
+func (c *APIConfig) Validate() error {
+	if _, err := url.ParseRequestURI(c.BaseURL); err != nil {
 		return fmt.Errorf("invalid base URL: %w", err)
 	}
-	p.options = make([]rpc.Option, 0, len(p.QueryParams))
-	for key, value := range p.QueryParams {
-		p.options = append(p.options, rpc.WithQueryParam(key, value))
-	}
-
-	p.client = platformvm.NewClient(p.BaseURL)
 	return nil
-}
-
-func (i *InfoAPI) Validate() error {
-	if _, err := url.ParseRequestURI(i.BaseURL); err != nil {
-		return fmt.Errorf("invalid base URL: %w", err)
-	}
-	i.options = make([]rpc.Option, 0, len(i.QueryParams))
-	for key, value := range i.QueryParams {
-		i.options = append(i.options, rpc.WithQueryParam(key, value))
-	}
-
-	i.client = info.NewClient(i.BaseURL)
-	return nil
-}
-
-func (p *PChainAPI) Options() []rpc.Option {
-	return p.options
-}
-
-func (p *PChainAPI) Client() platformvm.Client {
-	return p.client
-}
-
-func (i *InfoAPI) Options() []rpc.Option {
-	return i.options
-}
-
-func (i *InfoAPI) Client() info.Client {
-	return i.client
 }
 
 // Validates the source subnet configuration, including verifying that the supported destinations are present in destinationBlockchainIDs

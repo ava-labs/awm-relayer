@@ -19,13 +19,13 @@ var (
 var (
 	TestValidConfig = Config{
 		LogLevel: "info",
-		PChainAPI: &PChainAPI{
+		PChainAPI: &APIConfig{
 			BaseURL: "http://test.avax.network",
 			QueryParams: map[string]string{
 				queryParamKey1: queryParamVal1,
 			},
 		},
-		InfoAPI: &InfoAPI{
+		InfoAPI: &APIConfig{
 			BaseURL: "http://test.avax.network",
 		},
 		SourceBlockchains: []*SourceBlockchain{

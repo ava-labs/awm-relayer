@@ -20,8 +20,8 @@ import (
 	"github.com/ava-labs/avalanchego/utils/set"
 	"github.com/ava-labs/avalanchego/vms/platformvm/warp"
 	"github.com/ava-labs/awm-relayer/config"
+	"github.com/ava-labs/awm-relayer/peers/validators"
 	"github.com/ava-labs/awm-relayer/utils"
-	"github.com/ava-labs/awm-relayer/validators"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 )
@@ -34,7 +34,8 @@ const (
 type AppRequestNetwork struct {
 	Network         network.Network
 	Handler         *RelayerExternalHandler
-	infoAPI         *config.InfoAPI
+	infoAPI         *InfoAPI
+	pChainAPI       *PChainAPI
 	logger          logging.Logger
 	lock            *sync.Mutex
 	validatorClient *validators.CanonicalValidatorClient
@@ -54,15 +55,6 @@ func NewNetwork(
 			logging.JSON.ConsoleEncoder(),
 		),
 	)
-
-	networkID, err := cfg.InfoAPI.Client().GetNetworkID(context.Background(), cfg.InfoAPI.Options()...)
-	if err != nil {
-		logger.Error(
-			"Failed to get network ID",
-			zap.Error(err),
-		)
-		return nil, nil, err
-	}
 
 	// Create the test network for AppRequests
 	var trackedSubnets set.Set[ids.ID]
@@ -87,6 +79,23 @@ func NewNetwork(
 		return nil, nil, err
 	}
 
+	infoAPI, err := NewInfoAPI(cfg.InfoAPI)
+	if err != nil {
+		logger.Error(
+			"Failed to create info API",
+			zap.Error(err),
+		)
+		return nil, nil, err
+	}
+	networkID, err := infoAPI.client.GetNetworkID(context.Background(), infoAPI.options...)
+	if err != nil {
+		logger.Error(
+			"Failed to get network ID",
+			zap.Error(err),
+		)
+		return nil, nil, err
+	}
+
 	testNetwork, err := network.NewTestNetwork(logger, networkID, snowVdrs.NewManager(), trackedSubnets, handler)
 	if err != nil {
 		logger.Error(
@@ -96,12 +105,21 @@ func NewNetwork(
 		return nil, nil, err
 	}
 
-	validatorClient := validators.NewCanonicalValidatorClient(logger, cfg.PChainAPI)
+	pChainAPI, err := NewPChainAPI(cfg.PChainAPI)
+	if err != nil {
+		logger.Error(
+			"Failed to create P-Chain API",
+			zap.Error(err),
+		)
+		return nil, nil, err
+	}
+	validatorClient := validators.NewCanonicalValidatorClient(logger, pChainAPI.client, pChainAPI.options)
 
 	arNetwork := &AppRequestNetwork{
 		Network:         testNetwork,
 		Handler:         handler,
-		infoAPI:         cfg.InfoAPI,
+		infoAPI:         infoAPI,
+		pChainAPI:       pChainAPI,
 		logger:          logger,
 		lock:            new(sync.Mutex),
 		validatorClient: validatorClient,
@@ -148,7 +166,7 @@ func (n *AppRequestNetwork) ConnectPeers(nodeIDs set.Set[ids.NodeID]) set.Set[id
 	// re-adding connections to already tracked peers.
 
 	// Get the list of peers
-	peers, err := n.infoAPI.Client().Peers(context.Background(), n.infoAPI.Options()...)
+	peers, err := n.infoAPI.client.Peers(context.Background(), n.infoAPI.options...)
 	if err != nil {
 		n.logger.Error(
 			"Failed to get peers",
@@ -180,13 +198,13 @@ func (n *AppRequestNetwork) ConnectPeers(nodeIDs set.Set[ids.NodeID]) set.Set[id
 
 	// If the Info API node is in nodeIDs, it will not be reflected in the call to info.Peers.
 	// In this case, we need to manually track the API node.
-	if apiNodeID, _, err := n.infoAPI.Client().GetNodeID(context.Background(), n.infoAPI.Options()...); err != nil {
+	if apiNodeID, _, err := n.infoAPI.client.GetNodeID(context.Background(), n.infoAPI.options...); err != nil {
 		n.logger.Error(
 			"Failed to get API Node ID",
 			zap.Error(err),
 		)
 	} else if nodeIDs.Contains(apiNodeID) {
-		if apiNodeIP, err := n.infoAPI.Client().GetNodeIP(context.Background(), n.infoAPI.Options()...); err != nil {
+		if apiNodeIP, err := n.infoAPI.client.GetNodeIP(context.Background(), n.infoAPI.options...); err != nil {
 			n.logger.Error(
 				"Failed to get API Node IP",
 				zap.Error(err),
