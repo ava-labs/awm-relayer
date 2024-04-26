@@ -105,13 +105,13 @@ The relayer binary accepts a path to a JSON configuration file as the sole argum
 
 ### Configuration
 
-The relayer is configured via a JSON file, the path to which is passed in via the `--config-file` command line argument. Top level configuration options are also able to be set via environment variable. To get the environment variable corresponding to a key, upper case the key and change the delimiter from "-" to "_". For example, `LOG_LEVEL` sets the `"log-level"` JSON key. The following configuration options are available:
+The relayer is configured via a JSON file, the path to which is passed in via the `--config-file` command line argument. Top level configuration options are also able to be set via environment variable. To get the environment variable corresponding to a key, upper case the key and change the delimiter from "-" to "\_". For example, `LOG_LEVEL` sets the `"log-level"` JSON key. The following configuration options are available:
 
 `"log-level": "verbo" | "debug" | "info" | "warn" | "error" | "fatal" | "panic"`
 
 - The log level for the relayer. Defaults to `info`.
 
-`"p-chain-api": PChainAPI`
+`"p-chain-api": APIConfig`
 
 - The configuration for the Avalanche P-Chain API node. The `PChainAPI` object has the following configuration:
 
@@ -126,7 +126,7 @@ The relayer is configured via a JSON file, the path to which is passed in via th
 
   - Additional query parameters to include in the API requests.
 
-`"info-api": InfoAPI`
+`"info-api": APIConfig`
 
 - The configuration for the Avalanche Info API node. The `InfoAPI` object has the following configuration:
 
