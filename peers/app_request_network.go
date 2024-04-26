@@ -10,7 +10,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ava-labs/avalanchego/api/info"
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/message"
 	"github.com/ava-labs/avalanchego/network"
@@ -35,7 +34,7 @@ const (
 type AppRequestNetwork struct {
 	Network         network.Network
 	Handler         *RelayerExternalHandler
-	infoClient      info.Client
+	infoAPI         *config.InfoAPI
 	logger          logging.Logger
 	lock            *sync.Mutex
 	validatorClient *validators.CanonicalValidatorClient
@@ -56,8 +55,7 @@ func NewNetwork(
 		),
 	)
 
-	infoClient := cfg.InfoAPI.GetClient()
-	networkID, err := infoClient.GetNetworkID(context.Background(), cfg.InfoAPI.GetOptions()...)
+	networkID, err := cfg.InfoAPI.Client().GetNetworkID(context.Background(), cfg.InfoAPI.Options()...)
 	if err != nil {
 		logger.Error(
 			"Failed to get network ID",
@@ -103,7 +101,7 @@ func NewNetwork(
 	arNetwork := &AppRequestNetwork{
 		Network:         testNetwork,
 		Handler:         handler,
-		infoClient:      infoClient,
+		infoAPI:         cfg.InfoAPI,
 		logger:          logger,
 		lock:            new(sync.Mutex),
 		validatorClient: validatorClient,
@@ -150,7 +148,7 @@ func (n *AppRequestNetwork) ConnectPeers(nodeIDs set.Set[ids.NodeID]) set.Set[id
 	// re-adding connections to already tracked peers.
 
 	// Get the list of peers
-	peers, err := n.infoClient.Peers(context.Background())
+	peers, err := n.infoAPI.Client().Peers(context.Background(), n.infoAPI.Options()...)
 	if err != nil {
 		n.logger.Error(
 			"Failed to get peers",
@@ -182,13 +180,13 @@ func (n *AppRequestNetwork) ConnectPeers(nodeIDs set.Set[ids.NodeID]) set.Set[id
 
 	// If the Info API node is in nodeIDs, it will not be reflected in the call to info.Peers.
 	// In this case, we need to manually track the API node.
-	if apiNodeID, _, err := n.infoClient.GetNodeID(context.Background()); err != nil {
+	if apiNodeID, _, err := n.infoAPI.Client().GetNodeID(context.Background(), n.infoAPI.Options()...); err != nil {
 		n.logger.Error(
 			"Failed to get API Node ID",
 			zap.Error(err),
 		)
 	} else if nodeIDs.Contains(apiNodeID) {
-		if apiNodeIP, err := n.infoClient.GetNodeIP(context.Background()); err != nil {
+		if apiNodeIP, err := n.infoAPI.Client().GetNodeIP(context.Background(), n.infoAPI.Options()...); err != nil {
 			n.logger.Error(
 				"Failed to get API Node IP",
 				zap.Error(err),

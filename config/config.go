@@ -459,19 +459,19 @@ func (i *InfoAPI) Validate() error {
 	return nil
 }
 
-func (p *PChainAPI) GetOptions() []rpc.Option {
+func (p *PChainAPI) Options() []rpc.Option {
 	return p.options
 }
 
-func (p *PChainAPI) GetClient() platformvm.Client {
+func (p *PChainAPI) Client() platformvm.Client {
 	return p.client
 }
 
-func (i *InfoAPI) GetOptions() []rpc.Option {
+func (i *InfoAPI) Options() []rpc.Option {
 	return i.options
 }
 
-func (i *InfoAPI) GetClient() info.Client {
+func (i *InfoAPI) Client() info.Client {
 	return i.client
 }
 
