@@ -132,6 +132,7 @@ func (r *applicationRelayer) relayMessage(
 	}
 	if !shouldSend {
 		r.logger.Info("Message should not be sent")
+		r.checkpointManager.finished <- blockNumber
 		return nil
 	}
 
