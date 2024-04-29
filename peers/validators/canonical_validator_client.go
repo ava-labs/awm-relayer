@@ -77,16 +77,26 @@ func (v *CanonicalValidatorClient) GetSubnetID(ctx context.Context, blockchainID
 	return v.client.ValidatedBy(ctx, blockchainID, v.options...)
 }
 
-func (v *CanonicalValidatorClient) GetCurrentValidators(ctx context.Context, subnetID ids.ID, nodeIDs []ids.NodeID) ([]platformvm.ClientPermissionlessValidator, error) {
-	return v.client.GetCurrentValidators(ctx, subnetID, nodeIDs, v.options...)
-}
-
-func (v *CanonicalValidatorClient) GetValidatorsAt(
+// Gets the validator set of the given subnet at the given P-chain block height.
+// Attempts to use the "getValidatorsAt" API first. If not available, falls back
+// to use "getCurrentValidators", ignoring the specified P-chain block height.
+func (v *CanonicalValidatorClient) GetValidatorSet(
 	ctx context.Context,
-	subnetID ids.ID,
 	height uint64,
+	subnetID ids.ID,
 ) (map[ids.NodeID]*validators.GetValidatorOutput, error) {
-	return v.client.GetValidatorsAt(ctx, subnetID, height, v.options...)
+	// First, attempt to use the "getValidatorsAt" RPC method. This method may not be available on
+	// all API nodes, in which case we can fall back to using "getCurrentValidators" if needed.
+	res, err := v.client.GetValidatorsAt(ctx, subnetID, height, v.options...)
+	if err != nil {
+		v.logger.Debug(
+			"P-chain RPC to getValidatorAt returned error. Falling back to getCurrentValidators",
+			zap.String("subnetID", subnetID.String()),
+			zap.Uint64("pChainHeight", height),
+			zap.Error(err))
+		return v.getCurrentValidatorSet(ctx, subnetID)
+	}
+	return res, nil
 }
 
 // Gets the current validator set of the given subnet ID, including the validators' BLS public
@@ -103,7 +113,7 @@ func (v *CanonicalValidatorClient) getCurrentValidatorSet(
 	// Get the current subnet validators. These validators are not expected to include
 	// BLS signing information given that addPermissionlessValidatorTx is only used to
 	// add primary network validators.
-	subnetVdrs, err := v.GetCurrentValidators(ctx, subnetID, nil)
+	subnetVdrs, err := v.client.GetCurrentValidators(ctx, subnetID, nil, v.options...)
 	if err != nil {
 		return nil, err
 	}
@@ -119,7 +129,7 @@ func (v *CanonicalValidatorClient) getCurrentValidatorSet(
 			Weight: subnetVdr.Weight,
 		}
 	}
-	primaryVdrs, err := v.GetCurrentValidators(ctx, ids.Empty, subnetNodeIDs)
+	primaryVdrs, err := v.client.GetCurrentValidators(ctx, ids.Empty, subnetNodeIDs, v.options...)
 	if err != nil {
 		return nil, err
 	}
@@ -148,27 +158,5 @@ func (v *CanonicalValidatorClient) getCurrentValidatorSet(
 		}
 	}
 
-	return res, nil
-}
-
-// Gets the validator set of the given subnet at the given P-chain block height.
-// Attempts to use the "getValidatorsAt" API first. If not available, falls back
-// to use "getCurrentValidators", ignoring the specified P-chain block height.
-func (v *CanonicalValidatorClient) GetValidatorSet(
-	ctx context.Context,
-	height uint64,
-	subnetID ids.ID,
-) (map[ids.NodeID]*validators.GetValidatorOutput, error) {
-	// First, attempt to use the "getValidatorsAt" RPC method. This method may not be available on
-	// all API nodes, in which case we can fall back to using "getCurrentValidators" if needed.
-	res, err := v.GetValidatorsAt(ctx, subnetID, height)
-	if err != nil {
-		v.logger.Debug(
-			"P-chain RPC to getValidatorAt returned error. Falling back to getCurrentValidators",
-			zap.String("subnetID", subnetID.String()),
-			zap.Uint64("pChainHeight", height),
-			zap.Error(err))
-		return v.getCurrentValidatorSet(ctx, subnetID)
-	}
 	return res, nil
 }
