@@ -102,10 +102,11 @@ func CreateDefaultRelayerConfig(
 	fundedAddress common.Address,
 	relayerKey *ecdsa.PrivateKey,
 ) config.Config {
-	logLevel := logging.Info
-	if os.Getenv("LOG_LEVEL") == "debug" {
-		logLevel = logging.Debug
+	logLevel, err := logging.ToLevel(os.Getenv("LOG_LEVEL"))
+	if err != nil {
+		logLevel = logging.Info
 	}
+
 	log.Info(
 		"Setting up relayer config",
 		"logLevel", logLevel.LowerString(),
