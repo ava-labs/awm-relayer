@@ -9,7 +9,7 @@ import (
 
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/message"
-	"github.com/ava-labs/avalanchego/snow/engine/common"
+	avalancheCommon "github.com/ava-labs/avalanchego/snow/engine/common"
 	"github.com/ava-labs/avalanchego/snow/networking/router"
 	"github.com/ava-labs/avalanchego/utils/constants"
 	"github.com/ava-labs/avalanchego/utils/logging"
@@ -27,16 +27,19 @@ var _ router.ExternalHandler = &RelayerExternalHandler{}
 type RelayerExternalHandler struct {
 	log               logging.Logger
 	responseChansLock *sync.RWMutex
-	responseChans     map[ids.ID]chan message.InboundMessage
+	responseChans     map[uint32]chan message.InboundMessage
+	responsesCount    map[uint32]expectedResponses
 	timeoutManager    timer.AdaptiveTimeoutManager
+}
+
+type expectedResponses struct {
+	expected, received int
 }
 
 // Create a new RelayerExternalHandler to forward relevant inbound app messages to the respective Teleporter application relayer, as well as handle timeouts.
 func NewRelayerExternalHandler(
 	logger logging.Logger,
 	registerer prometheus.Registerer,
-	responseChans map[ids.ID]chan message.InboundMessage,
-	responseChansLock *sync.RWMutex,
 ) (*RelayerExternalHandler, error) {
 	// TODO: Leaving this static for now, but we may want to have this as a config option
 	cfg := timer.AdaptiveTimeoutConfig{
@@ -60,8 +63,9 @@ func NewRelayerExternalHandler(
 
 	return &RelayerExternalHandler{
 		log:               logger,
-		responseChansLock: responseChansLock,
-		responseChans:     responseChans,
+		responseChansLock: &sync.RWMutex{},
+		responseChans:     make(map[uint32]chan message.InboundMessage),
+		responsesCount:    make(map[uint32]expectedResponses),
 		timeoutManager:    timeoutManager,
 	}, nil
 }
@@ -80,7 +84,7 @@ func (h *RelayerExternalHandler) HandleInbound(_ context.Context, inboundMessage
 		zap.Stringer("op", inboundMessage.Op()),
 	)
 	if inboundMessage.Op() == message.AppResponseOp || inboundMessage.Op() == message.AppErrorOp {
-		h.log.Info("Handling app response", zap.Stringer("from", inboundMessage.NodeID()))
+		h.log.Debug("Handling app response", zap.Stringer("from", inboundMessage.NodeID()))
 
 		// Extract the message fields
 		m := inboundMessage.Message()
@@ -122,8 +126,11 @@ func (h *RelayerExternalHandler) HandleInbound(_ context.Context, inboundMessage
 		go func(message.InboundMessage, ids.ID) {
 			h.responseChansLock.RLock()
 			defer h.responseChansLock.RUnlock()
-
-			h.responseChans[blockchainID] <- inboundMessage
+			if responseChan, ok := h.responseChans[requestID]; ok {
+				responseChan <- inboundMessage
+			} else {
+				h.log.Debug("Could not find response channel for request", zap.Uint32("requestID", reqID.RequestID))
+			}
 		}(inboundMessage, blockchainID)
 	} else {
 		h.log.Debug("Ignoring message", zap.Stringer("op", inboundMessage.Op()))
@@ -150,20 +157,45 @@ func (h *RelayerExternalHandler) Disconnected(nodeID ids.NodeID) {
 // RegisterRequest registers an AppRequest with the timeout manager.
 // If RegisterResponse is not called before the timeout, HandleInbound is called with
 // an internally created AppRequestFailed message.
-func (h *RelayerExternalHandler) RegisterRequest(reqID ids.RequestID) {
+func (h *RelayerExternalHandler) RegisterRequest(reqID ids.RequestID, numExpectedResponses int) chan message.InboundMessage {
+	// Create a channel to receive the response
+	h.responseChansLock.Lock()
+	defer h.responseChansLock.Unlock()
+
+	responseChan := make(chan message.InboundMessage, numExpectedResponses)
+	h.responseChans[reqID.RequestID] = responseChan
+	h.responsesCount[reqID.RequestID] = expectedResponses{
+		expected: numExpectedResponses,
+	}
+
 	inMsg := message.InboundAppError(
 		reqID.NodeID,
 		reqID.SourceChainID,
 		reqID.RequestID,
-		common.ErrTimeout.Code,
-		common.ErrTimeout.Message,
+		avalancheCommon.ErrTimeout.Code,
+		avalancheCommon.ErrTimeout.Message,
 	)
 	h.timeoutManager.Put(reqID, false, func() {
 		h.HandleInbound(context.Background(), inMsg)
 	})
+	return responseChan
 }
 
 // RegisterResponse registers an AppResponse with the timeout manager
 func (h *RelayerExternalHandler) RegisterResponse(reqID ids.RequestID) {
+	h.responseChansLock.Lock()
+	defer h.responseChansLock.Unlock()
 	h.timeoutManager.Remove(reqID)
+	responses := h.responsesCount[reqID.RequestID]
+	received := responses.received + 1
+	if received == responses.expected {
+		close(h.responseChans[reqID.RequestID])
+		delete(h.responseChans, reqID.RequestID)
+		delete(h.responsesCount, reqID.RequestID)
+	} else {
+		h.responsesCount[reqID.RequestID] = expectedResponses{
+			expected: h.responsesCount[reqID.RequestID].expected,
+			received: received,
+		}
+	}
 }

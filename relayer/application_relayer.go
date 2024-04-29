@@ -58,7 +58,6 @@ type applicationRelayer struct {
 	metrics           *ApplicationRelayerMetrics
 	network           *peers.AppRequestNetwork
 	messageCreator    message.Creator
-	responseChan      chan message.InboundMessage
 	sourceBlockchain  config.SourceBlockchain
 	signingSubnetID   ids.ID
 	relayerID         database.RelayerID
@@ -71,7 +70,6 @@ func newApplicationRelayer(
 	metrics *ApplicationRelayerMetrics,
 	network *peers.AppRequestNetwork,
 	messageCreator message.Creator,
-	responseChan chan message.InboundMessage,
 	relayerID database.RelayerID,
 	db database.RelayerDatabase,
 	ticker *utils.Ticker,
@@ -105,7 +103,6 @@ func newApplicationRelayer(
 		metrics:           metrics,
 		network:           network,
 		messageCreator:    messageCreator,
-		responseChan:      responseChan,
 		sourceBlockchain:  sourceBlockchain,
 		relayerID:         relayerID,
 		signingSubnetID:   signingSubnet,
@@ -311,7 +308,7 @@ func (r *applicationRelayer) createSignedMessageAppRequest(unsignedMessage *aval
 	accumulatedSignatureWeight := big.NewInt(0)
 
 	signatureMap := make(map[int]blsSignatureBuf)
-
+	var responseChan chan message.InboundMessage
 	for attempt := 1; attempt <= maxRelayerQueryAttempts; attempt++ {
 		responsesExpected := len(connectedValidators.ValidatorSet) - len(signatureMap)
 		r.logger.Debug(
@@ -346,7 +343,7 @@ func (r *applicationRelayer) createSignedMessageAppRequest(unsignedMessage *aval
 				RequestID:          requestID,
 				Op:                 byte(message.AppResponseOp),
 			}
-			r.network.Handler.RegisterRequest(reqID)
+			responseChan = r.network.Handler.RegisterRequest(reqID, vdrSet.Len())
 		}
 
 		sentTo := r.network.Network.Send(outMsg, vdrSet, r.sourceBlockchain.GetSubnetID(), subnets.NoOpAllower)
@@ -371,7 +368,7 @@ func (r *applicationRelayer) createSignedMessageAppRequest(unsignedMessage *aval
 			// Handle the responses. For each response, we need to call response.OnFinishedHandling() exactly once.
 			// Wrap the loop body in an anonymous function so that we do so on each loop iteration
 			// TODO: In order to run this concurrently, we need to route to each application relayer from the relayer responseChan
-			for response := range r.responseChan {
+			for response := range responseChan {
 				r.logger.Debug(
 					"Processing response from node",
 					zap.String("nodeID", response.NodeID().String()),

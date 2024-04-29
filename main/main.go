@@ -103,7 +103,7 @@ func main() {
 	if logLevel <= logging.Debug {
 		networkLogLevel = logLevel
 	}
-	network, responseChans, err := peers.NewNetwork(
+	network, err := peers.NewNetwork(
 		networkLogLevel,
 		registerer,
 		&cfg,
@@ -222,7 +222,6 @@ func main() {
 				*subnetInfo,
 				pChainClient,
 				network,
-				responseChans[blockchainID],
 				destinationClients,
 				messageCreator,
 				health,
@@ -248,7 +247,6 @@ func runRelayer(
 	sourceSubnetInfo config.SourceBlockchain,
 	pChainClient platformvm.Client,
 	network *peers.AppRequestNetwork,
-	responseChan chan message.InboundMessage,
 	destinationClients map[ids.ID]vms.DestinationClient,
 	messageCreator message.Creator,
 	relayerHealth *atomic.Bool,
@@ -268,7 +266,6 @@ func runRelayer(
 		sourceSubnetInfo,
 		pChainClient,
 		network,
-		responseChan,
 		destinationClients,
 		messageCreator,
 		relayerHealth,

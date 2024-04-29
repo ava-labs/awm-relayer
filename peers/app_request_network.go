@@ -12,7 +12,6 @@ import (
 
 	"github.com/ava-labs/avalanchego/api/info"
 	"github.com/ava-labs/avalanchego/ids"
-	"github.com/ava-labs/avalanchego/message"
 	"github.com/ava-labs/avalanchego/network"
 	snowVdrs "github.com/ava-labs/avalanchego/snow/validators"
 	"github.com/ava-labs/avalanchego/utils/constants"
@@ -49,7 +48,7 @@ func NewNetwork(
 	cfg *config.Config,
 	infoClient info.Client,
 	pChainClient platformvm.Client,
-) (*AppRequestNetwork, map[ids.ID]chan message.InboundMessage, error) {
+) (*AppRequestNetwork, error) {
 	logger := logging.NewLogger(
 		"awm-relayer-p2p",
 		logging.NewWrappedCore(
@@ -65,7 +64,7 @@ func NewNetwork(
 			"Failed to get network ID",
 			zap.Error(err),
 		)
-		return nil, nil, err
+		return nil, err
 	}
 
 	// Create the test network for AppRequests
@@ -74,21 +73,13 @@ func NewNetwork(
 		trackedSubnets.Add(sourceBlockchain.GetSubnetID())
 	}
 
-	// Construct a response chan for each chain. Inbound messages will be routed to the proper channel in the handler
-	responseChans := make(map[ids.ID]chan message.InboundMessage)
-	for _, sourceBlockchain := range cfg.SourceBlockchains {
-		responseChan := make(chan message.InboundMessage, InboundMessageChannelSize)
-		responseChans[sourceBlockchain.GetBlockchainID()] = responseChan
-	}
-	responseChansLock := new(sync.RWMutex)
-
-	handler, err := NewRelayerExternalHandler(logger, registerer, responseChans, responseChansLock)
+	handler, err := NewRelayerExternalHandler(logger, registerer)
 	if err != nil {
 		logger.Error(
 			"Failed to create p2p network handler",
 			zap.Error(err),
 		)
-		return nil, nil, err
+		return nil, err
 	}
 
 	testNetwork, err := network.NewTestNetwork(logger, networkID, snowVdrs.NewManager(), trackedSubnets, handler)
@@ -97,7 +88,7 @@ func NewNetwork(
 			"Failed to create test network",
 			zap.Error(err),
 		)
-		return nil, nil, err
+		return nil, err
 	}
 
 	validatorClient := validators.NewCanonicalValidatorClient(logger, pChainClient)
@@ -118,11 +109,11 @@ func NewNetwork(
 	for _, sourceBlockchain := range cfg.SourceBlockchains {
 		if sourceBlockchain.GetSubnetID() == constants.PrimaryNetworkID {
 			if err := arNetwork.connectToPrimaryNetworkPeers(cfg, sourceBlockchain); err != nil {
-				return nil, nil, err
+				return nil, err
 			}
 		} else {
 			if err := arNetwork.connectToNonPrimaryNetworkPeers(cfg, sourceBlockchain); err != nil {
-				return nil, nil, err
+				return nil, err
 			}
 		}
 	}
@@ -131,7 +122,7 @@ func NewNetwork(
 		testNetwork.Dispatch()
 	})
 
-	return arNetwork, responseChans, nil
+	return arNetwork, nil
 }
 
 // ConnectPeers connects the network to peers with the given nodeIDs.

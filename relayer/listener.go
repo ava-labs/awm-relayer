@@ -63,7 +63,6 @@ func NewListener(
 	sourceBlockchain config.SourceBlockchain,
 	pChainClient platformvm.Client,
 	network *peers.AppRequestNetwork,
-	responseChan chan message.InboundMessage,
 	destinationClients map[ids.ID]vms.DestinationClient,
 	messageCreator message.Creator,
 	relayerHealth *atomic.Bool,
@@ -119,7 +118,6 @@ func NewListener(
 			metrics,
 			network,
 			messageCreator,
-			responseChan,
 			relayerID,
 			db,
 			ticker,
@@ -148,7 +146,6 @@ func NewListener(
 		Subscriber:          sub,
 		pChainClient:        pChainClient,
 		currentRequestID:    rand.Uint32(), // Initialize to a random value to mitigate requestID collision
-		responseChan:        responseChan,
 		contractMessage:     vms.NewContractMessage(logger, sourceBlockchain),
 		messageManagers:     messageManagers,
 		logger:              logger,
@@ -261,7 +258,7 @@ func (lstnr *Listener) setAllProcessedBlockHeightsToLatest() error {
 	return nil
 }
 
-func (lstnr *Listener) NewWarpLogInfo(log types.Log) (*relayerTypes.WarpLogInfo, error) {
+func (lstnr *Listener) newWarpLogInfo(log types.Log) (*relayerTypes.WarpLogInfo, error) {
 	if len(log.Topics) != 3 {
 		lstnr.logger.Error(
 			"Log did not have the correct number of topics",
@@ -318,7 +315,7 @@ func (lstnr *Listener) ProcessLogs(ctx context.Context) error {
 			expectedMessages := make(map[database.RelayerID]uint64)
 			var msgsInfo []*parsedMessageInfo
 			for _, warpLog := range block.WarpLogs {
-				warpLogInfo, err := lstnr.NewWarpLogInfo(warpLog)
+				warpLogInfo, err := lstnr.newWarpLogInfo(warpLog)
 				if err != nil {
 					lstnr.logger.Error(
 						"Failed to create warp log info",
@@ -381,7 +378,7 @@ func (lstnr *Listener) ProcessLogs(ctx context.Context) error {
 			)
 			// TODO try to resubscribe in perpetuity once we have a mechanism for refreshing state
 			// variables such as Quorum values and processing missed blocks.
-			err = lstnr.ReconnectToSubscriber()
+			err = lstnr.reconnectToSubscriber()
 			if err != nil {
 				lstnr.logger.Error(
 					"Relayer goroutine exiting.",
@@ -402,7 +399,7 @@ func (lstnr *Listener) ProcessLogs(ctx context.Context) error {
 }
 
 // Sets the listener health status to false while attempting to reconnect.
-func (lstnr *Listener) ReconnectToSubscriber() error {
+func (lstnr *Listener) reconnectToSubscriber() error {
 	// Attempt to reconnect the subscription
 	err := lstnr.Subscriber.Subscribe(maxResubscribeAttempts)
 	if err != nil {
@@ -415,7 +412,6 @@ func (lstnr *Listener) ReconnectToSubscriber() error {
 }
 
 // RouteMessage relays a single warp message to the destination chain.
-// Warp message relay requests from the same origin chain are processed serially
 func (lstnr *Listener) RouteMessage(warpLogInfo *relayerTypes.WarpLogInfo) error {
 	parsedMessageInfo, err := lstnr.parseMessage(warpLogInfo)
 	if err != nil {
