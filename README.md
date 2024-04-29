@@ -260,7 +260,6 @@ The relayer consists of the following components:
   - P-Chain client: gets the validators for a Subnet
   - Relayer database: stores latest processed block for each Application Relayer
     - Currently supports Redis and local JSON file storage
-  - Database manager: coordinates database writes from Application Relayers
 - Per Source Blockchain
   - Subscriber: listens for logs pertaining to cross-chain message transactions
   - Source RPC client: queries for missed blocks on startup
