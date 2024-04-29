@@ -74,7 +74,7 @@ func newApplicationRelayer(
 	responseChan chan message.InboundMessage,
 	relayerID database.RelayerID,
 	db database.RelayerDatabase,
-	ticker *database.Ticker,
+	ticker *utils.Ticker,
 	sourceBlockchain config.SourceBlockchain,
 	cfg *config.Config,
 ) (*applicationRelayer, error) {

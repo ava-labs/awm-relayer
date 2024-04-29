@@ -24,6 +24,7 @@ import (
 	"github.com/ava-labs/awm-relayer/peers"
 	"github.com/ava-labs/awm-relayer/relayer"
 	relayerTypes "github.com/ava-labs/awm-relayer/types"
+	"github.com/ava-labs/awm-relayer/utils"
 	"github.com/ava-labs/awm-relayer/vms"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -179,7 +180,7 @@ func main() {
 	}
 
 	// Initialize the global write ticker
-	ticker := database.NewTicker(cfg.DBWriteIntervalSeconds)
+	ticker := utils.NewTicker(cfg.DBWriteIntervalSeconds)
 	go ticker.Run()
 
 	manualWarpMessages := make(map[ids.ID][]*relayerTypes.WarpLogInfo)
@@ -243,7 +244,7 @@ func runRelayer(
 	logger logging.Logger,
 	metrics *relayer.ApplicationRelayerMetrics,
 	db database.RelayerDatabase,
-	ticker *database.Ticker,
+	ticker *utils.Ticker,
 	sourceSubnetInfo config.SourceBlockchain,
 	pChainClient platformvm.Client,
 	network *peers.AppRequestNetwork,

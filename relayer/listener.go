@@ -20,6 +20,7 @@ import (
 	"github.com/ava-labs/awm-relayer/messages"
 	"github.com/ava-labs/awm-relayer/peers"
 	relayerTypes "github.com/ava-labs/awm-relayer/types"
+	"github.com/ava-labs/awm-relayer/utils"
 	vms "github.com/ava-labs/awm-relayer/vms"
 	"github.com/ava-labs/subnet-evm/core/types"
 	"github.com/ava-labs/subnet-evm/ethclient"
@@ -58,7 +59,7 @@ func NewListener(
 	logger logging.Logger,
 	metrics *ApplicationRelayerMetrics,
 	db database.RelayerDatabase,
-	ticker *database.Ticker,
+	ticker *utils.Ticker,
 	sourceBlockchain config.SourceBlockchain,
 	pChainClient platformvm.Client,
 	network *peers.AppRequestNetwork,
