@@ -46,80 +46,84 @@ func newCheckpointManager(logger logging.Logger, database database.RelayerDataba
 }
 
 func (cm *checkpointManager) run() {
-	go cm.handleFinishedRelays()
-	go cm.writeToDatabase()
+	go cm.listenForFinishedRelays()
+	go cm.listenForWriteSignal()
 }
 
 func (cm *checkpointManager) writeToDatabase() {
-	for range cm.writeSignal {
-		cm.lock.RLock()
-		// Ensure we're not writing the default value
-		if cm.committedHeight == 0 {
-			cm.lock.RUnlock()
-			continue
-		}
-		storedHeight, err := getLatestProcessedBlockHeight(cm.database, cm.relayerID)
-		if err != nil && !database.IsKeyNotFoundError(err) {
-			cm.logger.Error(
-				"Failed to get latest processed block height",
-				zap.Error(err),
-				zap.String("relayerID", cm.relayerID.ID.String()),
-			)
-			continue
-		}
-		if storedHeight >= cm.committedHeight {
-			cm.lock.RUnlock()
-			continue
-		}
-		cm.logger.Debug(
-			"Writing height",
-			zap.Uint64("height", cm.committedHeight),
+	cm.lock.RLock()
+	defer cm.lock.RUnlock()
+	// Ensure we're not writing the default value
+	if cm.committedHeight == 0 {
+		return
+	}
+	storedHeight, err := getLatestProcessedBlockHeight(cm.database, cm.relayerID)
+	if err != nil && !database.IsKeyNotFoundError(err) {
+		cm.logger.Error(
+			"Failed to get latest processed block height",
+			zap.Error(err),
 			zap.String("relayerID", cm.relayerID.ID.String()),
 		)
-		err = cm.database.Put(cm.relayerID.ID, database.LatestProcessedBlockKey, []byte(strconv.FormatUint(cm.committedHeight, 10)))
-		if err != nil {
-			cm.logger.Error(
-				"Failed to write latest processed block height",
-				zap.Error(err),
-				zap.String("relayerID", cm.relayerID.ID.String()),
-			)
-			cm.lock.RUnlock()
-			continue
-		}
-		cm.lock.RUnlock()
+		return
+	}
+	if storedHeight >= cm.committedHeight {
+		return
+	}
+	cm.logger.Debug(
+		"Writing height",
+		zap.Uint64("height", cm.committedHeight),
+		zap.String("relayerID", cm.relayerID.ID.String()),
+	)
+	err = cm.database.Put(cm.relayerID.ID, database.LatestProcessedBlockKey, []byte(strconv.FormatUint(cm.committedHeight, 10)))
+	if err != nil {
+		cm.logger.Error(
+			"Failed to write latest processed block height",
+			zap.Error(err),
+			zap.String("relayerID", cm.relayerID.ID.String()),
+		)
+		return
+	}
+}
+
+func (cm *checkpointManager) listenForWriteSignal() {
+	for range cm.writeSignal {
+		cm.writeToDatabase()
+	}
+}
+
+func (cm *checkpointManager) incrementFinishedCounter(height uint64) {
+	cm.lock.Lock()
+	defer cm.lock.Unlock()
+	counter, ok := cm.queuedHeightsAndMessages[height]
+	if !ok {
+		cm.logger.Error(
+			"Pending height not found",
+			zap.Uint64("height", height),
+			zap.String("relayerID", cm.relayerID.ID.String()),
+		)
+		return
+	}
+
+	counter.processedMessages++
+	cm.logger.Debug(
+		"Received finished signal",
+		zap.Uint64("height", height),
+		zap.String("relayerID", cm.relayerID.ID.String()),
+		zap.Uint64("processedMessages", counter.processedMessages),
+		zap.Uint64("totalMessages", counter.totalMessages),
+	)
+	if counter.processedMessages == counter.totalMessages {
+		cm.stageCommittedHeight(height)
+		delete(cm.queuedHeightsAndMessages, height)
 	}
 }
 
 // handleFinishedRelays listens for finished signals from the application relayer, and commits the
 // height once all messages have been processed.
 // This function should only be called once.
-func (cm *checkpointManager) handleFinishedRelays() {
+func (cm *checkpointManager) listenForFinishedRelays() {
 	for height := range cm.finished {
-		cm.lock.Lock()
-		counter, ok := cm.queuedHeightsAndMessages[height]
-		if !ok {
-			cm.logger.Error(
-				"Pending height not found",
-				zap.Uint64("height", height),
-				zap.String("relayerID", cm.relayerID.ID.String()),
-			)
-			cm.lock.Unlock()
-			continue
-		}
-
-		counter.processedMessages++
-		cm.logger.Debug(
-			"Received finished signal",
-			zap.Uint64("height", height),
-			zap.String("relayerID", cm.relayerID.ID.String()),
-			zap.Uint64("processedMessages", counter.processedMessages),
-			zap.Uint64("totalMessages", counter.totalMessages),
-		)
-		if counter.processedMessages == counter.totalMessages {
-			cm.stageCommittedHeight(height)
-			delete(cm.queuedHeightsAndMessages, height)
-		}
-		cm.lock.Unlock()
+		cm.incrementFinishedCounter(height)
 	}
 }
 
