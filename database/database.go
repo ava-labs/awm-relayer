@@ -41,8 +41,8 @@ func (k DataKey) String() string {
 	return "unknown"
 }
 
-// RelayerDatabase is a key-value store for relayer state, with each relayerID maintaining its own state
-// Implementations should be thread-safe
+// RelayerDatabase is a key-value store for relayer state, with each relayerID maintaining its own state.
+// Implementations should be thread-safe.
 type RelayerDatabase interface {
 	Get(relayerID common.Hash, key DataKey) ([]byte, error)
 	Put(relayerID common.Hash, key DataKey, value []byte) error
@@ -72,7 +72,7 @@ func NewDatabase(logger logging.Logger, cfg *config.Config) (RelayerDatabase, er
 	}
 }
 
-// Returns true if an error returned by a RelayerDatabase indicates the requested key was not found
+// Returns true if an error returned by a RelayerDatabase indicates the requested key was not found.
 func IsKeyNotFoundError(err error) bool {
 	return errors.Is(err, ErrRelayerIDNotFound) || errors.Is(err, ErrKeyNotFound)
 }
@@ -107,7 +107,7 @@ func NewRelayerID(
 	}
 }
 
-// Standalone utility to calculate a relayer ID
+// Standalone utility to calculate a relayer ID.
 func CalculateRelayerID(
 	sourceBlockchainID ids.ID,
 	destinationBlockchainID ids.ID,
@@ -127,7 +127,7 @@ func CalculateRelayerID(
 	)
 }
 
-// Get all of the possible relayer keys for a given configuration
+// Gets all of the possible relayer keys for a given configuration.
 func GetConfigRelayerIDs(cfg *config.Config) []RelayerID {
 	var keys []RelayerID
 	for _, s := range cfg.SourceBlockchains {
@@ -136,7 +136,7 @@ func GetConfigRelayerIDs(cfg *config.Config) []RelayerID {
 	return keys
 }
 
-// Calculate all of the possible relayer keys for a given source blockchain
+// Calculates all of the possible relayer keys for a given source blockchain.
 func GetSourceBlockchainRelayerIDs(sourceBlockchain *config.SourceBlockchain) []RelayerID {
 	var ids []RelayerID
 	srcAddresses := sourceBlockchain.GetAllowedOriginSenderAddresses()
