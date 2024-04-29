@@ -86,7 +86,7 @@ func NewNetwork(
 		)
 		return nil, nil, err
 	}
-	networkID, err := infoAPI.client.GetNetworkID(context.Background(), infoAPI.options...)
+	networkID, err := infoAPI.GetNetworkID(context.Background())
 	if err != nil {
 		logger.Error(
 			"Failed to get network ID",
@@ -156,7 +156,7 @@ func (n *AppRequestNetwork) ConnectPeers(nodeIDs set.Set[ids.NodeID]) set.Set[id
 	// re-adding connections to already tracked peers.
 
 	// Get the list of peers
-	peers, err := n.infoAPI.client.Peers(context.Background(), n.infoAPI.options...)
+	peers, err := n.infoAPI.Peers(context.Background())
 	if err != nil {
 		n.logger.Error(
 			"Failed to get peers",
@@ -188,13 +188,13 @@ func (n *AppRequestNetwork) ConnectPeers(nodeIDs set.Set[ids.NodeID]) set.Set[id
 
 	// If the Info API node is in nodeIDs, it will not be reflected in the call to info.Peers.
 	// In this case, we need to manually track the API node.
-	if apiNodeID, _, err := n.infoAPI.client.GetNodeID(context.Background(), n.infoAPI.options...); err != nil {
+	if apiNodeID, _, err := n.infoAPI.GetNodeID(context.Background()); err != nil {
 		n.logger.Error(
 			"Failed to get API Node ID",
 			zap.Error(err),
 		)
 	} else if nodeIDs.Contains(apiNodeID) {
-		if apiNodeIP, err := n.infoAPI.client.GetNodeIP(context.Background(), n.infoAPI.options...); err != nil {
+		if apiNodeIP, err := n.infoAPI.GetNodeIP(context.Background()); err != nil {
 			n.logger.Error(
 				"Failed to get API Node IP",
 				zap.Error(err),
