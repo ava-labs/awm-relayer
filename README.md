@@ -151,7 +151,7 @@ The relayer is configured via a JSON file, the path to which is passed in via th
 
 `"db-write-interval-seconds": unsigned integer`
 
-- The interval at which the relayer will write to the database. Defaults to `1`.
+- The interval at which the relayer will write to the database. Defaults to `10`.
 
 `"manual-warp-messages": []ManualWarpMessage`
 
@@ -260,7 +260,6 @@ The relayer consists of the following components:
   - P-Chain client: gets the validators for a Subnet
   - Relayer database: stores latest processed block for each Application Relayer
     - Currently supports Redis and local JSON file storage
-  - Database manager: coordinates database writes from Application Relayers
 - Per Source Blockchain
   - Subscriber: listens for logs pertaining to cross-chain message transactions
   - Source RPC client: queries for missed blocks on startup

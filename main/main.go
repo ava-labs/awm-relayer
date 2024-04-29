@@ -169,7 +169,7 @@ func main() {
 		panic(err)
 	}
 
-	// Initialize the database and database manager
+	// Initialize the database
 	db, err := database.NewDatabase(logger, &cfg)
 	if err != nil {
 		logger.Error(
