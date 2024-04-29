@@ -166,9 +166,13 @@ func CreateDefaultRelayerConfig(
 	}
 
 	return config.Config{
-		LogLevel:               logging.Info.LowerString(),
-		PChainAPIURL:           sourceSubnetsInfo[0].NodeURIs[0],
-		InfoAPIURL:             sourceSubnetsInfo[0].NodeURIs[0],
+		LogLevel: logging.Info.LowerString(),
+		PChainAPI: &config.APIConfig{
+			BaseURL: sourceSubnetsInfo[0].NodeURIs[0],
+		},
+		InfoAPI: &config.APIConfig{
+			BaseURL: sourceSubnetsInfo[0].NodeURIs[0],
+		},
 		StorageLocation:        StorageLocation,
 		ProcessMissedBlocks:    false,
 		SourceBlockchains:      sources,
