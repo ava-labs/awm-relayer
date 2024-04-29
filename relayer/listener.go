@@ -345,10 +345,6 @@ func (lstnr *Listener) ProcessLogs(ctx context.Context) error {
 				msgsInfo = append(msgsInfo, msgInfo)
 				expectedMessages[msgInfo.applicationRelayer.relayerID]++
 			}
-			lstnr.logger.Debug(
-				"Expected messages",
-				zap.Any("expectedMessages", expectedMessages),
-			)
 			for _, appRelayer := range lstnr.applicationRelayers {
 				// Prepare the each application relayer's database key with the number
 				// of expected messages. If no messages are found in the above loop, then
