@@ -151,7 +151,7 @@ The relayer is configured via a JSON file, the path to which is passed in via th
 
 `"db-write-interval-seconds": unsigned integer`
 
-- The interval at which the relayer will write to the database. Defaults to `1`.
+- The interval at which the relayer will write to the database. Defaults to `10`.
 
 `"manual-warp-messages": []ManualWarpMessage`
 
