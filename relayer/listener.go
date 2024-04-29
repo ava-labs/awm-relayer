@@ -53,6 +53,7 @@ type Listener struct {
 	healthStatus        *atomic.Bool
 	globalConfig        *config.Config
 	applicationRelayers map[common.Hash]*applicationRelayer
+	ethClient           ethclient.Client
 }
 
 func NewListener(
@@ -77,16 +78,26 @@ func NewListener(
 		)
 		return nil, err
 	}
-	ethClient, err := ethclient.Dial(sourceBlockchain.WSEndpoint)
+	ethWSClient, err := ethclient.Dial(sourceBlockchain.WSEndpoint)
 	if err != nil {
 		logger.Error(
-			"Failed to connect to node",
+			"Failed to connect to node via WS",
 			zap.String("blockchainID", blockchainID.String()),
 			zap.Error(err),
 		)
 		return nil, err
 	}
-	sub := vms.NewSubscriber(logger, config.ParseVM(sourceBlockchain.VM), blockchainID, ethClient)
+	sub := vms.NewSubscriber(logger, config.ParseVM(sourceBlockchain.VM), blockchainID, ethWSClient)
+
+	ethRPCClient, err := ethclient.Dial(sourceBlockchain.RPCEndpoint)
+	if err != nil {
+		logger.Error(
+			"Failed to connect to node via RPC",
+			zap.String("blockchainID", blockchainID.String()),
+			zap.Error(err),
+		)
+		return nil, err
+	}
 
 	// Create message managers for each supported message protocol
 	messageManagers := make(map[common.Address]messages.MessageManager)
@@ -157,6 +168,7 @@ func NewListener(
 		healthStatus:        relayerHealth,
 		globalConfig:        cfg,
 		applicationRelayers: applicationRelayers,
+		ethClient:           ethRPCClient,
 	}
 
 	// Open the subscription. We must do this before processing any missed messages, otherwise we may miss an incoming message
@@ -205,17 +217,7 @@ func NewListener(
 
 // Gets the height of the chain head.
 func (lstnr *Listener) getCurrentHeight() (uint64, error) {
-	ethClient, err := ethclient.Dial(lstnr.sourceBlockchain.RPCEndpoint)
-	if err != nil {
-		lstnr.logger.Error(
-			"Failed to dial node",
-			zap.String("blockchainID", lstnr.sourceBlockchain.GetBlockchainID().String()),
-			zap.Error(err),
-		)
-		return 0, err
-	}
-
-	latestBlock, err := ethClient.BlockNumber(context.Background())
+	latestBlock, err := lstnr.ethClient.BlockNumber(context.Background())
 	if err != nil {
 		lstnr.logger.Error(
 			"Failed to get latest block",
