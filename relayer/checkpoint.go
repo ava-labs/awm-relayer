@@ -96,7 +96,9 @@ func (cm *checkpointManager) incrementFinishedCounter(height uint64) {
 	defer cm.lock.Unlock()
 	counter, ok := cm.queuedHeightsAndMessages[height]
 	if !ok {
-		cm.logger.Error(
+		// This is expected for manual Warp messages, since they are not associated with a height
+		// and are therefore not tracked by the checkpoint manager.
+		cm.logger.Debug(
 			"Pending height not found",
 			zap.Uint64("height", height),
 			zap.String("relayerID", cm.relayerID.ID.String()),
