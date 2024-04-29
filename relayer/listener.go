@@ -298,7 +298,7 @@ func (lstnr *Listener) ProcessLogs(ctx context.Context) error {
 				lstnr.healthStatus.Store(false)
 				lstnr.logger.Error(
 					"Failed to catch up on historical blocks. Exiting listener goroutine.",
-					zap.String("originChainId", lstnr.sourceBlockchain.GetBlockchainID().String()),
+					zap.String("sourceBlockchainID", lstnr.sourceBlockchain.GetBlockchainID().String()),
 				)
 				return fmt.Errorf("failed to catch up on historical blocks")
 			}
@@ -306,7 +306,7 @@ func (lstnr *Listener) ProcessLogs(ctx context.Context) error {
 			// Relay the messages in the block to the destination chains. Continue on failure.
 			lstnr.logger.Info(
 				"Processing block",
-				zap.String("originChainId", lstnr.sourceBlockchain.GetBlockchainID().String()),
+				zap.String("sourceBlockchainID", lstnr.sourceBlockchain.GetBlockchainID().String()),
 				zap.Uint64("blockNumber", block.BlockNumber),
 			)
 
@@ -372,7 +372,7 @@ func (lstnr *Listener) ProcessLogs(ctx context.Context) error {
 			lstnr.healthStatus.Store(false)
 			lstnr.logger.Error(
 				"Received error from subscribed node",
-				zap.String("originChainID", lstnr.sourceBlockchain.GetBlockchainID().String()),
+				zap.String("sourceBlockchainID", lstnr.sourceBlockchain.GetBlockchainID().String()),
 				zap.Error(err),
 			)
 			// TODO try to resubscribe in perpetuity once we have a mechanism for refreshing state
@@ -381,7 +381,7 @@ func (lstnr *Listener) ProcessLogs(ctx context.Context) error {
 			if err != nil {
 				lstnr.logger.Error(
 					"Relayer goroutine exiting.",
-					zap.String("originChainID", lstnr.sourceBlockchain.GetBlockchainID().String()),
+					zap.String("sourceBlockchainID", lstnr.sourceBlockchain.GetBlockchainID().String()),
 					zap.Error(err),
 				)
 				return fmt.Errorf("listener goroutine exiting: %w", err)
@@ -390,7 +390,7 @@ func (lstnr *Listener) ProcessLogs(ctx context.Context) error {
 			lstnr.healthStatus.Store(false)
 			lstnr.logger.Info(
 				"Exiting listener because context cancelled",
-				zap.String("originChainId", lstnr.sourceBlockchain.GetBlockchainID().String()),
+				zap.String("sourceBlockchainID", lstnr.sourceBlockchain.GetBlockchainID().String()),
 			)
 			return nil
 		}
