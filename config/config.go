@@ -122,17 +122,22 @@ type WarpQuorum struct {
 	QuorumDenominator uint64
 }
 
+// API configuration containing the base URL and query parameters
+type APIConfig struct {
+	BaseURL     string            `mapstructure:"base-url" json:"base-url"`
+	QueryParams map[string]string `mapstructure:"query-parameters" json:"query-parameters"`
+}
+
 // Top-level configuration
 type Config struct {
-	LogLevel               string `mapstructure:"log-level" json:"log-level"`
-	PChainAPIURL           string `mapstructure:"p-chain-api-url" json:"p-chain-api-url"`
-	InfoAPIURL             string `mapstructure:"info-api-url" json:"info-api-url"`
-	StorageLocation        string `mapstructure:"storage-location" json:"storage-location"`
-	RedisURL               string `mapstructure:"redis-url" json:"redis-url"`
-	APIPort                uint16 `mapstructure:"api-port" json:"api-port"`
-	MetricsPort            uint16 `mapstructure:"metrics-port" json:"metrics-port"`
-	DBWriteIntervalSeconds uint64 `mapstructure:"db-write-interval-seconds" json:"db-write-interval-seconds"`
-
+	LogLevel               string                   `mapstructure:"log-level" json:"log-level"`
+	StorageLocation        string                   `mapstructure:"storage-location" json:"storage-location"`
+	RedisURL               string                   `mapstructure:"redis-url" json:"redis-url"`
+	APIPort                uint16                   `mapstructure:"api-port" json:"api-port"`
+	MetricsPort            uint16                   `mapstructure:"metrics-port" json:"metrics-port"`
+	DBWriteIntervalSeconds uint64                   `mapstructure:"db-write-interval-seconds" json:"db-write-interval-seconds"`
+	PChainAPI              *APIConfig               `mapstructure:"p-chain-api" json:"p-chain-api"`
+	InfoAPI                *APIConfig               `mapstructure:"info-api" json:"info-api"`
 	SourceBlockchains      []*SourceBlockchain      `mapstructure:"source-blockchains" json:"source-blockchains"`
 	DestinationBlockchains []*DestinationBlockchain `mapstructure:"destination-blockchains" json:"destination-blockchains"`
 	ProcessMissedBlocks    bool                     `mapstructure:"process-missed-blocks" json:"process-missed-blocks"`
@@ -174,14 +179,18 @@ func BuildConfig(v *viper.Viper) (Config, bool, error) {
 	)
 
 	cfg.LogLevel = v.GetString(LogLevelKey)
-	cfg.PChainAPIURL = v.GetString(PChainAPIURLKey)
-	cfg.InfoAPIURL = v.GetString(InfoAPIURLKey)
 	cfg.StorageLocation = v.GetString(StorageLocationKey)
 	cfg.RedisURL = v.GetString(RedisURLKey)
 	cfg.ProcessMissedBlocks = v.GetBool(ProcessMissedBlocksKey)
 	cfg.APIPort = v.GetUint16(APIPortKey)
 	cfg.MetricsPort = v.GetUint16(MetricsPortKey)
 	cfg.DBWriteIntervalSeconds = v.GetUint64(DBWriteIntervalSecondsKey)
+	if err := v.UnmarshalKey(PChainAPIKey, &cfg.PChainAPI); err != nil {
+		return Config{}, false, fmt.Errorf("failed to unmarshal P-Chain API: %w", err)
+	}
+	if err := v.UnmarshalKey(InfoAPIKey, &cfg.InfoAPI); err != nil {
+		return Config{}, false, fmt.Errorf("failed to unmarshal Info API: %w", err)
+	}
 	if err := v.UnmarshalKey(ManualWarpMessagesKey, &cfg.ManualWarpMessages); err != nil {
 		return Config{}, false, fmt.Errorf("failed to unmarshal manual warp messages: %w", err)
 	}
@@ -233,10 +242,10 @@ func (c *Config) Validate() error {
 	if len(c.DestinationBlockchains) == 0 {
 		return errors.New("relayer not configured to relay to any subnets. A list of destination subnets must be provided in the configuration file")
 	}
-	if _, err := url.ParseRequestURI(c.PChainAPIURL); err != nil {
+	if err := c.PChainAPI.Validate(); err != nil {
 		return err
 	}
-	if _, err := url.ParseRequestURI(c.InfoAPIURL); err != nil {
+	if err := c.InfoAPI.Validate(); err != nil {
 		return err
 	}
 	if c.DBWriteIntervalSeconds == 0 || c.DBWriteIntervalSeconds > 600 {
@@ -411,6 +420,13 @@ func (c *Config) InitializeWarpQuorums() error {
 		}
 	}
 
+	return nil
+}
+
+func (c *APIConfig) Validate() error {
+	if _, err := url.ParseRequestURI(c.BaseURL); err != nil {
+		return fmt.Errorf("invalid base URL: %w", err)
+	}
 	return nil
 }
 

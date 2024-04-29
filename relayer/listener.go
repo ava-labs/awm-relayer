@@ -13,7 +13,6 @@ import (
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/message"
 	"github.com/ava-labs/avalanchego/utils/logging"
-	"github.com/ava-labs/avalanchego/vms/platformvm"
 	avalancheWarp "github.com/ava-labs/avalanchego/vms/platformvm/warp"
 	"github.com/ava-labs/awm-relayer/config"
 	"github.com/ava-labs/awm-relayer/database"
@@ -42,7 +41,6 @@ var ErrInvalidLog = errors.New("invalid warp message log")
 // Listener handles all messages sent from a given source chain
 type Listener struct {
 	Subscriber          vms.Subscriber
-	pChainClient        platformvm.Client
 	currentRequestID    uint32
 	responseChan        chan message.InboundMessage
 	contractMessage     vms.ContractMessage
@@ -62,7 +60,6 @@ func NewListener(
 	db database.RelayerDatabase,
 	ticker *utils.Ticker,
 	sourceBlockchain config.SourceBlockchain,
-	pChainClient platformvm.Client,
 	network *peers.AppRequestNetwork,
 	responseChan chan message.InboundMessage,
 	destinationClients map[ids.ID]vms.DestinationClient,
@@ -157,7 +154,6 @@ func NewListener(
 	)
 	lstnr := Listener{
 		Subscriber:          sub,
-		pChainClient:        pChainClient,
 		currentRequestID:    rand.Uint32(), // Initialize to a random value to mitigate requestID collision
 		responseChan:        responseChan,
 		contractMessage:     vms.NewContractMessage(logger, sourceBlockchain),

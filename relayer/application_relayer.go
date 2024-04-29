@@ -127,9 +127,7 @@ func (r *applicationRelayer) relayMessage(
 			"Failed to check if message should be sent",
 			zap.Error(err),
 		)
-
 		r.incFailedRelayMessageCount("failed to check if message should be sent")
-
 		return err
 	}
 	if !shouldSend {
