@@ -35,7 +35,6 @@ type AppRequestNetwork struct {
 	Network         network.Network
 	Handler         *RelayerExternalHandler
 	infoAPI         *InfoAPI
-	pChainAPI       *PChainAPI
 	logger          logging.Logger
 	lock            *sync.Mutex
 	validatorClient *validators.CanonicalValidatorClient
@@ -105,21 +104,12 @@ func NewNetwork(
 		return nil, nil, err
 	}
 
-	pChainAPI, err := NewPChainAPI(cfg.PChainAPI)
-	if err != nil {
-		logger.Error(
-			"Failed to create P-Chain API",
-			zap.Error(err),
-		)
-		return nil, nil, err
-	}
-	validatorClient := validators.NewCanonicalValidatorClient(logger, pChainAPI.client, pChainAPI.options)
+	validatorClient := validators.NewCanonicalValidatorClient(logger, cfg.PChainAPI)
 
 	arNetwork := &AppRequestNetwork{
 		Network:         testNetwork,
 		Handler:         handler,
 		infoAPI:         infoAPI,
-		pChainAPI:       pChainAPI,
 		logger:          logger,
 		lock:            new(sync.Mutex),
 		validatorClient: validatorClient,
