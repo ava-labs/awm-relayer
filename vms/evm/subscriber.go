@@ -121,6 +121,7 @@ func (s *subscriber) ProcessFromHeight(height *big.Int, done chan bool) {
 	done <- true
 }
 
+// Extract Warp logs from the block, if they exist
 func (s *subscriber) newWarpBlockInfo(header *types.Header) (*relayerTypes.WarpBlockInfo, error) {
 	var (
 		logs []types.Log
@@ -144,9 +145,7 @@ func (s *subscriber) newWarpBlockInfo(header *types.Header) (*relayerTypes.WarpB
 	}, nil
 }
 
-// Filter logs from the latest processed block to the latest block
-// Since initializationFilterQuery does not modify existing fields of warpFilterQuery,
-// we can safely reuse warpFilterQuery with only a shallow copy
+// Process Warp messages from the block range [fromBlock, toBlock], inclusive
 func (s *subscriber) processBlockRange(
 	fromBlock, toBlock *big.Int,
 ) error {
