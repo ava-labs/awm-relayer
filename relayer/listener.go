@@ -119,9 +119,38 @@ func NewListener(
 	// scenario.
 	catchUpResultChan := make(chan bool, 1)
 
+	currentHeight, err := ethRPCClient.BlockNumber(context.Background())
+	if err != nil {
+		logger.Error(
+			"Failed to get current block height",
+			zap.Error(err),
+		)
+		return nil, err
+	}
+
 	// Create the application relayers
 	applicationRelayers := make(map[common.Hash]*applicationRelayer)
+	minHeight := uint64(0)
+
 	for _, relayerID := range database.GetSourceBlockchainRelayerIDs(&sourceBlockchain) {
+		height, err := database.CalculateStartingBlockHeight(
+			logger,
+			db,
+			relayerID,
+			sourceBlockchain.ProcessHistoricalBlocksFromHeight,
+			currentHeight,
+		)
+		if err != nil {
+			logger.Error(
+				"Failed to calculate starting block height",
+				zap.String("relayerID", relayerID.ID.String()),
+				zap.Error(err),
+			)
+			return nil, err
+		}
+		if minHeight == 0 || height < minHeight {
+			minHeight = height
+		}
 		applicationRelayer, err := newApplicationRelayer(
 			logger,
 			metrics,
@@ -132,6 +161,7 @@ func NewListener(
 			db,
 			ticker,
 			sourceBlockchain,
+			height,
 			cfg,
 		)
 		if err != nil {
@@ -179,84 +209,19 @@ func NewListener(
 	}
 
 	if lstnr.globalConfig.ProcessMissedBlocks {
-		height, err := lstnr.calculateStartingBlockHeight(sourceBlockchain.ProcessHistoricalBlocksFromHeight)
-		if err != nil {
-			logger.Error(
-				"Failed to calculate starting block height on startup",
-				zap.Error(err),
-			)
-			return nil, err
-		}
 		// Process historical blocks in a separate goroutine so that the main processing loop can
 		// start processing new blocks as soon as possible. Otherwise, it's possible for
 		// ProcessFromHeight to overload the message queue and cause a deadlock.
-		go sub.ProcessFromHeight(big.NewInt(0).SetUint64(height), lstnr.catchUpResultChan)
+		go sub.ProcessFromHeight(big.NewInt(0).SetUint64(minHeight), lstnr.catchUpResultChan)
 	} else {
 		lstnr.logger.Info(
 			"processed-missed-blocks set to false, starting processing from chain head",
 			zap.String("blockchainID", lstnr.sourceBlockchain.GetBlockchainID().String()),
 		)
-		err = lstnr.setAllProcessedBlockHeightsToLatest()
-		if err != nil {
-			logger.Error(
-				"Failed to update latest processed block. Continuing to normal relaying operation",
-				zap.String("blockchainID", lstnr.sourceBlockchain.GetBlockchainID().String()),
-				zap.Error(err),
-			)
-			return nil, err
-		}
 		lstnr.catchUpResultChan <- true
 	}
 
 	return &lstnr, nil
-}
-
-// Gets the height of the chain head.
-func (lstnr *Listener) getCurrentHeight() (uint64, error) {
-	latestBlock, err := lstnr.ethClient.BlockNumber(context.Background())
-	if err != nil {
-		lstnr.logger.Error(
-			"Failed to get latest block",
-			zap.String("blockchainID", lstnr.sourceBlockchain.GetBlockchainID().String()),
-			zap.Error(err),
-		)
-		return 0, err
-	}
-
-	return latestBlock, nil
-}
-
-// Calculates the listener's starting block height as the minimum of all of the composed application relayer starting block heights
-func (lstnr *Listener) calculateStartingBlockHeight(processHistoricalBlocksFromHeight uint64) (uint64, error) {
-	minHeight := uint64(0)
-	currentHeight, err := lstnr.getCurrentHeight()
-	if err != nil {
-		return 0, err
-	}
-	for _, relayer := range lstnr.applicationRelayers {
-		height, err := relayer.calculateStartingBlockHeight(processHistoricalBlocksFromHeight, currentHeight)
-		if err != nil {
-			return 0, err
-		}
-		if minHeight == 0 || height < minHeight {
-			minHeight = height
-		}
-	}
-	return minHeight, nil
-}
-
-func (lstnr *Listener) setAllProcessedBlockHeightsToLatest() error {
-	for _, relayer := range lstnr.applicationRelayers {
-		height, err := lstnr.getCurrentHeight()
-		if err != nil {
-			return err
-		}
-		relayer.checkpointManager.prepareHeight(height, 0)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 func (lstnr *Listener) NewWarpLogInfo(log types.Log) (*relayerTypes.WarpLogInfo, error) {

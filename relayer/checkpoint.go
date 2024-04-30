@@ -30,7 +30,13 @@ type checkpointManager struct {
 	finished                 chan uint64
 }
 
-func newCheckpointManager(logger logging.Logger, database database.RelayerDatabase, writeSignal chan struct{}, relayerID database.RelayerID) *checkpointManager {
+func newCheckpointManager(
+	logger logging.Logger,
+	database database.RelayerDatabase,
+	writeSignal chan struct{},
+	relayerID database.RelayerID,
+	startingHeight uint64,
+) *checkpointManager {
 	h := &utils.UInt64Heap{}
 	heap.Init(h)
 	return &checkpointManager{
@@ -39,6 +45,7 @@ func newCheckpointManager(logger logging.Logger, database database.RelayerDataba
 		writeSignal:              writeSignal,
 		relayerID:                relayerID,
 		queuedHeightsAndMessages: make(map[uint64]*messageCounter),
+		committedHeight:          startingHeight,
 		lock:                     &sync.RWMutex{},
 		pendingCommits:           h,
 		finished:                 make(chan uint64),
@@ -57,7 +64,7 @@ func (cm *checkpointManager) writeToDatabase() {
 	if cm.committedHeight == 0 {
 		return
 	}
-	storedHeight, err := getLatestProcessedBlockHeight(cm.database, cm.relayerID)
+	storedHeight, err := database.GetLatestProcessedBlockHeight(cm.database, cm.relayerID)
 	if err != nil && !database.IsKeyNotFoundError(err) {
 		cm.logger.Error(
 			"Failed to get latest processed block height",
@@ -196,17 +203,4 @@ func (cm *checkpointManager) prepareHeight(height uint64, totalMessages uint64) 
 type messageCounter struct {
 	totalMessages     uint64
 	processedMessages uint64
-}
-
-// Helper function to get the latest processed block height from the database.
-func getLatestProcessedBlockHeight(db database.RelayerDatabase, relayerID database.RelayerID) (uint64, error) {
-	latestProcessedBlockData, err := db.Get(relayerID.ID, database.LatestProcessedBlockKey)
-	if err != nil {
-		return 0, err
-	}
-	latestProcessedBlock, err := strconv.ParseUint(string(latestProcessedBlockData), 10, 64)
-	if err != nil {
-		return 0, err
-	}
-	return latestProcessedBlock, nil
 }
