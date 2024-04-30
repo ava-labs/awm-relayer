@@ -41,6 +41,7 @@ import (
 var StorageLocation = fmt.Sprintf("%s/.awm-relayer-storage", os.TempDir())
 
 const DefaultRelayerCfgFname = "relayer-config.json"
+const DBUpdateSeconds = 1
 
 func BuildAndRunRelayerExecutable(ctx context.Context, relayerConfigPath string) context.CancelFunc {
 	// Build the awm-relayer binary
@@ -180,7 +181,7 @@ func CreateDefaultRelayerConfig(
 			BaseURL: sourceSubnetsInfo[0].NodeURIs[0],
 		},
 		StorageLocation:        StorageLocation,
-		DBWriteIntervalSeconds: 1,
+		DBWriteIntervalSeconds: DBUpdateSeconds,
 		ProcessMissedBlocks:    false,
 		SourceBlockchains:      sources,
 		DestinationBlockchains: destinations,
