@@ -81,7 +81,7 @@ func (s *subscriber) ProcessFromHeight(height *big.Int, done chan bool) {
 		zap.String("blockchainID", s.blockchainID.String()),
 	)
 	if height == nil {
-		s.logger.Error("cannot process logs from nil height")
+		s.logger.Error("Cannot process logs from nil height")
 		done <- false
 		return
 	}
@@ -113,7 +113,7 @@ func (s *subscriber) ProcessFromHeight(height *big.Int, done chan bool) {
 
 		err = s.processBlockRange(fromBlock, toBlock)
 		if err != nil {
-			s.logger.Error("failed to process block range", zap.Error(err))
+			s.logger.Error("Failed to process block range", zap.Error(err))
 			done <- false
 			return
 		}

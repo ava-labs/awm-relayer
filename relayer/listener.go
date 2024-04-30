@@ -130,6 +130,10 @@ func NewListener(
 	applicationRelayers := make(map[common.Hash]*applicationRelayer)
 	minHeight := uint64(0)
 
+	// TODONOW: initialize application relayers in main, and pass list to Listener constructor
+	// This will allow us to directly access the application relayers from the main goroutine.
+	// We can eliminate RouteManualWarpMessage and clean up ProcessLogs/encapsulate much of the logic
+	// within application relayers
 	for _, relayerID := range database.GetSourceBlockchainRelayerIDs(&sourceBlockchain) {
 		height, err := database.CalculateStartingBlockHeight(
 			logger,
