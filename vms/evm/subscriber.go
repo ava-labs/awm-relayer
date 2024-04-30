@@ -74,6 +74,7 @@ func (s *subscriber) forwardBlocks() {
 // requests will be made.
 // Writes true to the done channel when finished, or false if an error occurs
 func (s *subscriber) ProcessFromHeight(height *big.Int, done chan bool) {
+	defer close(done)
 	s.logger.Info(
 		"Processing historical logs",
 		zap.String("fromBlockHeight", height.String()),
@@ -82,6 +83,7 @@ func (s *subscriber) ProcessFromHeight(height *big.Int, done chan bool) {
 	if height == nil {
 		s.logger.Error("cannot process logs from nil height")
 		done <- false
+		return
 	}
 
 	// Grab the latest block before filtering logs so we don't miss any before updating the db
@@ -93,6 +95,7 @@ func (s *subscriber) ProcessFromHeight(height *big.Int, done chan bool) {
 			zap.Error(err),
 		)
 		done <- false
+		return
 	}
 
 	bigLatestBlockHeight := big.NewInt(0).SetUint64(latestBlockHeight)
@@ -112,6 +115,7 @@ func (s *subscriber) ProcessFromHeight(height *big.Int, done chan bool) {
 		if err != nil {
 			s.logger.Error("failed to process block range", zap.Error(err))
 			done <- false
+			return
 		}
 	}
 	done <- true

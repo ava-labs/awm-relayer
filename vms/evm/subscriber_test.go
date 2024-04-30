@@ -94,7 +94,6 @@ func TestProcessFromHeight(t *testing.T) {
 			subscriberUnderTest.ProcessFromHeight(big.NewInt(tc.input), done)
 			result := <-done
 			require.True(t, result)
-			close(done)
 		})
 	}
 }
