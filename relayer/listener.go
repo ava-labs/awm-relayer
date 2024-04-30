@@ -408,7 +408,7 @@ func (lstnr *Listener) getApplicationRelayer(
 	destinationBlockchainID ids.ID,
 	destinationAddress common.Address,
 	messageManager messages.MessageManager,
-) (*applicationRelayer, bool) {
+) *applicationRelayer {
 	// Check for an exact match
 	applicationRelayerID := database.CalculateRelayerID(
 		sourceBlockchainID,
@@ -417,7 +417,7 @@ func (lstnr *Listener) getApplicationRelayer(
 		destinationAddress,
 	)
 	if applicationRelayer, ok := lstnr.applicationRelayers[applicationRelayerID]; ok {
-		return applicationRelayer, ok
+		return applicationRelayer
 	}
 
 	// Check for a match on sourceBlockchainID and destinationBlockchainID, with a specific originSenderAddress and any destinationAddress
@@ -428,7 +428,7 @@ func (lstnr *Listener) getApplicationRelayer(
 		database.AllAllowedAddress,
 	)
 	if applicationRelayer, ok := lstnr.applicationRelayers[applicationRelayerID]; ok {
-		return applicationRelayer, ok
+		return applicationRelayer
 	}
 
 	// Check for a match on sourceBlockchainID and destinationBlockchainID, with any originSenderAddress and a specific destinationAddress
@@ -439,7 +439,7 @@ func (lstnr *Listener) getApplicationRelayer(
 		destinationAddress,
 	)
 	if applicationRelayer, ok := lstnr.applicationRelayers[applicationRelayerID]; ok {
-		return applicationRelayer, ok
+		return applicationRelayer
 	}
 
 	// Check for a match on sourceBlockchainID and destinationBlockchainID, with any originSenderAddress and any destinationAddress
@@ -450,7 +450,7 @@ func (lstnr *Listener) getApplicationRelayer(
 		database.AllAllowedAddress,
 	)
 	if applicationRelayer, ok := lstnr.applicationRelayers[applicationRelayerID]; ok {
-		return applicationRelayer, ok
+		return applicationRelayer
 	}
 	lstnr.logger.Debug(
 		"Application relayer not found. Skipping message relay.",
@@ -459,7 +459,7 @@ func (lstnr *Listener) getApplicationRelayer(
 		zap.String("originSenderAddress", originSenderAddress.String()),
 		zap.String("destinationAddress", destinationAddress.String()),
 	)
-	return nil, false
+	return nil
 }
 
 // Helper type and function to extract the information needed to relay a message
@@ -514,14 +514,14 @@ func (lstnr *Listener) parseMessage(warpLogInfo *relayerTypes.WarpLogInfo) (
 		zap.String("warpMessageID", unsignedMessage.ID().String()),
 	)
 
-	applicationRelayer, ok := lstnr.getApplicationRelayer(
+	applicationRelayer := lstnr.getApplicationRelayer(
 		sourceBlockchainID,
 		originSenderAddress,
 		destinationBlockchainID,
 		destinationAddress,
 		messageManager,
 	)
-	if !ok {
+	if applicationRelayer == nil {
 		return nil, nil
 	}
 	return &parsedMessageInfo{
