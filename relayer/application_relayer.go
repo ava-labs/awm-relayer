@@ -23,6 +23,7 @@ import (
 	"github.com/ava-labs/awm-relayer/database"
 	"github.com/ava-labs/awm-relayer/messages"
 	"github.com/ava-labs/awm-relayer/peers"
+	"github.com/ava-labs/awm-relayer/relayer/checkpoint"
 	"github.com/ava-labs/awm-relayer/utils"
 	coreEthMsg "github.com/ava-labs/coreth/plugin/evm/message"
 	msg "github.com/ava-labs/subnet-evm/plugin/evm/message"
@@ -62,7 +63,7 @@ type applicationRelayer struct {
 	signingSubnetID   ids.ID
 	relayerID         database.RelayerID
 	warpQuorum        config.WarpQuorum
-	checkpointManager *checkpointManager
+	checkpointManager *checkpoint.CheckpointManager
 }
 
 func newApplicationRelayer(
@@ -98,8 +99,8 @@ func newApplicationRelayer(
 
 	sub := ticker.Subscribe()
 
-	checkpointManager := newCheckpointManager(logger, db, sub, relayerID, startingHeight)
-	checkpointManager.run()
+	checkpointManager := checkpoint.NewCheckpointManager(logger, db, sub, relayerID, startingHeight)
+	checkpointManager.Run()
 
 	ar := applicationRelayer{
 		logger:            logger,
@@ -135,7 +136,7 @@ func (r *applicationRelayer) relayMessage(
 	}
 	if !shouldSend {
 		r.logger.Info("Message should not be sent")
-		r.checkpointManager.finished <- blockNumber
+		r.checkpointManager.Finished(blockNumber)
 		return nil
 	}
 
@@ -183,7 +184,7 @@ func (r *applicationRelayer) relayMessage(
 	r.incSuccessfulRelayMessageCount()
 
 	// Update the database with the latest processed block height
-	r.checkpointManager.finished <- blockNumber
+	r.checkpointManager.Finished(blockNumber)
 	return nil
 }
 

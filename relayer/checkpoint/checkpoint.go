@@ -1,7 +1,7 @@
 // Copyright (C) 2024, Ava Labs, Inc. All rights reserved.
 // See the file LICENSE for licensing terms.
 
-package relayer
+package checkpoint
 
 import (
 	"container/heap"
@@ -15,10 +15,10 @@ import (
 )
 
 //
-// checkpointManager commits keys to be written to the database in a thread safe manner.
+// CheckpointManager commits keys to be written to the database in a thread safe manner.
 //
 
-type checkpointManager struct {
+type CheckpointManager struct {
 	logger                   logging.Logger
 	database                 database.RelayerDatabase
 	writeSignal              chan struct{}
@@ -30,16 +30,16 @@ type checkpointManager struct {
 	finished                 chan uint64
 }
 
-func newCheckpointManager(
+func NewCheckpointManager(
 	logger logging.Logger,
 	database database.RelayerDatabase,
 	writeSignal chan struct{},
 	relayerID database.RelayerID,
 	startingHeight uint64,
-) *checkpointManager {
+) *CheckpointManager {
 	h := &utils.UInt64Heap{}
 	heap.Init(h)
-	return &checkpointManager{
+	return &CheckpointManager{
 		logger:                   logger,
 		database:                 database,
 		writeSignal:              writeSignal,
@@ -52,12 +52,16 @@ func newCheckpointManager(
 	}
 }
 
-func (cm *checkpointManager) run() {
+func (cm *CheckpointManager) Run() {
 	go cm.listenForFinishedRelays()
 	go cm.listenForWriteSignal()
 }
 
-func (cm *checkpointManager) writeToDatabase() {
+func (cm *CheckpointManager) Finished(blockNumber uint64) {
+	cm.finished <- blockNumber
+}
+
+func (cm *CheckpointManager) writeToDatabase() {
 	cm.lock.RLock()
 	defer cm.lock.RUnlock()
 	// Defensively ensure we're not writing the default value
@@ -92,13 +96,13 @@ func (cm *checkpointManager) writeToDatabase() {
 	}
 }
 
-func (cm *checkpointManager) listenForWriteSignal() {
+func (cm *CheckpointManager) listenForWriteSignal() {
 	for range cm.writeSignal {
 		cm.writeToDatabase()
 	}
 }
 
-func (cm *checkpointManager) incrementFinishedCounter(height uint64) {
+func (cm *CheckpointManager) incrementFinishedCounter(height uint64) {
 	cm.lock.Lock()
 	defer cm.lock.Unlock()
 	counter, ok := cm.queuedHeightsAndMessages[height]
@@ -131,7 +135,7 @@ func (cm *checkpointManager) incrementFinishedCounter(height uint64) {
 // handleFinishedRelays listens for finished signals from the application relayer, and commits the
 // height once all messages have been processed.
 // This function should only be called once.
-func (cm *checkpointManager) listenForFinishedRelays() {
+func (cm *CheckpointManager) listenForFinishedRelays() {
 	for height := range cm.finished {
 		cm.incrementFinishedCounter(height)
 	}
@@ -142,7 +146,17 @@ func (cm *checkpointManager) listenForFinishedRelays() {
 // greater than the current committedHeight, it is instead cached in memory
 // to potentially be committed later.
 // Requires that cm.lock be held
-func (cm *checkpointManager) stageCommittedHeight(height uint64) {
+func (cm *CheckpointManager) stageCommittedHeight(height uint64) {
+	if height <= cm.committedHeight {
+		cm.logger.Fatal(
+			"Attempting to commit height less than or equal to the committed height",
+			zap.Uint64("height", height),
+			zap.Uint64("committedHeight", cm.committedHeight),
+			zap.String("relayerID", cm.relayerID.ID.String()),
+		)
+		panic("attempting to commit height less than or equal to the committed height")
+	}
+
 	// First push the height onto the pending commits min heap
 	// This will ensure that the heights are committed in order
 	heap.Push(cm.pendingCommits, height)
@@ -171,7 +185,7 @@ func (cm *checkpointManager) stageCommittedHeight(height uint64) {
 // Once all messages have been processed, the height is eligible to be committed.
 // It is up to the caller to determine if a height is eligible to be committed.
 // This function is thread safe.
-func (cm *checkpointManager) prepareHeight(height uint64, totalMessages uint64) {
+func (cm *CheckpointManager) PrepareHeight(height uint64, totalMessages uint64) {
 	cm.lock.Lock()
 	defer cm.lock.Unlock()
 	// Heights less than or equal to the committed height are not candidates to write to the database.

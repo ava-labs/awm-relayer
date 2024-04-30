@@ -30,7 +30,9 @@ func CalculateStartingBlockHeight(
 	logger logging.Logger,
 	db RelayerDatabase,
 	relayerID RelayerID,
-	processHistoricalBlocksFromHeight uint64, currentHeight uint64) (uint64, error) {
+	processHistoricalBlocksFromHeight uint64,
+	currentHeight uint64,
+) (uint64, error) {
 	latestProcessedBlock, err := GetLatestProcessedBlockHeight(db, relayerID)
 	if IsKeyNotFoundError(err) {
 		// The database does not contain the latest processed block data for the chain,

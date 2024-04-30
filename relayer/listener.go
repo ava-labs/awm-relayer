@@ -311,7 +311,7 @@ func (lstnr *Listener) ProcessLogs(ctx context.Context) error {
 				// of expected messages. If no messages are found in the above loop, then
 				// totalMessages will be 0
 				totalMessages := expectedMessages[appRelayer.relayerID]
-				appRelayer.checkpointManager.prepareHeight(block.BlockNumber, totalMessages)
+				appRelayer.checkpointManager.PrepareHeight(block.BlockNumber, totalMessages)
 			}
 			for _, msgInfo := range msgsInfo {
 				lstnr.logger.Info(
