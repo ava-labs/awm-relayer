@@ -254,8 +254,9 @@ func (lstnr *Listener) NewWarpLogInfo(log types.Log) (*relayerTypes.WarpLogInfo,
 func (lstnr *Listener) ProcessLogs(ctx context.Context) error {
 	for {
 		select {
-		case catchUpResult := <-lstnr.catchUpResultChan:
-			if !catchUpResult {
+		case catchUpResult, ok := <-lstnr.catchUpResultChan:
+			// Mark the relayer as unhealthy if the catch-up process fails.
+			if ok && !catchUpResult {
 				lstnr.healthStatus.Store(false)
 				lstnr.logger.Error(
 					"Failed to catch up on historical blocks. Exiting listener goroutine.",
