@@ -35,7 +35,7 @@ type subscriber struct {
 	ethClient    ethclient.Client
 	blockchainID ids.ID
 	blocksChan   chan relayerTypes.WarpBlockInfo
-	headers      <-chan *types.Header
+	headers      chan *types.Header
 	sub          interfaces.Subscription
 
 	logger logging.Logger
@@ -50,6 +50,7 @@ func NewSubscriber(logger logging.Logger, blockchainID ids.ID, ethClient ethclie
 		ethClient:    ethClient,
 		logger:       logger,
 		blocksChan:   blocks,
+		headers:      make(chan *types.Header, maxClientSubscriptionBuffer),
 	}
 }
 
@@ -159,16 +160,7 @@ func (s *subscriber) processBlockRange(
 			)
 			return err
 		}
-		blockInfo, err := s.newWarpBlockInfo(header)
-		if err != nil {
-			s.logger.Error(
-				"Failed to get block info",
-				zap.String("blockchainID", s.blockchainID.String()),
-				zap.Error(err),
-			)
-			return err
-		}
-		s.blocksChan <- *blockInfo
+		s.headers <- header
 	}
 	return nil
 }
@@ -211,8 +203,7 @@ func (s *subscriber) Subscribe(maxResubscribeAttempts int) error {
 }
 
 func (s *subscriber) subscribe() error {
-	headers := make(chan *types.Header, maxClientSubscriptionBuffer)
-	sub, err := s.ethClient.SubscribeNewHead(context.Background(), headers)
+	sub, err := s.ethClient.SubscribeNewHead(context.Background(), s.headers)
 	if err != nil {
 		s.logger.Error(
 			"Failed to subscribe to logs",
@@ -221,7 +212,6 @@ func (s *subscriber) subscribe() error {
 		)
 		return err
 	}
-	s.headers = headers
 	s.sub = sub
 
 	// Forward blocks to the interface channel. Closed when the subscription is cancelled
