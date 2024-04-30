@@ -244,9 +244,7 @@ func (lstnr *Listener) NewWarpLogInfo(log types.Log) (*relayerTypes.WarpLogInfo,
 	return &relayerTypes.WarpLogInfo{
 		// BytesToAddress takes the last 20 bytes of the byte array if it is longer than 20 bytes
 		SourceAddress:    common.BytesToAddress(log.Topics[1][:]),
-		SourceTxID:       log.TxHash[:],
 		UnsignedMsgBytes: log.Data,
-		BlockNumber:      log.BlockNumber,
 	}, nil
 }
 
@@ -375,7 +373,7 @@ func (lstnr *Listener) ReconnectToSubscriber() error {
 
 // RouteMessage relays a single warp message to the destination chain.
 // Warp message relay requests from the same origin chain are processed serially
-func (lstnr *Listener) RouteMessage(warpLogInfo *relayerTypes.WarpLogInfo) error {
+func (lstnr *Listener) RouteManualWarpMessage(warpLogInfo *relayerTypes.WarpLogInfo) error {
 	parsedMessageInfo, err := lstnr.parseMessage(warpLogInfo)
 	if err != nil {
 		lstnr.logger.Error(
@@ -393,7 +391,7 @@ func (lstnr *Listener) RouteMessage(warpLogInfo *relayerTypes.WarpLogInfo) error
 		return nil
 	}
 
-	return lstnr.dispatchToApplicationRelayer(parsedMessageInfo, warpLogInfo.BlockNumber)
+	return lstnr.dispatchToApplicationRelayer(parsedMessageInfo, 0)
 }
 
 // Unpacks the Warp message and fetches the appropriate application relayer
