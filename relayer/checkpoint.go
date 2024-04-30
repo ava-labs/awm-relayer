@@ -60,7 +60,7 @@ func (cm *checkpointManager) run() {
 func (cm *checkpointManager) writeToDatabase() {
 	cm.lock.RLock()
 	defer cm.lock.RUnlock()
-	// Ensure we're not writing the default value
+	// Defensively ensure we're not writing the default value
 	if cm.committedHeight == 0 {
 		return
 	}
@@ -103,8 +103,9 @@ func (cm *checkpointManager) incrementFinishedCounter(height uint64) {
 	defer cm.lock.Unlock()
 	counter, ok := cm.queuedHeightsAndMessages[height]
 	if !ok {
-		// This is expected for manual Warp messages, since they are not associated with a height
-		// and are therefore not tracked by the checkpoint manager.
+		// This is expected for Warp messages that are not associated with the height greater than the latest processed block height.
+		// For example, on startup it is possible for an Application Relayer to re-process messages for a height that has already been committed.
+		// This is also the case for manual Warp messages that are processed out-of-band.
 		cm.logger.Debug(
 			"Pending height not found",
 			zap.Uint64("height", height),
@@ -142,16 +143,6 @@ func (cm *checkpointManager) listenForFinishedRelays() {
 // to potentially be committed later.
 // Requires that cm.lock be held
 func (cm *checkpointManager) stageCommittedHeight(height uint64) {
-	if cm.committedHeight == 0 {
-		cm.logger.Debug(
-			"Committing initial height",
-			zap.Uint64("height", height),
-			zap.String("relayerID", cm.relayerID.ID.String()),
-		)
-		cm.committedHeight = height
-		return
-	}
-
 	// First push the height onto the pending commits min heap
 	// This will ensure that the heights are committed in order
 	heap.Push(cm.pendingCommits, height)
@@ -183,12 +174,24 @@ func (cm *checkpointManager) stageCommittedHeight(height uint64) {
 func (cm *checkpointManager) prepareHeight(height uint64, totalMessages uint64) {
 	cm.lock.Lock()
 	defer cm.lock.Unlock()
+	// Heights less than or equal to the committed height are not candidates to write to the database.
+	// This is to ensure that writes are strictly increasing.
+	if height <= cm.committedHeight {
+		cm.logger.Debug(
+			"Skipping height",
+			zap.Uint64("height", height),
+			zap.Uint64("committedHeight", cm.committedHeight),
+			zap.String("relayerID", cm.relayerID.ID.String()),
+		)
+		return
+	}
 	cm.logger.Debug(
 		"Preparing height",
 		zap.Uint64("height", height),
 		zap.Uint64("totalMessages", totalMessages),
 		zap.String("relayerID", cm.relayerID.ID.String()),
 	)
+	// Short circuit to staging the height if there are no messages to process
 	if totalMessages == 0 {
 		cm.stageCommittedHeight(height)
 		return
