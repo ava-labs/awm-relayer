@@ -74,6 +74,7 @@ func (s *subscriber) forwardBlocks() {
 // requests will be made.
 // Writes true to the done channel when finished, or false if an error occurs
 func (s *subscriber) ProcessFromHeight(height *big.Int, done chan bool) {
+	defer close(done)
 	s.logger.Info(
 		"Processing historical logs",
 		zap.String("fromBlockHeight", height.String()),
@@ -82,6 +83,7 @@ func (s *subscriber) ProcessFromHeight(height *big.Int, done chan bool) {
 	if height == nil {
 		s.logger.Error("cannot process logs from nil height")
 		done <- false
+		return
 	}
 
 	// Grab the latest block before filtering logs so we don't miss any before updating the db
@@ -93,6 +95,7 @@ func (s *subscriber) ProcessFromHeight(height *big.Int, done chan bool) {
 			zap.Error(err),
 		)
 		done <- false
+		return
 	}
 
 	bigLatestBlockHeight := big.NewInt(0).SetUint64(latestBlockHeight)
@@ -112,11 +115,13 @@ func (s *subscriber) ProcessFromHeight(height *big.Int, done chan bool) {
 		if err != nil {
 			s.logger.Error("failed to process block range", zap.Error(err))
 			done <- false
+			return
 		}
 	}
 	done <- true
 }
 
+// Extract Warp logs from the block, if they exist
 func (s *subscriber) newWarpBlockInfo(header *types.Header) (*relayerTypes.WarpBlockInfo, error) {
 	var (
 		logs []types.Log
@@ -140,9 +145,7 @@ func (s *subscriber) newWarpBlockInfo(header *types.Header) (*relayerTypes.WarpB
 	}, nil
 }
 
-// Filter logs from the latest processed block to the latest block
-// Since initializationFilterQuery does not modify existing fields of warpFilterQuery,
-// we can safely reuse warpFilterQuery with only a shallow copy
+// Process Warp messages from the block range [fromBlock, toBlock], inclusive
 func (s *subscriber) processBlockRange(
 	fromBlock, toBlock *big.Int,
 ) error {

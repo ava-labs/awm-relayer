@@ -7,8 +7,8 @@ package config
 const (
 	ConfigFileKey             = "config-file"
 	LogLevelKey               = "log-level"
-	PChainAPIURLKey           = "p-chain-api-url"
-	InfoAPIURLKey             = "info-api-url"
+	PChainAPIKey              = "p-chain-api"
+	InfoAPIKey                = "info-api"
 	APIPortKey                = "api-port"
 	MetricsPortKey            = "metrics-port"
 	SourceBlockchainsKey      = "source-blockchains"

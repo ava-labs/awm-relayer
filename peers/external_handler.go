@@ -119,7 +119,7 @@ func (h *RelayerExternalHandler) HandleInbound(_ context.Context, inboundMessage
 			RequestID:          requestID,
 			Op:                 byte(inboundMessage.Op()),
 		}
-		h.RegisterResponse(reqID)
+		h.RegisterAppResponse(reqID)
 
 		// Route to the appropriate response channel. Do not block on this call, otherwise incoming message handling may be blocked
 		// OnFinishedHandling is called by the consumer of the response channel
@@ -154,20 +154,23 @@ func (h *RelayerExternalHandler) Disconnected(nodeID ids.NodeID) {
 	)
 }
 
-// RegisterRequest registers an AppRequest with the timeout manager.
-// If RegisterResponse is not called before the timeout, HandleInbound is called with
-// an internally created AppRequestFailed message.
-func (h *RelayerExternalHandler) RegisterRequest(reqID ids.RequestID, numExpectedResponses int) chan message.InboundMessage {
+func (h *RelayerExternalHandler) RegisterRequestID(requestID uint32, numExpectedResponses int) chan message.InboundMessage {
 	// Create a channel to receive the response
 	h.responseChansLock.Lock()
 	defer h.responseChansLock.Unlock()
 
 	responseChan := make(chan message.InboundMessage, numExpectedResponses)
-	h.responseChans[reqID.RequestID] = responseChan
-	h.responsesCount[reqID.RequestID] = expectedResponses{
+	h.responseChans[requestID] = responseChan
+	h.responsesCount[requestID] = expectedResponses{
 		expected: numExpectedResponses,
 	}
+	return responseChan
+}
 
+// RegisterRequest registers an AppRequest with the timeout manager.
+// If RegisterResponse is not called before the timeout, HandleInbound is called with
+// an internally created AppRequestFailed message.
+func (h *RelayerExternalHandler) RegisterAppRequest(reqID ids.RequestID) {
 	inMsg := message.InboundAppError(
 		reqID.NodeID,
 		reqID.SourceChainID,
@@ -178,11 +181,10 @@ func (h *RelayerExternalHandler) RegisterRequest(reqID ids.RequestID, numExpecte
 	h.timeoutManager.Put(reqID, false, func() {
 		h.HandleInbound(context.Background(), inMsg)
 	})
-	return responseChan
 }
 
 // RegisterResponse registers an AppResponse with the timeout manager
-func (h *RelayerExternalHandler) RegisterResponse(reqID ids.RequestID) {
+func (h *RelayerExternalHandler) RegisterAppResponse(reqID ids.RequestID) {
 	h.responseChansLock.Lock()
 	defer h.responseChansLock.Unlock()
 	h.timeoutManager.Remove(reqID)

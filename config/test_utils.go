@@ -11,14 +11,23 @@ var (
 	testAddress       string = "0xd81545385803bCD83bd59f58Ba2d2c0562387F83"
 	testPk1           string = "0xabc89e99c94b6912bfc12adc093c9b51124f0dc54ac7a766b2bc5ccf558d8abc"
 	testPk2           string = "0x12389e99c94b6912bfc12adc093c9b51124f0dc54ac7a766b2bc5ccf558d8123"
+	queryParamKey1    string = "key1"
+	queryParamVal1    string = "val1"
 )
 
 // Valid configuration objects to be used by tests in external packages
 var (
 	TestValidConfig = Config{
-		LogLevel:               "info",
-		PChainAPIURL:           "http://test.avax.network",
-		InfoAPIURL:             "http://test.avax.network",
+		LogLevel: "info",
+		PChainAPI: &APIConfig{
+			BaseURL: "http://test.avax.network",
+			QueryParams: map[string]string{
+				queryParamKey1: queryParamVal1,
+			},
+		},
+		InfoAPI: &APIConfig{
+			BaseURL: "http://test.avax.network",
+		},
 		DBWriteIntervalSeconds: 1,
 		SourceBlockchains: []*SourceBlockchain{
 			{

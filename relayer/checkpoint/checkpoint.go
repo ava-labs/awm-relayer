@@ -1,7 +1,7 @@
 // Copyright (C) 2024, Ava Labs, Inc. All rights reserved.
 // See the file LICENSE for licensing terms.
 
-package relayer
+package checkpoint
 
 import (
 	"container/heap"
@@ -15,10 +15,10 @@ import (
 )
 
 //
-// checkpointManager commits keys to be written to the database in a thread safe manner.
+// CheckpointManager commits keys to be written to the database in a thread safe manner.
 //
 
-type checkpointManager struct {
+type CheckpointManager struct {
 	logger                   logging.Logger
 	database                 database.RelayerDatabase
 	writeSignal              chan struct{}
@@ -30,34 +30,45 @@ type checkpointManager struct {
 	finished                 chan uint64
 }
 
-func newCheckpointManager(logger logging.Logger, database database.RelayerDatabase, writeSignal chan struct{}, relayerID database.RelayerID) *checkpointManager {
+func NewCheckpointManager(
+	logger logging.Logger,
+	database database.RelayerDatabase,
+	writeSignal chan struct{},
+	relayerID database.RelayerID,
+	startingHeight uint64,
+) *CheckpointManager {
 	h := &utils.UInt64Heap{}
 	heap.Init(h)
-	return &checkpointManager{
+	return &CheckpointManager{
 		logger:                   logger,
 		database:                 database,
 		writeSignal:              writeSignal,
 		relayerID:                relayerID,
 		queuedHeightsAndMessages: make(map[uint64]*messageCounter),
+		committedHeight:          startingHeight,
 		lock:                     &sync.RWMutex{},
 		pendingCommits:           h,
 		finished:                 make(chan uint64),
 	}
 }
 
-func (cm *checkpointManager) run() {
+func (cm *CheckpointManager) Run() {
 	go cm.listenForFinishedRelays()
 	go cm.listenForWriteSignal()
 }
 
-func (cm *checkpointManager) writeToDatabase() {
+func (cm *CheckpointManager) Finished(blockNumber uint64) {
+	cm.finished <- blockNumber
+}
+
+func (cm *CheckpointManager) writeToDatabase() {
 	cm.lock.RLock()
 	defer cm.lock.RUnlock()
-	// Ensure we're not writing the default value
+	// Defensively ensure we're not writing the default value
 	if cm.committedHeight == 0 {
 		return
 	}
-	storedHeight, err := getLatestProcessedBlockHeight(cm.database, cm.relayerID)
+	storedHeight, err := database.GetLatestProcessedBlockHeight(cm.database, cm.relayerID)
 	if err != nil && !database.IsKeyNotFoundError(err) {
 		cm.logger.Error(
 			"Failed to get latest processed block height",
@@ -85,18 +96,21 @@ func (cm *checkpointManager) writeToDatabase() {
 	}
 }
 
-func (cm *checkpointManager) listenForWriteSignal() {
+func (cm *CheckpointManager) listenForWriteSignal() {
 	for range cm.writeSignal {
 		cm.writeToDatabase()
 	}
 }
 
-func (cm *checkpointManager) incrementFinishedCounter(height uint64) {
+func (cm *CheckpointManager) incrementFinishedCounter(height uint64) {
 	cm.lock.Lock()
 	defer cm.lock.Unlock()
 	counter, ok := cm.queuedHeightsAndMessages[height]
 	if !ok {
-		cm.logger.Error(
+		// This is expected for Warp messages that are not associated with the height greater than the latest processed block height.
+		// For example, on startup it is possible for an Application Relayer to re-process messages for a height that has already been committed.
+		// This is also the case for manual Warp messages that are processed out-of-band.
+		cm.logger.Debug(
 			"Pending height not found",
 			zap.Uint64("height", height),
 			zap.String("relayerID", cm.relayerID.ID.String()),
@@ -121,7 +135,7 @@ func (cm *checkpointManager) incrementFinishedCounter(height uint64) {
 // handleFinishedRelays listens for finished signals from the application relayer, and commits the
 // height once all messages have been processed.
 // This function should only be called once.
-func (cm *checkpointManager) listenForFinishedRelays() {
+func (cm *CheckpointManager) listenForFinishedRelays() {
 	for height := range cm.finished {
 		cm.incrementFinishedCounter(height)
 	}
@@ -132,15 +146,15 @@ func (cm *checkpointManager) listenForFinishedRelays() {
 // greater than the current committedHeight, it is instead cached in memory
 // to potentially be committed later.
 // Requires that cm.lock be held
-func (cm *checkpointManager) stageCommittedHeight(height uint64) {
-	if cm.committedHeight == 0 {
-		cm.logger.Debug(
-			"Committing initial height",
+func (cm *CheckpointManager) stageCommittedHeight(height uint64) {
+	if height <= cm.committedHeight {
+		cm.logger.Fatal(
+			"Attempting to commit height less than or equal to the committed height",
 			zap.Uint64("height", height),
+			zap.Uint64("committedHeight", cm.committedHeight),
 			zap.String("relayerID", cm.relayerID.ID.String()),
 		)
-		cm.committedHeight = height
-		return
+		panic("attempting to commit height less than or equal to the committed height")
 	}
 
 	// First push the height onto the pending commits min heap
@@ -171,15 +185,27 @@ func (cm *checkpointManager) stageCommittedHeight(height uint64) {
 // Once all messages have been processed, the height is eligible to be committed.
 // It is up to the caller to determine if a height is eligible to be committed.
 // This function is thread safe.
-func (cm *checkpointManager) prepareHeight(height uint64, totalMessages uint64) {
+func (cm *CheckpointManager) PrepareHeight(height uint64, totalMessages uint64) {
 	cm.lock.Lock()
 	defer cm.lock.Unlock()
+	// Heights less than or equal to the committed height are not candidates to write to the database.
+	// This is to ensure that writes are strictly increasing.
+	if height <= cm.committedHeight {
+		cm.logger.Debug(
+			"Skipping height",
+			zap.Uint64("height", height),
+			zap.Uint64("committedHeight", cm.committedHeight),
+			zap.String("relayerID", cm.relayerID.ID.String()),
+		)
+		return
+	}
 	cm.logger.Debug(
 		"Preparing height",
 		zap.Uint64("height", height),
 		zap.Uint64("totalMessages", totalMessages),
 		zap.String("relayerID", cm.relayerID.ID.String()),
 	)
+	// Short circuit to staging the height if there are no messages to process
 	if totalMessages == 0 {
 		cm.stageCommittedHeight(height)
 		return
@@ -194,17 +220,4 @@ func (cm *checkpointManager) prepareHeight(height uint64, totalMessages uint64) 
 type messageCounter struct {
 	totalMessages     uint64
 	processedMessages uint64
-}
-
-// Helper function to get the latest processed block height from the database.
-func getLatestProcessedBlockHeight(db database.RelayerDatabase, relayerID database.RelayerID) (uint64, error) {
-	latestProcessedBlockData, err := db.Get(relayerID.ID, database.LatestProcessedBlockKey)
-	if err != nil {
-		return 0, err
-	}
-	latestProcessedBlock, err := strconv.ParseUint(string(latestProcessedBlockData), 10, 64)
-	if err != nil {
-		return 0, err
-	}
-	return latestProcessedBlock, nil
 }

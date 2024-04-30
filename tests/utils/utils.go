@@ -41,6 +41,7 @@ import (
 var StorageLocation = fmt.Sprintf("%s/.awm-relayer-storage", os.TempDir())
 
 const DefaultRelayerCfgFname = "relayer-config.json"
+const DBUpdateSeconds = 1
 
 func BuildAndRunRelayerExecutable(ctx context.Context, relayerConfigPath string) context.CancelFunc {
 	// Build the awm-relayer binary
@@ -102,10 +103,11 @@ func CreateDefaultRelayerConfig(
 	fundedAddress common.Address,
 	relayerKey *ecdsa.PrivateKey,
 ) config.Config {
-	logLevel := logging.Info
-	if os.Getenv("LOG_LEVEL") == "debug" {
-		logLevel = logging.Debug
+	logLevel, err := logging.ToLevel(os.Getenv("LOG_LEVEL"))
+	if err != nil {
+		logLevel = logging.Info
 	}
+
 	log.Info(
 		"Setting up relayer config",
 		"logLevel", logLevel.LowerString(),
@@ -171,11 +173,15 @@ func CreateDefaultRelayerConfig(
 	}
 
 	return config.Config{
-		LogLevel:               logLevel.LowerString(),
-		PChainAPIURL:           sourceSubnetsInfo[0].NodeURIs[0],
-		InfoAPIURL:             sourceSubnetsInfo[0].NodeURIs[0],
+		LogLevel: logging.Info.LowerString(),
+		PChainAPI: &config.APIConfig{
+			BaseURL: sourceSubnetsInfo[0].NodeURIs[0],
+		},
+		InfoAPI: &config.APIConfig{
+			BaseURL: sourceSubnetsInfo[0].NodeURIs[0],
+		},
 		StorageLocation:        StorageLocation,
-		DBWriteIntervalSeconds: 1,
+		DBWriteIntervalSeconds: DBUpdateSeconds,
 		ProcessMissedBlocks:    false,
 		SourceBlockchains:      sources,
 		DestinationBlockchains: destinations,

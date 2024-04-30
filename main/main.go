@@ -12,13 +12,11 @@ import (
 	"os"
 
 	"github.com/alexliesenfeld/health"
-	"github.com/ava-labs/avalanchego/api/info"
 	"github.com/ava-labs/avalanchego/api/metrics"
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/message"
 	"github.com/ava-labs/avalanchego/utils/constants"
 	"github.com/ava-labs/avalanchego/utils/logging"
-	"github.com/ava-labs/avalanchego/vms/platformvm"
 	"github.com/ava-labs/awm-relayer/config"
 	"github.com/ava-labs/awm-relayer/database"
 	"github.com/ava-labs/awm-relayer/peers"
@@ -71,10 +69,6 @@ func main() {
 	}
 	logger.Info(fmt.Sprintf("Set config options.%s", overwrittenLog))
 
-	// Global P-Chain and Info clients used to get subnet validator sets
-	pChainClient := platformvm.NewClient(cfg.PChainAPIURL)
-	infoClient := info.NewClient(cfg.InfoAPIURL)
-
 	// Initialize all destination clients
 	logger.Info("Initializing destination clients")
 	destinationClients, err := vms.CreateDestinationClients(logger, cfg)
@@ -107,8 +101,6 @@ func main() {
 		networkLogLevel,
 		registerer,
 		&cfg,
-		infoClient,
-		pChainClient,
 	)
 	if err != nil {
 		logger.Error(
@@ -220,7 +212,6 @@ func main() {
 				db,
 				ticker,
 				*subnetInfo,
-				pChainClient,
 				network,
 				destinationClients,
 				messageCreator,
@@ -245,7 +236,6 @@ func runRelayer(
 	db database.RelayerDatabase,
 	ticker *utils.Ticker,
 	sourceSubnetInfo config.SourceBlockchain,
-	pChainClient platformvm.Client,
 	network *peers.AppRequestNetwork,
 	destinationClients map[ids.ID]vms.DestinationClient,
 	messageCreator message.Creator,
@@ -264,7 +254,6 @@ func runRelayer(
 		db,
 		ticker,
 		sourceSubnetInfo,
-		pChainClient,
 		network,
 		destinationClients,
 		messageCreator,
@@ -286,7 +275,7 @@ func runRelayer(
 			zap.String("blockchainID", sourceSubnetInfo.BlockchainID),
 			zap.String("warpMessageBytes", hex.EncodeToString(warpMessage.UnsignedMsgBytes)),
 		)
-		err := listener.RouteMessage(warpMessage)
+		err := listener.RouteManualWarpMessage(warpMessage)
 		if err != nil {
 			logger.Error(
 				"Failed to relay manual Warp message. Continuing.",

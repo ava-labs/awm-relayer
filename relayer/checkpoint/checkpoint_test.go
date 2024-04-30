@@ -1,4 +1,4 @@
-package relayer
+package checkpoint
 
 import (
 	"container/heap"
@@ -63,7 +63,7 @@ func TestCommitHeight(t *testing.T) {
 		id := database.RelayerID{
 			ID: common.BytesToHash(crypto.Keccak256([]byte(test.name))),
 		}
-		cm := newCheckpointManager(logging.NoLog{}, db, nil, id)
+		cm := NewCheckpointManager(logging.NoLog{}, db, nil, id, test.currentMaxHeight)
 		heap.Init(test.pendingHeights)
 		cm.pendingCommits = test.pendingHeights
 		cm.committedHeight = test.currentMaxHeight

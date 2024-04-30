@@ -22,7 +22,5 @@ type WarpBlockInfo struct {
 // from the manual Warp message information provided via configuration
 type WarpLogInfo struct {
 	SourceAddress    common.Address
-	SourceTxID       []byte
 	UnsignedMsgBytes []byte
-	BlockNumber      uint64
 }
