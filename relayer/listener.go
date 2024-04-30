@@ -46,7 +46,6 @@ type Listener struct {
 	messageManagers     map[common.Address]messages.MessageManager
 	logger              logging.Logger
 	sourceBlockchain    config.SourceBlockchain
-	catchUpResultChan   chan bool
 	healthStatus        *atomic.Bool
 	globalConfig        *config.Config
 	applicationRelayers map[common.Hash]*applicationRelayer
@@ -108,14 +107,6 @@ func NewListener(
 		}
 		messageManagers[address] = messageManager
 	}
-
-	// Marks when the listener has finished the catch-up process on startup.
-	// Until that time, we do not know the order in which messages are processed,
-	// since the catch-up process occurs concurrently with normal message processing
-	// via the subscriber's Subscribe method. As a result, we cannot safely write the
-	// latest processed block to the database without risking missing a block in a fault
-	// scenario.
-	catchUpResultChan := make(chan bool, 1)
 
 	currentHeight, err := ethRPCClient.BlockNumber(context.Background())
 	if err != nil {
@@ -190,7 +181,6 @@ func NewListener(
 		messageManagers:     messageManagers,
 		logger:              logger,
 		sourceBlockchain:    sourceBlockchain,
-		catchUpResultChan:   catchUpResultChan,
 		healthStatus:        relayerHealth,
 		globalConfig:        cfg,
 		applicationRelayers: applicationRelayers,
@@ -212,13 +202,12 @@ func NewListener(
 		// Process historical blocks in a separate goroutine so that the main processing loop can
 		// start processing new blocks as soon as possible. Otherwise, it's possible for
 		// ProcessFromHeight to overload the message queue and cause a deadlock.
-		go sub.ProcessFromHeight(big.NewInt(0).SetUint64(minHeight), lstnr.catchUpResultChan)
+		go sub.ProcessFromHeight(big.NewInt(0).SetUint64(minHeight))
 	} else {
 		lstnr.logger.Info(
 			"processed-missed-blocks set to false, starting processing from chain head",
 			zap.String("blockchainID", lstnr.sourceBlockchain.GetBlockchainID().String()),
 		)
-		lstnr.catchUpResultChan <- true
 	}
 
 	return &lstnr, nil
@@ -254,15 +243,6 @@ func (lstnr *Listener) NewWarpLogInfo(log types.Log) (*relayerTypes.WarpLogInfo,
 func (lstnr *Listener) ProcessLogs(ctx context.Context) error {
 	for {
 		select {
-		case catchUpResult := <-lstnr.catchUpResultChan:
-			if !catchUpResult {
-				lstnr.healthStatus.Store(false)
-				lstnr.logger.Error(
-					"Failed to catch up on historical blocks. Exiting listener goroutine.",
-					zap.String("sourceBlockchainID", lstnr.sourceBlockchain.GetBlockchainID().String()),
-				)
-				return fmt.Errorf("failed to catch up on historical blocks")
-			}
 		case block := <-lstnr.Subscriber.Blocks():
 			// Relay the messages in the block to the destination chains. Continue on failure.
 			lstnr.logger.Info(
