@@ -90,8 +90,10 @@ func TestProcessFromHeight(t *testing.T) {
 					Number: big.NewInt(i),
 				}, nil).Times(1)
 			}
-			err := subscriberUnderTest.ProcessFromHeight(big.NewInt(tc.input))
-			require.NoError(t, err)
+			done := make(chan bool, 1)
+			subscriberUnderTest.ProcessFromHeight(big.NewInt(tc.input), done)
+			result := <-done
+			require.True(t, result)
 		})
 	}
 }

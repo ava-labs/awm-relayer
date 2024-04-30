@@ -35,7 +35,7 @@ type subscriber struct {
 	ethClient    ethclient.Client
 	blockchainID ids.ID
 	blocksChan   chan relayerTypes.WarpBlockInfo
-	headers      chan *types.Header
+	headers      <-chan *types.Header
 	sub          interfaces.Subscription
 
 	logger logging.Logger
@@ -50,7 +50,6 @@ func NewSubscriber(logger logging.Logger, blockchainID ids.ID, ethClient ethclie
 		ethClient:    ethClient,
 		logger:       logger,
 		blocksChan:   blocks,
-		headers:      make(chan *types.Header, maxClientSubscriptionBuffer),
 	}
 }
 
@@ -74,7 +73,8 @@ func (s *subscriber) forwardBlocks() {
 // `MaxBlocksPerRequest`; if processing more than that, multiple eth_getLogs
 // requests will be made.
 // Writes true to the done channel when finished, or false if an error occurs
-func (s *subscriber) ProcessFromHeight(height *big.Int) error {
+func (s *subscriber) ProcessFromHeight(height *big.Int, done chan bool) {
+	defer close(done)
 	s.logger.Info(
 		"Processing historical logs",
 		zap.String("fromBlockHeight", height.String()),
@@ -82,7 +82,8 @@ func (s *subscriber) ProcessFromHeight(height *big.Int) error {
 	)
 	if height == nil {
 		s.logger.Error("Cannot process logs from nil height")
-		return fmt.Errorf("cannot process logs from nil height")
+		done <- false
+		return
 	}
 
 	// Grab the latest block before filtering logs so we don't miss any before updating the db
@@ -93,7 +94,8 @@ func (s *subscriber) ProcessFromHeight(height *big.Int) error {
 			zap.String("blockchainID", s.blockchainID.String()),
 			zap.Error(err),
 		)
-		return err
+		done <- false
+		return
 	}
 
 	bigLatestBlockHeight := big.NewInt(0).SetUint64(latestBlockHeight)
@@ -112,10 +114,11 @@ func (s *subscriber) ProcessFromHeight(height *big.Int) error {
 		err = s.processBlockRange(fromBlock, toBlock)
 		if err != nil {
 			s.logger.Error("Failed to process block range", zap.Error(err))
-			return err
+			done <- false
+			return
 		}
 	}
-	return nil
+	done <- true
 }
 
 // Extract Warp logs from the block, if they exist
@@ -156,7 +159,16 @@ func (s *subscriber) processBlockRange(
 			)
 			return err
 		}
-		s.headers <- header
+		blockInfo, err := s.newWarpBlockInfo(header)
+		if err != nil {
+			s.logger.Error(
+				"Failed to get block info",
+				zap.String("blockchainID", s.blockchainID.String()),
+				zap.Error(err),
+			)
+			return err
+		}
+		s.blocksChan <- *blockInfo
 	}
 	return nil
 }
@@ -199,7 +211,8 @@ func (s *subscriber) Subscribe(maxResubscribeAttempts int) error {
 }
 
 func (s *subscriber) subscribe() error {
-	sub, err := s.ethClient.SubscribeNewHead(context.Background(), s.headers)
+	headers := make(chan *types.Header, maxClientSubscriptionBuffer)
+	sub, err := s.ethClient.SubscribeNewHead(context.Background(), headers)
 	if err != nil {
 		s.logger.Error(
 			"Failed to subscribe to logs",
@@ -208,6 +221,7 @@ func (s *subscriber) subscribe() error {
 		)
 		return err
 	}
+	s.headers = headers
 	s.sub = sub
 
 	// Forward blocks to the interface channel. Closed when the subscription is cancelled
