@@ -315,7 +315,7 @@ func (lstnr *Listener) ProcessLogs(ctx context.Context) error {
 			// Iterate over the Warp logs in two passes:
 			// The first pass extracts the information needed to relay from the log, but does not initiate relaying
 			// This is so that the number of messages to be processed can be registered with the database before
-			// any messages are processed
+			// any messages are processed.
 			// The second pass dispatches the messages to the application relayers for processing
 			expectedMessages := make(map[database.RelayerID]uint64)
 			var msgsInfo []*parsedMessageInfo
