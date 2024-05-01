@@ -79,7 +79,7 @@ The Fuji and Mainnet [public API nodes](https://docs.avax.network/tooling/rpc-pr
 
 ### Private Key Management
 
-- Each configured destination blockchain requires a private key to sign transactions. This key can be provided as a hex-encoded string in the configuration (see `account-private-key` in [Configuration](#configuration))or environment variable, or stored in KMS and used to sign transactions remotely (see `kms-key-id` and `kms-aws-region` in [Configuration](#configuration)). 
+- Each configured destination blockchain requires a private key to sign transactions. This key can be provided as a hex-encoded string in the configuration (see `account-private-key` in [Configuration](#configuration)) or environment variable, or stored in KMS and used to sign transactions remotely (see `kms-key-id` and `kms-aws-region` in [Configuration](#configuration)). 
 - **Each private key used by the relayer should not be used to sign transactions outside of the relayer**, as this may cause the relayer to fail to sign transactions due to nonce mismatches.
 
 ## Usage
