@@ -124,7 +124,7 @@ func (s *KMSSigner) Address() common.Address {
 // Recover the EIP-155 signature from the KMS signature.
 // KMS returns the signature in ASN.1 format, but the EIP-155 signature is in R || S || V format,
 // so we need to test both V = 0 and V = 1 against the recovered public key.
-// Additionally, with EIP-2 S-values are capped at secp256k1n/2, so adjust that if necessary.
+// Additionally, EIP-2 S-values are capped at secp256k1n/2, so adjust that if necessary.
 func (s *KMSSigner) recoverEIP155Signature(txHash []byte, rBytes []byte, sBytes []byte) ([]byte, error) {
 	sBigInt := big.NewInt(0).SetBytes(sBytes)
 	secp256k1N := crypto.S256().Params().N
