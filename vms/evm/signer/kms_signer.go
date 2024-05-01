@@ -126,12 +126,12 @@ func (s *KMSSigner) Address() common.Address {
 // so we need to test both V = 0 and V = 1 against the recovered public key.
 // Additionally, with EIP-2 S-values are capped at secp256k1n/2, so adjust that if necessary.
 func (s *KMSSigner) recoverEIP155Signature(txHash []byte, rBytes []byte, sBytes []byte) ([]byte, error) {
-	sBigInt := new(big.Int).SetBytes(sBytes)
+	sBigInt := big.NewInt(0).SetBytes(sBytes)
 	secp256k1N := crypto.S256().Params().N
-	secp256k1HalfN := new(big.Int).Div(secp256k1N, big.NewInt(2))
+	secp256k1HalfN := big.NewInt(0).Div(secp256k1N, big.NewInt(2))
 
 	if sBigInt.Cmp(secp256k1HalfN) > 0 {
-		sBytes = new(big.Int).Sub(secp256k1N, sBigInt).Bytes()
+		sBytes = big.NewInt(0).Sub(secp256k1N, sBigInt).Bytes()
 	}
 
 	rsSignature := append(adjustSignatureLength(rBytes), adjustSignatureLength(sBytes)...)
