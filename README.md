@@ -249,10 +249,12 @@ The relayer is configured via a JSON file, the path to which is passed in via th
   `"account-private-key": string`
 
   - The hex-encoded private key to use for signing transactions on the destination blockchain. May be provided by the environment variable `ACCOUNT_PRIVATE_KEY`. Each `destination-subnet` may use a separate private key by appending the cb58 encoded blockchain ID to the private key environment variable name, for example `ACCOUNT_PRIVATE_KEY_11111111111111111111111111111111LpoYY`
+  - Please note that the private key should be exclusive to the relayer, see [Private Key Management](#private-key-management).
 
   `"kms-key-id": string`
 
   - The ID of the KMS key to use for signing transactions on the destination blockchain. Only one of `account-private-key` or `kms-key-id` should be provided. If `kms-key-id` is provided, then `kms-aws-region` is required.
+  - Please note that the private key in KMS should be exclusive to the relayer, see [Private Key Management](#private-key-management).
 
   `"kms-aws-region": string`
 
