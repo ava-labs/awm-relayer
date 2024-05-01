@@ -5,7 +5,6 @@ package relayer
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"math/big"
 	"math/rand"
@@ -21,9 +20,7 @@ import (
 	relayerTypes "github.com/ava-labs/awm-relayer/types"
 	"github.com/ava-labs/awm-relayer/utils"
 	vms "github.com/ava-labs/awm-relayer/vms"
-	"github.com/ava-labs/subnet-evm/core/types"
 	"github.com/ava-labs/subnet-evm/ethclient"
-	"github.com/ava-labs/subnet-evm/precompile/contracts/warp"
 	"github.com/ethereum/go-ethereum/common"
 	"go.uber.org/atomic"
 	"go.uber.org/zap"
@@ -35,8 +32,6 @@ const (
 	// refresh the chain config on reconnect.
 	maxResubscribeAttempts = 10
 )
-
-var ErrInvalidLog = errors.New("invalid warp message log")
 
 // Listener handles all messages sent from a given source chain
 type Listener struct {
@@ -224,30 +219,6 @@ func NewListener(
 	return &lstnr, nil
 }
 
-func (lstnr *Listener) NewWarpLogInfo(log types.Log) (*relayerTypes.WarpLogInfo, error) {
-	if len(log.Topics) != 3 {
-		lstnr.logger.Error(
-			"Log did not have the correct number of topics",
-			zap.Int("numTopics", len(log.Topics)),
-		)
-		return nil, ErrInvalidLog
-	}
-	if log.Topics[0] != warp.WarpABI.Events["SendWarpMessage"].ID {
-		lstnr.logger.Error(
-			"Log topic does not match the SendWarpMessage event type",
-			zap.String("topic", log.Topics[0].String()),
-			zap.String("expectedTopic", warp.WarpABI.Events["SendWarpMessage"].ID.String()),
-		)
-		return nil, ErrInvalidLog
-	}
-
-	return &relayerTypes.WarpLogInfo{
-		// BytesToAddress takes the last 20 bytes of the byte array if it is longer than 20 bytes
-		SourceAddress:    common.BytesToAddress(log.Topics[1][:]),
-		UnsignedMsgBytes: log.Data,
-	}, nil
-}
-
 // Listens to the Subscriber logs channel to process them.
 // On subscriber error, attempts to reconnect and errors if unable.
 // Exits if context is cancelled by another goroutine.
@@ -255,8 +226,21 @@ func (lstnr *Listener) ProcessLogs(ctx context.Context) error {
 	for {
 		select {
 		case catchUpResult, ok := <-lstnr.catchUpResultChan:
-			// Mark the relayer as unhealthy if the catch-up process fails.
-			if ok && !catchUpResult {
+			// As soon as we've received anything on the channel, there are no more values expected.
+			// The expected case is that the channel is closed by the subscriber after writing a value to it,
+			// but we also defensively handle an unexpected close.
+			lstnr.catchUpResultChan = nil
+
+			// Mark the relayer as unhealthy if the catch-up process fails or if the catch-up channel is unexpectedly closed.
+			if !ok {
+				lstnr.healthStatus.Store(false)
+				lstnr.logger.Error(
+					"Catch-up channel unexpectedly closed. Exiting listener goroutine.",
+					zap.String("sourceBlockchainID", lstnr.sourceBlockchain.GetBlockchainID().String()),
+				)
+				return fmt.Errorf("catch-up channel unexpectedly closed")
+			}
+			if !catchUpResult {
 				lstnr.healthStatus.Store(false)
 				lstnr.logger.Error(
 					"Failed to catch up on historical blocks. Exiting listener goroutine.",
@@ -264,7 +248,16 @@ func (lstnr *Listener) ProcessLogs(ctx context.Context) error {
 				)
 				return fmt.Errorf("failed to catch up on historical blocks")
 			}
-		case block := <-lstnr.Subscriber.Blocks():
+		case blockHeader := <-lstnr.Subscriber.Headers():
+			block, err := relayerTypes.NewWarpBlockInfo(blockHeader, lstnr.ethClient)
+			if err != nil {
+				lstnr.logger.Error(
+					"Failed to create Warp block info",
+					zap.Error(err),
+				)
+				continue
+			}
+
 			// Relay the messages in the block to the destination chains. Continue on failure.
 			lstnr.logger.Info(
 				"Processing block",
@@ -280,7 +273,7 @@ func (lstnr *Listener) ProcessLogs(ctx context.Context) error {
 			expectedMessages := make(map[database.RelayerID]uint64)
 			var msgsInfo []*parsedMessageInfo
 			for _, warpLog := range block.WarpLogs {
-				warpLogInfo, err := lstnr.NewWarpLogInfo(warpLog)
+				warpLogInfo, err := relayerTypes.NewWarpLogInfo(warpLog)
 				if err != nil {
 					lstnr.logger.Error(
 						"Failed to create warp log info",

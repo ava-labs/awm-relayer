@@ -11,12 +11,9 @@ import (
 
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/utils/logging"
-	relayerTypes "github.com/ava-labs/awm-relayer/types"
 	"github.com/ava-labs/subnet-evm/core/types"
 	"github.com/ava-labs/subnet-evm/ethclient"
 	"github.com/ava-labs/subnet-evm/interfaces"
-	"github.com/ava-labs/subnet-evm/precompile/contracts/warp"
-	"github.com/ethereum/go-ethereum/common"
 	"go.uber.org/zap"
 )
 
@@ -27,14 +24,10 @@ const (
 	MaxBlocksPerRequest         = 200
 )
 
-// Errors
-var warpPrecompileLogFilter = warp.WarpABI.Events["SendWarpMessage"].ID
-
 // subscriber implements Subscriber
 type subscriber struct {
 	ethClient    ethclient.Client
 	blockchainID ids.ID
-	blocksChan   chan relayerTypes.WarpBlockInfo
 	headers      chan *types.Header
 	sub          interfaces.Subscription
 
@@ -43,29 +36,11 @@ type subscriber struct {
 
 // NewSubscriber returns a subscriber
 func NewSubscriber(logger logging.Logger, blockchainID ids.ID, ethClient ethclient.Client) *subscriber {
-	blocks := make(chan relayerTypes.WarpBlockInfo, maxClientSubscriptionBuffer)
-
 	return &subscriber{
 		blockchainID: blockchainID,
 		ethClient:    ethClient,
 		logger:       logger,
-		blocksChan:   blocks,
 		headers:      make(chan *types.Header, maxClientSubscriptionBuffer),
-	}
-}
-
-// forward logs from the concrete log channel to the interface channel
-func (s *subscriber) forwardBlocks() {
-	for header := range s.headers {
-		blockInfo, err := s.newWarpBlockInfo(header)
-		if err != nil {
-			s.logger.Error(
-				"Invalid log. Continuing.",
-				zap.Error(err),
-			)
-			continue
-		}
-		s.blocksChan <- *blockInfo
 	}
 }
 
@@ -120,30 +95,6 @@ func (s *subscriber) ProcessFromHeight(height *big.Int, done chan bool) {
 		}
 	}
 	done <- true
-}
-
-// Extract Warp logs from the block, if they exist
-func (s *subscriber) newWarpBlockInfo(header *types.Header) (*relayerTypes.WarpBlockInfo, error) {
-	var (
-		logs []types.Log
-		err  error
-	)
-	// Check if the block contains warp logs, and fetch them from the client if it does
-	if header.Bloom.Test(warpPrecompileLogFilter[:]) {
-		logs, err = s.ethClient.FilterLogs(context.Background(), interfaces.FilterQuery{
-			Topics:    [][]common.Hash{{warpPrecompileLogFilter}},
-			Addresses: []common.Address{warp.ContractAddress},
-			FromBlock: big.NewInt(int64(header.Number.Uint64())),
-			ToBlock:   big.NewInt(int64(header.Number.Uint64())),
-		})
-		if err != nil {
-			return nil, err
-		}
-	}
-	return &relayerTypes.WarpBlockInfo{
-		BlockNumber: header.Number.Uint64(),
-		WarpLogs:    logs,
-	}, nil
 }
 
 // Process Warp messages from the block range [fromBlock, toBlock], inclusive
@@ -214,13 +165,11 @@ func (s *subscriber) subscribe() error {
 	}
 	s.sub = sub
 
-	// Forward blocks to the interface channel. Closed when the subscription is cancelled
-	go s.forwardBlocks()
 	return nil
 }
 
-func (s *subscriber) Blocks() <-chan relayerTypes.WarpBlockInfo {
-	return s.blocksChan
+func (s *subscriber) Headers() <-chan *types.Header {
+	return s.headers
 }
 
 func (s *subscriber) Err() <-chan error {
