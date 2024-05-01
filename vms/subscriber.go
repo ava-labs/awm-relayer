@@ -9,8 +9,8 @@ import (
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/awm-relayer/config"
-	relayerTypes "github.com/ava-labs/awm-relayer/types"
 	"github.com/ava-labs/awm-relayer/vms/evm"
+	"github.com/ava-labs/subnet-evm/core/types"
 	"github.com/ava-labs/subnet-evm/ethclient"
 )
 
@@ -27,8 +27,8 @@ type Subscriber interface {
 	// by Logs
 	Subscribe(maxResubscribeAttempts int) error
 
-	// Blocks returns the channel that the subscription writes blocks to
-	Blocks() <-chan relayerTypes.WarpBlockInfo
+	// Headers returns the channel that the subscription writes block headers to
+	Headers() <-chan *types.Header
 
 	// Err returns the channel that the subscription writes errors to
 	// If an error is sent to this channel, the subscription should be closed
