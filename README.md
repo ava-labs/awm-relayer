@@ -77,6 +77,11 @@ The Fuji and Mainnet [public API nodes](https://docs.avax.network/tooling/rpc-pr
 
 - The AWM relayer implementation gathers BLS signatures from the validators of the source Subnet via peer-to-peer `AppRequest` messages. Validator nodes need to be configured to accept incoming peer connections. Otherwise, the relayer will fail to gather Warp message signatures. For example, networking rules may need to be adjusted to allow traffic on the default AvalancheGo P2P port (9651), or the public IP may need to be manually set in the [node configuration](https://docs.avax.network/nodes/configure/avalanchego-config-flags#public-ip).
 
+### Private Key Management
+
+- Each configured destination blockchain requires a private key to sign transactions. This key can be provided as a hex-encoded string in the configuration (see `account-private-key` in [Configuration](#configuration)) or environment variable, or stored in KMS and used to sign transactions remotely (see `kms-key-id` and `kms-aws-region` in [Configuration](#configuration)). 
+- **Each private key used by the relayer should not be used to sign transactions outside of the relayer**, as this may cause the relayer to fail to sign transactions due to nonce mismatches.
+
 ## Usage
 
 ### Building
@@ -256,10 +261,12 @@ The relayer is configured via a JSON file, the path to which is passed in via th
   `"account-private-key": string`
 
   - The hex-encoded private key to use for signing transactions on the destination blockchain. May be provided by the environment variable `ACCOUNT_PRIVATE_KEY`. Each `destination-subnet` may use a separate private key by appending the cb58 encoded blockchain ID to the private key environment variable name, for example `ACCOUNT_PRIVATE_KEY_11111111111111111111111111111111LpoYY`
+  - Please note that the private key should be exclusive to the relayer, see [Private Key Management](#private-key-management).
 
   `"kms-key-id": string`
 
   - The ID of the KMS key to use for signing transactions on the destination blockchain. Only one of `account-private-key` or `kms-key-id` should be provided. If `kms-key-id` is provided, then `kms-aws-region` is required.
+  - Please note that the private key in KMS should be exclusive to the relayer, see [Private Key Management](#private-key-management).
 
   `"kms-aws-region": string`
 
