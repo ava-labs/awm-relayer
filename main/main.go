@@ -340,21 +340,23 @@ func runRelayer(
 	)
 
 	// Send any messages that were specified in the configuration
+
 	for _, warpMessage := range manualWarpMessages {
 		logger.Info(
 			"Relaying manual Warp message",
 			zap.String("blockchainID", sourceBlockchain.BlockchainID),
 			zap.String("warpMessageBytes", hex.EncodeToString(warpMessage.UnsignedMsgBytes)),
 		)
-		err := listener.RouteManualWarpMessage(warpMessage)
+		appRelayer, err := listener.RegisterMessageWithAppRelayer(warpMessage)
 		if err != nil {
 			logger.Error(
-				"Failed to relay manual Warp message. Continuing.",
+				"Failed to parse manual Warp message. Continuing.",
 				zap.Error(err),
 				zap.String("warpMessageBytes", hex.EncodeToString(warpMessage.UnsignedMsgBytes)),
 			)
 			continue
 		}
+		appRelayer.ProcessHeight(0)
 	}
 
 	logger.Info(

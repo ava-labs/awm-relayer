@@ -13,7 +13,6 @@ import (
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/message"
 	"github.com/ava-labs/avalanchego/utils/logging"
-	avalancheWarp "github.com/ava-labs/avalanchego/vms/platformvm/warp"
 	"github.com/ava-labs/awm-relayer/config"
 	"github.com/ava-labs/awm-relayer/database"
 	"github.com/ava-labs/awm-relayer/messages"
@@ -207,8 +206,8 @@ func (lstnr *Listener) ProcessLogs(ctx context.Context) error {
 			// This is so that the number of messages to be processed can be registered with the database before
 			// any messages are processed.
 			// The second pass dispatches the messages to the application relayers for processing
-			expectedMessages := make(map[database.RelayerID]uint64)
-			var msgsInfo []*parsedMessageInfo
+			// expectedMessages := make(map[database.RelayerID]uint64)
+			// var msgsInfo []*parsedMessageInfo
 			for _, warpLog := range block.WarpLogs {
 				warpLogInfo, err := relayerTypes.NewWarpLogInfo(warpLog)
 				if err != nil {
@@ -218,7 +217,7 @@ func (lstnr *Listener) ProcessLogs(ctx context.Context) error {
 					)
 					continue
 				}
-				msgInfo, err := lstnr.parseMessage(warpLogInfo)
+				_, err = lstnr.RegisterMessageWithAppRelayer(warpLogInfo)
 				if err != nil {
 					lstnr.logger.Error(
 						"Failed to parse message",
@@ -227,38 +226,10 @@ func (lstnr *Listener) ProcessLogs(ctx context.Context) error {
 					)
 					continue
 				}
-				if msgInfo == nil {
-					lstnr.logger.Debug(
-						"Application relayer not found. Skipping message relay.",
-						zap.String("blockchainID", lstnr.sourceBlockchain.GetBlockchainID().String()),
-					)
-					continue
-				}
-				msgsInfo = append(msgsInfo, msgInfo)
-				expectedMessages[msgInfo.applicationRelayer.relayerID]++
 			}
 			for _, appRelayer := range lstnr.applicationRelayers {
-				// Prepare the each application relayer's database key with the number
-				// of expected messages. If no messages are found in the above loop, then
-				// totalMessages will be 0
-				totalMessages := expectedMessages[appRelayer.relayerID]
-				appRelayer.checkpointManager.PrepareHeight(block.BlockNumber, totalMessages)
-			}
-			for _, msgInfo := range msgsInfo {
-				lstnr.logger.Info(
-					"Relaying message",
-					zap.String("sourceBlockchainID", lstnr.sourceBlockchain.GetBlockchainID().String()),
-					zap.String("warpMessageID", msgInfo.unsignedMessage.ID().String()),
-				)
-				err := lstnr.dispatchToApplicationRelayer(msgInfo, block.BlockNumber)
-				if err != nil {
-					lstnr.logger.Error(
-						"Error relaying message",
-						zap.String("sourceBlockchainID", lstnr.sourceBlockchain.GetBlockchainID().String()),
-						zap.Error(err),
-					)
-					continue
-				}
+				appRelayer.PrepareHeight(block.BlockNumber)
+				appRelayer.ProcessHeight(block.BlockNumber)
 			}
 		case err := <-lstnr.Subscriber.Err():
 			lstnr.healthStatus.Store(false)
@@ -300,29 +271,6 @@ func (lstnr *Listener) reconnectToSubscriber() error {
 	// Success
 	lstnr.healthStatus.Store(true)
 	return nil
-}
-
-// RouteMessage relays a single warp message to the destination chain.
-// Warp message relay requests from the same origin chain are processed serially
-func (lstnr *Listener) RouteManualWarpMessage(warpLogInfo *relayerTypes.WarpLogInfo) error {
-	parsedMessageInfo, err := lstnr.parseMessage(warpLogInfo)
-	if err != nil {
-		lstnr.logger.Error(
-			"Failed to parse message",
-			zap.String("blockchainID", lstnr.sourceBlockchain.GetBlockchainID().String()),
-			zap.Error(err),
-		)
-		return err
-	}
-	if parsedMessageInfo == nil {
-		lstnr.logger.Debug(
-			"Application relayer not found. Skipping message relay.",
-			zap.String("blockchainID", lstnr.sourceBlockchain.GetBlockchainID().String()),
-		)
-		return nil
-	}
-
-	return lstnr.dispatchToApplicationRelayer(parsedMessageInfo, 0)
 }
 
 // Unpacks the Warp message and fetches the appropriate application relayer
@@ -391,16 +339,8 @@ func (lstnr *Listener) getApplicationRelayer(
 	return nil
 }
 
-// Helper type and function to extract the information needed to relay a message
-// From the raw log information
-type parsedMessageInfo struct {
-	unsignedMessage    *avalancheWarp.UnsignedMessage
-	messageManager     messages.MessageManager
-	applicationRelayer *ApplicationRelayer
-}
-
-func (lstnr *Listener) parseMessage(warpLogInfo *relayerTypes.WarpLogInfo) (
-	*parsedMessageInfo,
+func (lstnr *Listener) RegisterMessageWithAppRelayer(warpLogInfo *relayerTypes.WarpLogInfo) (
+	*ApplicationRelayer,
 	error,
 ) {
 	// Check that the warp message is from a supported message protocol contract address.
@@ -443,46 +383,16 @@ func (lstnr *Listener) parseMessage(warpLogInfo *relayerTypes.WarpLogInfo) (
 		zap.String("warpMessageID", unsignedMessage.ID().String()),
 	)
 
-	applicationRelayer := lstnr.getApplicationRelayer(
+	appRelayer := lstnr.getApplicationRelayer(
 		sourceBlockchainID,
 		originSenderAddress,
 		destinationBlockchainID,
 		destinationAddress,
 		messageManager,
 	)
-	if applicationRelayer == nil {
+	if appRelayer == nil {
 		return nil, nil
 	}
-	return &parsedMessageInfo{
-		unsignedMessage:    unsignedMessage,
-		messageManager:     messageManager,
-		applicationRelayer: applicationRelayer,
-	}, nil
-}
-
-func (lstnr *Listener) dispatchToApplicationRelayer(parsedMessageInfo *parsedMessageInfo, blockNumber uint64) error {
-	// TODONOW: app relayers should manage their requestIDs. They should be distributed to minimize conflicts
-	lstnr.requestIDLock.Lock()
-	defer lstnr.requestIDLock.Unlock()
-	// TODO: Add a config option to use the Warp API, instead of hardcoding to the app request network here
-	go parsedMessageInfo.applicationRelayer.relayMessage(
-		parsedMessageInfo.unsignedMessage,
-		lstnr.currentRequestID,
-		parsedMessageInfo.messageManager,
-		blockNumber,
-		true,
-	)
-	// if err != nil {
-	// 	lstnr.logger.Error(
-	// 		"Failed to run application relayer",
-	// 		zap.String("blockchainID", lstnr.sourceBlockchain.GetBlockchainID().String()),
-	// 		zap.String("warpMessageID", parsedMessageInfo.unsignedMessage.ID().String()),
-	// 		zap.Error(err),
-	// 	)
-	// }
-
-	// Increment the request ID for the next message relay request
-	lstnr.currentRequestID++
-	// return err
-	return nil
+	appRelayer.RegisterMessageAtHeight(0, unsignedMessage, messageManager)
+	return appRelayer, nil
 }

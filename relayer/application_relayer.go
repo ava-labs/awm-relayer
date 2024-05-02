@@ -8,6 +8,8 @@ import (
 	"context"
 	"errors"
 	"math/big"
+	"math/rand"
+	"sync"
 	"time"
 
 	"github.com/ava-labs/avalanchego/ids"
@@ -63,6 +65,14 @@ type ApplicationRelayer struct {
 	relayerID         database.RelayerID
 	warpQuorum        config.WarpQuorum
 	checkpointManager *checkpoint.CheckpointManager
+	currentRequestID  uint32
+	lock              *sync.RWMutex
+	pendingMessages   map[uint64][]pendingMessage
+}
+
+type pendingMessage struct {
+	unsignedMessage *avalancheWarp.UnsignedMessage
+	messageManager  messages.MessageManager
 }
 
 func NewApplicationRelayer(
@@ -110,11 +120,62 @@ func NewApplicationRelayer(
 		signingSubnetID:   signingSubnet,
 		warpQuorum:        quorum,
 		checkpointManager: checkpointManager,
+		currentRequestID:  rand.Uint32(), // TODONOW: pass via ctor
+		lock:              &sync.RWMutex{},
+		pendingMessages:   make(map[uint64][]pendingMessage),
 	}
 
 	return &ar, nil
 }
 
+func (r *ApplicationRelayer) RegisterMessageAtHeight(height uint64, unsignedMessage *avalancheWarp.UnsignedMessage, messageManager messages.MessageManager) {
+	r.lock.Lock()
+	defer r.lock.Unlock()
+	r.logger.Debug(
+		"Registering message for relay",
+		zap.Uint64("height", height),
+		zap.String("relayerID", r.relayerID.ID.String()),
+	)
+	r.pendingMessages[height] = append(r.pendingMessages[height], pendingMessage{
+		unsignedMessage: unsignedMessage,
+		messageManager:  messageManager,
+	})
+}
+
+func (r *ApplicationRelayer) PrepareHeight(height uint64) {
+	r.lock.RLock()
+	defer r.lock.RUnlock()
+	r.logger.Debug(
+		"Preparing height to relay",
+		zap.Uint64("height", height),
+		zap.Int("numMessages", len(r.pendingMessages[height])),
+		zap.String("relayerID", r.relayerID.ID.String()),
+	)
+	r.checkpointManager.PrepareHeight(height, uint64(len(r.pendingMessages[height])))
+}
+
+func (r *ApplicationRelayer) ProcessHeight(height uint64) {
+	r.lock.Lock()
+	defer r.lock.Unlock()
+	r.logger.Debug(
+		"Processing height",
+		zap.Uint64("height", height),
+		zap.Int("numMessages", len(r.pendingMessages[height])),
+		zap.String("relayerID", r.relayerID.ID.String()),
+	)
+	for _, pendingMessage := range r.pendingMessages[height] {
+		go r.relayMessage(
+			pendingMessage.unsignedMessage,
+			r.currentRequestID,
+			pendingMessage.messageManager,
+			height,
+			true,
+		)
+		r.currentRequestID++
+	}
+}
+
+// TODONOW: this should write an error to a channel, which the caller should handle
 func (r *ApplicationRelayer) relayMessage(
 	unsignedMessage *avalancheWarp.UnsignedMessage,
 	requestID uint32,
