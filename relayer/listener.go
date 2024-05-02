@@ -46,7 +46,7 @@ type Listener struct {
 	catchUpResultChan   chan bool
 	healthStatus        *atomic.Bool
 	globalConfig        *config.Config
-	applicationRelayers map[common.Hash]*applicationRelayer
+	applicationRelayers map[common.Hash]*ApplicationRelayer
 	ethClient           ethclient.Client
 }
 
@@ -61,6 +61,9 @@ func NewListener(
 	messageCreator message.Creator,
 	relayerHealth *atomic.Bool,
 	cfg *config.Config,
+	applicationRelayers map[common.Hash]*ApplicationRelayer,
+	startingHeight uint64,
+	ethClient ethclient.Client,
 ) (*Listener, error) {
 	blockchainID, err := ids.FromString(sourceBlockchain.BlockchainID)
 	if err != nil {
@@ -80,16 +83,6 @@ func NewListener(
 		return nil, err
 	}
 	sub := vms.NewSubscriber(logger, config.ParseVM(sourceBlockchain.VM), blockchainID, ethWSClient)
-
-	ethRPCClient, err := ethclient.Dial(sourceBlockchain.RPCEndpoint)
-	if err != nil {
-		logger.Error(
-			"Failed to connect to node via RPC",
-			zap.String("blockchainID", blockchainID.String()),
-			zap.Error(err),
-		)
-		return nil, err
-	}
 
 	// Create message managers for each supported message protocol
 	messageManagers := make(map[common.Address]messages.MessageManager)
@@ -114,65 +107,6 @@ func NewListener(
 	// scenario.
 	catchUpResultChan := make(chan bool, 1)
 
-	currentHeight, err := ethRPCClient.BlockNumber(context.Background())
-	if err != nil {
-		logger.Error(
-			"Failed to get current block height",
-			zap.Error(err),
-		)
-		return nil, err
-	}
-
-	// Create the application relayers
-	applicationRelayers := make(map[common.Hash]*applicationRelayer)
-	minHeight := uint64(0)
-
-	// TODONOW: initialize application relayers in main, and pass list to Listener constructor
-	// This will allow us to directly access the application relayers from the main goroutine.
-	// We can eliminate RouteManualWarpMessage and clean up ProcessLogs/encapsulate much of the logic
-	// within application relayers
-	for _, relayerID := range database.GetSourceBlockchainRelayerIDs(&sourceBlockchain) {
-		height, err := database.CalculateStartingBlockHeight(
-			logger,
-			db,
-			relayerID,
-			sourceBlockchain.ProcessHistoricalBlocksFromHeight,
-			currentHeight,
-		)
-		if err != nil {
-			logger.Error(
-				"Failed to calculate starting block height",
-				zap.String("relayerID", relayerID.ID.String()),
-				zap.Error(err),
-			)
-			return nil, err
-		}
-		if minHeight == 0 || height < minHeight {
-			minHeight = height
-		}
-		applicationRelayer, err := newApplicationRelayer(
-			logger,
-			metrics,
-			network,
-			messageCreator,
-			relayerID,
-			db,
-			ticker,
-			sourceBlockchain,
-			height,
-			cfg,
-		)
-		if err != nil {
-			logger.Error(
-				"Failed to create application relayer",
-				zap.String("relayerID", relayerID.ID.String()),
-				zap.Error(err),
-			)
-			return nil, err
-		}
-		applicationRelayers[relayerID.ID] = applicationRelayer
-	}
-
 	logger.Info(
 		"Creating relayer",
 		zap.String("subnetID", sourceBlockchain.GetSubnetID().String()),
@@ -192,7 +126,7 @@ func NewListener(
 		healthStatus:        relayerHealth,
 		globalConfig:        cfg,
 		applicationRelayers: applicationRelayers,
-		ethClient:           ethRPCClient,
+		ethClient:           ethClient,
 	}
 
 	// Open the subscription. We must do this before processing any missed messages, otherwise we may miss an incoming message
@@ -210,7 +144,7 @@ func NewListener(
 		// Process historical blocks in a separate goroutine so that the main processing loop can
 		// start processing new blocks as soon as possible. Otherwise, it's possible for
 		// ProcessFromHeight to overload the message queue and cause a deadlock.
-		go sub.ProcessFromHeight(big.NewInt(0).SetUint64(minHeight), lstnr.catchUpResultChan)
+		go sub.ProcessFromHeight(big.NewInt(0).SetUint64(startingHeight), lstnr.catchUpResultChan)
 	} else {
 		lstnr.logger.Info(
 			"processed-missed-blocks set to false, starting processing from chain head",
@@ -403,7 +337,7 @@ func (lstnr *Listener) getApplicationRelayer(
 	destinationBlockchainID ids.ID,
 	destinationAddress common.Address,
 	messageManager messages.MessageManager,
-) *applicationRelayer {
+) *ApplicationRelayer {
 	// Check for an exact match
 	applicationRelayerID := database.CalculateRelayerID(
 		sourceBlockchainID,
@@ -462,7 +396,7 @@ func (lstnr *Listener) getApplicationRelayer(
 type parsedMessageInfo struct {
 	unsignedMessage    *avalancheWarp.UnsignedMessage
 	messageManager     messages.MessageManager
-	applicationRelayer *applicationRelayer
+	applicationRelayer *ApplicationRelayer
 }
 
 func (lstnr *Listener) parseMessage(warpLogInfo *relayerTypes.WarpLogInfo) (

@@ -24,6 +24,8 @@ import (
 	relayerTypes "github.com/ava-labs/awm-relayer/types"
 	"github.com/ava-labs/awm-relayer/utils"
 	"github.com/ava-labs/awm-relayer/vms"
+	"github.com/ava-labs/subnet-evm/ethclient"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/atomic"
@@ -235,7 +237,7 @@ func runRelayer(
 	metrics *relayer.ApplicationRelayerMetrics,
 	db database.RelayerDatabase,
 	ticker *utils.Ticker,
-	sourceSubnetInfo config.SourceBlockchain,
+	sourceBlockchain config.SourceBlockchain,
 	network *peers.AppRequestNetwork,
 	destinationClients map[ids.ID]vms.DestinationClient,
 	messageCreator message.Creator,
@@ -243,36 +245,105 @@ func runRelayer(
 	manualWarpMessages []*relayerTypes.WarpLogInfo,
 	cfg *config.Config,
 ) error {
+	// Create the application relayers
 	logger.Info(
-		"Creating relayer",
-		zap.String("originBlockchainID", sourceSubnetInfo.BlockchainID),
+		"Creating application relayers",
+		zap.String("originBlockchainID", sourceBlockchain.BlockchainID),
 	)
+	ethClient, err := ethclient.Dial(sourceBlockchain.RPCEndpoint)
+	if err != nil {
+		logger.Error(
+			"Failed to connect to node via RPC",
+			zap.String("blockchainID", sourceBlockchain.BlockchainID),
+			zap.Error(err),
+		)
+		return err
+	}
+	currentHeight, err := ethClient.BlockNumber(context.Background())
+	if err != nil {
+		logger.Error(
+			"Failed to get current block height",
+			zap.Error(err),
+		)
+		return err
+	}
+	applicationRelayers := make(map[common.Hash]*relayer.ApplicationRelayer)
+	minHeight := uint64(0)
 
+	for _, relayerID := range database.GetSourceBlockchainRelayerIDs(&sourceBlockchain) {
+		height, err := database.CalculateStartingBlockHeight(
+			logger,
+			db,
+			relayerID,
+			sourceBlockchain.ProcessHistoricalBlocksFromHeight,
+			currentHeight,
+		)
+		if err != nil {
+			logger.Error(
+				"Failed to calculate starting block height",
+				zap.String("relayerID", relayerID.ID.String()),
+				zap.Error(err),
+			)
+			return err
+		}
+		if minHeight == 0 || height < minHeight {
+			minHeight = height
+		}
+		applicationRelayer, err := relayer.NewApplicationRelayer(
+			logger,
+			metrics,
+			network,
+			messageCreator,
+			relayerID,
+			db,
+			ticker,
+			sourceBlockchain,
+			height,
+			cfg,
+		)
+		if err != nil {
+			logger.Error(
+				"Failed to create application relayer",
+				zap.String("relayerID", relayerID.ID.String()),
+				zap.Error(err),
+			)
+			return err
+		}
+		applicationRelayers[relayerID.ID] = applicationRelayer
+	}
+
+	logger.Info(
+		"Creating listener",
+		zap.String("originBlockchainID", sourceBlockchain.BlockchainID),
+	)
 	listener, err := relayer.NewListener(
 		logger,
 		metrics,
 		db,
 		ticker,
-		sourceSubnetInfo,
+		sourceBlockchain,
 		network,
 		destinationClients,
 		messageCreator,
 		relayerHealth,
 		cfg,
+		applicationRelayers,
+		minHeight,
+		ethClient,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create listener instance: %w", err)
 	}
 	logger.Info(
 		"Created listener",
-		zap.String("blockchainID", sourceSubnetInfo.BlockchainID),
+		zap.String("blockchainID", sourceBlockchain.BlockchainID),
 	)
 
 	// Send any messages that were specified in the configuration
 	for _, warpMessage := range manualWarpMessages {
 		logger.Info(
 			"Relaying manual Warp message",
-			zap.String("blockchainID", sourceSubnetInfo.BlockchainID),
+			zap.String("blockchainID", sourceBlockchain.BlockchainID),
 			zap.String("warpMessageBytes", hex.EncodeToString(warpMessage.UnsignedMsgBytes)),
 		)
 		err := listener.RouteManualWarpMessage(warpMessage)
@@ -288,7 +359,7 @@ func runRelayer(
 
 	logger.Info(
 		"Listener initialized. Listening for messages to relay.",
-		zap.String("originBlockchainID", sourceSubnetInfo.BlockchainID),
+		zap.String("originBlockchainID", sourceBlockchain.BlockchainID),
 	)
 
 	// Wait for logs from the subscribed node

@@ -49,11 +49,11 @@ var (
 	errNotEnoughConnectedStake = errors.New("failed to connect to a threshold of stake")
 )
 
-// applicationRelayers are created for each warp message to be relayed.
+// ApplicationRelayers are created for each warp message to be relayed.
 // They collect signatures from validators, aggregate them,
 // and send the signed warp message to the destination chain.
-// Each applicationRelayer runs in its own goroutine.
-type applicationRelayer struct {
+// Each ApplicationRelayer runs in its own goroutine.
+type ApplicationRelayer struct {
 	logger            logging.Logger
 	metrics           *ApplicationRelayerMetrics
 	network           *peers.AppRequestNetwork
@@ -65,7 +65,7 @@ type applicationRelayer struct {
 	checkpointManager *checkpoint.CheckpointManager
 }
 
-func newApplicationRelayer(
+func NewApplicationRelayer(
 	logger logging.Logger,
 	metrics *ApplicationRelayerMetrics,
 	network *peers.AppRequestNetwork,
@@ -76,7 +76,7 @@ func newApplicationRelayer(
 	sourceBlockchain config.SourceBlockchain,
 	startingHeight uint64,
 	cfg *config.Config,
-) (*applicationRelayer, error) {
+) (*ApplicationRelayer, error) {
 	quorum, err := cfg.GetWarpQuorum(relayerID.DestinationBlockchainID)
 	if err != nil {
 		logger.Error(
@@ -100,7 +100,7 @@ func newApplicationRelayer(
 	checkpointManager := checkpoint.NewCheckpointManager(logger, db, sub, relayerID, startingHeight)
 	checkpointManager.Run()
 
-	ar := applicationRelayer{
+	ar := ApplicationRelayer{
 		logger:            logger,
 		metrics:           metrics,
 		network:           network,
@@ -115,7 +115,7 @@ func newApplicationRelayer(
 	return &ar, nil
 }
 
-func (r *applicationRelayer) relayMessage(
+func (r *ApplicationRelayer) relayMessage(
 	unsignedMessage *avalancheWarp.UnsignedMessage,
 	requestID uint32,
 	messageManager messages.MessageManager,
@@ -188,7 +188,7 @@ func (r *applicationRelayer) relayMessage(
 // createSignedMessage fetches the signed Warp message from the source chain via RPC.
 // Each VM may implement their own RPC method to construct the aggregate signature, which
 // will need to be accounted for here.
-func (r *applicationRelayer) createSignedMessage(unsignedMessage *avalancheWarp.UnsignedMessage) (*avalancheWarp.Message, error) {
+func (r *ApplicationRelayer) createSignedMessage(unsignedMessage *avalancheWarp.UnsignedMessage) (*avalancheWarp.Message, error) {
 	r.logger.Info("Fetching aggregate signature from the source chain validators via API")
 	// TODO: To properly support this, we should provide a dedicated Warp API endpoint in the config
 	uri := utils.StripFromString(r.sourceBlockchain.RPCEndpoint, "/ext")
@@ -249,7 +249,7 @@ func (r *applicationRelayer) createSignedMessage(unsignedMessage *avalancheWarp.
 }
 
 // createSignedMessageAppRequest collects signatures from nodes by directly querying them via AppRequest, then aggregates the signatures, and constructs the signed warp message.
-func (r *applicationRelayer) createSignedMessageAppRequest(unsignedMessage *avalancheWarp.UnsignedMessage, requestID uint32) (*avalancheWarp.Message, error) {
+func (r *ApplicationRelayer) createSignedMessageAppRequest(unsignedMessage *avalancheWarp.UnsignedMessage, requestID uint32) (*avalancheWarp.Message, error) {
 	r.logger.Info("Fetching aggregate signature from the source chain validators via AppRequest")
 	connectedValidators, err := r.network.ConnectToCanonicalValidators(r.signingSubnetID)
 	if err != nil {
@@ -489,7 +489,7 @@ func (r *applicationRelayer) createSignedMessageAppRequest(unsignedMessage *aval
 
 // isValidSignatureResponse tries to generate a signature from the peer.AsyncResponse, then verifies the signature against the node's public key.
 // If we are unable to generate the signature or verify correctly, false will be returned to indicate no valid signature was found in response.
-func (r *applicationRelayer) isValidSignatureResponse(
+func (r *ApplicationRelayer) isValidSignatureResponse(
 	unsignedMessage *avalancheWarp.UnsignedMessage,
 	response message.InboundMessage,
 	pubKey *bls.PublicKey,
@@ -554,7 +554,7 @@ func (r *applicationRelayer) isValidSignatureResponse(
 
 // aggregateSignatures constructs a BLS aggregate signature from the collected validator signatures. Also returns a bit set representing the
 // validators that are represented in the aggregate signature. The bit set is in canonical validator order.
-func (r *applicationRelayer) aggregateSignatures(signatureMap map[int]blsSignatureBuf) (*bls.Signature, set.Bits, error) {
+func (r *ApplicationRelayer) aggregateSignatures(signatureMap map[int]blsSignatureBuf) (*bls.Signature, set.Bits, error) {
 	// Aggregate the signatures
 	signatures := make([]*bls.Signature, 0, len(signatureMap))
 	vdrBitSet := set.NewBits()
@@ -587,7 +587,7 @@ func (r *applicationRelayer) aggregateSignatures(signatureMap map[int]blsSignatu
 // Metrics
 //
 
-func (r *applicationRelayer) incSuccessfulRelayMessageCount() {
+func (r *ApplicationRelayer) incSuccessfulRelayMessageCount() {
 	r.metrics.successfulRelayMessageCount.
 		WithLabelValues(
 			r.relayerID.DestinationBlockchainID.String(),
@@ -595,7 +595,7 @@ func (r *applicationRelayer) incSuccessfulRelayMessageCount() {
 			r.sourceBlockchain.GetSubnetID().String()).Inc()
 }
 
-func (r *applicationRelayer) incFailedRelayMessageCount(failureReason string) {
+func (r *ApplicationRelayer) incFailedRelayMessageCount(failureReason string) {
 	r.metrics.failedRelayMessageCount.
 		WithLabelValues(
 			r.relayerID.DestinationBlockchainID.String(),
@@ -604,7 +604,7 @@ func (r *applicationRelayer) incFailedRelayMessageCount(failureReason string) {
 			failureReason).Inc()
 }
 
-func (r *applicationRelayer) setCreateSignedMessageLatencyMS(latency float64) {
+func (r *ApplicationRelayer) setCreateSignedMessageLatencyMS(latency float64) {
 	r.metrics.createSignedMessageLatencyMS.
 		WithLabelValues(
 			r.relayerID.DestinationBlockchainID.String(),
