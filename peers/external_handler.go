@@ -80,58 +80,12 @@ func NewRelayerExternalHandler(
 // When a cross-chain message is picked up by a Relayer, HandleInbound routes AppResponses traffic to the appropriate Relayer
 func (h *RelayerExternalHandler) HandleInbound(_ context.Context, inboundMessage message.InboundMessage) {
 	h.log.Debug(
-		"Receiving message",
+		"Handling app response",
 		zap.Stringer("op", inboundMessage.Op()),
+		zap.Stringer("from", inboundMessage.NodeID()),
 	)
 	if inboundMessage.Op() == message.AppResponseOp || inboundMessage.Op() == message.AppErrorOp {
-		h.log.Debug("Handling app response", zap.Stringer("from", inboundMessage.NodeID()))
-
-		// Extract the message fields
-		m := inboundMessage.Message()
-
-		// Get the blockchainID from the message.
-		// Note: we should NOT call GetSourceBlockchainID; this is for cross-chain messages using the vm2 interface
-		// For normal app requests messages, the calls result in the same value, but if the relayer handles an
-		// inbound cross-chain app message, then we would get the incorrect chain ID.
-		blockchainID, err := message.GetChainID(m)
-		if err != nil {
-			h.log.Error("Could not get blockchainID from message")
-			inboundMessage.OnFinishedHandling()
-			return
-		}
-		sourceBlockchainID, err := message.GetSourceChainID(m)
-		if err != nil {
-			h.log.Error("Could not get sourceBlockchainID from message")
-			inboundMessage.OnFinishedHandling()
-			return
-		}
-		requestID, ok := message.GetRequestID(m)
-		if !ok {
-			h.log.Error("Could not get requestID from message")
-			inboundMessage.OnFinishedHandling()
-			return
-		}
-
-		reqID := ids.RequestID{
-			NodeID:             inboundMessage.NodeID(),
-			SourceChainID:      sourceBlockchainID,
-			DestinationChainID: blockchainID,
-			RequestID:          requestID,
-			Op:                 byte(inboundMessage.Op()),
-		}
-		h.RegisterAppResponse(reqID)
-
-		// Route to the appropriate response channel. Do not block on this call, otherwise incoming message handling may be blocked
-		// OnFinishedHandling is called by the consumer of the response channel
-		go func(message.InboundMessage, ids.ID) {
-			h.responseChansLock.RLock()
-			defer h.responseChansLock.RUnlock()
-			if responseChan, ok := h.responseChans[requestID]; ok {
-				responseChan <- inboundMessage
-			} else {
-				h.log.Debug("Could not find response channel for request", zap.Uint32("requestID", reqID.RequestID))
-			}
-		}(inboundMessage, blockchainID)
+		h.RegisterAppResponse(inboundMessage)
 	} else {
 		h.log.Debug("Ignoring message", zap.Stringer("op", inboundMessage.Op()))
 		inboundMessage.OnFinishedHandling()
@@ -159,6 +113,8 @@ func (h *RelayerExternalHandler) RegisterRequestID(requestID uint32, numExpected
 	h.responseChansLock.Lock()
 	defer h.responseChansLock.Unlock()
 
+	h.log.Debug("Registering request ID", zap.Uint32("requestID", requestID))
+
 	responseChan := make(chan message.InboundMessage, numExpectedResponses)
 	h.responseChans[requestID] = responseChan
 	h.responsesCount[requestID] = expectedResponses{
@@ -184,10 +140,55 @@ func (h *RelayerExternalHandler) RegisterAppRequest(reqID ids.RequestID) {
 }
 
 // RegisterResponse registers an AppResponse with the timeout manager
-func (h *RelayerExternalHandler) RegisterAppResponse(reqID ids.RequestID) {
+func (h *RelayerExternalHandler) RegisterAppResponse(inboundMessage message.InboundMessage) {
 	h.responseChansLock.Lock()
 	defer h.responseChansLock.Unlock()
+
+	// Extract the message fields
+	m := inboundMessage.Message()
+
+	// Get the blockchainID from the message.
+	// Note: we should NOT call GetSourceBlockchainID; this is for cross-chain messages using the vm2 interface
+	// For normal app requests messages, the calls result in the same value, but if the relayer handles an
+	// inbound cross-chain app message, then we would get the incorrect chain ID.
+	blockchainID, err := message.GetChainID(m)
+	if err != nil {
+		h.log.Error("Could not get blockchainID from message")
+		inboundMessage.OnFinishedHandling()
+		return
+	}
+	sourceBlockchainID, err := message.GetSourceChainID(m)
+	if err != nil {
+		h.log.Error("Could not get sourceBlockchainID from message")
+		inboundMessage.OnFinishedHandling()
+		return
+	}
+	requestID, ok := message.GetRequestID(m)
+	if !ok {
+		h.log.Error("Could not get requestID from message")
+		inboundMessage.OnFinishedHandling()
+		return
+	}
+
+	reqID := ids.RequestID{
+		NodeID:             inboundMessage.NodeID(),
+		SourceChainID:      sourceBlockchainID,
+		DestinationChainID: blockchainID,
+		RequestID:          requestID,
+		Op:                 byte(inboundMessage.Op()),
+	}
+
+	// Register the response with the timeout manager
 	h.timeoutManager.Remove(reqID)
+
+	// Dispatch to the appropriate response channel
+	if responseChan, ok := h.responseChans[requestID]; ok {
+		responseChan <- inboundMessage
+	} else {
+		h.log.Debug("Could not find response channel for request", zap.Uint32("requestID", requestID))
+	}
+
+	// Check for the expected number of responses
 	responses := h.responsesCount[reqID.RequestID]
 	received := responses.received + 1
 	if received == responses.expected {
