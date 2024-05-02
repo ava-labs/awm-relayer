@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"math/big"
 	"math/rand"
+	"sync"
 
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/message"
@@ -36,6 +37,7 @@ const (
 // Listener handles all messages sent from a given source chain
 type Listener struct {
 	Subscriber          vms.Subscriber
+	requestIDLock       *sync.Mutex
 	currentRequestID    uint32
 	contractMessage     vms.ContractMessage
 	messageManagers     map[common.Address]messages.MessageManager
@@ -180,6 +182,7 @@ func NewListener(
 	)
 	lstnr := Listener{
 		Subscriber:          sub,
+		requestIDLock:       &sync.Mutex{},
 		currentRequestID:    rand.Uint32(), // Initialize to a random value to mitigate requestID collision
 		contractMessage:     vms.NewContractMessage(logger, sourceBlockchain),
 		messageManagers:     messageManagers,
@@ -524,24 +527,28 @@ func (lstnr *Listener) parseMessage(warpLogInfo *relayerTypes.WarpLogInfo) (
 }
 
 func (lstnr *Listener) dispatchToApplicationRelayer(parsedMessageInfo *parsedMessageInfo, blockNumber uint64) error {
+	// TODONOW: app relayers should manage their requestIDs. They should be distributed to minimize conflicts
+	lstnr.requestIDLock.Lock()
+	defer lstnr.requestIDLock.Unlock()
 	// TODO: Add a config option to use the Warp API, instead of hardcoding to the app request network here
-	err := parsedMessageInfo.applicationRelayer.relayMessage(
+	go parsedMessageInfo.applicationRelayer.relayMessage(
 		parsedMessageInfo.unsignedMessage,
 		lstnr.currentRequestID,
 		parsedMessageInfo.messageManager,
 		blockNumber,
 		true,
 	)
-	if err != nil {
-		lstnr.logger.Error(
-			"Failed to run application relayer",
-			zap.String("blockchainID", lstnr.sourceBlockchain.GetBlockchainID().String()),
-			zap.String("warpMessageID", parsedMessageInfo.unsignedMessage.ID().String()),
-			zap.Error(err),
-		)
-	}
+	// if err != nil {
+	// 	lstnr.logger.Error(
+	// 		"Failed to run application relayer",
+	// 		zap.String("blockchainID", lstnr.sourceBlockchain.GetBlockchainID().String()),
+	// 		zap.String("warpMessageID", parsedMessageInfo.unsignedMessage.ID().String()),
+	// 		zap.Error(err),
+	// 	)
+	// }
 
 	// Increment the request ID for the next message relay request
 	lstnr.currentRequestID++
-	return err
+	// return err
+	return nil
 }
