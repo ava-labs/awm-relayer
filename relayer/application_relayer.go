@@ -30,6 +30,7 @@ import (
 	coreEthMsg "github.com/ava-labs/coreth/plugin/evm/message"
 	msg "github.com/ava-labs/subnet-evm/plugin/evm/message"
 	warpBackend "github.com/ava-labs/subnet-evm/warp"
+	"golang.org/x/sync/errgroup"
 
 	"go.uber.org/zap"
 )
@@ -68,7 +69,6 @@ type ApplicationRelayer struct {
 	checkpointManager *checkpoint.CheckpointManager
 	currentRequestID  uint32
 	lock              *sync.RWMutex
-	pendingMessages   map[uint64][]messages.MessageHandler
 }
 
 func NewApplicationRelayer(
@@ -118,80 +118,62 @@ func NewApplicationRelayer(
 		checkpointManager: checkpointManager,
 		currentRequestID:  rand.Uint32(), // TODONOW: pass via ctor
 		lock:              &sync.RWMutex{},
-		pendingMessages:   make(map[uint64][]messages.MessageHandler),
 	}
 
 	return &ar, nil
 }
 
-// // Processes all messages in the provided block info.
-// // Checkpoints the height with the checkpoint manager when all messages are relayed.
-// // It is up to the caller to populate [block] with messages intended to be processed by this application relayer.
-// func (r *ApplicationRelayer) ProcessBlock(block relayerTypes.WarpBlockInfo) error {
-// 	r.checkpointManager.PrepareHeight(block.BlockNumber, uint64(len(block.Messages)))
-// 	for _, message := range block.Messages {
-// 		r.ProcessMessage(message)
-// 	}
-// }
-
-// // Relays a message to the destination chain. Does not checkpoint the height.
-// func (r *ApplicationRelayer) ProcessMessage(message *relayerTypes.WarpMessageInfo, height uint64) error {
-// 	r.lock.Lock()
-// 	defer r.lock.Unlock()
-// 	go r.relayMessage(
-// 		message.UnsignedMessage,
-// 		r.currentRequestID,
-// 		pendingMessage.messageManager,
-// 		height,
-// 		true,
-// 	)
-// }
-
-// Registers a message to be relayed at a specific height by adding it to the pending messages list at that height.
-func (r *ApplicationRelayer) RegisterMessageAtHeight(height uint64, messageHandler messages.MessageHandler) {
-	r.lock.Lock()
-	defer r.lock.Unlock()
-	r.logger.Debug(
-		"Registering message for relay",
-		zap.Uint64("height", height),
-		zap.String("relayerID", r.relayerID.ID.String()),
-	)
-	r.pendingMessages[height] = append(r.pendingMessages[height], messageHandler)
-}
-
-// Processes all pending messages at a specific height.
-// If checkpoint is true, Prepares the number of messages to be relayed at a specific height with the checkpoint manager.
-// This effectively marks the height as eligible for writing to the database once all messages are relayed.
-func (r *ApplicationRelayer) ProcessHeight(height uint64, checkpoint bool) {
-	r.lock.Lock()
-	defer r.lock.Unlock()
-	r.logger.Debug(
-		"Processing height",
-		zap.Uint64("height", height),
-		zap.Int("numMessages", len(r.pendingMessages[height])),
-		zap.String("relayerID", r.relayerID.ID.String()),
-	)
-	if checkpoint {
-		r.checkpointManager.PrepareHeight(height, uint64(len(r.pendingMessages[height])))
+// Process [msgs] at height [height] by relaying each message to the destination chain.
+// Checkpoints the height with the checkpoint manager when all messages are relayed.
+func (r *ApplicationRelayer) ProcessHeight(height uint64, msgs []messages.MessageHandler) error {
+	var eg errgroup.Group
+	for _, msg := range msgs {
+		eg.Go(func() error {
+			return r.ProcessMessage(msg)
+		})
 	}
-	for _, messageHandler := range r.pendingMessages[height] {
-		// TODONOW: if relaying fails, we can keep the pending message in the list, and retry later
-		go r.relayMessage(
-			r.currentRequestID,
-			messageHandler,
-			height,
-			true,
+	if err := eg.Wait(); err != nil {
+		r.logger.Error(
+			"Failed to process block",
+			zap.Uint64("height", height),
+			zap.String("relayerID", r.relayerID.ID.String()),
+			zap.Error(err),
 		)
-		r.currentRequestID++
+		return err
 	}
-	delete(r.pendingMessages, height)
+	r.checkpointManager.StageCommittedHeight(height)
+
+	r.logger.Debug(
+		"Processed block",
+		zap.Uint64("height", height),
+		zap.String("relayerID", r.relayerID.ID.String()),
+	)
+	return nil
 }
 
-// TODONOW: this should write an error to a channel, which the caller should handle
+// Relays a message to the destination chain. Does not checkpoint the height.
+func (r *ApplicationRelayer) ProcessMessage(msg messages.MessageHandler) error {
+	// Increment the request ID. Make sure we don't hold the lock while we relay the message.
+	r.lock.Lock()
+	r.currentRequestID++
+	r.lock.Unlock()
+
+	err := r.relayMessage(
+		r.currentRequestID,
+		msg,
+		true,
+	)
+
+	return err
+}
+
+func (r *ApplicationRelayer) RelayerID() database.RelayerID {
+	return r.relayerID
+}
+
 func (r *ApplicationRelayer) relayMessage(
 	requestID uint32,
 	messageHandler messages.MessageHandler,
-	blockNumber uint64,
 	useAppRequestNetwork bool,
 ) error {
 	shouldSend, err := messageHandler.ShouldSendMessage(r.relayerID.DestinationBlockchainID)
@@ -205,7 +187,6 @@ func (r *ApplicationRelayer) relayMessage(
 	}
 	if !shouldSend {
 		r.logger.Info("Message should not be sent")
-		r.checkpointManager.Finished(blockNumber)
 		return nil
 	}
 	unsignedMessage := messageHandler.GetUnsignedMessage()
@@ -253,8 +234,6 @@ func (r *ApplicationRelayer) relayMessage(
 	)
 	r.incSuccessfulRelayMessageCount()
 
-	// Update the database with the latest processed block height
-	r.checkpointManager.Finished(blockNumber)
 	return nil
 }
 

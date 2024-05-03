@@ -227,8 +227,9 @@ func (lstnr *Listener) ProcessLogs(ctx context.Context) error {
 			)
 
 			// Register each message in the block with the appropriate application relayer
+			messageHandlers := make(map[common.Hash][]messages.MessageHandler)
 			for _, warpLogInfo := range block.Messages {
-				_, err = lstnr.RegisterMessageWithAppRelayer(block.BlockNumber, warpLogInfo)
+				appRelayer, handler, err := lstnr.GetAppRelayerMessageHandler(block.BlockNumber, warpLogInfo)
 				if err != nil {
 					lstnr.logger.Error(
 						"Failed to parse message",
@@ -237,10 +238,13 @@ func (lstnr *Listener) ProcessLogs(ctx context.Context) error {
 					)
 					continue
 				}
+				messageHandlers[appRelayer.relayerID.ID] = append(messageHandlers[appRelayer.relayerID.ID], handler)
 			}
-			// Initiate message relay of all registered messages
 			for _, appRelayer := range lstnr.applicationRelayers {
-				appRelayer.ProcessHeight(block.BlockNumber, true)
+				// Dispatch all messages in the block to the appropriate application relayer.
+				// An empty slice is still a valid argument to ProcessHeight; in this case the height is immediately committed.
+				handlers := messageHandlers[appRelayer.relayerID.ID]
+				appRelayer.ProcessHeight(block.BlockNumber, handlers)
 			}
 		case err := <-lstnr.Subscriber.Err():
 			lstnr.healthStatus.Store(false)
@@ -349,8 +353,10 @@ func (lstnr *Listener) getApplicationRelayer(
 	return nil
 }
 
-func (lstnr *Listener) RegisterMessageWithAppRelayer(height uint64, warpMessageInfo *relayerTypes.WarpMessageInfo) (
+// TODONOW: Does this function make sense? There's probably a better way to organize this logic.
+func (lstnr *Listener) GetAppRelayerMessageHandler(height uint64, warpMessageInfo *relayerTypes.WarpMessageInfo) (
 	*ApplicationRelayer,
+	messages.MessageHandler,
 	error,
 ) {
 	// Check that the warp message is from a supported message protocol contract address.
@@ -362,7 +368,7 @@ func (lstnr *Listener) RegisterMessageWithAppRelayer(height uint64, warpMessageI
 			"Warp message from unsupported message protocol address. Not relaying.",
 			zap.String("protocolAddress", warpMessageInfo.SourceAddress.Hex()),
 		)
-		return nil, nil
+		return nil, nil, nil
 	}
 	messageHandler, err := messageManager.NewMessageHandler(warpMessageInfo.UnsignedMessage)
 	if err != nil {
@@ -370,7 +376,7 @@ func (lstnr *Listener) RegisterMessageWithAppRelayer(height uint64, warpMessageI
 			"Failed to create message handler",
 			zap.Error(err),
 		)
-		return nil, err
+		return nil, nil, err
 	}
 
 	// Fetch the message delivery data
@@ -380,7 +386,7 @@ func (lstnr *Listener) RegisterMessageWithAppRelayer(height uint64, warpMessageI
 			"Failed to get message routing information",
 			zap.Error(err),
 		)
-		return nil, err
+		return nil, nil, err
 	}
 
 	lstnr.logger.Info(
@@ -399,8 +405,7 @@ func (lstnr *Listener) RegisterMessageWithAppRelayer(height uint64, warpMessageI
 		destinationAddress,
 	)
 	if appRelayer == nil {
-		return nil, nil
+		return nil, nil, nil
 	}
-	appRelayer.RegisterMessageAtHeight(height, messageHandler)
-	return appRelayer, nil
+	return appRelayer, messageHandler, nil
 }
