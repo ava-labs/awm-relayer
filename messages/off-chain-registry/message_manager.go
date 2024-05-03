@@ -13,6 +13,7 @@ import (
 	"github.com/ava-labs/avalanchego/vms/platformvm/warp"
 	warpPayload "github.com/ava-labs/avalanchego/vms/platformvm/warp/payload"
 	"github.com/ava-labs/awm-relayer/config"
+	"github.com/ava-labs/awm-relayer/messages"
 	"github.com/ava-labs/awm-relayer/vms"
 	"github.com/ava-labs/subnet-evm/accounts/abi/bind"
 	"github.com/ava-labs/subnet-evm/ethclient"
@@ -34,6 +35,12 @@ type messageManager struct {
 	logger             logging.Logger
 	destinationClients map[ids.ID]vms.DestinationClient
 	registryAddress    common.Address
+}
+
+type messageHandler struct {
+	logger          logging.Logger
+	unsignedMessage *warp.UnsignedMessage
+	messageManager  *messageManager
 }
 
 func NewMessageManager(
@@ -67,10 +74,22 @@ func NewMessageManager(
 	}, nil
 }
 
+func (m *messageManager) NewMessageHandler(unsignedMessage *warp.UnsignedMessage) (messages.MessageHandler, error) {
+	return &messageHandler{
+		logger:          m.logger,
+		unsignedMessage: unsignedMessage,
+		messageManager:  m,
+	}, nil
+}
+
+func (m *messageHandler) GetUnsignedMessage() *warp.UnsignedMessage {
+	return m.unsignedMessage
+}
+
 // ShouldSendMessage returns false if any contract is already registered as the specified version in the TeleporterRegistry contract.
 // This is because a single contract address can be registered to multiple versions, but each version may only map to a single contract address.
-func (m *messageManager) ShouldSendMessage(unsignedMessage *warp.UnsignedMessage, destinationBlockchainID ids.ID) (bool, error) {
-	addressedPayload, err := warpPayload.ParseAddressedCall(unsignedMessage.Payload)
+func (m *messageHandler) ShouldSendMessage(destinationBlockchainID ids.ID) (bool, error) {
+	addressedPayload, err := warpPayload.ParseAddressedCall(m.unsignedMessage.Payload)
 	if err != nil {
 		m.logger.Error(
 			"Failed parsing addressed payload",
@@ -86,17 +105,17 @@ func (m *messageManager) ShouldSendMessage(unsignedMessage *warp.UnsignedMessage
 		)
 		return false, err
 	}
-	if destination != m.registryAddress {
+	if destination != m.messageManager.registryAddress {
 		m.logger.Info(
 			"Message is not intended for the configured registry",
 			zap.String("destination", destination.String()),
-			zap.String("configuredRegistry", m.registryAddress.String()),
+			zap.String("configuredRegistry", m.messageManager.registryAddress.String()),
 		)
 		return false, nil
 	}
 
 	// Get the correct destination client from the global map
-	destinationClient, ok := m.destinationClients[destinationBlockchainID]
+	destinationClient, ok := m.messageManager.destinationClients[destinationBlockchainID]
 	if !ok {
 		return false, fmt.Errorf("relayer not configured to deliver to destination. destinationBlockchainID=%s", destinationBlockchainID.String())
 	}
@@ -106,7 +125,7 @@ func (m *messageManager) ShouldSendMessage(unsignedMessage *warp.UnsignedMessage
 	}
 
 	// Check if the version is already registered in the TeleporterRegistry contract.
-	registry, err := teleporterregistry.NewTeleporterRegistryCaller(m.registryAddress, client)
+	registry, err := teleporterregistry.NewTeleporterRegistryCaller(m.messageManager.registryAddress, client)
 	if err != nil {
 		m.logger.Error(
 			"Failed to create TeleporterRegistry caller",
@@ -134,9 +153,9 @@ func (m *messageManager) ShouldSendMessage(unsignedMessage *warp.UnsignedMessage
 	return false, nil
 }
 
-func (m *messageManager) SendMessage(signedMessage *warp.Message, destinationBlockchainID ids.ID) error {
+func (m *messageHandler) SendMessage(signedMessage *warp.Message, destinationBlockchainID ids.ID) error {
 	// Get the correct destination client from the global map
-	destinationClient, ok := m.destinationClients[destinationBlockchainID]
+	destinationClient, ok := m.messageManager.destinationClients[destinationBlockchainID]
 	if !ok {
 		return fmt.Errorf("relayer not configured to deliver to destination. DestinationBlockchainID=%s", destinationBlockchainID)
 	}
@@ -153,7 +172,7 @@ func (m *messageManager) SendMessage(signedMessage *warp.Message, destinationBlo
 		return err
 	}
 
-	err = destinationClient.SendTx(signedMessage, m.registryAddress.Hex(), addProtocolVersionGasLimit, callData)
+	err = destinationClient.SendTx(signedMessage, m.messageManager.registryAddress.Hex(), addProtocolVersionGasLimit, callData)
 	if err != nil {
 		m.logger.Error(
 			"Failed to send tx.",
@@ -171,14 +190,14 @@ func (m *messageManager) SendMessage(signedMessage *warp.Message, destinationBlo
 	return nil
 }
 
-func (m *messageManager) GetMessageRoutingInfo(unsignedMessage *warp.UnsignedMessage) (
+func (m *messageHandler) GetMessageRoutingInfo() (
 	ids.ID,
 	common.Address,
 	ids.ID,
 	common.Address,
 	error,
 ) {
-	addressedPayload, err := warpPayload.ParseAddressedCall(unsignedMessage.Payload)
+	addressedPayload, err := warpPayload.ParseAddressedCall(m.unsignedMessage.Payload)
 	if err != nil {
 		m.logger.Error(
 			"Failed parsing addressed payload",
@@ -186,9 +205,9 @@ func (m *messageManager) GetMessageRoutingInfo(unsignedMessage *warp.UnsignedMes
 		)
 		return ids.ID{}, common.Address{}, ids.ID{}, common.Address{}, err
 	}
-	return unsignedMessage.SourceChainID,
+	return m.unsignedMessage.SourceChainID,
 		common.BytesToAddress(addressedPayload.SourceAddress),
-		unsignedMessage.SourceChainID,
-		m.registryAddress,
+		m.unsignedMessage.SourceChainID,
+		m.messageManager.registryAddress,
 		nil
 }

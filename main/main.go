@@ -21,6 +21,7 @@ import (
 	"github.com/ava-labs/awm-relayer/database"
 	"github.com/ava-labs/awm-relayer/peers"
 	"github.com/ava-labs/awm-relayer/relayer"
+	"github.com/ava-labs/awm-relayer/types"
 	relayerTypes "github.com/ava-labs/awm-relayer/types"
 	"github.com/ava-labs/awm-relayer/utils"
 	"github.com/ava-labs/awm-relayer/vms"
@@ -177,13 +178,20 @@ func main() {
 	ticker := utils.NewTicker(cfg.DBWriteIntervalSeconds)
 	go ticker.Run()
 
-	manualWarpMessages := make(map[ids.ID][]*relayerTypes.WarpLogInfo)
+	manualWarpMessages := make(map[ids.ID][]*relayerTypes.WarpMessageInfo)
 	for _, msg := range cfg.ManualWarpMessages {
 		sourceBlockchainID := msg.GetSourceBlockchainID()
-
-		warpLogInfo := relayerTypes.WarpLogInfo{
-			SourceAddress:    msg.GetSourceAddress(),
-			UnsignedMsgBytes: msg.GetUnsignedMessageBytes(),
+		unsignedMsg, err := types.UnpackWarpMessage(msg.GetUnsignedMessageBytes())
+		if err != nil {
+			logger.Error(
+				"Failed to unpack manual Warp message",
+				zap.Error(err),
+			)
+			panic(err)
+		}
+		warpLogInfo := relayerTypes.WarpMessageInfo{
+			SourceAddress:   msg.GetSourceAddress(),
+			UnsignedMessage: unsignedMsg,
 		}
 		manualWarpMessages[sourceBlockchainID] = append(manualWarpMessages[sourceBlockchainID], &warpLogInfo)
 	}
@@ -242,7 +250,7 @@ func runRelayer(
 	destinationClients map[ids.ID]vms.DestinationClient,
 	messageCreator message.Creator,
 	relayerHealth *atomic.Bool,
-	manualWarpMessages []*relayerTypes.WarpLogInfo,
+	manualWarpMessages []*relayerTypes.WarpMessageInfo,
 	cfg *config.Config,
 ) error {
 	// Create the application relayers
@@ -340,19 +348,18 @@ func runRelayer(
 	)
 
 	// Send any messages that were specified in the configuration
-
 	for _, warpMessage := range manualWarpMessages {
 		logger.Info(
 			"Relaying manual Warp message",
 			zap.String("blockchainID", sourceBlockchain.BlockchainID),
-			zap.String("warpMessageBytes", hex.EncodeToString(warpMessage.UnsignedMsgBytes)),
+			zap.String("warpMessageBytes", hex.EncodeToString(warpMessage.UnsignedMessage.Bytes())),
 		)
 		appRelayer, err := listener.RegisterMessageWithAppRelayer(0, warpMessage)
 		if err != nil {
 			logger.Error(
 				"Failed to parse manual Warp message. Continuing.",
 				zap.Error(err),
-				zap.String("warpMessageBytes", hex.EncodeToString(warpMessage.UnsignedMsgBytes)),
+				zap.String("warpMessageBytes", hex.EncodeToString(warpMessage.UnsignedMessage.Bytes())),
 			)
 			continue
 		}

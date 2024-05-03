@@ -16,6 +16,8 @@ import (
 	"github.com/ava-labs/awm-relayer/config"
 	"github.com/ava-labs/awm-relayer/database"
 	"github.com/ava-labs/awm-relayer/messages"
+	offchainregistry "github.com/ava-labs/awm-relayer/messages/off-chain-registry"
+	"github.com/ava-labs/awm-relayer/messages/teleporter"
 	"github.com/ava-labs/awm-relayer/peers"
 	relayerTypes "github.com/ava-labs/awm-relayer/types"
 	"github.com/ava-labs/awm-relayer/utils"
@@ -85,9 +87,30 @@ func NewListener(
 
 	// Create message managers for each supported message protocol
 	messageManagers := make(map[common.Address]messages.MessageManager)
-	for addressStr, config := range sourceBlockchain.MessageContracts {
+	for addressStr, cfg := range sourceBlockchain.MessageContracts {
 		address := common.HexToAddress(addressStr)
-		messageManager, err := messages.NewMessageManager(logger, address, config, destinationClients)
+		format := cfg.MessageFormat
+		var (
+			m   messages.MessageManager
+			err error
+		)
+		switch config.ParseMessageProtocol(format) {
+		case config.TELEPORTER:
+			m, err = teleporter.NewMessageManager(
+				logger,
+				address,
+				cfg,
+				destinationClients,
+			)
+		case config.OFF_CHAIN_REGISTRY:
+			m, err = offchainregistry.NewMessageManager(
+				logger,
+				cfg,
+				destinationClients,
+			)
+		default:
+			m, err = nil, fmt.Errorf("invalid message format %s", format)
+		}
 		if err != nil {
 			logger.Error(
 				"Failed to create message manager",
@@ -95,7 +118,7 @@ func NewListener(
 			)
 			return nil, err
 		}
-		messageManagers[address] = messageManager
+		messageManagers[address] = m
 	}
 
 	// Marks when the listener has finished the catch-up process on startup.
@@ -185,6 +208,8 @@ func (lstnr *Listener) ProcessLogs(ctx context.Context) error {
 				return fmt.Errorf("failed to catch up on historical blocks")
 			}
 		case blockHeader := <-lstnr.Subscriber.Headers():
+			// Parse the logs in the block, and group by application relayer
+
 			block, err := relayerTypes.NewWarpBlockInfo(blockHeader, lstnr.ethClient)
 			if err != nil {
 				lstnr.logger.Error(
@@ -202,15 +227,7 @@ func (lstnr *Listener) ProcessLogs(ctx context.Context) error {
 			)
 
 			// Register each message in the block with the appropriate application relayer
-			for _, warpLog := range block.WarpLogs {
-				warpLogInfo, err := relayerTypes.NewWarpLogInfo(warpLog)
-				if err != nil {
-					lstnr.logger.Error(
-						"Failed to create warp log info",
-						zap.Error(err),
-					)
-					continue
-				}
+			for _, warpLogInfo := range block.Messages {
 				_, err = lstnr.RegisterMessageWithAppRelayer(block.BlockNumber, warpLogInfo)
 				if err != nil {
 					lstnr.logger.Error(
@@ -278,7 +295,6 @@ func (lstnr *Listener) getApplicationRelayer(
 	originSenderAddress common.Address,
 	destinationBlockchainID ids.ID,
 	destinationAddress common.Address,
-	messageManager messages.MessageManager,
 ) *ApplicationRelayer {
 	// Check for an exact match
 	applicationRelayerID := database.CalculateRelayerID(
@@ -333,33 +349,32 @@ func (lstnr *Listener) getApplicationRelayer(
 	return nil
 }
 
-func (lstnr *Listener) RegisterMessageWithAppRelayer(height uint64, warpLogInfo *relayerTypes.WarpLogInfo) (
+func (lstnr *Listener) RegisterMessageWithAppRelayer(height uint64, warpMessageInfo *relayerTypes.WarpMessageInfo) (
 	*ApplicationRelayer,
 	error,
 ) {
 	// Check that the warp message is from a supported message protocol contract address.
-	messageManager, supportedMessageProtocol := lstnr.messageManagers[warpLogInfo.SourceAddress]
+	messageManager, supportedMessageProtocol := lstnr.messageManagers[warpMessageInfo.SourceAddress]
 	if !supportedMessageProtocol {
 		// Do not return an error here because it is expected for there to be messages from other contracts
 		// than just the ones supported by a single listener instance.
 		lstnr.logger.Debug(
 			"Warp message from unsupported message protocol address. Not relaying.",
-			zap.String("protocolAddress", warpLogInfo.SourceAddress.Hex()),
+			zap.String("protocolAddress", warpMessageInfo.SourceAddress.Hex()),
 		)
 		return nil, nil
 	}
-
-	// Unpack the VM message bytes into a Warp message
-	unsignedMessage, err := lstnr.contractMessage.UnpackWarpMessage(warpLogInfo.UnsignedMsgBytes)
+	messageHandler, err := messageManager.NewMessageHandler(warpMessageInfo.UnsignedMessage)
 	if err != nil {
 		lstnr.logger.Error(
-			"Failed to unpack sender message",
+			"Failed to create message handler",
 			zap.Error(err),
 		)
 		return nil, err
 	}
+
 	// Fetch the message delivery data
-	sourceBlockchainID, originSenderAddress, destinationBlockchainID, destinationAddress, err := messageManager.GetMessageRoutingInfo(unsignedMessage)
+	sourceBlockchainID, originSenderAddress, destinationBlockchainID, destinationAddress, err := messageHandler.GetMessageRoutingInfo()
 	if err != nil {
 		lstnr.logger.Error(
 			"Failed to get message routing information",
@@ -374,7 +389,7 @@ func (lstnr *Listener) RegisterMessageWithAppRelayer(height uint64, warpLogInfo 
 		zap.String("originSenderAddress", originSenderAddress.String()),
 		zap.String("destinationBlockchainID", destinationBlockchainID.String()),
 		zap.String("destinationAddress", destinationAddress.String()),
-		zap.String("warpMessageID", unsignedMessage.ID().String()),
+		zap.String("warpMessageID", warpMessageInfo.UnsignedMessage.ID().String()),
 	)
 
 	appRelayer := lstnr.getApplicationRelayer(
@@ -382,11 +397,10 @@ func (lstnr *Listener) RegisterMessageWithAppRelayer(height uint64, warpLogInfo 
 		originSenderAddress,
 		destinationBlockchainID,
 		destinationAddress,
-		messageManager,
 	)
 	if appRelayer == nil {
 		return nil, nil
 	}
-	appRelayer.RegisterMessageAtHeight(height, unsignedMessage, messageManager)
+	appRelayer.RegisterMessageAtHeight(height, messageHandler)
 	return appRelayer, nil
 }

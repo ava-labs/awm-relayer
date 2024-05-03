@@ -209,6 +209,42 @@ func FundRelayers(
 	}
 }
 
+func SendBasicTeleporterMessageAsync(
+	ctx context.Context,
+	source interfaces.SubnetTestInfo,
+	destination interfaces.SubnetTestInfo,
+	fundedKey *ecdsa.PrivateKey,
+	destinationAddress common.Address,
+	ids chan<- ids.ID,
+) {
+	input := teleportermessenger.TeleporterMessageInput{
+		DestinationBlockchainID: destination.BlockchainID,
+		DestinationAddress:      destinationAddress,
+		FeeInfo: teleportermessenger.TeleporterFeeInfo{
+			FeeTokenAddress: common.Address{},
+			Amount:          big.NewInt(0),
+		},
+		RequiredGasLimit:        big.NewInt(1),
+		AllowedRelayerAddresses: []common.Address{},
+		Message:                 []byte{1, 2, 3, 4},
+	}
+
+	// Send a transaction to the Teleporter contract
+	log.Info(
+		"Sending teleporter transaction",
+		"sourceBlockchainID", source.BlockchainID,
+		"destinationBlockchainID", destination.BlockchainID,
+	)
+	_, teleporterMessageID := teleporterTestUtils.SendCrossChainMessageAndWaitForAcceptance(
+		ctx,
+		source,
+		destination,
+		input,
+		fundedKey,
+	)
+	ids <- teleporterMessageID
+}
+
 func SendBasicTeleporterMessage(
 	ctx context.Context,
 	source interfaces.SubnetTestInfo,

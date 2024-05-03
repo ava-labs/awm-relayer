@@ -30,6 +30,7 @@ import (
 	coreEthMsg "github.com/ava-labs/coreth/plugin/evm/message"
 	msg "github.com/ava-labs/subnet-evm/plugin/evm/message"
 	warpBackend "github.com/ava-labs/subnet-evm/warp"
+
 	"go.uber.org/zap"
 )
 
@@ -67,12 +68,7 @@ type ApplicationRelayer struct {
 	checkpointManager *checkpoint.CheckpointManager
 	currentRequestID  uint32
 	lock              *sync.RWMutex
-	pendingMessages   map[uint64][]pendingMessage
-}
-
-type pendingMessage struct {
-	unsignedMessage *avalancheWarp.UnsignedMessage
-	messageManager  messages.MessageManager
+	pendingMessages   map[uint64][]messages.MessageHandler
 }
 
 func NewApplicationRelayer(
@@ -122,14 +118,37 @@ func NewApplicationRelayer(
 		checkpointManager: checkpointManager,
 		currentRequestID:  rand.Uint32(), // TODONOW: pass via ctor
 		lock:              &sync.RWMutex{},
-		pendingMessages:   make(map[uint64][]pendingMessage),
+		pendingMessages:   make(map[uint64][]messages.MessageHandler),
 	}
 
 	return &ar, nil
 }
 
+// // Processes all messages in the provided block info.
+// // Checkpoints the height with the checkpoint manager when all messages are relayed.
+// // It is up to the caller to populate [block] with messages intended to be processed by this application relayer.
+// func (r *ApplicationRelayer) ProcessBlock(block relayerTypes.WarpBlockInfo) error {
+// 	r.checkpointManager.PrepareHeight(block.BlockNumber, uint64(len(block.Messages)))
+// 	for _, message := range block.Messages {
+// 		r.ProcessMessage(message)
+// 	}
+// }
+
+// // Relays a message to the destination chain. Does not checkpoint the height.
+// func (r *ApplicationRelayer) ProcessMessage(message *relayerTypes.WarpMessageInfo, height uint64) error {
+// 	r.lock.Lock()
+// 	defer r.lock.Unlock()
+// 	go r.relayMessage(
+// 		message.UnsignedMessage,
+// 		r.currentRequestID,
+// 		pendingMessage.messageManager,
+// 		height,
+// 		true,
+// 	)
+// }
+
 // Registers a message to be relayed at a specific height by adding it to the pending messages list at that height.
-func (r *ApplicationRelayer) RegisterMessageAtHeight(height uint64, unsignedMessage *avalancheWarp.UnsignedMessage, messageManager messages.MessageManager) {
+func (r *ApplicationRelayer) RegisterMessageAtHeight(height uint64, messageHandler messages.MessageHandler) {
 	r.lock.Lock()
 	defer r.lock.Unlock()
 	r.logger.Debug(
@@ -137,14 +156,11 @@ func (r *ApplicationRelayer) RegisterMessageAtHeight(height uint64, unsignedMess
 		zap.Uint64("height", height),
 		zap.String("relayerID", r.relayerID.ID.String()),
 	)
-	r.pendingMessages[height] = append(r.pendingMessages[height], pendingMessage{
-		unsignedMessage: unsignedMessage,
-		messageManager:  messageManager,
-	})
+	r.pendingMessages[height] = append(r.pendingMessages[height], messageHandler)
 }
 
 // Processes all pending messages at a specific height.
-// If checkpoint is true, Ppepares the number of messages to be relayed at a specific height with the checkpoint manager.
+// If checkpoint is true, Prepares the number of messages to be relayed at a specific height with the checkpoint manager.
 // This effectively marks the height as eligible for writing to the database once all messages are relayed.
 func (r *ApplicationRelayer) ProcessHeight(height uint64, checkpoint bool) {
 	r.lock.Lock()
@@ -158,12 +174,11 @@ func (r *ApplicationRelayer) ProcessHeight(height uint64, checkpoint bool) {
 	if checkpoint {
 		r.checkpointManager.PrepareHeight(height, uint64(len(r.pendingMessages[height])))
 	}
-	for _, pendingMessage := range r.pendingMessages[height] {
+	for _, messageHandler := range r.pendingMessages[height] {
 		// TODONOW: if relaying fails, we can keep the pending message in the list, and retry later
 		go r.relayMessage(
-			pendingMessage.unsignedMessage,
 			r.currentRequestID,
-			pendingMessage.messageManager,
+			messageHandler,
 			height,
 			true,
 		)
@@ -174,13 +189,12 @@ func (r *ApplicationRelayer) ProcessHeight(height uint64, checkpoint bool) {
 
 // TODONOW: this should write an error to a channel, which the caller should handle
 func (r *ApplicationRelayer) relayMessage(
-	unsignedMessage *avalancheWarp.UnsignedMessage,
 	requestID uint32,
-	messageManager messages.MessageManager,
+	messageHandler messages.MessageHandler,
 	blockNumber uint64,
 	useAppRequestNetwork bool,
 ) error {
-	shouldSend, err := messageManager.ShouldSendMessage(unsignedMessage, r.relayerID.DestinationBlockchainID)
+	shouldSend, err := messageHandler.ShouldSendMessage(r.relayerID.DestinationBlockchainID)
 	if err != nil {
 		r.logger.Error(
 			"Failed to check if message should be sent",
@@ -194,6 +208,7 @@ func (r *ApplicationRelayer) relayMessage(
 		r.checkpointManager.Finished(blockNumber)
 		return nil
 	}
+	unsignedMessage := messageHandler.GetUnsignedMessage()
 
 	startCreateSignedMessageTime := time.Now()
 	// Query nodes on the origin chain for signatures, and construct the signed warp message.
@@ -223,7 +238,7 @@ func (r *ApplicationRelayer) relayMessage(
 	// create signed message latency (ms)
 	r.setCreateSignedMessageLatencyMS(float64(time.Since(startCreateSignedMessageTime).Milliseconds()))
 
-	err = messageManager.SendMessage(signedMessage, r.relayerID.DestinationBlockchainID)
+	err = messageHandler.SendMessage(signedMessage, r.relayerID.DestinationBlockchainID)
 	if err != nil {
 		r.logger.Error(
 			"Failed to send warp message",
