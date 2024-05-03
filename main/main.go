@@ -347,7 +347,7 @@ func runRelayer(
 			zap.String("blockchainID", sourceBlockchain.BlockchainID),
 			zap.String("warpMessageBytes", hex.EncodeToString(warpMessage.UnsignedMsgBytes)),
 		)
-		appRelayer, err := listener.RegisterMessageWithAppRelayer(warpMessage)
+		appRelayer, err := listener.RegisterMessageWithAppRelayer(0, warpMessage)
 		if err != nil {
 			logger.Error(
 				"Failed to parse manual Warp message. Continuing.",
@@ -356,7 +356,7 @@ func runRelayer(
 			)
 			continue
 		}
-		appRelayer.ProcessHeight(0)
+		appRelayer.ProcessHeight(0, false)
 	}
 
 	logger.Info(

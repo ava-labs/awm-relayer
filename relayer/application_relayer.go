@@ -128,6 +128,7 @@ func NewApplicationRelayer(
 	return &ar, nil
 }
 
+// Registers a message to be relayed at a specific height by adding it to the pending messages list at that height.
 func (r *ApplicationRelayer) RegisterMessageAtHeight(height uint64, unsignedMessage *avalancheWarp.UnsignedMessage, messageManager messages.MessageManager) {
 	r.lock.Lock()
 	defer r.lock.Unlock()
@@ -142,19 +143,10 @@ func (r *ApplicationRelayer) RegisterMessageAtHeight(height uint64, unsignedMess
 	})
 }
 
-func (r *ApplicationRelayer) PrepareHeight(height uint64) {
-	r.lock.RLock()
-	defer r.lock.RUnlock()
-	r.logger.Debug(
-		"Preparing height to relay",
-		zap.Uint64("height", height),
-		zap.Int("numMessages", len(r.pendingMessages[height])),
-		zap.String("relayerID", r.relayerID.ID.String()),
-	)
-	r.checkpointManager.PrepareHeight(height, uint64(len(r.pendingMessages[height])))
-}
-
-func (r *ApplicationRelayer) ProcessHeight(height uint64) {
+// Processes all pending messages at a specific height.
+// If checkpoint is true, Ppepares the number of messages to be relayed at a specific height with the checkpoint manager.
+// This effectively marks the height as eligible for writing to the database once all messages are relayed.
+func (r *ApplicationRelayer) ProcessHeight(height uint64, checkpoint bool) {
 	r.lock.Lock()
 	defer r.lock.Unlock()
 	r.logger.Debug(
@@ -163,7 +155,11 @@ func (r *ApplicationRelayer) ProcessHeight(height uint64) {
 		zap.Int("numMessages", len(r.pendingMessages[height])),
 		zap.String("relayerID", r.relayerID.ID.String()),
 	)
+	if checkpoint {
+		r.checkpointManager.PrepareHeight(height, uint64(len(r.pendingMessages[height])))
+	}
 	for _, pendingMessage := range r.pendingMessages[height] {
+		// TODONOW: if relaying fails, we can keep the pending message in the list, and retry later
 		go r.relayMessage(
 			pendingMessage.unsignedMessage,
 			r.currentRequestID,
@@ -173,6 +169,7 @@ func (r *ApplicationRelayer) ProcessHeight(height uint64) {
 		)
 		r.currentRequestID++
 	}
+	delete(r.pendingMessages, height)
 }
 
 // TODONOW: this should write an error to a channel, which the caller should handle

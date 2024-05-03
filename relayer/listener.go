@@ -201,13 +201,7 @@ func (lstnr *Listener) ProcessLogs(ctx context.Context) error {
 				zap.Uint64("blockNumber", block.BlockNumber),
 			)
 
-			// Iterate over the Warp logs in two passes:
-			// The first pass extracts the information needed to relay from the log, but does not initiate relaying
-			// This is so that the number of messages to be processed can be registered with the database before
-			// any messages are processed.
-			// The second pass dispatches the messages to the application relayers for processing
-			// expectedMessages := make(map[database.RelayerID]uint64)
-			// var msgsInfo []*parsedMessageInfo
+			// Register each message in the block with the appropriate application relayer
 			for _, warpLog := range block.WarpLogs {
 				warpLogInfo, err := relayerTypes.NewWarpLogInfo(warpLog)
 				if err != nil {
@@ -217,7 +211,7 @@ func (lstnr *Listener) ProcessLogs(ctx context.Context) error {
 					)
 					continue
 				}
-				_, err = lstnr.RegisterMessageWithAppRelayer(warpLogInfo)
+				_, err = lstnr.RegisterMessageWithAppRelayer(block.BlockNumber, warpLogInfo)
 				if err != nil {
 					lstnr.logger.Error(
 						"Failed to parse message",
@@ -227,9 +221,9 @@ func (lstnr *Listener) ProcessLogs(ctx context.Context) error {
 					continue
 				}
 			}
+			// Initiate message relay of all registered messages
 			for _, appRelayer := range lstnr.applicationRelayers {
-				appRelayer.PrepareHeight(block.BlockNumber)
-				appRelayer.ProcessHeight(block.BlockNumber)
+				appRelayer.ProcessHeight(block.BlockNumber, true)
 			}
 		case err := <-lstnr.Subscriber.Err():
 			lstnr.healthStatus.Store(false)
@@ -339,7 +333,7 @@ func (lstnr *Listener) getApplicationRelayer(
 	return nil
 }
 
-func (lstnr *Listener) RegisterMessageWithAppRelayer(warpLogInfo *relayerTypes.WarpLogInfo) (
+func (lstnr *Listener) RegisterMessageWithAppRelayer(height uint64, warpLogInfo *relayerTypes.WarpLogInfo) (
 	*ApplicationRelayer,
 	error,
 ) {
@@ -393,6 +387,6 @@ func (lstnr *Listener) RegisterMessageWithAppRelayer(warpLogInfo *relayerTypes.W
 	if appRelayer == nil {
 		return nil, nil
 	}
-	appRelayer.RegisterMessageAtHeight(0, unsignedMessage, messageManager)
+	appRelayer.RegisterMessageAtHeight(height, unsignedMessage, messageManager)
 	return appRelayer, nil
 }
