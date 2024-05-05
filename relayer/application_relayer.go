@@ -23,11 +23,11 @@ import (
 	avalancheWarp "github.com/ava-labs/avalanchego/vms/platformvm/warp"
 	"github.com/ava-labs/awm-relayer/config"
 	"github.com/ava-labs/awm-relayer/database"
+	"github.com/ava-labs/awm-relayer/ethclient_utils"
 	"github.com/ava-labs/awm-relayer/messages"
 	"github.com/ava-labs/awm-relayer/peers"
 	"github.com/ava-labs/awm-relayer/utils"
 	coreEthMsg "github.com/ava-labs/coreth/plugin/evm/message"
-	"github.com/ava-labs/subnet-evm/ethclient"
 	msg "github.com/ava-labs/subnet-evm/plugin/evm/message"
 	warpBackend "github.com/ava-labs/subnet-evm/warp"
 	"go.uber.org/zap"
@@ -639,7 +639,12 @@ func (r *applicationRelayer) calculateStartingBlockHeight(processHistoricalBlock
 
 // Gets the height of the chain head, writes it to the database, then returns it.
 func (r *applicationRelayer) setProcessedBlockHeightToLatest() (uint64, error) {
-	ethClient, err := ethclient.Dial(r.sourceBlockchain.RPCEndpoint)
+	ethClient, err := ethclient_utils.DialWithConfig(
+		context.Background(),
+		r.sourceBlockchain.RPCEndpoint,
+		r.sourceBlockchain.HttpHeaders,
+		r.sourceBlockchain.QueryParams,
+	)
 	if err != nil {
 		r.logger.Error(
 			"Failed to dial node",
