@@ -14,6 +14,7 @@ import (
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/awm-relayer/config"
+	"github.com/ava-labs/awm-relayer/ethclient_utils"
 	"github.com/ava-labs/awm-relayer/vms/vmtypes"
 	"github.com/ava-labs/subnet-evm/core/types"
 	"github.com/ava-labs/subnet-evm/ethclient"
@@ -49,6 +50,8 @@ var warpFilterQuery = interfaces.FilterQuery{
 type subscriber struct {
 	nodeWSURL    string
 	nodeRPCURL   string
+	httpHeaders  map[string]string
+	queryParams  map[string]string
 	blockchainID ids.ID
 	logsChan     chan vmtypes.WarpLogInfo
 	evmLog       <-chan types.Log
@@ -57,7 +60,7 @@ type subscriber struct {
 	logger logging.Logger
 
 	// seams for mock injection:
-	dial func(url string) (ethclient.Client, error)
+	dial func(ctx context.Context, url string, httpHeaders, queryParams map[string]string) (ethclient.Client, error)
 }
 
 // NewSubscriber returns a subscriber
@@ -76,10 +79,12 @@ func NewSubscriber(logger logging.Logger, subnetInfo config.SourceBlockchain) *s
 	return &subscriber{
 		nodeWSURL:    subnetInfo.WSEndpoint,
 		nodeRPCURL:   subnetInfo.RPCEndpoint,
+		httpHeaders:  subnetInfo.HttpHeaders,
+		queryParams:  subnetInfo.QueryParams,
 		blockchainID: blockchainID,
 		logger:       logger,
 		logsChan:     logs,
-		dial:         ethclient.Dial,
+		dial:         ethclient_utils.DialWithConfig,
 	}
 }
 
@@ -140,7 +145,7 @@ func (s *subscriber) ProcessFromHeight(height *big.Int, done chan bool) {
 		s.logger.Error("cannot process logs from nil height")
 		done <- false
 	}
-	ethClient, err := s.dial(s.nodeWSURL)
+	ethClient, err := s.dial(context.Background(), s.nodeWSURL, s.httpHeaders, s.queryParams)
 	if err != nil {
 		s.logger.Error("failed to dial eth client", zap.Error(err))
 		done <- false
@@ -272,7 +277,7 @@ func (s *subscriber) Subscribe(maxResubscribeAttempts int) error {
 func (s *subscriber) dialAndSubscribe() error {
 	// Dial the configured source chain endpoint
 	// This needs to be a websocket
-	ethClient, err := s.dial(s.nodeWSURL)
+	ethClient, err := s.dial(context.Background(), s.nodeWSURL, s.httpHeaders, s.queryParams)
 	if err != nil {
 		return err
 	}

@@ -4,6 +4,7 @@
 package evm
 
 import (
+	"context"
 	"math/big"
 	"testing"
 
@@ -29,7 +30,9 @@ func makeSubscriberWithMockEthClient(t *testing.T) (*subscriber, *mock_ethclient
 
 	mockEthClient := mock_ethclient.NewMockClient(gomock.NewController(t))
 	subscriber := NewSubscriber(logger, sourceSubnet)
-	subscriber.dial = func(_url string) (ethclient.Client, error) { return mockEthClient, nil }
+	subscriber.dial = func(_ctx context.Context, _url string, _httpHeaders, _queryParams map[string]string) (ethclient.Client, error) {
+		return mockEthClient, nil
+	}
 
 	return subscriber, mockEthClient
 }

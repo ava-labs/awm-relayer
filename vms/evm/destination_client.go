@@ -14,6 +14,7 @@ import (
 	"github.com/ava-labs/avalanchego/utils/logging"
 	avalancheWarp "github.com/ava-labs/avalanchego/vms/platformvm/warp"
 	"github.com/ava-labs/awm-relayer/config"
+	"github.com/ava-labs/awm-relayer/ethclient_utils"
 	"github.com/ava-labs/awm-relayer/vms/evm/signer"
 	"github.com/ava-labs/subnet-evm/core/types"
 	"github.com/ava-labs/subnet-evm/ethclient"
@@ -48,7 +49,12 @@ type destinationClient struct {
 
 func NewDestinationClient(logger logging.Logger, destinationBlockchain *config.DestinationBlockchain) (*destinationClient, error) {
 	// Dial the destination RPC endpoint
-	client, err := ethclient.Dial(destinationBlockchain.RPCEndpoint)
+	client, err := ethclient_utils.DialWithConfig(
+		context.Background(),
+		destinationBlockchain.RPCEndpoint,
+		destinationBlockchain.HttpHeaders,
+		destinationBlockchain.QueryParams,
+	)
 	if err != nil {
 		logger.Error(
 			"Failed to dial rpc endpoint",
@@ -107,7 +113,8 @@ func NewDestinationClient(logger logging.Logger, destinationBlockchain *config.D
 func (c *destinationClient) SendTx(signedMessage *avalancheWarp.Message,
 	toAddress string,
 	gasLimit uint64,
-	callData []byte) error {
+	callData []byte,
+) error {
 	// Synchronize teleporter message requests to the same destination chain so that message ordering is preserved
 	c.lock.Lock()
 	defer c.lock.Unlock()
