@@ -17,6 +17,7 @@ import (
 	"github.com/ava-labs/avalanchego/utils/set"
 	"github.com/ava-labs/awm-relayer/utils"
 
+	"github.com/ava-labs/awm-relayer/ethclient_utils"
 	"github.com/ava-labs/subnet-evm/ethclient"
 	"github.com/ava-labs/subnet-evm/precompile/contracts/warp"
 
@@ -86,6 +87,8 @@ type SourceBlockchain struct {
 	BlockchainID                      string                           `mapstructure:"blockchain-id" json:"blockchain-id"`
 	VM                                string                           `mapstructure:"vm" json:"vm"`
 	RPCEndpoint                       string                           `mapstructure:"rpc-endpoint" json:"rpc-endpoint"`
+	HttpHeaders                       map[string]string                `mapstructure:"http-headers" json:"http-headers"`
+	QueryParams                       map[string]string                `mapstructure:"query-parameters" json:"query-parameters"`
 	WSEndpoint                        string                           `mapstructure:"ws-endpoint" json:"ws-endpoint"`
 	MessageContracts                  map[string]MessageProtocolConfig `mapstructure:"message-contracts" json:"message-contracts"`
 	SupportedDestinations             []*SupportedDestination          `mapstructure:"supported-destinations" json:"supported-destinations"`
@@ -100,13 +103,15 @@ type SourceBlockchain struct {
 
 // Destination blockchain configuration. Specifies how to connect to and issue transactions on the desination blockchain.
 type DestinationBlockchain struct {
-	SubnetID          string `mapstructure:"subnet-id" json:"subnet-id"`
-	BlockchainID      string `mapstructure:"blockchain-id" json:"blockchain-id"`
-	VM                string `mapstructure:"vm" json:"vm"`
-	RPCEndpoint       string `mapstructure:"rpc-endpoint" json:"rpc-endpoint"`
-	KMSKeyID          string `mapstructure:"kms-key-id" json:"kms-key-id"`
-	KMSAWSRegion      string `mapstructure:"kms-aws-region" json:"kms-aws-region"`
-	AccountPrivateKey string `mapstructure:"account-private-key" json:"account-private-key"`
+	SubnetID          string            `mapstructure:"subnet-id" json:"subnet-id"`
+	BlockchainID      string            `mapstructure:"blockchain-id" json:"blockchain-id"`
+	VM                string            `mapstructure:"vm" json:"vm"`
+	RPCEndpoint       string            `mapstructure:"rpc-endpoint" json:"rpc-endpoint"`
+	HttpHeaders       map[string]string `mapstructure:"http-headers" json:"http-headers"`
+	QueryParams       map[string]string `mapstructure:"query-parameters" json:"query-parameters"`
+	KMSKeyID          string            `mapstructure:"kms-key-id" json:"kms-key-id"`
+	KMSAWSRegion      string            `mapstructure:"kms-aws-region" json:"kms-aws-region"`
+	AccountPrivateKey string            `mapstructure:"account-private-key" json:"account-private-key"`
 
 	// Fetched from the chain after startup
 	warpQuorum WarpQuorum
@@ -597,7 +602,7 @@ func (s *DestinationBlockchain) initializeWarpQuorum() error {
 		return fmt.Errorf("invalid subnetID in configuration. error: %w", err)
 	}
 
-	client, err := ethclient.Dial(s.RPCEndpoint)
+	client, err := ethclient_utils.DialWithConfig(context.Background(), s.RPCEndpoint, s.HttpHeaders, s.QueryParams)
 	if err != nil {
 		return fmt.Errorf("failed to dial destination blockchain %s: %w", blockchainID, err)
 	}
