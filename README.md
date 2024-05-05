@@ -133,7 +133,7 @@ The relayer is configured via a JSON file, the path to which is passed in via th
 
   `"http-headers": map[string]string`
 
-  - Additional http headers to include in the API requests.
+  - Additional HTTP headers to include in the API requests.
 
 `"info-api": APIConfig`
 
@@ -156,7 +156,7 @@ The relayer is configured via a JSON file, the path to which is passed in via th
 
   `"http-headers": map[string]string`
 
-  - Additional http headers to include in the API requests.
+  - Additional HTTP headers to include in the API requests.
 
 `"storage-location": string`
 
