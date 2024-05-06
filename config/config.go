@@ -126,7 +126,7 @@ type WarpQuorum struct {
 type APIConfig struct {
 	BaseURL     string            `mapstructure:"base-url" json:"base-url"`
 	QueryParams map[string]string `mapstructure:"query-parameters" json:"query-parameters"`
-	HttpHeaders map[string]string `mapstructure:"http-headers" json:"http-headers"`
+	HTTPHeaders map[string]string `mapstructure:"http-headers" json:"http-headers"`
 }
 
 // Top-level configuration

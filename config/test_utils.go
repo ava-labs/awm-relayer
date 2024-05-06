@@ -26,7 +26,7 @@ var (
 			QueryParams: map[string]string{
 				queryParamKey1: queryParamVal1,
 			},
-			HttpHeaders: map[string]string{
+			HTTPHeaders: map[string]string{
 				httpHeaderKey1: httpHeaderVal1,
 			},
 		},
