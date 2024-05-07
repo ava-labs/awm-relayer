@@ -131,6 +131,10 @@ The relayer is configured via a JSON file, the path to which is passed in via th
 
   - Additional query parameters to include in the API requests.
 
+  `"http-headers": map[string]string`
+
+  - Additional HTTP headers to include in the API requests.
+
 `"info-api": APIConfig`
 
 - The configuration for the Avalanche Info API node. The `InfoAPI` object has the following configuration:
@@ -149,6 +153,10 @@ The relayer is configured via a JSON file, the path to which is passed in via th
   `"query-parameters": map[string]string`
 
   - Additional query parameters to include in the API requests.
+
+  `"http-headers": map[string]string`
+
+  - Additional HTTP headers to include in the API requests.
 
 `"storage-location": string`
 

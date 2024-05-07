@@ -13,6 +13,8 @@ var (
 	testPk2           string = "0x12389e99c94b6912bfc12adc093c9b51124f0dc54ac7a766b2bc5ccf558d8123"
 	queryParamKey1    string = "key1"
 	queryParamVal1    string = "val1"
+	httpHeaderKey1    string = "keyheader1"
+	httpHeaderVal1    string = "valheader1"
 )
 
 // Valid configuration objects to be used by tests in external packages
@@ -23,6 +25,9 @@ var (
 			BaseURL: "http://test.avax.network",
 			QueryParams: map[string]string{
 				queryParamKey1: queryParamVal1,
+			},
+			HTTPHeaders: map[string]string{
+				httpHeaderKey1: httpHeaderVal1,
 			},
 		},
 		InfoAPI: &APIConfig{
