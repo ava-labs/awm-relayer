@@ -1,6 +1,5 @@
 module github.com/ava-labs/awm-relayer
 
-// Patch version for go is set in versions.sh
 go 1.21.10
 
 require (
