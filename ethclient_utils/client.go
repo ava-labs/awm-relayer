@@ -1,4 +1,4 @@
-// Copyright (C) 2023, Ava Labs, Inc. All rights reserved.
+// Copyright (C) 2024, Ava Labs, Inc. All rights reserved.
 // See the file LICENSE for licensing terms.
 
 package ethclient_utils
@@ -15,6 +15,7 @@ import (
 
 var ErrInvalidEndpoint = errors.New("invalid rpc endpoint")
 
+// DialWithContext returns an ethclient.Client with the internal RPC client configured with the provided options.
 func DialWithConfig(ctx context.Context, endpoint string, httpHeaders, queryParams map[string]string) (ethclient.Client, error) {
 	endpoint, err := addQueryParams(endpoint, queryParams)
 	if err != nil {
