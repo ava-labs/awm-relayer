@@ -15,13 +15,19 @@ import (
 
 var ErrInvalidEndpoint = errors.New("invalid rpc endpoint")
 
+type Config struct {
+	BaseURL     string
+	QueryParams map[string]string
+	HTTPHeaders map[string]string
+}
+
 // DialWithContext returns an ethclient.Client with the internal RPC client configured with the provided options.
-func DialWithConfig(ctx context.Context, endpoint string, httpHeaders, queryParams map[string]string) (ethclient.Client, error) {
-	endpoint, err := addQueryParams(endpoint, queryParams)
+func DialWithConfig(ctx context.Context, cfg Config) (ethclient.Client, error) {
+	url, err := addQueryParams(cfg.BaseURL, cfg.QueryParams)
 	if err != nil {
 		return nil, err
 	}
-	client, err := rpc.DialOptions(ctx, endpoint, newClientOptions(httpHeaders)...)
+	client, err := rpc.DialOptions(ctx, url, newClientHeaderOptions(cfg.HTTPHeaders)...)
 	if err != nil {
 		return nil, err
 	}
@@ -43,7 +49,7 @@ func addQueryParams(endpoint string, queryParams map[string]string) (string, err
 }
 
 // newClientOptions creates a ClientOption slice from httpHeaders
-func newClientOptions(httpHeaders map[string]string) []rpc.ClientOption {
+func newClientHeaderOptions(httpHeaders map[string]string) []rpc.ClientOption {
 	opts := make([]rpc.ClientOption, 0, len(httpHeaders))
 	for key, value := range httpHeaders {
 		opts = append(opts, rpc.WithHeader(key, value))

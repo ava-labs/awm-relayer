@@ -32,11 +32,11 @@ func TestAddQueryParams(t *testing.T) {
 
 func TestNewClientOptions(t *testing.T) {
 	t.Run("NoHttpHeaders", func(t *testing.T) {
-		opts := newClientOptions(nil)
+		opts := newClientHeaderOptions(nil)
 		require.Len(t, opts, 0)
 	})
 	t.Run("TwoHttpHeaders", func(t *testing.T) {
-		opts := newClientOptions(map[string]string{
+		opts := newClientHeaderOptions(map[string]string{
 			"first":  "value1",
 			"second": "value2",
 		})
