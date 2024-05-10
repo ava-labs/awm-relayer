@@ -118,6 +118,7 @@ func TestGetRelayerAccountPrivateKey_set_pk_with_subnet_env(t *testing.T) {
 	}
 	runConfigModifierEnvVarTest(t, testCase)
 }
+
 func TestGetRelayerAccountPrivateKey_set_pk_with_global_env(t *testing.T) {
 	testCase := configMondifierEnvVarTestCase{
 		baseConfig: TestValidConfig,
@@ -218,6 +219,7 @@ func TestEitherKMSOrAccountPrivateKey(t *testing.T) {
 		}
 	}
 }
+
 func TestGetWarpQuorum(t *testing.T) {
 	blockchainID, err := ids.FromString("p433wpuXyJiDhyazPYyZMJeaoPSW76CBZ2x7wrVPLgvokotXz")
 	require.NoError(t, err)
@@ -347,10 +349,14 @@ func TestGetWarpQuorum(t *testing.T) {
 func TestValidateSourceBlockchain(t *testing.T) {
 	validSourceCfg := SourceBlockchain{
 		BlockchainID: testBlockchainID,
-		RPCEndpoint:  fmt.Sprintf("http://test.avax.network/ext/bc/%s/rpc", testBlockchainID),
-		WSEndpoint:   fmt.Sprintf("ws://test.avax.network/ext/bc/%s/ws", testBlockchainID),
-		SubnetID:     testSubnetID,
-		VM:           "evm",
+		RPCEndpoint: APIConfig{
+			BaseURL: fmt.Sprintf("http://test.avax.network/ext/bc/%s/rpc", testBlockchainID),
+		},
+		WSEndpoint: APIConfig{
+			BaseURL: fmt.Sprintf("ws://test.avax.network/ext/bc/%s/ws", testBlockchainID),
+		},
+		SubnetID: testSubnetID,
+		VM:       "evm",
 		SupportedDestinations: []*SupportedDestination{
 			{
 				BlockchainID: testBlockchainID,

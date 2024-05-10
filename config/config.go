@@ -86,10 +86,8 @@ type SourceBlockchain struct {
 	SubnetID                          string                           `mapstructure:"subnet-id" json:"subnet-id"`
 	BlockchainID                      string                           `mapstructure:"blockchain-id" json:"blockchain-id"`
 	VM                                string                           `mapstructure:"vm" json:"vm"`
-	RPCEndpoint                       string                           `mapstructure:"rpc-endpoint" json:"rpc-endpoint"`
-	HttpHeaders                       map[string]string                `mapstructure:"http-headers" json:"http-headers"`
-	QueryParams                       map[string]string                `mapstructure:"query-parameters" json:"query-parameters"`
-	WSEndpoint                        string                           `mapstructure:"ws-endpoint" json:"ws-endpoint"`
+	RPCEndpoint                       APIConfig                        `mapstructure:"rpc-endpoint" json:"rpc-endpoint"`
+	WSEndpoint                        APIConfig                        `mapstructure:"ws-endpoint" json:"ws-endpoint"`
 	MessageContracts                  map[string]MessageProtocolConfig `mapstructure:"message-contracts" json:"message-contracts"`
 	SupportedDestinations             []*SupportedDestination          `mapstructure:"supported-destinations" json:"supported-destinations"`
 	ProcessHistoricalBlocksFromHeight uint64                           `mapstructure:"process-historical-blocks-from-height" json:"process-historical-blocks-from-height"`
@@ -103,15 +101,13 @@ type SourceBlockchain struct {
 
 // Destination blockchain configuration. Specifies how to connect to and issue transactions on the desination blockchain.
 type DestinationBlockchain struct {
-	SubnetID          string            `mapstructure:"subnet-id" json:"subnet-id"`
-	BlockchainID      string            `mapstructure:"blockchain-id" json:"blockchain-id"`
-	VM                string            `mapstructure:"vm" json:"vm"`
-	RPCEndpoint       string            `mapstructure:"rpc-endpoint" json:"rpc-endpoint"`
-	HttpHeaders       map[string]string `mapstructure:"http-headers" json:"http-headers"`
-	QueryParams       map[string]string `mapstructure:"query-parameters" json:"query-parameters"`
-	KMSKeyID          string            `mapstructure:"kms-key-id" json:"kms-key-id"`
-	KMSAWSRegion      string            `mapstructure:"kms-aws-region" json:"kms-aws-region"`
-	AccountPrivateKey string            `mapstructure:"account-private-key" json:"account-private-key"`
+	SubnetID          string    `mapstructure:"subnet-id" json:"subnet-id"`
+	BlockchainID      string    `mapstructure:"blockchain-id" json:"blockchain-id"`
+	VM                string    `mapstructure:"vm" json:"vm"`
+	RPCEndpoint       APIConfig `mapstructure:"rpc-endpoint" json:"rpc-endpoint"`
+	KMSKeyID          string    `mapstructure:"kms-key-id" json:"kms-key-id"`
+	KMSAWSRegion      string    `mapstructure:"kms-aws-region" json:"kms-aws-region"`
+	AccountPrivateKey string    `mapstructure:"account-private-key" json:"account-private-key"`
 
 	// Fetched from the chain after startup
 	warpQuorum WarpQuorum
@@ -441,11 +437,11 @@ func (s *SourceBlockchain) Validate(destinationBlockchainIDs *set.Set[string]) e
 	if _, err := ids.FromString(s.BlockchainID); err != nil {
 		return fmt.Errorf("invalid blockchainID in source subnet configuration. Provided ID: %s", s.BlockchainID)
 	}
-	if _, err := url.ParseRequestURI(s.WSEndpoint); err != nil {
-		return fmt.Errorf("invalid relayer subscribe URL in source subnet configuration: %w", err)
+	if err := s.RPCEndpoint.Validate(); err != nil {
+		return fmt.Errorf("invalid rpc-endpoint in source subnet configuration: %w", err)
 	}
-	if _, err := url.ParseRequestURI(s.RPCEndpoint); err != nil {
-		return fmt.Errorf("invalid relayer RPC URL in source subnet configuration: %w", err)
+	if err := s.WSEndpoint.Validate(); err != nil {
+		return fmt.Errorf("invalid ws-endpoint in source subnet configuration: %w", err)
 	}
 
 	// Validate the VM specific settings
@@ -548,8 +544,8 @@ func (s *DestinationBlockchain) Validate() error {
 	if _, err := ids.FromString(s.BlockchainID); err != nil {
 		return fmt.Errorf("invalid blockchainID in source subnet configuration. Provided ID: %s", s.BlockchainID)
 	}
-	if _, err := url.ParseRequestURI(s.RPCEndpoint); err != nil {
-		return fmt.Errorf("invalid relayer broadcast URL: %w", err)
+	if err := s.RPCEndpoint.Validate(); err != nil {
+		return fmt.Errorf("invalid rpc-endpoint in destination subnet configuration: %w", err)
 	}
 	if s.KMSKeyID != "" {
 		if s.KMSAWSRegion == "" {
@@ -603,7 +599,7 @@ func (s *DestinationBlockchain) initializeWarpQuorum() error {
 		return fmt.Errorf("invalid subnetID in configuration. error: %w", err)
 	}
 
-	client, err := ethclient.DialWithConfig(context.Background(), s.RPCEndpoint, s.HttpHeaders, s.QueryParams)
+	client, err := ethclient.DialWithConfig(context.Background(), ethclient.Config(s.RPCEndpoint))
 	if err != nil {
 		return fmt.Errorf("failed to dial destination blockchain %s: %w", blockchainID, err)
 	}
