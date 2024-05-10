@@ -160,8 +160,9 @@ func TestShouldSendMessage(t *testing.T) {
 			} else {
 				unsignedMessage = createRegistryUnsignedWarpMessage(t, test.entry, teleporterRegistryAddress, test.destinationBlockchainID)
 			}
-
-			result, err := messageManager.ShouldSendMessage(unsignedMessage, test.destinationBlockchainID)
+			messageHandler, err := messageManager.NewMessageHandler(unsignedMessage)
+			require.NoError(t, err)
+			result, err := messageHandler.ShouldSendMessage(test.destinationBlockchainID)
 			if test.expectedError {
 				require.Error(t, err)
 			} else {

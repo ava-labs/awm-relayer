@@ -106,7 +106,7 @@ func TestShouldSendMessage(t *testing.T) {
 		senderAddressTimes      int
 		clientTimes             int
 		messageReceivedCall     *CallContractChecker
-		expectedError           bool
+		expectedParseError      bool
 		expectedResult          bool
 	}{
 		{
@@ -127,7 +127,7 @@ func TestShouldSendMessage(t *testing.T) {
 			name:                    "invalid message",
 			destinationBlockchainID: destinationBlockchainID,
 			warpUnsignedMessage:     invalidWarpUnsignedMessage,
-			expectedError:           true,
+			expectedParseError:      true,
 		},
 		{
 			name:                    "invalid destination chain id",
@@ -177,6 +177,14 @@ func TestShouldSendMessage(t *testing.T) {
 				destinationClients,
 			)
 			require.NoError(t, err)
+			messageHandler, err := messageManager.NewMessageHandler(test.warpUnsignedMessage)
+			if test.expectedParseError {
+				// If we expect an error parsing the Warp message, we should not call ShouldSendMessage
+				require.Error(t, err)
+				return
+			} else {
+				require.NoError(t, err)
+			}
 			ethClient := mock_evm.NewMockClient(ctrl)
 			mockClient.EXPECT().
 				Client().
@@ -198,13 +206,9 @@ func TestShouldSendMessage(t *testing.T) {
 					Times(test.messageReceivedCall.times)
 			}
 
-			result, err := messageManager.ShouldSendMessage(test.warpUnsignedMessage, test.destinationBlockchainID)
-			if test.expectedError {
-				require.Error(t, err)
-			} else {
-				require.NoError(t, err)
-				require.Equal(t, test.expectedResult, result)
-			}
+			result, err := messageHandler.ShouldSendMessage(test.destinationBlockchainID)
+			require.NoError(t, err)
+			require.Equal(t, test.expectedResult, result)
 		})
 	}
 }
