@@ -48,19 +48,17 @@ var warpFilterQuery = interfaces.FilterQuery{
 
 // subscriber implements Subscriber
 type subscriber struct {
-	nodeWSURL    string
-	nodeRPCURL   string
-	httpHeaders  map[string]string
-	queryParams  map[string]string
-	blockchainID ids.ID
-	logsChan     chan vmtypes.WarpLogInfo
-	evmLog       <-chan types.Log
-	sub          interfaces.Subscription
+	nodeWSEndpoint  ethclient.Config
+	nodeRPCEndpoint ethclient.Config
+	blockchainID    ids.ID
+	logsChan        chan vmtypes.WarpLogInfo
+	evmLog          <-chan types.Log
+	sub             interfaces.Subscription
 
 	logger logging.Logger
 
 	// seams for mock injection:
-	dial func(ctx context.Context, url string, httpHeaders, queryParams map[string]string) (evmethclient.Client, error)
+	dial func(ctx context.Context, cfg ethclient.Config) (evmethclient.Client, error)
 }
 
 // NewSubscriber returns a subscriber
@@ -77,14 +75,12 @@ func NewSubscriber(logger logging.Logger, subnetInfo config.SourceBlockchain) *s
 	logs := make(chan vmtypes.WarpLogInfo, maxClientSubscriptionBuffer)
 
 	return &subscriber{
-		nodeWSURL:    subnetInfo.WSEndpoint,
-		nodeRPCURL:   subnetInfo.RPCEndpoint,
-		httpHeaders:  subnetInfo.HttpHeaders,
-		queryParams:  subnetInfo.QueryParams,
-		blockchainID: blockchainID,
-		logger:       logger,
-		logsChan:     logs,
-		dial:         ethclient.DialWithConfig,
+		nodeWSEndpoint:  ethclient.Config(subnetInfo.WSEndpoint),
+		nodeRPCEndpoint: ethclient.Config(subnetInfo.RPCEndpoint),
+		blockchainID:    blockchainID,
+		logger:          logger,
+		logsChan:        logs,
+		dial:            ethclient.DialWithConfig,
 	}
 }
 
@@ -145,7 +141,7 @@ func (s *subscriber) ProcessFromHeight(height *big.Int, done chan bool) {
 		s.logger.Error("cannot process logs from nil height")
 		done <- false
 	}
-	ethClient, err := s.dial(context.Background(), s.nodeWSURL, s.httpHeaders, s.queryParams)
+	ethClient, err := s.dial(context.Background(), s.nodeWSEndpoint)
 	if err != nil {
 		s.logger.Error("failed to dial eth client", zap.Error(err))
 		done <- false
@@ -277,7 +273,7 @@ func (s *subscriber) Subscribe(maxResubscribeAttempts int) error {
 func (s *subscriber) dialAndSubscribe() error {
 	// Dial the configured source chain endpoint
 	// This needs to be a websocket
-	ethClient, err := s.dial(context.Background(), s.nodeWSURL, s.httpHeaders, s.queryParams)
+	ethClient, err := s.dial(context.Background(), s.nodeWSEndpoint)
 	if err != nil {
 		return err
 	}

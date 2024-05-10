@@ -10,9 +10,10 @@ import (
 
 	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/awm-relayer/config"
+	"github.com/ava-labs/awm-relayer/ethclient"
 	mock_ethclient "github.com/ava-labs/awm-relayer/vms/evm/mocks"
 	"github.com/ava-labs/subnet-evm/core/types"
-	"github.com/ava-labs/subnet-evm/ethclient"
+	evmethclient "github.com/ava-labs/subnet-evm/ethclient"
 	"github.com/ava-labs/subnet-evm/interfaces"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -23,14 +24,16 @@ func makeSubscriberWithMockEthClient(t *testing.T) (*subscriber, *mock_ethclient
 		SubnetID:     "2TGBXcnwx5PqiXWiqxAKUaNSqDguXNh1mxnp82jui68hxJSZAx",
 		BlockchainID: "S4mMqUXe7vHsGiRAma6bv3CKnyaLssyAxmQ2KvFpX1KEvfFCD",
 		VM:           config.EVM.String(),
-		RPCEndpoint:  "https://subnets.avax.network/mysubnet/rpc",
+		RPCEndpoint: config.APIConfig{
+			BaseURL: "https://subnets.avax.network/mysubnet/rpc",
+		},
 	}
 
 	logger := logging.NoLog{}
 
 	mockEthClient := mock_ethclient.NewMockClient(gomock.NewController(t))
 	subscriber := NewSubscriber(logger, sourceSubnet)
-	subscriber.dial = func(_ctx context.Context, _url string, _httpHeaders, _queryParams map[string]string) (ethclient.Client, error) {
+	subscriber.dial = func(_ctx context.Context, cfg ethclient.Config) (evmethclient.Client, error) {
 		return mockEthClient, nil
 	}
 
