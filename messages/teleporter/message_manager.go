@@ -23,10 +23,6 @@ import (
 	"go.uber.org/zap"
 )
 
-const (
-	teleporterMessageCacheSize = 100
-)
-
 type messageManager struct {
 	messageConfig      Config
 	protocolAddress    common.Address
