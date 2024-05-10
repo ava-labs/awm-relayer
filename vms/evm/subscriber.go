@@ -14,10 +14,10 @@ import (
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/awm-relayer/config"
-	"github.com/ava-labs/awm-relayer/ethclient_utils"
+	"github.com/ava-labs/awm-relayer/ethclient"
 	"github.com/ava-labs/awm-relayer/vms/vmtypes"
 	"github.com/ava-labs/subnet-evm/core/types"
-	"github.com/ava-labs/subnet-evm/ethclient"
+	evmethclient "github.com/ava-labs/subnet-evm/ethclient"
 	"github.com/ava-labs/subnet-evm/interfaces"
 	"github.com/ava-labs/subnet-evm/precompile/contracts/warp"
 	"github.com/ethereum/go-ethereum/common"
@@ -60,7 +60,7 @@ type subscriber struct {
 	logger logging.Logger
 
 	// seams for mock injection:
-	dial func(ctx context.Context, url string, httpHeaders, queryParams map[string]string) (ethclient.Client, error)
+	dial func(ctx context.Context, url string, httpHeaders, queryParams map[string]string) (evmethclient.Client, error)
 }
 
 // NewSubscriber returns a subscriber
@@ -84,7 +84,7 @@ func NewSubscriber(logger logging.Logger, subnetInfo config.SourceBlockchain) *s
 		blockchainID: blockchainID,
 		logger:       logger,
 		logsChan:     logs,
-		dial:         ethclient_utils.DialWithConfig,
+		dial:         ethclient.DialWithConfig,
 	}
 }
 
@@ -188,7 +188,7 @@ func (s *subscriber) ProcessFromHeight(height *big.Int, done chan bool) {
 // Since initializationFilterQuery does not modify existing fields of warpFilterQuery,
 // we can safely reuse warpFilterQuery with only a shallow copy
 func (s *subscriber) processBlockRange(
-	ethClient ethclient.Client,
+	ethClient evmethclient.Client,
 	fromBlock, toBlock *big.Int,
 ) error {
 	initializationFilterQuery := interfaces.FilterQuery{

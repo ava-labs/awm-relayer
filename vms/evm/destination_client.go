@@ -14,10 +14,10 @@ import (
 	"github.com/ava-labs/avalanchego/utils/logging"
 	avalancheWarp "github.com/ava-labs/avalanchego/vms/platformvm/warp"
 	"github.com/ava-labs/awm-relayer/config"
-	"github.com/ava-labs/awm-relayer/ethclient_utils"
+	"github.com/ava-labs/awm-relayer/ethclient"
 	"github.com/ava-labs/awm-relayer/vms/evm/signer"
 	"github.com/ava-labs/subnet-evm/core/types"
-	"github.com/ava-labs/subnet-evm/ethclient"
+	evmethclient "github.com/ava-labs/subnet-evm/ethclient"
 	"github.com/ava-labs/subnet-evm/precompile/contracts/warp"
 	predicateutils "github.com/ava-labs/subnet-evm/predicate"
 	"github.com/ethereum/go-ethereum/common"
@@ -33,12 +33,12 @@ const (
 
 // Client interface wraps the ethclient.Client interface for mocking purposes.
 type Client interface {
-	ethclient.Client
+	evmethclient.Client
 }
 
 // Implements DestinationClient
 type destinationClient struct {
-	client                  ethclient.Client
+	client                  evmethclient.Client
 	lock                    *sync.Mutex
 	destinationBlockchainID ids.ID
 	signer                  signer.Signer
@@ -49,7 +49,7 @@ type destinationClient struct {
 
 func NewDestinationClient(logger logging.Logger, destinationBlockchain *config.DestinationBlockchain) (*destinationClient, error) {
 	// Dial the destination RPC endpoint
-	client, err := ethclient_utils.DialWithConfig(
+	client, err := ethclient.DialWithConfig(
 		context.Background(),
 		destinationBlockchain.RPCEndpoint,
 		destinationBlockchain.HttpHeaders,

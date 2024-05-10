@@ -21,9 +21,7 @@ import (
 	"go.uber.org/zap"
 )
 
-var (
-	OffChainRegistrySourceAddress = common.HexToAddress("0x0000000000000000000000000000000000000000")
-)
+var OffChainRegistrySourceAddress = common.HexToAddress("0x0000000000000000000000000000000000000000")
 
 const (
 	addProtocolVersionGasLimit  uint64 = 500_000

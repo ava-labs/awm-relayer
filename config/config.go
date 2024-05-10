@@ -17,8 +17,8 @@ import (
 	"github.com/ava-labs/avalanchego/utils/set"
 	"github.com/ava-labs/awm-relayer/utils"
 
-	"github.com/ava-labs/awm-relayer/ethclient_utils"
-	"github.com/ava-labs/subnet-evm/ethclient"
+	"github.com/ava-labs/awm-relayer/ethclient"
+	evmethclient "github.com/ava-labs/subnet-evm/ethclient"
 	"github.com/ava-labs/subnet-evm/precompile/contracts/warp"
 
 	// Force-load precompiles to trigger registration
@@ -360,7 +360,7 @@ func calculateQuorumNumerator(cfgNumerator uint64) uint64 {
 func getWarpQuorum(
 	subnetID ids.ID,
 	blockchainID ids.ID,
-	client ethclient.Client,
+	client evmethclient.Client,
 ) (WarpQuorum, error) {
 	if subnetID == constants.PrimaryNetworkID {
 		return WarpQuorum{
@@ -602,7 +602,7 @@ func (s *DestinationBlockchain) initializeWarpQuorum() error {
 		return fmt.Errorf("invalid subnetID in configuration. error: %w", err)
 	}
 
-	client, err := ethclient_utils.DialWithConfig(context.Background(), s.RPCEndpoint, s.HttpHeaders, s.QueryParams)
+	client, err := ethclient.DialWithConfig(context.Background(), s.RPCEndpoint, s.HttpHeaders, s.QueryParams)
 	if err != nil {
 		return fmt.Errorf("failed to dial destination blockchain %s: %w", blockchainID, err)
 	}
