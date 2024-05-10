@@ -37,6 +37,11 @@ func NewCheckpointManager(
 ) *CheckpointManager {
 	h := &utils.UInt64Heap{}
 	heap.Init(h)
+	logger.Info(
+		"Creating checkpoint manager",
+		zap.String("relayerID", relayerID.ID.String()),
+		zap.Uint64("startingHeight", startingHeight),
+	)
 	return &CheckpointManager{
 		logger:          logger,
 		database:        database,
@@ -100,13 +105,13 @@ func (cm *CheckpointManager) listenForWriteSignal() {
 // Requires that cm.lock be held
 func (cm *CheckpointManager) StageCommittedHeight(height uint64) {
 	if height <= cm.committedHeight {
-		cm.logger.Fatal(
-			"Attempting to commit height less than or equal to the committed height",
+		cm.logger.Debug(
+			"Attempting to commit height less than or equal to the committed height. Skipping.",
 			zap.Uint64("height", height),
 			zap.Uint64("committedHeight", cm.committedHeight),
 			zap.String("relayerID", cm.relayerID.ID.String()),
 		)
-		panic("attempting to commit height less than or equal to the committed height")
+		return
 	}
 
 	// First push the height onto the pending commits min heap

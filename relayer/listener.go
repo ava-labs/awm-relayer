@@ -238,6 +238,10 @@ func (lstnr *Listener) ProcessLogs(ctx context.Context) error {
 					)
 					continue
 				}
+				if appRelayer == nil {
+					lstnr.logger.Debug("Application relayer not found. Skipping message relay")
+					continue
+				}
 				messageHandlers[appRelayer.relayerID.ID] = append(messageHandlers[appRelayer.relayerID.ID], handler)
 			}
 			for _, appRelayer := range lstnr.applicationRelayers {
