@@ -53,7 +53,7 @@ func NewCheckpointManager(
 }
 
 func (cm *CheckpointManager) Run() {
-	go cm.listenForFinishedRelays()
+	go cm.listenForFinishedMessageRelays()
 	go cm.listenForWriteSignal()
 }
 
@@ -102,7 +102,10 @@ func (cm *CheckpointManager) listenForWriteSignal() {
 	}
 }
 
-func (cm *CheckpointManager) incrementFinishedCounter(height uint64) {
+// Increments the processed message count at the specified height.
+// Once the processed message count equals the number of expected messages in the block,
+// the block height is staged to be committed to the database.
+func (cm *CheckpointManager) incrementProcessedMessageCounter(height uint64) {
 	cm.lock.Lock()
 	defer cm.lock.Unlock()
 	counter, ok := cm.queuedHeightsAndMessages[height]
@@ -117,10 +120,10 @@ func (cm *CheckpointManager) incrementFinishedCounter(height uint64) {
 		)
 		return
 	}
-
+	// Increment the processed message count in-place in the queuedHeightsAndMessages map
 	counter.processedMessages++
 	cm.logger.Debug(
-		"Received finished signal",
+		"Received finished signal for block",
 		zap.Uint64("height", height),
 		zap.String("relayerID", cm.relayerID.ID.String()),
 		zap.Uint64("processedMessages", counter.processedMessages),
@@ -135,9 +138,9 @@ func (cm *CheckpointManager) incrementFinishedCounter(height uint64) {
 // handleFinishedRelays listens for finished signals from the application relayer, and commits the
 // height once all messages have been processed.
 // This function should only be called once.
-func (cm *CheckpointManager) listenForFinishedRelays() {
+func (cm *CheckpointManager) listenForFinishedMessageRelays() {
 	for height := range cm.finished {
-		cm.incrementFinishedCounter(height)
+		cm.incrementProcessedMessageCounter(height)
 	}
 }
 
