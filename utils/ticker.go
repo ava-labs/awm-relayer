@@ -17,9 +17,9 @@ type Ticker struct {
 	lock          *sync.Mutex
 }
 
-func NewTicker(writeIntervalSeconds uint64) *Ticker {
+func NewTicker(intervalSeconds uint64) *Ticker {
 	return &Ticker{
-		interval: time.Duration(writeIntervalSeconds) * time.Second,
+		interval: time.Duration(intervalSeconds) * time.Second,
 		lock:     &sync.Mutex{},
 	}
 }

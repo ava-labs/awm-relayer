@@ -109,11 +109,11 @@ func (s *KMSSigner) SignTx(tx *types.Transaction, evmChainID *big.Int) (*types.T
 	if err != nil {
 		return nil, err
 	}
-
-	sigBytes, err := s.getEthereumSignature(h, sigAsn1.R.Bytes, sigAsn1.S.Bytes)
+	sigBytes, err := s.recoverEIP155Signature(h, sigAsn1.R.Bytes, sigAsn1.S.Bytes)
 	if err != nil {
 		return nil, err
 	}
+
 	return tx.WithSignature(signer, sigBytes)
 }
 
@@ -121,10 +121,19 @@ func (s *KMSSigner) Address() common.Address {
 	return s.eoa
 }
 
-// Recover the EIP-155 signature from the KMS signature
+// Recover the EIP-155 signature from the KMS signature.
 // KMS returns the signature in ASN.1 format, but the EIP-155 signature is in R || S || V format,
-// so we need to test both V = 0 and V = 1 against the recovered public key
-func (s *KMSSigner) getEthereumSignature(txHash []byte, rBytes []byte, sBytes []byte) ([]byte, error) {
+// so we need to test both V = 0 and V = 1 against the recovered public key.
+// Additionally, EIP-2 S-values are capped at secp256k1n/2, so adjust that if necessary.
+func (s *KMSSigner) recoverEIP155Signature(txHash []byte, rBytes []byte, sBytes []byte) ([]byte, error) {
+	sBigInt := big.NewInt(0).SetBytes(sBytes)
+	secp256k1N := crypto.S256().Params().N
+	secp256k1HalfN := big.NewInt(0).Div(secp256k1N, big.NewInt(2))
+
+	if sBigInt.Cmp(secp256k1HalfN) > 0 {
+		sBytes = big.NewInt(0).Sub(secp256k1N, sBigInt).Bytes()
+	}
+
 	rsSignature := append(adjustSignatureLength(rBytes), adjustSignatureLength(sBytes)...)
 	if len(rsSignature) != signatureLength {
 		return nil, errors.New("rs signature length is not 64 bytes")

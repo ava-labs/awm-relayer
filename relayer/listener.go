@@ -244,6 +244,7 @@ func (lstnr *Listener) ProcessLogs(ctx context.Context) error {
 				}
 				messageHandlers[appRelayer.relayerID.ID] = append(messageHandlers[appRelayer.relayerID.ID], handler)
 			}
+			// Initiate message relay of all registered messages
 			for _, appRelayer := range lstnr.applicationRelayers {
 				// Dispatch all messages in the block to the appropriate application relayer.
 				// An empty slice is still a valid argument to ProcessHeight; in this case the height is immediately committed.
