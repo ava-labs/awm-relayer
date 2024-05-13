@@ -120,7 +120,7 @@ func (cm *CheckpointManager) incrementFinishedCounter(height uint64) {
 
 	counter.processedMessages++
 	cm.logger.Debug(
-		"Received finished signal",
+		"Received finished signal for block",
 		zap.Uint64("height", height),
 		zap.String("relayerID", cm.relayerID.ID.String()),
 		zap.Uint64("processedMessages", counter.processedMessages),
