@@ -2,9 +2,6 @@
 # Copyright (C) 2023, Ava Labs, Inc. All rights reserved.
 # See the file LICENSE for licensing terms.
 
-# The go version for this project is set from a combination of major.minor from go.mod and the patch version set here.
-GO_PATCH_VERSION=9
-
 RELAYER_PATH=$(
   cd "$(dirname "${BASH_SOURCE[0]}")"
   cd .. && pwd
@@ -17,7 +14,7 @@ function getDepVersion() {
 }
 
 # This needs to be exported to be picked up by the dockerfile.
-export GO_VERSION=${GO_VERSION:-$(getDepVersion go).$GO_PATCH_VERSION}
+export GO_VERSION=${GO_VERSION:-$(getDepVersion go)}
 
 # Don't export them as they're used in the context of other calls
 AVALANCHEGO_VERSION=${AVALANCHEGO_VERSION:-$(getDepVersion github.com/ava-labs/avalanchego)}
