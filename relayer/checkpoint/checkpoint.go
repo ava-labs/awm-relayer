@@ -123,7 +123,7 @@ func (cm *CheckpointManager) incrementProcessedMessageCounter(height uint64) {
 	// Increment the processed message count in-place in the queuedHeightsAndMessages map
 	counter.processedMessages++
 	cm.logger.Debug(
-		"Received finished signal",
+		"Received finished signal for block",
 		zap.Uint64("height", height),
 		zap.String("relayerID", cm.relayerID.ID.String()),
 		zap.Uint64("processedMessages", counter.processedMessages),
