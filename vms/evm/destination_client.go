@@ -17,7 +17,6 @@ import (
 	"github.com/ava-labs/awm-relayer/ethclient"
 	"github.com/ava-labs/awm-relayer/vms/evm/signer"
 	"github.com/ava-labs/subnet-evm/core/types"
-	evmethclient "github.com/ava-labs/subnet-evm/ethclient"
 	"github.com/ava-labs/subnet-evm/precompile/contracts/warp"
 	predicateutils "github.com/ava-labs/subnet-evm/predicate"
 	"github.com/ethereum/go-ethereum/common"
@@ -33,12 +32,12 @@ const (
 
 // Client interface wraps the ethclient.Client interface for mocking purposes.
 type Client interface {
-	evmethclient.Client
+	ethclient.Client
 }
 
 // Implements DestinationClient
 type destinationClient struct {
-	client                  evmethclient.Client
+	client                  ethclient.Client
 	lock                    *sync.Mutex
 	destinationBlockchainID ids.ID
 	signer                  signer.Signer

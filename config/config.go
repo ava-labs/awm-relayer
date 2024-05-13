@@ -18,7 +18,6 @@ import (
 	"github.com/ava-labs/awm-relayer/utils"
 
 	"github.com/ava-labs/awm-relayer/ethclient"
-	evmethclient "github.com/ava-labs/subnet-evm/ethclient"
 	"github.com/ava-labs/subnet-evm/precompile/contracts/warp"
 
 	// Force-load precompiles to trigger registration
@@ -357,7 +356,7 @@ func calculateQuorumNumerator(cfgNumerator uint64) uint64 {
 func getWarpQuorum(
 	subnetID ids.ID,
 	blockchainID ids.ID,
-	client evmethclient.Client,
+	client ethclient.Client,
 ) (WarpQuorum, error) {
 	if subnetID == constants.PrimaryNetworkID {
 		return WarpQuorum{

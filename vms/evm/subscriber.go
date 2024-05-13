@@ -17,7 +17,6 @@ import (
 	"github.com/ava-labs/awm-relayer/ethclient"
 	"github.com/ava-labs/awm-relayer/vms/vmtypes"
 	"github.com/ava-labs/subnet-evm/core/types"
-	evmethclient "github.com/ava-labs/subnet-evm/ethclient"
 	"github.com/ava-labs/subnet-evm/interfaces"
 	"github.com/ava-labs/subnet-evm/precompile/contracts/warp"
 	"github.com/ethereum/go-ethereum/common"
@@ -58,7 +57,7 @@ type subscriber struct {
 	logger logging.Logger
 
 	// seams for mock injection:
-	dial func(ctx context.Context, url string, httpHeaders, queryParams map[string]string) (evmethclient.Client, error)
+	dial func(ctx context.Context, url string, httpHeaders, queryParams map[string]string) (ethclient.Client, error)
 }
 
 // NewSubscriber returns a subscriber
@@ -184,7 +183,7 @@ func (s *subscriber) ProcessFromHeight(height *big.Int, done chan bool) {
 // Since initializationFilterQuery does not modify existing fields of warpFilterQuery,
 // we can safely reuse warpFilterQuery with only a shallow copy
 func (s *subscriber) processBlockRange(
-	ethClient evmethclient.Client,
+	ethClient ethclient.Client,
 	fromBlock, toBlock *big.Int,
 ) error {
 	initializationFilterQuery := interfaces.FilterQuery{
