@@ -25,13 +25,20 @@ import (
 	"github.com/ava-labs/awm-relayer/vms/vmtypes"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/spf13/pflag"
 	"go.uber.org/atomic"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 )
 
+var version = "v0.0.0-dev"
+
 func main() {
 	fs := config.BuildFlagSet()
+	if err := fs.Parse(os.Args[1:]); err != nil {
+		panic(fmt.Errorf("couldn't parse flags: %w", err))
+	}
+	handleInfoDisplayFlags(fs)
 	v, err := config.BuildViper(fs, os.Args[1:])
 	if err != nil {
 		panic(fmt.Errorf("couldn't configure flags: %w", err))
@@ -308,4 +315,19 @@ func initializeMetrics() (prometheus.Gatherer, prometheus.Registerer, error) {
 		return nil, nil, err
 	}
 	return gatherer, registry, nil
+}
+
+// handleInfoDisplayFlags is in charge of displaying cli informations
+// when an info display flag is enabled
+// It exits if one of the flags has been enabled by the user.
+// examples: version, authors, help ...
+func handleInfoDisplayFlags(fs *pflag.FlagSet) {
+	displayVersion, err := fs.GetBool(config.VersionKey)
+	if err != nil {
+		panic(fmt.Errorf("error reading %s flag value: %w", config.VersionKey, err))
+	}
+	if displayVersion {
+		fmt.Printf("%s\n", version)
+		os.Exit(0)
+	}
 }
