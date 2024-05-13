@@ -18,4 +18,5 @@ const (
 	RedisURLKey               = "redis-url"
 	ProcessMissedBlocksKey    = "process-missed-blocks"
 	ManualWarpMessagesKey     = "manual-warp-messages"
+	VersionKey                = "version"
 )
