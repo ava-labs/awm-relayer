@@ -48,8 +48,8 @@ var warpFilterQuery = interfaces.FilterQuery{
 
 // subscriber implements Subscriber
 type subscriber struct {
-	nodeWSEndpoint  ethclient.Config
-	nodeRPCEndpoint ethclient.Config
+	nodeWSEndpoint  config.APIConfig
+	nodeRPCEndpoint config.APIConfig
 	blockchainID    ids.ID
 	logsChan        chan vmtypes.WarpLogInfo
 	evmLog          <-chan types.Log
@@ -58,7 +58,7 @@ type subscriber struct {
 	logger logging.Logger
 
 	// seams for mock injection:
-	dial func(ctx context.Context, cfg ethclient.Config) (evmethclient.Client, error)
+	dial func(ctx context.Context, url string, httpHeaders, queryParams map[string]string) (evmethclient.Client, error)
 }
 
 // NewSubscriber returns a subscriber
@@ -75,8 +75,8 @@ func NewSubscriber(logger logging.Logger, subnetInfo config.SourceBlockchain) *s
 	logs := make(chan vmtypes.WarpLogInfo, maxClientSubscriptionBuffer)
 
 	return &subscriber{
-		nodeWSEndpoint:  ethclient.Config(subnetInfo.WSEndpoint),
-		nodeRPCEndpoint: ethclient.Config(subnetInfo.RPCEndpoint),
+		nodeWSEndpoint:  subnetInfo.WSEndpoint,
+		nodeRPCEndpoint: subnetInfo.RPCEndpoint,
 		blockchainID:    blockchainID,
 		logger:          logger,
 		logsChan:        logs,
@@ -141,7 +141,7 @@ func (s *subscriber) ProcessFromHeight(height *big.Int, done chan bool) {
 		s.logger.Error("cannot process logs from nil height")
 		done <- false
 	}
-	ethClient, err := s.dial(context.Background(), s.nodeWSEndpoint)
+	ethClient, err := s.dial(context.Background(), s.nodeWSEndpoint.BaseURL, s.nodeWSEndpoint.HTTPHeaders, s.nodeWSEndpoint.QueryParams)
 	if err != nil {
 		s.logger.Error("failed to dial eth client", zap.Error(err))
 		done <- false
@@ -273,7 +273,7 @@ func (s *subscriber) Subscribe(maxResubscribeAttempts int) error {
 func (s *subscriber) dialAndSubscribe() error {
 	// Dial the configured source chain endpoint
 	// This needs to be a websocket
-	ethClient, err := s.dial(context.Background(), s.nodeWSEndpoint)
+	ethClient, err := s.dial(context.Background(), s.nodeWSEndpoint.BaseURL, s.nodeWSEndpoint.HTTPHeaders, s.nodeWSEndpoint.QueryParams)
 	if err != nil {
 		return err
 	}

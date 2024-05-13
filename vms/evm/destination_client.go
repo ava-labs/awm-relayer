@@ -51,7 +51,9 @@ func NewDestinationClient(logger logging.Logger, destinationBlockchain *config.D
 	// Dial the destination RPC endpoint
 	client, err := ethclient.DialWithConfig(
 		context.Background(),
-		ethclient.Config(destinationBlockchain.RPCEndpoint),
+		destinationBlockchain.RPCEndpoint.BaseURL,
+		destinationBlockchain.RPCEndpoint.HTTPHeaders,
+		destinationBlockchain.RPCEndpoint.QueryParams,
 	)
 	if err != nil {
 		logger.Error(

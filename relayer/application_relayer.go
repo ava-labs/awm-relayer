@@ -641,7 +641,9 @@ func (r *applicationRelayer) calculateStartingBlockHeight(processHistoricalBlock
 func (r *applicationRelayer) setProcessedBlockHeightToLatest() (uint64, error) {
 	ethClient, err := ethclient.DialWithConfig(
 		context.Background(),
-		ethclient.Config(r.sourceBlockchain.RPCEndpoint),
+		r.sourceBlockchain.RPCEndpoint.BaseURL,
+		r.sourceBlockchain.RPCEndpoint.HTTPHeaders,
+		r.sourceBlockchain.RPCEndpoint.QueryParams,
 	)
 	if err != nil {
 		r.logger.Error(

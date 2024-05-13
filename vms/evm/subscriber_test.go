@@ -10,7 +10,6 @@ import (
 
 	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/awm-relayer/config"
-	"github.com/ava-labs/awm-relayer/ethclient"
 	mock_ethclient "github.com/ava-labs/awm-relayer/vms/evm/mocks"
 	"github.com/ava-labs/subnet-evm/core/types"
 	evmethclient "github.com/ava-labs/subnet-evm/ethclient"
@@ -33,7 +32,7 @@ func makeSubscriberWithMockEthClient(t *testing.T) (*subscriber, *mock_ethclient
 
 	mockEthClient := mock_ethclient.NewMockClient(gomock.NewController(t))
 	subscriber := NewSubscriber(logger, sourceSubnet)
-	subscriber.dial = func(_ctx context.Context, cfg ethclient.Config) (evmethclient.Client, error) {
+	subscriber.dial = func(_ctx context.Context, _url string, _httpHeaders, _queryParams map[string]string) (evmethclient.Client, error) {
 		return mockEthClient, nil
 	}
 
