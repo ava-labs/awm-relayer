@@ -84,6 +84,10 @@ The Fuji and Mainnet [public API nodes](https://docs.avax.network/tooling/rpc-pr
 
 ## Usage
 
+### Initialize the repository
+
+- Get all submodules: `git submodule update --init --recursive`
+
 ### Building
 
 Before building, be sure to install Go, which is required even if you're just building the Docker image.

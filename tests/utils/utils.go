@@ -21,6 +21,7 @@ import (
 	warpPayload "github.com/ava-labs/avalanchego/vms/platformvm/warp/payload"
 	"github.com/ava-labs/awm-relayer/config"
 	offchainregistry "github.com/ava-labs/awm-relayer/messages/off-chain-registry"
+	batchcrosschainmessenger "github.com/ava-labs/awm-relayer/tests/abi-bindings/go/BatchCrossChainMessenger"
 	"github.com/ava-labs/subnet-evm/accounts/abi/bind"
 	"github.com/ava-labs/subnet-evm/core/types"
 	"github.com/ava-labs/subnet-evm/precompile/contracts/warp"
@@ -450,4 +451,27 @@ func TriggerProcessMissedBlocks(
 	Expect(delivered1).Should(BeFalse())
 	Expect(delivered2).Should(BeFalse())
 	Expect(delivered3).Should(BeTrue())
+}
+
+func DeployBatchCrossChainMessenger(
+	ctx context.Context,
+	senderKey *ecdsa.PrivateKey,
+	teleporterManager common.Address,
+	subnet interfaces.SubnetTestInfo,
+) (common.Address, *batchcrosschainmessenger.BatchCrossChainMessenger) {
+	opts, err := bind.NewKeyedTransactorWithChainID(
+		senderKey, subnet.EVMChainID)
+	Expect(err).Should(BeNil())
+	address, tx, exampleMessenger, err := batchcrosschainmessenger.DeployBatchCrossChainMessenger(
+		opts,
+		subnet.RPCClient,
+		subnet.TeleporterRegistryAddress,
+		teleporterManager,
+	)
+	Expect(err).Should(BeNil())
+
+	// Wait for the transaction to be mined
+	utils.WaitForTransactionSuccess(ctx, subnet, tx.Hash())
+
+	return address, exampleMessenger
 }

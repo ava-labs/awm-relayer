@@ -146,6 +146,7 @@ func (r *ApplicationRelayer) ProcessHeight(height uint64, msgs []messages.Messag
 	r.logger.Debug(
 		"Processed block",
 		zap.Uint64("height", height),
+		zap.String("sourceBlockchainID", r.relayerID.SourceBlockchainID.String()),
 		zap.String("relayerID", r.relayerID.ID.String()),
 	)
 	return nil
