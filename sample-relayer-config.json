@@ -10,8 +10,12 @@
       "subnet-id": "11111111111111111111111111111111LpoYY",
       "blockchain-id": "yH8D7ThNJkxmtkuv2jgBa4P1Rn3Qpr4pPr7QYNfcdoS6k6HWp",
       "vm": "evm",
-      "rpc-endpoint": "https://api.avax-test.network/ext/bc/C/rpc",
-      "ws-endpoint": "wss://api.avax-test.network/ext/bc/C/ws",
+      "rpc-endpoint": {
+        "base-url": "https://api.avax-test.network/ext/bc/C/rpc"
+      },
+      "ws-endpoint": {
+        "base-url": "wss://api.avax-test.network/ext/bc/C/ws"
+      },
       "message-contracts": {
         "0x253b2784c75e510dD0fF1da844684a1aC0aa5fcf": {
           "message-format": "teleporter",
@@ -27,7 +31,9 @@
       "subnet-id": "7WtoAMPhrmh5KosDUsFL9yTcvw7YSxiKHPpdfs4JsgW47oZT5",
       "blockchain-id": "2D8RG4UpSXbPbvPCAWppNJyqTG2i2CAXSkTgmTBBvs7GKNZjsY",
       "vm": "evm",
-      "rpc-endpoint": "https://subnets.avax.network/dispatch/testnet/rpc",
+      "rpc-endpoint": {
+        "base-url": "https://subnets.avax.network/dispatch/testnet/rpc"
+      },
       "account-private-key": "0x7493..."
     }
   ]

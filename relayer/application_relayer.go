@@ -194,7 +194,7 @@ func (r *applicationRelayer) relayMessage(
 func (r *applicationRelayer) createSignedMessage(unsignedMessage *avalancheWarp.UnsignedMessage) (*avalancheWarp.Message, error) {
 	r.logger.Info("Fetching aggregate signature from the source chain validators via API")
 	// TODO: To properly support this, we should provide a dedicated Warp API endpoint in the config
-	uri := utils.StripFromString(r.sourceBlockchain.RPCEndpoint, "/ext")
+	uri := utils.StripFromString(r.sourceBlockchain.RPCEndpoint.BaseURL, "/ext")
 	warpClient, err := warpBackend.NewClient(uri, r.sourceBlockchain.GetBlockchainID().String())
 	if err != nil {
 		r.logger.Error(
