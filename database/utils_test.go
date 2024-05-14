@@ -1,4 +1,4 @@
-package relayer
+package database
 
 import (
 	"fmt"
@@ -6,22 +6,12 @@ import (
 	"testing"
 
 	"github.com/ava-labs/avalanchego/utils/logging"
-	"github.com/ava-labs/awm-relayer/database"
-	mock_database "github.com/ava-labs/awm-relayer/database/mocks"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/mock/gomock"
 )
 
-func makeApplicationRelayerWithMockDatabase(t *testing.T) (*applicationRelayer, *mock_database.MockRelayerDatabase) {
-	db := mock_database.NewMockRelayerDatabase(gomock.NewController(t))
-
-	return &applicationRelayer{
-		logger: logging.NoLog{},
-		db:     db,
-	}, db
-}
-
 func TestCalculateStartingBlockHeight(t *testing.T) {
+	currentBlock := uint64(200) // Higher than any of the test case cfg or db values
 	testCases := []struct {
 		name          string
 		cfgBlock      uint64
@@ -35,7 +25,7 @@ func TestCalculateStartingBlockHeight(t *testing.T) {
 			name:          "value in cfg, no value in db",
 			cfgBlock:      100,
 			dbBlock:       0,
-			dbError:       database.ErrKeyNotFound,
+			dbError:       ErrKeyNotFound,
 			expectedBlock: 100,
 			expectedError: nil,
 		},
@@ -66,16 +56,24 @@ func TestCalculateStartingBlockHeight(t *testing.T) {
 			expectedBlock: 200,
 			expectedError: nil,
 		},
+		{
+			// no DB value, no cfg value
+			name:          "no DB value, no cfg value",
+			cfgBlock:      0,
+			dbBlock:       0,
+			dbError:       ErrKeyNotFound,
+			expectedBlock: currentBlock,
+			expectedError: nil,
+		},
 	}
 
 	for _, testCase := range testCases {
-		relayerUnderTest, db := makeApplicationRelayerWithMockDatabase(t)
-		db.
-			EXPECT().
-			Get(gomock.Any(), database.LatestProcessedBlockKey).
-			Return([]byte(strconv.FormatUint(testCase.dbBlock, 10)), testCase.dbError).
-			Times(1)
-		ret, err := relayerUnderTest.calculateStartingBlockHeight(testCase.cfgBlock)
+		db := &mockDB{}
+		db.getFunc = func(relayerID common.Hash, key DataKey) ([]byte, error) {
+			return []byte(strconv.FormatUint(testCase.dbBlock, 10)), testCase.dbError
+		}
+
+		ret, err := CalculateStartingBlockHeight(logging.NoLog{}, db, RelayerID{}, testCase.cfgBlock, currentBlock)
 		if testCase.expectedError == nil {
 			require.NoError(t, err, fmt.Sprintf("test failed: %s", testCase.name))
 			require.Equal(t, testCase.expectedBlock, ret, fmt.Sprintf("test failed: %s", testCase.name))
@@ -83,4 +81,17 @@ func TestCalculateStartingBlockHeight(t *testing.T) {
 			require.Error(t, err, fmt.Sprintf("test failed: %s", testCase.name))
 		}
 	}
+}
+
+// in-package mock to allow for unit testing of non-receiver functions that use the RelayerDatabase interface
+type mockDB struct {
+	getFunc func(relayerID common.Hash, key DataKey) ([]byte, error)
+}
+
+func (m *mockDB) Get(relayerID common.Hash, key DataKey) ([]byte, error) {
+	return m.getFunc(relayerID, key)
+}
+
+func (m *mockDB) Put(relayerID common.Hash, key DataKey, value []byte) error {
+	return nil
 }

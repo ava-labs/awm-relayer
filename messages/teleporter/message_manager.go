@@ -89,40 +89,26 @@ func isAllowedRelayer(allowedRelayers []common.Address, eoa common.Address) bool
 	return false
 }
 
-func (m *messageManager) GetDestinationBlockchainID(unsignedMessage *warp.UnsignedMessage) (ids.ID, error) {
+func (m *messageManager) GetMessageRoutingInfo(unsignedMessage *warp.UnsignedMessage) (
+	ids.ID,
+	common.Address,
+	ids.ID,
+	common.Address,
+	error,
+) {
 	teleporterMessage, err := m.parseTeleporterMessage(unsignedMessage)
 	if err != nil {
 		m.logger.Error(
 			"Failed to parse teleporter message.",
 			zap.String("warpMessageID", unsignedMessage.ID().String()),
 		)
-		return ids.ID{}, err
+		return ids.ID{}, common.Address{}, ids.ID{}, common.Address{}, err
 	}
-	return teleporterMessage.DestinationBlockchainID, nil
-}
-
-func (m *messageManager) GetOriginSenderAddress(unsignedMessage *warp.UnsignedMessage) (common.Address, error) {
-	teleporterMessage, err := m.parseTeleporterMessage(unsignedMessage)
-	if err != nil {
-		m.logger.Error(
-			"Failed to parse teleporter message.",
-			zap.String("warpMessageID", unsignedMessage.ID().String()),
-		)
-		return common.Address{}, err
-	}
-	return teleporterMessage.OriginSenderAddress, nil
-}
-
-func (m *messageManager) GetDestinationAddress(unsignedMessage *warp.UnsignedMessage) (common.Address, error) {
-	teleporterMessage, err := m.parseTeleporterMessage(unsignedMessage)
-	if err != nil {
-		m.logger.Error(
-			"Failed to parse teleporter message.",
-			zap.String("warpMessageID", unsignedMessage.ID().String()),
-		)
-		return common.Address{}, err
-	}
-	return teleporterMessage.DestinationAddress, nil
+	return unsignedMessage.SourceChainID,
+		teleporterMessage.OriginSenderAddress,
+		teleporterMessage.DestinationBlockchainID,
+		teleporterMessage.DestinationAddress,
+		nil
 }
 
 // ShouldSendMessage returns true if the message should be sent to the destination chain

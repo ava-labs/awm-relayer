@@ -169,22 +169,24 @@ func (m *messageManager) SendMessage(signedMessage *warp.Message, destinationBlo
 	return nil
 }
 
-func (m *messageManager) GetDestinationBlockchainID(unsignedMessage *warp.UnsignedMessage) (ids.ID, error) {
-	return unsignedMessage.SourceChainID, nil
-}
-
-func (m *messageManager) GetOriginSenderAddress(unsignedMessage *warp.UnsignedMessage) (common.Address, error) {
+func (m *messageManager) GetMessageRoutingInfo(unsignedMessage *warp.UnsignedMessage) (
+	ids.ID,
+	common.Address,
+	ids.ID,
+	common.Address,
+	error,
+) {
 	addressedPayload, err := warpPayload.ParseAddressedCall(unsignedMessage.Payload)
 	if err != nil {
 		m.logger.Error(
 			"Failed parsing addressed payload",
 			zap.Error(err),
 		)
-		return common.Address{}, err
+		return ids.ID{}, common.Address{}, ids.ID{}, common.Address{}, err
 	}
-	return common.BytesToAddress(addressedPayload.SourceAddress), nil
-}
-
-func (m *messageManager) GetDestinationAddress(unsignedMessage *warp.UnsignedMessage) (common.Address, error) {
-	return m.registryAddress, nil
+	return unsignedMessage.SourceChainID,
+		common.BytesToAddress(addressedPayload.SourceAddress),
+		unsignedMessage.SourceChainID,
+		m.registryAddress,
+		nil
 }

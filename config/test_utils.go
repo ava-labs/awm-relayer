@@ -33,6 +33,7 @@ var (
 		InfoAPI: &APIConfig{
 			BaseURL: "http://test.avax.network",
 		},
+		DBWriteIntervalSeconds: 1,
 		SourceBlockchains: []*SourceBlockchain{
 			{
 				RPCEndpoint: APIConfig{
