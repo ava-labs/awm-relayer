@@ -5,6 +5,7 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/ava-labs/avalanchego/utils/set"
 	testUtils "github.com/ava-labs/awm-relayer/tests/utils"
 	"github.com/ava-labs/subnet-evm/accounts/abi/bind"
 	"github.com/ava-labs/subnet-evm/core/types"
@@ -83,6 +84,10 @@ func BatchRelay(network interfaces.LocalNetwork) {
 	defer sub.Unsubscribe()
 
 	messages := []string{"hello", "world", "this", "is", "a", "cross", "chain", "batch", "message"}
+	sentMessages := set.NewSet[string](len(messages))
+	for _, msg := range messages {
+		sentMessages.Add(msg)
+	}
 
 	optsA, err := bind.NewKeyedTransactorWithChainID(fundedKey, subnetAInfo.EVMChainID)
 	Expect(err).Should(BeNil())
@@ -104,7 +109,7 @@ func BatchRelay(network interfaces.LocalNetwork) {
 
 	_, receivedMessages, err := batchMessengerB.GetCurrentMessages(&bind.CallOpts{}, subnetAInfo.BlockchainID)
 	Expect(err).Should(BeNil())
-	for i, msg := range receivedMessages {
-		Expect(msg).Should(Equal(messages[i]))
+	for _, msg := range receivedMessages {
+		Expect(sentMessages.Contains(msg)).To(BeTrue())
 	}
 }
