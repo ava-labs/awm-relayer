@@ -14,9 +14,11 @@ import (
 // MessageManager is specific to each message protocol. The interface handles choosing which messages to send
 // for each message protocol, and performs the sending to the destination chain.
 type MessageManager interface {
+	// Create a message handler to relay the Warp message
 	NewMessageHandler(unsignedMessage *warp.UnsignedMessage) (MessageHandler, error)
 }
 
+// MessageHandlers relay a single Warp message. A new instance should be created for each Warp message.
 type MessageHandler interface {
 	// ShouldSendMessage returns true if the message should be sent to the destination chain
 	// If an error is returned, the boolean should be ignored by the caller.

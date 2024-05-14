@@ -234,7 +234,7 @@ func (lstnr *Listener) ProcessLogs(ctx context.Context) error {
 			// Register each message in the block with the appropriate application relayer
 			messageHandlers := make(map[common.Hash][]messages.MessageHandler)
 			for _, warpLogInfo := range block.Messages {
-				appRelayer, handler, err := lstnr.GetAppRelayerMessageHandler(block.BlockNumber, warpLogInfo)
+				appRelayer, handler, err := lstnr.GetAppRelayerMessageHandler(warpLogInfo)
 				if err != nil {
 					lstnr.logger.Error(
 						"Failed to parse message",
@@ -364,7 +364,7 @@ func (lstnr *Listener) getApplicationRelayer(
 }
 
 // TODONOW: Does this function make sense? There's probably a better way to organize this logic.
-func (lstnr *Listener) GetAppRelayerMessageHandler(height uint64, warpMessageInfo *relayerTypes.WarpMessageInfo) (
+func (lstnr *Listener) GetAppRelayerMessageHandler(warpMessageInfo *relayerTypes.WarpMessageInfo) (
 	*ApplicationRelayer,
 	messages.MessageHandler,
 	error,
