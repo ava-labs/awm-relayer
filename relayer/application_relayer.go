@@ -23,11 +23,11 @@ import (
 	avalancheWarp "github.com/ava-labs/avalanchego/vms/platformvm/warp"
 	"github.com/ava-labs/awm-relayer/config"
 	"github.com/ava-labs/awm-relayer/database"
+	"github.com/ava-labs/awm-relayer/ethclient"
 	"github.com/ava-labs/awm-relayer/messages"
 	"github.com/ava-labs/awm-relayer/peers"
 	"github.com/ava-labs/awm-relayer/utils"
 	coreEthMsg "github.com/ava-labs/coreth/plugin/evm/message"
-	"github.com/ava-labs/subnet-evm/ethclient"
 	msg "github.com/ava-labs/subnet-evm/plugin/evm/message"
 	warpBackend "github.com/ava-labs/subnet-evm/warp"
 	"go.uber.org/zap"
@@ -191,7 +191,7 @@ func (r *applicationRelayer) relayMessage(
 func (r *applicationRelayer) createSignedMessage(unsignedMessage *avalancheWarp.UnsignedMessage) (*avalancheWarp.Message, error) {
 	r.logger.Info("Fetching aggregate signature from the source chain validators via API")
 	// TODO: To properly support this, we should provide a dedicated Warp API endpoint in the config
-	uri := utils.StripFromString(r.sourceBlockchain.RPCEndpoint, "/ext")
+	uri := utils.StripFromString(r.sourceBlockchain.RPCEndpoint.BaseURL, "/ext")
 	warpClient, err := warpBackend.NewClient(uri, r.sourceBlockchain.GetBlockchainID().String())
 	if err != nil {
 		r.logger.Error(
@@ -639,7 +639,12 @@ func (r *applicationRelayer) calculateStartingBlockHeight(processHistoricalBlock
 
 // Gets the height of the chain head, writes it to the database, then returns it.
 func (r *applicationRelayer) setProcessedBlockHeightToLatest() (uint64, error) {
-	ethClient, err := ethclient.Dial(r.sourceBlockchain.RPCEndpoint)
+	ethClient, err := ethclient.DialWithConfig(
+		context.Background(),
+		r.sourceBlockchain.RPCEndpoint.BaseURL,
+		r.sourceBlockchain.RPCEndpoint.HTTPHeaders,
+		r.sourceBlockchain.RPCEndpoint.QueryParams,
+	)
 	if err != nil {
 		r.logger.Error(
 			"Failed to dial node",

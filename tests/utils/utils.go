@@ -116,8 +116,12 @@ func CreateDefaultRelayerConfig(
 			SubnetID:     subnetInfo.SubnetID.String(),
 			BlockchainID: subnetInfo.BlockchainID.String(),
 			VM:           config.EVM.String(),
-			RPCEndpoint:  fmt.Sprintf("http://%s:%d/ext/bc/%s/rpc", host, port, subnetInfo.BlockchainID.String()),
-			WSEndpoint:   fmt.Sprintf("ws://%s:%d/ext/bc/%s/ws", host, port, subnetInfo.BlockchainID.String()),
+			RPCEndpoint: config.APIConfig{
+				BaseURL: fmt.Sprintf("http://%s:%d/ext/bc/%s/rpc", host, port, subnetInfo.BlockchainID.String()),
+			},
+			WSEndpoint: config.APIConfig{
+				BaseURL: fmt.Sprintf("ws://%s:%d/ext/bc/%s/ws", host, port, subnetInfo.BlockchainID.String()),
+			},
 
 			MessageContracts: map[string]config.MessageProtocolConfig{
 				teleporterContractAddress.Hex(): {
@@ -149,10 +153,12 @@ func CreateDefaultRelayerConfig(
 		Expect(err).Should(BeNil())
 
 		destinations[i] = &config.DestinationBlockchain{
-			SubnetID:          subnetInfo.SubnetID.String(),
-			BlockchainID:      subnetInfo.BlockchainID.String(),
-			VM:                config.EVM.String(),
-			RPCEndpoint:       fmt.Sprintf("http://%s:%d/ext/bc/%s/rpc", host, port, subnetInfo.BlockchainID.String()),
+			SubnetID:     subnetInfo.SubnetID.String(),
+			BlockchainID: subnetInfo.BlockchainID.String(),
+			VM:           config.EVM.String(),
+			RPCEndpoint: config.APIConfig{
+				BaseURL: fmt.Sprintf("http://%s:%d/ext/bc/%s/rpc", host, port, subnetInfo.BlockchainID.String()),
+			},
 			AccountPrivateKey: hex.EncodeToString(relayerKey.D.Bytes()),
 		}
 

@@ -13,17 +13,15 @@ import (
 	"github.com/ava-labs/avalanchego/vms/platformvm/warp"
 	warpPayload "github.com/ava-labs/avalanchego/vms/platformvm/warp/payload"
 	"github.com/ava-labs/awm-relayer/config"
+	"github.com/ava-labs/awm-relayer/ethclient"
 	"github.com/ava-labs/awm-relayer/vms"
 	"github.com/ava-labs/subnet-evm/accounts/abi/bind"
-	"github.com/ava-labs/subnet-evm/ethclient"
 	teleporterregistry "github.com/ava-labs/teleporter/abi-bindings/go/Teleporter/upgrades/TeleporterRegistry"
 	"github.com/ethereum/go-ethereum/common"
 	"go.uber.org/zap"
 )
 
-var (
-	OffChainRegistrySourceAddress = common.HexToAddress("0x0000000000000000000000000000000000000000")
-)
+var OffChainRegistrySourceAddress = common.HexToAddress("0x0000000000000000000000000000000000000000")
 
 const (
 	addProtocolVersionGasLimit  uint64 = 500_000

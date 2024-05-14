@@ -35,8 +35,12 @@ var (
 		},
 		SourceBlockchains: []*SourceBlockchain{
 			{
-				RPCEndpoint:  fmt.Sprintf("http://test.avax.network/ext/bc/%s/rpc", testBlockchainID),
-				WSEndpoint:   fmt.Sprintf("ws://test.avax.network/ext/bc/%s/ws", testBlockchainID),
+				RPCEndpoint: APIConfig{
+					BaseURL: fmt.Sprintf("http://test.avax.network/ext/bc/%s/rpc", testBlockchainID),
+				},
+				WSEndpoint: APIConfig{
+					BaseURL: fmt.Sprintf("ws://test.avax.network/ext/bc/%s/ws", testBlockchainID),
+				},
 				BlockchainID: testBlockchainID,
 				SubnetID:     testSubnetID,
 				VM:           "evm",
@@ -49,7 +53,9 @@ var (
 		},
 		DestinationBlockchains: []*DestinationBlockchain{
 			{
-				RPCEndpoint:       fmt.Sprintf("http://test.avax.network/ext/bc/%s/rpc", testBlockchainID),
+				RPCEndpoint: APIConfig{
+					BaseURL: fmt.Sprintf("http://test.avax.network/ext/bc/%s/rpc", testBlockchainID),
+				},
 				BlockchainID:      testBlockchainID,
 				SubnetID:          testSubnetID,
 				VM:                "evm",
@@ -58,8 +64,12 @@ var (
 		},
 	}
 	TestValidSourceBlockchainConfig = SourceBlockchain{
-		RPCEndpoint:  "http://test.avax.network/ext/bc/C/rpc",
-		WSEndpoint:   "ws://test.avax.network/ext/bc/C/ws",
+		RPCEndpoint: APIConfig{
+			BaseURL: "http://test.avax.network/ext/bc/C/rpc",
+		},
+		WSEndpoint: APIConfig{
+			BaseURL: "ws://test.avax.network/ext/bc/C/ws",
+		},
 		BlockchainID: "S4mMqUXe7vHsGiRAma6bv3CKnyaLssyAxmQ2KvFpX1KEvfFCD",
 		SubnetID:     "2TGBXcnwx5PqiXWiqxAKUaNSqDguXNh1mxnp82jui68hxJSZAx",
 		VM:           "evm",
@@ -70,10 +80,12 @@ var (
 		},
 	}
 	TestValidDestinationBlockchainConfig = DestinationBlockchain{
-		SubnetID:          "2TGBXcnwx5PqiXWiqxAKUaNSqDguXNh1mxnp82jui68hxJSZAx",
-		BlockchainID:      "S4mMqUXe7vHsGiRAma6bv3CKnyaLssyAxmQ2KvFpX1KEvfFCD",
-		VM:                "evm",
-		RPCEndpoint:       "http://test.avax.network/ext/bc/C/rpc",
+		SubnetID:     "2TGBXcnwx5PqiXWiqxAKUaNSqDguXNh1mxnp82jui68hxJSZAx",
+		BlockchainID: "S4mMqUXe7vHsGiRAma6bv3CKnyaLssyAxmQ2KvFpX1KEvfFCD",
+		VM:           "evm",
+		RPCEndpoint: APIConfig{
+			BaseURL: "http://test.avax.network/ext/bc/C/rpc",
+		},
 		AccountPrivateKey: "1234567890123456789012345678901234567890123456789012345678901234",
 	}
 )
