@@ -9,7 +9,6 @@ import (
 	testUtils "github.com/ava-labs/awm-relayer/tests/utils"
 	"github.com/ava-labs/subnet-evm/accounts/abi/bind"
 	"github.com/ava-labs/subnet-evm/core/types"
-	examplecrosschainmessenger "github.com/ava-labs/teleporter/abi-bindings/go/CrossChainApplications/examples/ExampleMessenger/ExampleCrossChainMessenger"
 	"github.com/ava-labs/teleporter/tests/interfaces"
 	"github.com/ava-labs/teleporter/tests/utils"
 	"github.com/ethereum/go-ethereum/common"
@@ -20,8 +19,7 @@ import (
 
 // Processes multiple Warp messages contained in the same block
 func BatchRelay(network interfaces.LocalNetwork) {
-	subnetAInfo := network.GetPrimaryNetworkInfo()
-	subnetBInfo, _ := utils.GetTwoSubnets(network)
+	subnetAInfo, subnetBInfo := utils.GetTwoSubnets(network)
 	fundedAddress, fundedKey := network.GetFundedAccountInfo()
 	teleporterContractAddress := network.GetTeleporterContractAddress()
 	err := testUtils.ClearRelayerStorage()
@@ -95,9 +93,9 @@ func BatchRelay(network interfaces.LocalNetwork) {
 		optsA,
 		subnetBInfo.BlockchainID,
 		batchMessengerAddressB,
-		common.BigToAddress(common.Big0),
+		common.Address{},
 		big.NewInt(0),
-		big.NewInt(0).Mul(examplecrosschainmessenger.SendMessageRequiredGas, big.NewInt(10)),
+		big.NewInt(500000),
 		messages,
 	)
 	Expect(err).Should(BeNil())
