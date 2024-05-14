@@ -222,13 +222,13 @@ The relayer is configured via a JSON file, the path to which is passed in via th
 
   - The VM type of the source blockchain.
 
-  `"rpc-endpoint": string`
+  `"rpc-endpoint": APIConfig`
 
-  - The RPC endpoint of the source blockchain's API node.
+  - The RPC endpoint configuration of the source blockchain's API node.
 
-  `"ws-endpoint": string`
+  `"ws-endpoint": APIConfig`
 
-  - The WebSocket endpoint of the source blockchain's API node.
+  - The WebSocket endpoint configuration of the source blockchain's API node.
 
   `"message-contracts": map[string]MessageProtocolConfig`
 
@@ -262,9 +262,9 @@ The relayer is configured via a JSON file, the path to which is passed in via th
 
   - The VM type of the source blockchain.
 
-  `"rpc-endpoint": string`
+  `"rpc-endpoint": APIConfig`
 
-  - The RPC endpoint of the destination blockchains's API node.
+  - The RPC endpoint configuration of the destination blockchains's API node.
 
   `"account-private-key": string`
 
