@@ -142,12 +142,12 @@ func (r *ApplicationRelayer) ProcessHeight(height uint64, msgs []messages.Messag
 		return err
 	}
 	r.checkpointManager.StageCommittedHeight(height)
-
 	r.logger.Debug(
 		"Processed block",
 		zap.Uint64("height", height),
 		zap.String("sourceBlockchainID", r.relayerID.SourceBlockchainID.String()),
 		zap.String("relayerID", r.relayerID.ID.String()),
+		zap.Int("numMessages", len(msgs)),
 	)
 	return nil
 }
@@ -177,6 +177,12 @@ func (r *ApplicationRelayer) relayMessage(
 	messageHandler messages.MessageHandler,
 	useAppRequestNetwork bool,
 ) error {
+	r.logger.Debug(
+		"Relaying message",
+		zap.Uint32("requestID", requestID),
+		zap.String("sourceBlockchainID", r.sourceBlockchain.BlockchainID),
+		zap.String("relayerID", r.relayerID.ID.String()),
+	)
 	shouldSend, err := messageHandler.ShouldSendMessage(r.relayerID.DestinationBlockchainID)
 	if err != nil {
 		r.logger.Error(
