@@ -28,7 +28,7 @@ contract BatchCrossChainMessenger is ReentrancyGuard, TeleporterOwnerUpgradeable
         string[] messages;
     }
 
-    mapping(bytes32 sourceBlockchainID => Messages messages) private _messages;
+    mapping(bytes32 sourceBlockchainID => string[] messages) private _messages;
 
     /**
      * @dev Emitted when a message is submited to be sent.
@@ -45,8 +45,8 @@ contract BatchCrossChainMessenger is ReentrancyGuard, TeleporterOwnerUpgradeable
     /**
      * @dev Emitted when a new message is received from a given chain ID.
      */
-    event ReceiveMessages(
-        bytes32 indexed sourceBlockchainID, address indexed originSenderAddress, string[] messages
+    event ReceiveMessage(
+        bytes32 indexed sourceBlockchainID, address indexed originSenderAddress, string message
     );
 
     constructor(
@@ -105,10 +105,10 @@ contract BatchCrossChainMessenger is ReentrancyGuard, TeleporterOwnerUpgradeable
     function getCurrentMessages(bytes32 sourceBlockchainID)
         external
         view
-        returns (address, string[] memory)
+        returns (string[] memory)
     {
-        Messages memory messageInfo = _messages[sourceBlockchainID];
-        return (messageInfo.sender, messageInfo.messages);
+        string[] memory messages = _messages[sourceBlockchainID];
+        return messages;
     }
 
     /**
@@ -119,11 +119,11 @@ contract BatchCrossChainMessenger is ReentrancyGuard, TeleporterOwnerUpgradeable
     function _receiveTeleporterMessage(
         bytes32 sourceBlockchainID,
         address originSenderAddress,
-        bytes memory messages
+        bytes memory message
     ) internal override {
         // Store the message.
-        string[] memory messagesString = abi.decode(messages, (string[]));
-        _messages[sourceBlockchainID] = Messages(originSenderAddress, messagesString);
-        emit ReceiveMessages(sourceBlockchainID, originSenderAddress, messagesString);
+        string memory messageString = abi.decode(message, (string));
+        _messages[sourceBlockchainID].push(messageString);
+        emit ReceiveMessage(sourceBlockchainID, originSenderAddress, messageString);
     }
 }

@@ -2,7 +2,9 @@ package tests
 
 import (
 	"context"
+	"fmt"
 	"math/big"
+	"strconv"
 	"time"
 
 	"github.com/ava-labs/avalanchego/utils/set"
@@ -81,10 +83,10 @@ func BatchRelay(network interfaces.LocalNetwork) {
 	Expect(err).Should(BeNil())
 	defer sub.Unsubscribe()
 
-	messages := []string{"hello", "world", "this", "is", "a", "cross", "chain", "batch", "message"}
-	sentMessages := set.NewSet[string](len(messages))
-	for _, msg := range messages {
-		sentMessages.Add(msg)
+	numMessages := 50
+	sentMessages := set.NewSet[string](numMessages)
+	for i := range numMessages {
+		sentMessages.Add(strconv.Itoa(i))
 	}
 
 	optsA, err := bind.NewKeyedTransactorWithChainID(fundedKey, subnetAInfo.EVMChainID)
@@ -95,19 +97,30 @@ func BatchRelay(network interfaces.LocalNetwork) {
 		batchMessengerAddressB,
 		common.Address{},
 		big.NewInt(0),
-		big.NewInt(500000),
-		messages,
+		big.NewInt(int64(300000*numMessages)),
+		sentMessages.List(),
 	)
 	Expect(err).Should(BeNil())
 
 	utils.WaitForTransactionSuccess(ctx, subnetAInfo, tx.Hash())
 
 	// Wait for the message on the destination
-	<-newHeadsDest
+	maxWait := 30
+	currWait := 0
+	log.Info("Waiting to receive all messages on destination...")
+	for {
+		receivedMessages, err := batchMessengerB.GetCurrentMessages(&bind.CallOpts{}, subnetAInfo.BlockchainID)
+		Expect(err).Should(BeNil())
 
-	_, receivedMessages, err := batchMessengerB.GetCurrentMessages(&bind.CallOpts{}, subnetAInfo.BlockchainID)
-	Expect(err).Should(BeNil())
-	for _, msg := range receivedMessages {
-		Expect(sentMessages.Contains(msg)).To(BeTrue())
+		// Remove the received messages from the set of sent messages
+		sentMessages.Remove(receivedMessages...)
+		if sentMessages.Len() == 0 {
+			break
+		}
+		currWait++
+		if currWait == maxWait {
+			Expect(false).Should(BeTrue(), fmt.Sprintf("did not receive all sent messages in time. received %d/%d", numMessages-sentMessages.Len(), numMessages))
+		}
+		time.Sleep(1 * time.Second)
 	}
 }
