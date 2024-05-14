@@ -15,12 +15,12 @@ import (
 	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/awm-relayer/config"
 	"github.com/ava-labs/awm-relayer/database"
+	"github.com/ava-labs/awm-relayer/ethclient"
 	"github.com/ava-labs/awm-relayer/messages"
 	"github.com/ava-labs/awm-relayer/peers"
 	relayerTypes "github.com/ava-labs/awm-relayer/types"
 	"github.com/ava-labs/awm-relayer/utils"
 	vms "github.com/ava-labs/awm-relayer/vms"
-	"github.com/ava-labs/subnet-evm/ethclient"
 	"github.com/ethereum/go-ethereum/common"
 	"go.uber.org/atomic"
 	"go.uber.org/zap"
@@ -72,7 +72,12 @@ func NewListener(
 		)
 		return nil, err
 	}
-	ethWSClient, err := ethclient.Dial(sourceBlockchain.WSEndpoint)
+	ethWSClient, err := ethclient.DialWithConfig(
+		context.Background(),
+		sourceBlockchain.WSEndpoint.BaseURL,
+		sourceBlockchain.WSEndpoint.HTTPHeaders,
+		sourceBlockchain.WSEndpoint.QueryParams,
+	)
 	if err != nil {
 		logger.Error(
 			"Failed to connect to node via WS",
