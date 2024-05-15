@@ -39,7 +39,7 @@ type AppRequestNetwork struct {
 	validatorClient *validators.CanonicalValidatorClient
 }
 
-// NewNetwork connects to a peers at the app request level.
+// NewNetwork creates a p2p network client for interacting with validators
 func NewNetwork(
 	logLevel logging.Level,
 	registerer prometheus.Registerer,
@@ -54,12 +54,7 @@ func NewNetwork(
 		),
 	)
 
-	// Create the test network for AppRequests
-	var trackedSubnets set.Set[ids.ID]
-	for _, sourceBlockchain := range cfg.SourceBlockchains {
-		trackedSubnets.Add(sourceBlockchain.GetSubnetID())
-	}
-
+	// Create the handler for handling inbound app responses
 	handler, err := NewRelayerExternalHandler(logger, registerer)
 	if err != nil {
 		logger.Error(
@@ -84,6 +79,11 @@ func NewNetwork(
 			zap.Error(err),
 		)
 		return nil, err
+	}
+
+	var trackedSubnets set.Set[ids.ID]
+	for _, sourceBlockchain := range cfg.SourceBlockchains {
+		trackedSubnets.Add(sourceBlockchain.GetSubnetID())
 	}
 
 	testNetwork, err := network.NewTestNetwork(logger, networkID, snowVdrs.NewManager(), trackedSubnets, handler)

@@ -22,16 +22,16 @@ var ErrInvalidLog = errors.New("invalid warp message log")
 
 // WarpBlockInfo describes the block height and logs needed to process Warp messages.
 // WarpBlockInfo instances are populated by the subscriber, and forwared to the
-// listener to process
+// Listener to process
 type WarpBlockInfo struct {
 	BlockNumber uint64
 	Messages    []*WarpMessageInfo
 }
 
-// NewWarpMessageInfo describes the transaction information for the Warp message
-// sent on the source chain, and includes the Warp Message payload bytes
-// NewWarpMessageInfo instances are either derived from the logs of a block or
-// from the manual Warp message information provided via configuration
+// WarpMessageInfo describes the transaction information for the Warp message
+// sent on the source chain.
+// WarpMessageInfo instances are either derived from the logs of a block or
+// from the manual Warp message information provided via configuration.
 type WarpMessageInfo struct {
 	SourceAddress   common.Address
 	UnsignedMessage *avalancheWarp.UnsignedMessage

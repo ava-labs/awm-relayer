@@ -178,6 +178,7 @@ func main() {
 	ticker := utils.NewTicker(cfg.DBWriteIntervalSeconds)
 	go ticker.Run()
 
+	// Gather manual Warp messages specified in the configuration
 	manualWarpMessages := make(map[ids.ID][]*relayerTypes.WarpMessageInfo)
 	for _, msg := range cfg.ManualWarpMessages {
 		sourceBlockchainID := msg.GetSourceBlockchainID()
@@ -196,7 +197,7 @@ func main() {
 		manualWarpMessages[sourceBlockchainID] = append(manualWarpMessages[sourceBlockchainID], &warpLogInfo)
 	}
 
-	// Create relayers for each of the subnets configured as a source
+	// Create listeners for each of the subnets configured as a source
 	errGroup, ctx := errgroup.WithContext(context.Background())
 	for _, s := range cfg.SourceBlockchains {
 		blockchainID, err := ids.FromString(s.BlockchainID)
@@ -214,8 +215,8 @@ func main() {
 
 		// errgroup will cancel the context when the first goroutine returns an error
 		errGroup.Go(func() error {
-			// runRelayer runs until it errors or the context is cancelled by another goroutine
-			return runRelayer(
+			// runListener runs until it errors or the context is cancelled by another goroutine
+			return runListener(
 				ctx,
 				logger,
 				metrics,
@@ -238,8 +239,9 @@ func main() {
 	)
 }
 
-// runRelayer creates a relayer instance for a subnet. It listens for warp messages on that subnet, and handles delivery to the destination
-func runRelayer(
+// runListener creates a Listener instance and the ApplicationRelayers for a subnet.
+// The Listener listens for warp messages on that subnet, and the ApplicationRelayers handle delivery to the destination
+func runListener(
 	ctx context.Context,
 	logger logging.Logger,
 	metrics *relayer.ApplicationRelayerMetrics,
@@ -253,11 +255,13 @@ func runRelayer(
 	manualWarpMessages []*relayerTypes.WarpMessageInfo,
 	cfg *config.Config,
 ) error {
-	// Create the application relayers
+	// Create the ApplicationRelayers
 	logger.Info(
 		"Creating application relayers",
 		zap.String("originBlockchainID", sourceBlockchain.BlockchainID),
 	)
+	applicationRelayers := make(map[common.Hash]*relayer.ApplicationRelayer)
+
 	ethClient, err := ethclient.DialWithConfig(
 		context.Background(),
 		sourceBlockchain.RPCEndpoint.BaseURL,
@@ -272,6 +276,7 @@ func runRelayer(
 		)
 		return err
 	}
+
 	currentHeight, err := ethClient.BlockNumber(context.Background())
 	if err != nil {
 		logger.Error(
@@ -280,9 +285,10 @@ func runRelayer(
 		)
 		return err
 	}
-	applicationRelayers := make(map[common.Hash]*relayer.ApplicationRelayer)
-	minHeight := uint64(0)
 
+	// Each ApplicationRelayer determines its starting height based on the database state.
+	// The Listener back-processes from the minimum height across all of the ApplicationRelayers.
+	minHeight := uint64(0)
 	for _, relayerID := range database.GetSourceBlockchainRelayerIDs(&sourceBlockchain) {
 		height, err := database.CalculateStartingBlockHeight(
 			logger,
@@ -325,6 +331,7 @@ func runRelayer(
 		applicationRelayers[relayerID.ID] = applicationRelayer
 	}
 
+	// Create the Listener
 	logger.Info(
 		"Creating listener",
 		zap.String("originBlockchainID", sourceBlockchain.BlockchainID),

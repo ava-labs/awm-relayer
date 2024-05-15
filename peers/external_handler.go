@@ -32,6 +32,7 @@ type RelayerExternalHandler struct {
 	timeoutManager    timer.AdaptiveTimeoutManager
 }
 
+// expectedResponses counts the number of responses and compares against the expected number of responses
 type expectedResponses struct {
 	expected, received int
 }
@@ -108,6 +109,8 @@ func (h *RelayerExternalHandler) Disconnected(nodeID ids.NodeID) {
 	)
 }
 
+// RegisterRequestID registers an AppRequest by requestID, and marks the number of expected responses, equivalent to the number of nodes requested.
+// requestID should be globally unique for the lifetime of the AppRequest. This is upper bounded by the timeout duration.
 func (h *RelayerExternalHandler) RegisterRequestID(requestID uint32, numExpectedResponses int) chan message.InboundMessage {
 	// Create a channel to receive the response
 	h.responseChansLock.Lock()
@@ -188,7 +191,7 @@ func (h *RelayerExternalHandler) RegisterAppResponse(inboundMessage message.Inbo
 		h.log.Debug("Could not find response channel for request", zap.Uint32("requestID", requestID))
 	}
 
-	// Check for the expected number of responses
+	// Check for the expected number of responses, and clear from the map if all expected responses have been received
 	responses := h.responsesCount[reqID.RequestID]
 	received := responses.received + 1
 	if received == responses.expected {
