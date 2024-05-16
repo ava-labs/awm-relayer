@@ -3,6 +3,7 @@ package tests
 import (
 	"context"
 	"crypto/ecdsa"
+	"fmt"
 	"strconv"
 	"time"
 
@@ -187,6 +188,8 @@ func AllowedAddresses(network interfaces.LocalNetwork) {
 	)
 	height1, err := subnetAInfo.RPCClient.BlockNumber(ctx)
 	Expect(err).Should(BeNil())
+	// Sleep for some time to make sure the DB is updated
+	time.Sleep(testUtils.DBUpdateSeconds * time.Second)
 	relayerCleanup()
 
 	// Test Relayer 2
@@ -225,6 +228,8 @@ func AllowedAddresses(network interfaces.LocalNetwork) {
 	)
 	height2, err := subnetAInfo.RPCClient.BlockNumber(ctx)
 	Expect(err).Should(BeNil())
+	// Sleep for some time to make sure the DB is updated
+	time.Sleep(testUtils.DBUpdateSeconds * time.Second)
 	relayerCleanup()
 
 	// Test Relayer 3
@@ -263,6 +268,8 @@ func AllowedAddresses(network interfaces.LocalNetwork) {
 	)
 	height3, err := subnetAInfo.RPCClient.BlockNumber(ctx)
 	Expect(err).Should(BeNil())
+	// Sleep for some time to make sure the DB is updated
+	time.Sleep(testUtils.DBUpdateSeconds * time.Second)
 	relayerCleanup()
 
 	// Test Relayer 4
@@ -301,6 +308,8 @@ func AllowedAddresses(network interfaces.LocalNetwork) {
 	)
 	height4, err := subnetAInfo.RPCClient.BlockNumber(ctx)
 	Expect(err).Should(BeNil())
+	// Sleep for some time to make sure the DB is updated
+	time.Sleep(testUtils.DBUpdateSeconds * time.Second)
 	relayerCleanup()
 
 	//
@@ -331,6 +340,15 @@ func AllowedAddresses(network interfaces.LocalNetwork) {
 		subnetBInfo.BlockchainID,
 		allowedAddresses[relayer4AllowedSrcAddressIdx],
 		allowedAddresses[relayer4AllowedDstAddressIdx],
+	)
+	log.Info(
+		fmt.Sprintf(
+			"Checking database state. Relayer IDs: %s, %s, %s, %s",
+			relayerID1.ID.String(),
+			relayerID2.ID.String(),
+			relayerID3.ID.String(),
+			relayerID4.ID.String(),
+		),
 	)
 	relayerKeys := []database.RelayerID{relayerID1, relayerID2, relayerID3, relayerID4}
 	jsonDB, err := database.NewJSONFileStorage(logging.NoLog{}, testUtils.StorageLocation, relayerKeys)

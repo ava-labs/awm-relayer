@@ -17,7 +17,7 @@ import (
 	"github.com/ava-labs/avalanchego/utils/set"
 	"github.com/ava-labs/awm-relayer/utils"
 
-	"github.com/ava-labs/subnet-evm/ethclient"
+	"github.com/ava-labs/awm-relayer/ethclient"
 	"github.com/ava-labs/subnet-evm/precompile/contracts/warp"
 
 	// Force-load precompiles to trigger registration
@@ -85,8 +85,8 @@ type SourceBlockchain struct {
 	SubnetID                          string                           `mapstructure:"subnet-id" json:"subnet-id"`
 	BlockchainID                      string                           `mapstructure:"blockchain-id" json:"blockchain-id"`
 	VM                                string                           `mapstructure:"vm" json:"vm"`
-	RPCEndpoint                       string                           `mapstructure:"rpc-endpoint" json:"rpc-endpoint"`
-	WSEndpoint                        string                           `mapstructure:"ws-endpoint" json:"ws-endpoint"`
+	RPCEndpoint                       APIConfig                        `mapstructure:"rpc-endpoint" json:"rpc-endpoint"`
+	WSEndpoint                        APIConfig                        `mapstructure:"ws-endpoint" json:"ws-endpoint"`
 	MessageContracts                  map[string]MessageProtocolConfig `mapstructure:"message-contracts" json:"message-contracts"`
 	SupportedDestinations             []*SupportedDestination          `mapstructure:"supported-destinations" json:"supported-destinations"`
 	ProcessHistoricalBlocksFromHeight uint64                           `mapstructure:"process-historical-blocks-from-height" json:"process-historical-blocks-from-height"`
@@ -100,13 +100,13 @@ type SourceBlockchain struct {
 
 // Destination blockchain configuration. Specifies how to connect to and issue transactions on the desination blockchain.
 type DestinationBlockchain struct {
-	SubnetID          string `mapstructure:"subnet-id" json:"subnet-id"`
-	BlockchainID      string `mapstructure:"blockchain-id" json:"blockchain-id"`
-	VM                string `mapstructure:"vm" json:"vm"`
-	RPCEndpoint       string `mapstructure:"rpc-endpoint" json:"rpc-endpoint"`
-	KMSKeyID          string `mapstructure:"kms-key-id" json:"kms-key-id"`
-	KMSAWSRegion      string `mapstructure:"kms-aws-region" json:"kms-aws-region"`
-	AccountPrivateKey string `mapstructure:"account-private-key" json:"account-private-key"`
+	SubnetID          string    `mapstructure:"subnet-id" json:"subnet-id"`
+	BlockchainID      string    `mapstructure:"blockchain-id" json:"blockchain-id"`
+	VM                string    `mapstructure:"vm" json:"vm"`
+	RPCEndpoint       APIConfig `mapstructure:"rpc-endpoint" json:"rpc-endpoint"`
+	KMSKeyID          string    `mapstructure:"kms-key-id" json:"kms-key-id"`
+	KMSAWSRegion      string    `mapstructure:"kms-aws-region" json:"kms-aws-region"`
+	AccountPrivateKey string    `mapstructure:"account-private-key" json:"account-private-key"`
 
 	// Fetched from the chain after startup
 	warpQuorum WarpQuorum
@@ -131,12 +131,12 @@ type APIConfig struct {
 
 // Top-level configuration
 type Config struct {
-	LogLevel        string `mapstructure:"log-level" json:"log-level"`
-	StorageLocation string `mapstructure:"storage-location" json:"storage-location"`
-	RedisURL        string `mapstructure:"redis-url" json:"redis-url"`
-	APIPort         uint16 `mapstructure:"api-port" json:"api-port"`
-	MetricsPort     uint16 `mapstructure:"metrics-port" json:"metrics-port"`
-
+	LogLevel               string                   `mapstructure:"log-level" json:"log-level"`
+	StorageLocation        string                   `mapstructure:"storage-location" json:"storage-location"`
+	RedisURL               string                   `mapstructure:"redis-url" json:"redis-url"`
+	APIPort                uint16                   `mapstructure:"api-port" json:"api-port"`
+	MetricsPort            uint16                   `mapstructure:"metrics-port" json:"metrics-port"`
+	DBWriteIntervalSeconds uint64                   `mapstructure:"db-write-interval-seconds" json:"db-write-interval-seconds"`
 	PChainAPI              *APIConfig               `mapstructure:"p-chain-api" json:"p-chain-api"`
 	InfoAPI                *APIConfig               `mapstructure:"info-api" json:"info-api"`
 	SourceBlockchains      []*SourceBlockchain      `mapstructure:"source-blockchains" json:"source-blockchains"`
@@ -154,6 +154,7 @@ func SetDefaultConfigValues(v *viper.Viper) {
 	v.SetDefault(ProcessMissedBlocksKey, true)
 	v.SetDefault(APIPortKey, 8080)
 	v.SetDefault(MetricsPortKey, 9090)
+	v.SetDefault(DBWriteIntervalSecondsKey, 10)
 }
 
 // BuildConfig constructs the relayer config using Viper.
@@ -184,6 +185,7 @@ func BuildConfig(v *viper.Viper) (Config, bool, error) {
 	cfg.ProcessMissedBlocks = v.GetBool(ProcessMissedBlocksKey)
 	cfg.APIPort = v.GetUint16(APIPortKey)
 	cfg.MetricsPort = v.GetUint16(MetricsPortKey)
+	cfg.DBWriteIntervalSeconds = v.GetUint64(DBWriteIntervalSecondsKey)
 	if err := v.UnmarshalKey(PChainAPIKey, &cfg.PChainAPI); err != nil {
 		return Config{}, false, fmt.Errorf("failed to unmarshal P-Chain API: %w", err)
 	}
@@ -246,6 +248,9 @@ func (c *Config) Validate() error {
 	}
 	if err := c.InfoAPI.Validate(); err != nil {
 		return err
+	}
+	if c.DBWriteIntervalSeconds == 0 || c.DBWriteIntervalSeconds > 600 {
+		return errors.New("db-write-interval-seconds must be between 1 and 600")
 	}
 
 	blockchainIDToSubnetID := make(map[ids.ID]ids.ID)
@@ -436,11 +441,11 @@ func (s *SourceBlockchain) Validate(destinationBlockchainIDs *set.Set[string]) e
 	if _, err := ids.FromString(s.BlockchainID); err != nil {
 		return fmt.Errorf("invalid blockchainID in source subnet configuration. Provided ID: %s", s.BlockchainID)
 	}
-	if _, err := url.ParseRequestURI(s.WSEndpoint); err != nil {
-		return fmt.Errorf("invalid relayer subscribe URL in source subnet configuration: %w", err)
+	if err := s.RPCEndpoint.Validate(); err != nil {
+		return fmt.Errorf("invalid rpc-endpoint in source subnet configuration: %w", err)
 	}
-	if _, err := url.ParseRequestURI(s.RPCEndpoint); err != nil {
-		return fmt.Errorf("invalid relayer RPC URL in source subnet configuration: %w", err)
+	if err := s.WSEndpoint.Validate(); err != nil {
+		return fmt.Errorf("invalid ws-endpoint in source subnet configuration: %w", err)
 	}
 
 	// Validate the VM specific settings
@@ -538,13 +543,13 @@ func (s *SourceBlockchain) GetAllowedOriginSenderAddresses() []common.Address {
 // Validatees the destination subnet configuration
 func (s *DestinationBlockchain) Validate() error {
 	if _, err := ids.FromString(s.SubnetID); err != nil {
-		return fmt.Errorf("invalid subnetID in source subnet configuration. Provided ID: %s", s.SubnetID)
+		return fmt.Errorf("invalid subnetID in destination subnet configuration. Provided ID: %s", s.SubnetID)
 	}
 	if _, err := ids.FromString(s.BlockchainID); err != nil {
-		return fmt.Errorf("invalid blockchainID in source subnet configuration. Provided ID: %s", s.BlockchainID)
+		return fmt.Errorf("invalid blockchainID in destination subnet configuration. Provided ID: %s", s.BlockchainID)
 	}
-	if _, err := url.ParseRequestURI(s.RPCEndpoint); err != nil {
-		return fmt.Errorf("invalid relayer broadcast URL: %w", err)
+	if err := s.RPCEndpoint.Validate(); err != nil {
+		return fmt.Errorf("invalid rpc-endpoint in destination subnet configuration: %w", err)
 	}
 	if s.KMSKeyID != "" {
 		if s.KMSAWSRegion == "" {
@@ -598,7 +603,7 @@ func (s *DestinationBlockchain) initializeWarpQuorum() error {
 		return fmt.Errorf("invalid subnetID in configuration. error: %w", err)
 	}
 
-	client, err := ethclient.Dial(s.RPCEndpoint)
+	client, err := ethclient.DialWithConfig(context.Background(), s.RPCEndpoint.BaseURL, s.RPCEndpoint.HTTPHeaders, s.RPCEndpoint.QueryParams)
 	if err != nil {
 		return fmt.Errorf("failed to dial destination blockchain %s: %w", blockchainID, err)
 	}

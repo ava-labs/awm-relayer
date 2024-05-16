@@ -21,8 +21,9 @@ import (
 	"github.com/ava-labs/awm-relayer/database"
 	"github.com/ava-labs/awm-relayer/peers"
 	"github.com/ava-labs/awm-relayer/relayer"
+	relayerTypes "github.com/ava-labs/awm-relayer/types"
+	"github.com/ava-labs/awm-relayer/utils"
 	"github.com/ava-labs/awm-relayer/vms"
-	"github.com/ava-labs/awm-relayer/vms/vmtypes"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/atomic"
@@ -184,11 +185,15 @@ func main() {
 		panic(err)
 	}
 
-	manualWarpMessages := make(map[ids.ID][]*vmtypes.WarpLogInfo)
+	// Initialize the global write ticker
+	ticker := utils.NewTicker(cfg.DBWriteIntervalSeconds)
+	go ticker.Run()
+
+	manualWarpMessages := make(map[ids.ID][]*relayerTypes.WarpLogInfo)
 	for _, msg := range cfg.ManualWarpMessages {
 		sourceBlockchainID := msg.GetSourceBlockchainID()
 
-		warpLogInfo := vmtypes.WarpLogInfo{
+		warpLogInfo := relayerTypes.WarpLogInfo{
 			SourceAddress:    msg.GetSourceAddress(),
 			UnsignedMsgBytes: msg.GetUnsignedMessageBytes(),
 		}
@@ -219,6 +224,7 @@ func main() {
 				logger,
 				metrics,
 				db,
+				ticker,
 				*subnetInfo,
 				network,
 				responseChans[blockchainID],
@@ -243,13 +249,14 @@ func runRelayer(
 	logger logging.Logger,
 	metrics *relayer.ApplicationRelayerMetrics,
 	db database.RelayerDatabase,
+	ticker *utils.Ticker,
 	sourceSubnetInfo config.SourceBlockchain,
 	network *peers.AppRequestNetwork,
 	responseChan chan message.InboundMessage,
 	destinationClients map[ids.ID]vms.DestinationClient,
 	messageCreator message.Creator,
 	relayerHealth *atomic.Bool,
-	manualWarpMessages []*vmtypes.WarpLogInfo,
+	manualWarpMessages []*relayerTypes.WarpLogInfo,
 	cfg *config.Config,
 ) error {
 	logger.Info(
@@ -261,6 +268,7 @@ func runRelayer(
 		logger,
 		metrics,
 		db,
+		ticker,
 		sourceSubnetInfo,
 		network,
 		responseChan,
@@ -284,7 +292,7 @@ func runRelayer(
 			zap.String("blockchainID", sourceSubnetInfo.BlockchainID),
 			zap.String("warpMessageBytes", hex.EncodeToString(warpMessage.UnsignedMsgBytes)),
 		)
-		err := listener.RouteMessage(warpMessage, false)
+		err := listener.RouteManualWarpMessage(warpMessage)
 		if err != nil {
 			logger.Error(
 				"Failed to relay manual Warp message. Continuing.",

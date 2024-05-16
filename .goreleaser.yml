@@ -51,6 +51,10 @@ docker_manifests:
     image_templates:
     - 'avaplatform/awm-relayer:{{ .Tag }}-amd64'
     - 'avaplatform/awm-relayer:{{ .Tag }}-arm64'
+  - name_template: 'avaplatform/awm-relayer:latest'
+    image_templates:
+    - 'avaplatform/awm-relayer:{{ .Tag }}-amd64'
+    - 'avaplatform/awm-relayer:{{ .Tag }}-arm64'
 release:
   # Repo in which the release will be created.
   # Default is extracted from the origin remote URL or empty if its private hosted.

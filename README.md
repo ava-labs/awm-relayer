@@ -170,6 +170,18 @@ The relayer is configured via a JSON file, the path to which is passed in via th
 
 - Whether or not to process missed blocks after restarting. Defaults to `true`. If set to false, the relayer will start processing blocks from the chain head.
 
+`"api-port"`: unsigned integer
+
+- The port on which the relayer will listen for API requests. Defaults to `8080`.
+
+`"metrics-port"`: unsigned integer
+
+- The port on which the relayer will expose Prometheus metrics. Defaults to `9090`.
+
+`"db-write-interval-seconds": unsigned integer`
+
+- The interval at which the relayer will write to the database. Defaults to `10`.
+
 `"manual-warp-messages": []ManualWarpMessage`
 
 - The list of Warp messages to relay on startup, independent of the catch-up mechanism or normal operation. Each `ManualWarpMessage` has the following configuration:
@@ -210,13 +222,13 @@ The relayer is configured via a JSON file, the path to which is passed in via th
 
   - The VM type of the source blockchain.
 
-  `"rpc-endpoint": string`
+  `"rpc-endpoint": APIConfig`
 
-  - The RPC endpoint of the source blockchain's API node.
+  - The RPC endpoint configuration of the source blockchain's API node.
 
-  `"ws-endpoint": string`
+  `"ws-endpoint": APIConfig`
 
-  - The WebSocket endpoint of the source blockchain's API node.
+  - The WebSocket endpoint configuration of the source blockchain's API node.
 
   `"message-contracts": map[string]MessageProtocolConfig`
 
@@ -250,9 +262,9 @@ The relayer is configured via a JSON file, the path to which is passed in via th
 
   - The VM type of the source blockchain.
 
-  `"rpc-endpoint": string`
+  `"rpc-endpoint": APIConfig`
 
-  - The RPC endpoint of the destination blockchains's API node.
+  - The RPC endpoint configuration of the destination blockchains's API node.
 
   `"account-private-key": string`
 
@@ -277,7 +289,8 @@ The relayer consists of the following components:
 - At the global level:
   - P2P app network: issues signature `AppRequests`
   - P-Chain client: gets the validators for a Subnet
-  - JSON database: stores latest processed block for each Application Relayer
+  - Relayer database: stores latest processed block for each Application Relayer
+    - Currently supports Redis and local JSON file storage
 - Per Source Blockchain
   - Subscriber: listens for logs pertaining to cross-chain message transactions
   - Source RPC client: queries for missed blocks on startup

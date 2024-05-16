@@ -6,10 +6,12 @@ package vms
 import (
 	"math/big"
 
+	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/awm-relayer/config"
 	"github.com/ava-labs/awm-relayer/vms/evm"
-	"github.com/ava-labs/awm-relayer/vms/vmtypes"
+	"github.com/ava-labs/subnet-evm/core/types"
+	"github.com/ava-labs/subnet-evm/ethclient"
 )
 
 // Subscriber subscribes to VM events containing Warp message data. The events written to the
@@ -25,8 +27,8 @@ type Subscriber interface {
 	// by Logs
 	Subscribe(maxResubscribeAttempts int) error
 
-	// Logs returns the channel that the subscription writes events to
-	Logs() <-chan vmtypes.WarpLogInfo
+	// Headers returns the channel that the subscription writes block headers to
+	Headers() <-chan *types.Header
 
 	// Err returns the channel that the subscription writes errors to
 	// If an error is sent to this channel, the subscription should be closed
@@ -37,10 +39,10 @@ type Subscriber interface {
 }
 
 // NewSubscriber returns a concrete Subscriber according to the VM specified by [subnetInfo]
-func NewSubscriber(logger logging.Logger, subnetInfo config.SourceBlockchain) Subscriber {
-	switch config.ParseVM(subnetInfo.VM) {
+func NewSubscriber(logger logging.Logger, vm config.VM, blockchainID ids.ID, ethClient ethclient.Client) Subscriber {
+	switch vm {
 	case config.EVM:
-		return evm.NewSubscriber(logger, subnetInfo)
+		return evm.NewSubscriber(logger, blockchainID, ethClient)
 	default:
 		return nil
 	}

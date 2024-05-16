@@ -41,6 +41,7 @@ import (
 var StorageLocation = fmt.Sprintf("%s/.awm-relayer-storage", os.TempDir())
 
 const DefaultRelayerCfgFname = "relayer-config.json"
+const DBUpdateSeconds = 1
 
 func BuildAndRunRelayerExecutable(ctx context.Context, relayerConfigPath string) context.CancelFunc {
 	// Build the awm-relayer binary
@@ -102,8 +103,14 @@ func CreateDefaultRelayerConfig(
 	fundedAddress common.Address,
 	relayerKey *ecdsa.PrivateKey,
 ) config.Config {
+	logLevel, err := logging.ToLevel(os.Getenv("LOG_LEVEL"))
+	if err != nil {
+		logLevel = logging.Info
+	}
+
 	log.Info(
 		"Setting up relayer config",
+		"logLevel", logLevel.LowerString(),
 	)
 	// Construct the config values for each subnet
 	sources := make([]*config.SourceBlockchain, len(sourceSubnetsInfo))
@@ -116,8 +123,12 @@ func CreateDefaultRelayerConfig(
 			SubnetID:     subnetInfo.SubnetID.String(),
 			BlockchainID: subnetInfo.BlockchainID.String(),
 			VM:           config.EVM.String(),
-			RPCEndpoint:  fmt.Sprintf("http://%s:%d/ext/bc/%s/rpc", host, port, subnetInfo.BlockchainID.String()),
-			WSEndpoint:   fmt.Sprintf("ws://%s:%d/ext/bc/%s/ws", host, port, subnetInfo.BlockchainID.String()),
+			RPCEndpoint: config.APIConfig{
+				BaseURL: fmt.Sprintf("http://%s:%d/ext/bc/%s/rpc", host, port, subnetInfo.BlockchainID.String()),
+			},
+			WSEndpoint: config.APIConfig{
+				BaseURL: fmt.Sprintf("ws://%s:%d/ext/bc/%s/ws", host, port, subnetInfo.BlockchainID.String()),
+			},
 
 			MessageContracts: map[string]config.MessageProtocolConfig{
 				teleporterContractAddress.Hex(): {
@@ -149,10 +160,12 @@ func CreateDefaultRelayerConfig(
 		Expect(err).Should(BeNil())
 
 		destinations[i] = &config.DestinationBlockchain{
-			SubnetID:          subnetInfo.SubnetID.String(),
-			BlockchainID:      subnetInfo.BlockchainID.String(),
-			VM:                config.EVM.String(),
-			RPCEndpoint:       fmt.Sprintf("http://%s:%d/ext/bc/%s/rpc", host, port, subnetInfo.BlockchainID.String()),
+			SubnetID:     subnetInfo.SubnetID.String(),
+			BlockchainID: subnetInfo.BlockchainID.String(),
+			VM:           config.EVM.String(),
+			RPCEndpoint: config.APIConfig{
+				BaseURL: fmt.Sprintf("http://%s:%d/ext/bc/%s/rpc", host, port, subnetInfo.BlockchainID.String()),
+			},
 			AccountPrivateKey: hex.EncodeToString(relayerKey.D.Bytes()),
 		}
 
@@ -174,6 +187,7 @@ func CreateDefaultRelayerConfig(
 			BaseURL: sourceSubnetsInfo[0].NodeURIs[0],
 		},
 		StorageLocation:        StorageLocation,
+		DBWriteIntervalSeconds: DBUpdateSeconds,
 		ProcessMissedBlocks:    false,
 		SourceBlockchains:      sources,
 		DestinationBlockchains: destinations,

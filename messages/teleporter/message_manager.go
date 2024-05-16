@@ -13,9 +13,9 @@ import (
 	"github.com/ava-labs/avalanchego/vms/platformvm/warp"
 	warpPayload "github.com/ava-labs/avalanchego/vms/platformvm/warp/payload"
 	"github.com/ava-labs/awm-relayer/config"
+	"github.com/ava-labs/awm-relayer/ethclient"
 	"github.com/ava-labs/awm-relayer/vms"
 	"github.com/ava-labs/subnet-evm/accounts/abi/bind"
-	"github.com/ava-labs/subnet-evm/ethclient"
 	teleportermessenger "github.com/ava-labs/teleporter/abi-bindings/go/Teleporter/TeleporterMessenger"
 	gasUtils "github.com/ava-labs/teleporter/utils/gas-utils"
 	teleporterUtils "github.com/ava-labs/teleporter/utils/teleporter-utils"
@@ -89,40 +89,26 @@ func isAllowedRelayer(allowedRelayers []common.Address, eoa common.Address) bool
 	return false
 }
 
-func (m *messageManager) GetDestinationBlockchainID(unsignedMessage *warp.UnsignedMessage) (ids.ID, error) {
+func (m *messageManager) GetMessageRoutingInfo(unsignedMessage *warp.UnsignedMessage) (
+	ids.ID,
+	common.Address,
+	ids.ID,
+	common.Address,
+	error,
+) {
 	teleporterMessage, err := m.parseTeleporterMessage(unsignedMessage)
 	if err != nil {
 		m.logger.Error(
 			"Failed to parse teleporter message.",
 			zap.String("warpMessageID", unsignedMessage.ID().String()),
 		)
-		return ids.ID{}, err
+		return ids.ID{}, common.Address{}, ids.ID{}, common.Address{}, err
 	}
-	return teleporterMessage.DestinationBlockchainID, nil
-}
-
-func (m *messageManager) GetOriginSenderAddress(unsignedMessage *warp.UnsignedMessage) (common.Address, error) {
-	teleporterMessage, err := m.parseTeleporterMessage(unsignedMessage)
-	if err != nil {
-		m.logger.Error(
-			"Failed to parse teleporter message.",
-			zap.String("warpMessageID", unsignedMessage.ID().String()),
-		)
-		return common.Address{}, err
-	}
-	return teleporterMessage.OriginSenderAddress, nil
-}
-
-func (m *messageManager) GetDestinationAddress(unsignedMessage *warp.UnsignedMessage) (common.Address, error) {
-	teleporterMessage, err := m.parseTeleporterMessage(unsignedMessage)
-	if err != nil {
-		m.logger.Error(
-			"Failed to parse teleporter message.",
-			zap.String("warpMessageID", unsignedMessage.ID().String()),
-		)
-		return common.Address{}, err
-	}
-	return teleporterMessage.DestinationAddress, nil
+	return unsignedMessage.SourceChainID,
+		teleporterMessage.OriginSenderAddress,
+		teleporterMessage.DestinationBlockchainID,
+		teleporterMessage.DestinationAddress,
+		nil
 }
 
 // ShouldSendMessage returns true if the message should be sent to the destination chain

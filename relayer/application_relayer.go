@@ -7,9 +7,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"fmt"
 	"math/big"
-	"strconv"
 	"time"
 
 	"github.com/ava-labs/avalanchego/ids"
@@ -25,9 +23,9 @@ import (
 	"github.com/ava-labs/awm-relayer/database"
 	"github.com/ava-labs/awm-relayer/messages"
 	"github.com/ava-labs/awm-relayer/peers"
+	"github.com/ava-labs/awm-relayer/relayer/checkpoint"
 	"github.com/ava-labs/awm-relayer/utils"
 	coreEthMsg "github.com/ava-labs/coreth/plugin/evm/message"
-	"github.com/ava-labs/subnet-evm/ethclient"
 	msg "github.com/ava-labs/subnet-evm/plugin/evm/message"
 	warpBackend "github.com/ava-labs/subnet-evm/warp"
 	"go.uber.org/zap"
@@ -56,16 +54,16 @@ var (
 // and send the signed warp message to the destination chain.
 // Each applicationRelayer runs in its own goroutine.
 type applicationRelayer struct {
-	logger           logging.Logger
-	metrics          *ApplicationRelayerMetrics
-	network          *peers.AppRequestNetwork
-	messageCreator   message.Creator
-	responseChan     chan message.InboundMessage
-	sourceBlockchain config.SourceBlockchain
-	signingSubnetID  ids.ID
-	relayerID        database.RelayerID
-	warpQuorum       config.WarpQuorum
-	db               database.RelayerDatabase
+	logger            logging.Logger
+	metrics           *ApplicationRelayerMetrics
+	network           *peers.AppRequestNetwork
+	messageCreator    message.Creator
+	responseChan      chan message.InboundMessage
+	sourceBlockchain  config.SourceBlockchain
+	signingSubnetID   ids.ID
+	relayerID         database.RelayerID
+	warpQuorum        config.WarpQuorum
+	checkpointManager *checkpoint.CheckpointManager
 }
 
 func newApplicationRelayer(
@@ -76,7 +74,9 @@ func newApplicationRelayer(
 	responseChan chan message.InboundMessage,
 	relayerID database.RelayerID,
 	db database.RelayerDatabase,
+	ticker *utils.Ticker,
 	sourceBlockchain config.SourceBlockchain,
+	startingHeight uint64,
 	cfg *config.Config,
 ) (*applicationRelayer, error) {
 	quorum, err := cfg.GetWarpQuorum(relayerID.DestinationBlockchainID)
@@ -96,25 +96,32 @@ func newApplicationRelayer(
 		// Otherwise, the source subnet signs the message.
 		signingSubnet = sourceBlockchain.GetSubnetID()
 	}
-	return &applicationRelayer{
-		logger:           logger,
-		metrics:          metrics,
-		network:          network,
-		messageCreator:   messageCreator,
-		responseChan:     responseChan,
-		sourceBlockchain: sourceBlockchain,
-		relayerID:        relayerID,
-		signingSubnetID:  signingSubnet,
-		warpQuorum:       quorum,
-		db:               db,
-	}, nil
+
+	sub := ticker.Subscribe()
+
+	checkpointManager := checkpoint.NewCheckpointManager(logger, db, sub, relayerID, startingHeight)
+	checkpointManager.Run()
+
+	ar := applicationRelayer{
+		logger:            logger,
+		metrics:           metrics,
+		network:           network,
+		messageCreator:    messageCreator,
+		responseChan:      responseChan,
+		sourceBlockchain:  sourceBlockchain,
+		relayerID:         relayerID,
+		signingSubnetID:   signingSubnet,
+		warpQuorum:        quorum,
+		checkpointManager: checkpointManager,
+	}
+
+	return &ar, nil
 }
 
 func (r *applicationRelayer) relayMessage(
 	unsignedMessage *avalancheWarp.UnsignedMessage,
 	requestID uint32,
 	messageManager messages.MessageManager,
-	storeProcessedHeight bool,
 	blockNumber uint64,
 	useAppRequestNetwork bool,
 ) error {
@@ -124,13 +131,12 @@ func (r *applicationRelayer) relayMessage(
 			"Failed to check if message should be sent",
 			zap.Error(err),
 		)
-
 		r.incFailedRelayMessageCount("failed to check if message should be sent")
-
 		return err
 	}
 	if !shouldSend {
 		r.logger.Info("Message should not be sent")
+		r.checkpointManager.Finished(blockNumber)
 		return nil
 	}
 
@@ -177,12 +183,9 @@ func (r *applicationRelayer) relayMessage(
 	)
 	r.incSuccessfulRelayMessageCount()
 
-	if !storeProcessedHeight {
-		return nil
-	}
-
 	// Update the database with the latest processed block height
-	return r.storeLatestBlockHeight(blockNumber)
+	r.checkpointManager.Finished(blockNumber)
+	return nil
 }
 
 // createSignedMessage fetches the signed Warp message from the source chain via RPC.
@@ -191,7 +194,7 @@ func (r *applicationRelayer) relayMessage(
 func (r *applicationRelayer) createSignedMessage(unsignedMessage *avalancheWarp.UnsignedMessage) (*avalancheWarp.Message, error) {
 	r.logger.Info("Fetching aggregate signature from the source chain validators via API")
 	// TODO: To properly support this, we should provide a dedicated Warp API endpoint in the config
-	uri := utils.StripFromString(r.sourceBlockchain.RPCEndpoint, "/ext")
+	uri := utils.StripFromString(r.sourceBlockchain.RPCEndpoint.BaseURL, "/ext")
 	warpClient, err := warpBackend.NewClient(uri, r.sourceBlockchain.GetBlockchainID().String())
 	if err != nil {
 		r.logger.Error(
@@ -582,151 +585,6 @@ func (r *applicationRelayer) aggregateSignatures(signatureMap map[int]blsSignatu
 		return nil, set.Bits{}, err
 	}
 	return aggSig, vdrBitSet, nil
-}
-
-//
-// Database access
-//
-
-// Determines the height to process from. There are three cases:
-// 1) The database contains the latest processed block data for the chain
-//   - In this case, we return the maximum of the latest processed block and the configured processHistoricalBlocksFromHeight
-//
-// 2) The database has been configured for the chain, but does not contain the latest processed block data
-//   - In this case, we return the configured processHistoricalBlocksFromHeight
-//
-// 3) The database does not contain any information for the chain.
-//   - In this case, we return the configured processHistoricalBlocksFromHeight if it is set, otherwise
-//     we return the chain head.
-func (r *applicationRelayer) calculateStartingBlockHeight(processHistoricalBlocksFromHeight uint64) (uint64, error) {
-	latestProcessedBlock, err := r.getLatestProcessedBlockHeight()
-	if database.IsKeyNotFoundError(err) {
-		// The database does not contain the latest processed block data for the chain,
-		// use the configured process-historical-blocks-from-height instead.
-		// If process-historical-blocks-from-height was not configured, start from the chain head.
-		if processHistoricalBlocksFromHeight == 0 {
-			return r.setProcessedBlockHeightToLatest()
-		}
-		return processHistoricalBlocksFromHeight, nil
-	} else if err != nil {
-		// Otherwise, we've encountered an unknown database error
-		r.logger.Error(
-			"failed to get latest block from database",
-			zap.String("relayerID", r.relayerID.ID.String()),
-			zap.Error(err),
-		)
-		return 0, err
-	}
-
-	// If the database does contain the latest processed block data for the key,
-	// use the max of the latest processed block and the configured start block height (if it was provided)
-	if latestProcessedBlock > processHistoricalBlocksFromHeight {
-		r.logger.Info(
-			"Processing historical blocks from the latest processed block in the DB",
-			zap.String("relayerID", r.relayerID.ID.String()),
-			zap.Uint64("latestProcessedBlock", latestProcessedBlock),
-		)
-		return latestProcessedBlock, nil
-	}
-	// Otherwise, return the configured start block height
-	r.logger.Info(
-		"Processing historical blocks from the configured start block height",
-		zap.String("relayerID", r.relayerID.ID.String()),
-		zap.Uint64("processHistoricalBlocksFromHeight", processHistoricalBlocksFromHeight),
-	)
-	return processHistoricalBlocksFromHeight, nil
-}
-
-// Gets the height of the chain head, writes it to the database, then returns it.
-func (r *applicationRelayer) setProcessedBlockHeightToLatest() (uint64, error) {
-	ethClient, err := ethclient.Dial(r.sourceBlockchain.RPCEndpoint)
-	if err != nil {
-		r.logger.Error(
-			"Failed to dial node",
-			zap.String("blockchainID", r.sourceBlockchain.GetBlockchainID().String()),
-			zap.Error(err),
-		)
-		return 0, err
-	}
-
-	latestBlock, err := ethClient.BlockNumber(context.Background())
-	if err != nil {
-		r.logger.Error(
-			"Failed to get latest block",
-			zap.String("blockchainID", r.sourceBlockchain.GetBlockchainID().String()),
-			zap.Error(err),
-		)
-		return 0, err
-	}
-
-	r.logger.Info(
-		"Updating latest processed block in database",
-		zap.String("relayerID", r.relayerID.ID.String()),
-		zap.Uint64("latestBlock", latestBlock),
-	)
-
-	err = r.storeBlockHeight(latestBlock)
-	if err != nil {
-		r.logger.Error(
-			fmt.Sprintf("failed to put %s into database", database.LatestProcessedBlockKey),
-			zap.String("relayerID", r.relayerID.ID.String()),
-			zap.Error(err),
-		)
-		return 0, err
-	}
-	return latestBlock, nil
-}
-
-// Get the latest processed block height from the database.
-// Note that there may be unrelayed messages in the latest processed block
-// because it is updated as soon as a single message from that block is relayed,
-// and there may be multiple message in the same block.
-func (r *applicationRelayer) getLatestProcessedBlockHeight() (uint64, error) {
-	latestProcessedBlockData, err := r.db.Get(r.relayerID.ID, database.LatestProcessedBlockKey)
-	if err != nil {
-		return 0, err
-	}
-	latestProcessedBlock, err := strconv.ParseUint(string(latestProcessedBlockData), 10, 64)
-	if err != nil {
-		return 0, err
-	}
-	return latestProcessedBlock, nil
-}
-
-// Store the block height in the database. Does not check against the current latest processed block height.
-func (r *applicationRelayer) storeBlockHeight(height uint64) error {
-	return r.db.Put(r.relayerID.ID, database.LatestProcessedBlockKey, []byte(strconv.FormatUint(height, 10)))
-}
-
-// Stores the block height in the database if it is greater than the current latest processed block height.
-func (r *applicationRelayer) storeLatestBlockHeight(height uint64) error {
-	// First, check that the stored height is less than the current block height
-	// This is necessary because the relayer may be processing blocks out of order on startup
-	latestProcessedBlock, err := r.getLatestProcessedBlockHeight()
-	if err != nil && !database.IsKeyNotFoundError(err) {
-		r.logger.Error(
-			"Encountered an unknown error while getting latest processed block from database",
-			zap.String("relayerID", r.relayerID.ID.String()),
-			zap.Error(err),
-		)
-		return err
-	}
-
-	// An unhandled error at this point indicates the DB does not store the block data for the chain,
-	// so we write unconditionally in that case. Otherwise, we only overwrite if the new height is greater
-	// than the stored height.
-	if err != nil || height > latestProcessedBlock {
-		err = r.storeBlockHeight(height)
-		if err != nil {
-			r.logger.Error(
-				fmt.Sprintf("failed to put %s into database", database.LatestProcessedBlockKey),
-				zap.String("relayerID", r.relayerID.ID.String()),
-				zap.Error(err),
-			)
-		}
-		return err
-	}
-	return nil
 }
 
 //
