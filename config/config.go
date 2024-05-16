@@ -543,10 +543,10 @@ func (s *SourceBlockchain) GetAllowedOriginSenderAddresses() []common.Address {
 // Validatees the destination subnet configuration
 func (s *DestinationBlockchain) Validate() error {
 	if _, err := ids.FromString(s.SubnetID); err != nil {
-		return fmt.Errorf("invalid subnetID in source subnet configuration. Provided ID: %s", s.SubnetID)
+		return fmt.Errorf("invalid subnetID in destination subnet configuration. Provided ID: %s", s.SubnetID)
 	}
 	if _, err := ids.FromString(s.BlockchainID); err != nil {
-		return fmt.Errorf("invalid blockchainID in source subnet configuration. Provided ID: %s", s.BlockchainID)
+		return fmt.Errorf("invalid blockchainID in destination subnet configuration. Provided ID: %s", s.BlockchainID)
 	}
 	if err := s.RPCEndpoint.Validate(); err != nil {
 		return fmt.Errorf("invalid rpc-endpoint in destination subnet configuration: %w", err)
