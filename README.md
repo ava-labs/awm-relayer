@@ -84,6 +84,16 @@ The Fuji and Mainnet [public API nodes](https://docs.avax.network/tooling/rpc-pr
 
 ## Usage
 
+### Options
+
+The relayer binary accepts the following command line options. Other configuration options are not supported via the command line and must be provided via the configuration JSON file or environment variable.
+
+```bash
+awm-relayer --config-file path-to-config                Specifies the relayer config file and begin relaying messages.
+awm-relayer --version                                   Display awm-relayer version and exit.
+awm-relayer --help                                      Display awm-relayer usage and exit.
+```
+
 ### Building
 
 Before building, be sure to install Go, which is required even if you're just building the Docker image.
@@ -98,14 +108,6 @@ Build a Docker image by running the script:
 
 ```bash
 ./scripts/build_local_image.sh
-```
-
-### Running
-
-The relayer binary accepts a path to a JSON configuration file as the sole argument. Command line configuration arguments are not currently supported.
-
-```bash
-./build/awm-relayer --config-file path-to-config
 ```
 
 ### Configuration

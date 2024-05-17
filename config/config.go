@@ -34,6 +34,13 @@ const (
 	warpConfigKey               = "warpConfig"
 )
 
+const usageText = `
+Usage:
+awm-relayer --config-file path-to-config                Specifies the relayer config file and begin relaying messages.
+awm-relayer --version                                   Display awm-relayer version and exit.
+awm-relayer --help                                      Display awm-relayer usage and exit.
+`
+
 var errFailedToGetWarpQuorum = errors.New("failed to get warp quorum")
 
 // The generic configuration for a message protocol.
@@ -155,6 +162,10 @@ func SetDefaultConfigValues(v *viper.Viper) {
 	v.SetDefault(APIPortKey, 8080)
 	v.SetDefault(MetricsPortKey, 9090)
 	v.SetDefault(DBWriteIntervalSecondsKey, 10)
+}
+
+func DisplayUsageText() {
+	fmt.Printf("%s\n", usageText)
 }
 
 // BuildConfig constructs the relayer config using Viper.
