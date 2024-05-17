@@ -38,7 +38,7 @@ func main() {
 	if err := fs.Parse(os.Args[1:]); err != nil {
 		panic(fmt.Errorf("couldn't parse flags: %w", err))
 	}
-	// If the version flag set, display the version then exit
+	// If the version flag is set, display the version then exit
 	displayVersion, err := fs.GetBool(config.VersionKey)
 	if err != nil {
 		panic(fmt.Errorf("error reading %s flag value: %w", config.VersionKey, err))
