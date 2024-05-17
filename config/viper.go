@@ -13,11 +13,7 @@ import (
 
 // Build the viper instance. The config file must be provided via the command line flag or environment variable.
 // All config keys may be provided via config file or environment variable.
-func BuildViper(fs *pflag.FlagSet, args []string) (*viper.Viper, error) {
-	if err := fs.Parse(args); err != nil {
-		return nil, err
-	}
-
+func BuildViper(fs *pflag.FlagSet) (*viper.Viper, error) {
 	v := viper.New()
 	v.AutomaticEnv()
 	// Map flag names to env var names. Flags are capitalized, and hyphens are replaced with underscores.

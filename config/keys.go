@@ -19,4 +19,5 @@ const (
 	ProcessMissedBlocksKey    = "process-missed-blocks"
 	ManualWarpMessagesKey     = "manual-warp-messages"
 	DBWriteIntervalSecondsKey = "db-write-interval-seconds"
+	VersionKey                = "version"
 )
