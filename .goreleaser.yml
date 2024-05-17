@@ -5,8 +5,6 @@ builds:
     binary: awm-relayer
     flags:
       - -v
-    ldflags:
-      - -X main.version={{ .Version }}
     # windows is ignored by default, as the `goos` field by default only
     # contains linux and darwin
     goos:
