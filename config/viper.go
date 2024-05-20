@@ -24,6 +24,7 @@ func BuildViper(fs *pflag.FlagSet) (*viper.Viper, error) {
 
 	// Verify required flags are set
 	if !v.IsSet(ConfigFileKey) {
+		DisplayUsageText()
 		return nil, fmt.Errorf("config file not set")
 	}
 
