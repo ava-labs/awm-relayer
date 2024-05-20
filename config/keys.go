@@ -3,9 +3,13 @@
 
 package config
 
-// Top-level configuration keys
 const (
-	ConfigFileKey             = "config-file"
+	// Command line option keys
+	ConfigFileKey = "config-file"
+	VersionKey    = "version"
+	HelpKey       = "help"
+
+	// Top-level configuration keys
 	LogLevelKey               = "log-level"
 	PChainAPIKey              = "p-chain-api"
 	InfoAPIKey                = "info-api"

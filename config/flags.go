@@ -8,5 +8,7 @@ import "github.com/spf13/pflag"
 func BuildFlagSet() *pflag.FlagSet {
 	fs := pflag.NewFlagSet("awm-relayer", pflag.ContinueOnError)
 	fs.String(ConfigFileKey, "", "Specifies the relayer config file")
+	fs.BoolP(VersionKey, "", false, "Display awm-relayer version")
+	fs.BoolP(HelpKey, "", false, "Display awm-relayer usage")
 	return fs
 }

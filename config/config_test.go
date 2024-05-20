@@ -57,7 +57,10 @@ func runConfigModifierEnvVarTest(t *testing.T, testCase configMondifierEnvVarTes
 	testCase.envSetter()
 
 	fs := BuildFlagSet()
-	v, err := BuildViper(fs, flags)
+	if err := fs.Parse(flags); err != nil {
+		panic(fmt.Errorf("couldn't parse flags: %w", err))
+	}
+	v, err := BuildViper(fs)
 	require.NoError(t, err)
 	parsedCfg, optionOverwritten, err := BuildConfig(v)
 	require.NoError(t, err)

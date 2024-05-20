@@ -34,9 +34,34 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
+var version = "v0.0.0-dev"
+
 func main() {
 	fs := config.BuildFlagSet()
-	v, err := config.BuildViper(fs, os.Args[1:])
+	if err := fs.Parse(os.Args[1:]); err != nil {
+		config.DisplayUsageText()
+		panic(fmt.Errorf("couldn't parse flags: %w", err))
+	}
+	// If the version flag is set, display the version then exit
+	displayVersion, err := fs.GetBool(config.VersionKey)
+	if err != nil {
+		panic(fmt.Errorf("error reading %s flag value: %w", config.VersionKey, err))
+	}
+	if displayVersion {
+		fmt.Printf("%s\n", version)
+		os.Exit(0)
+	}
+	// If the help flag is set, output the usage text then exit
+	help, err := fs.GetBool(config.HelpKey)
+	if err != nil {
+		panic(fmt.Errorf("error reading %s flag value: %w", config.HelpKey, err))
+	}
+	if help {
+		config.DisplayUsageText()
+		os.Exit(0)
+	}
+
+	v, err := config.BuildViper(fs)
 	if err != nil {
 		panic(fmt.Errorf("couldn't configure flags: %w", err))
 	}

@@ -34,6 +34,13 @@ const (
 	warpConfigKey               = "warpConfig"
 )
 
+const usageText = `
+Usage:
+awm-relayer --config-file path-to-config                Specifies the relayer config file and begin relaying messages.
+awm-relayer --version                                   Display awm-relayer version and exit.
+awm-relayer --help                                      Display awm-relayer usage and exit.
+`
+
 var errFailedToGetWarpQuorum = errors.New("failed to get warp quorum")
 
 // The generic configuration for a message protocol.
@@ -155,6 +162,10 @@ func SetDefaultConfigValues(v *viper.Viper) {
 	v.SetDefault(APIPortKey, 8080)
 	v.SetDefault(MetricsPortKey, 9090)
 	v.SetDefault(DBWriteIntervalSecondsKey, 10)
+}
+
+func DisplayUsageText() {
+	fmt.Printf("%s\n", usageText)
 }
 
 // BuildConfig constructs the relayer config using Viper.
@@ -543,10 +554,10 @@ func (s *SourceBlockchain) GetAllowedOriginSenderAddresses() []common.Address {
 // Validatees the destination subnet configuration
 func (s *DestinationBlockchain) Validate() error {
 	if _, err := ids.FromString(s.SubnetID); err != nil {
-		return fmt.Errorf("invalid subnetID in source subnet configuration. Provided ID: %s", s.SubnetID)
+		return fmt.Errorf("invalid subnetID in destination subnet configuration. Provided ID: %s", s.SubnetID)
 	}
 	if _, err := ids.FromString(s.BlockchainID); err != nil {
-		return fmt.Errorf("invalid blockchainID in source subnet configuration. Provided ID: %s", s.BlockchainID)
+		return fmt.Errorf("invalid blockchainID in destination subnet configuration. Provided ID: %s", s.BlockchainID)
 	}
 	if err := s.RPCEndpoint.Validate(); err != nil {
 		return fmt.Errorf("invalid rpc-endpoint in destination subnet configuration: %w", err)
