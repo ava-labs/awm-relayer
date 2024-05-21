@@ -279,7 +279,6 @@ func (f *factory) parseTeleporterMessage(unsignedMessage *warp.UnsignedMessage) 
 // Panic instead of returning errors because this should never happen, and if it does, we do not
 // want to log and swallow the error, since operations after this will fail too.
 func (f *factory) getTeleporterMessenger(destinationBlockchainID ids.ID) *teleportermessenger.TeleporterMessenger {
-
 	destinationClient, ok := f.destinationClients[destinationBlockchainID]
 	if !ok {
 		return nil
