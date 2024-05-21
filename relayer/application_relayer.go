@@ -157,10 +157,11 @@ func (r *ApplicationRelayer) ProcessMessage(msg messages.MessageHandler) error {
 	// Increment the request ID. Make sure we don't hold the lock while we relay the message.
 	r.lock.Lock()
 	r.currentRequestID++
+	reqID := r.currentRequestID
 	r.lock.Unlock()
 
 	err := r.relayMessage(
-		r.currentRequestID,
+		reqID,
 		msg,
 		true,
 	)
