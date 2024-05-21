@@ -25,11 +25,11 @@ var _ router.ExternalHandler = &RelayerExternalHandler{}
 // is possible for multiple concurrent calls to happen with different NodeIDs.
 // However, a given NodeID will only be performing one call at a time.
 type RelayerExternalHandler struct {
-	log               logging.Logger
-	responseChansLock *sync.RWMutex
-	responseChans     map[uint32]chan message.InboundMessage
-	responsesCount    map[uint32]expectedResponses
-	timeoutManager    timer.AdaptiveTimeoutManager
+	log            logging.Logger
+	lock           *sync.Mutex
+	responseChans  map[uint32]chan message.InboundMessage
+	responsesCount map[uint32]expectedResponses
+	timeoutManager timer.AdaptiveTimeoutManager
 }
 
 // expectedResponses counts the number of responses and compares against the expected number of responses
@@ -63,11 +63,11 @@ func NewRelayerExternalHandler(
 	go timeoutManager.Dispatch()
 
 	return &RelayerExternalHandler{
-		log:               logger,
-		responseChansLock: &sync.RWMutex{},
-		responseChans:     make(map[uint32]chan message.InboundMessage),
-		responsesCount:    make(map[uint32]expectedResponses),
-		timeoutManager:    timeoutManager,
+		log:            logger,
+		lock:           &sync.Mutex{},
+		responseChans:  make(map[uint32]chan message.InboundMessage),
+		responsesCount: make(map[uint32]expectedResponses),
+		timeoutManager: timeoutManager,
 	}, nil
 }
 
@@ -86,7 +86,7 @@ func (h *RelayerExternalHandler) HandleInbound(_ context.Context, inboundMessage
 		zap.Stringer("from", inboundMessage.NodeID()),
 	)
 	if inboundMessage.Op() == message.AppResponseOp || inboundMessage.Op() == message.AppErrorOp {
-		h.RegisterAppResponse(inboundMessage)
+		h.registerAppResponse(inboundMessage)
 	} else {
 		h.log.Debug("Ignoring message", zap.Stringer("op", inboundMessage.Op()))
 		inboundMessage.OnFinishedHandling()
@@ -113,8 +113,8 @@ func (h *RelayerExternalHandler) Disconnected(nodeID ids.NodeID) {
 // requestID should be globally unique for the lifetime of the AppRequest. This is upper bounded by the timeout duration.
 func (h *RelayerExternalHandler) RegisterRequestID(requestID uint32, numExpectedResponses int) chan message.InboundMessage {
 	// Create a channel to receive the response
-	h.responseChansLock.Lock()
-	defer h.responseChansLock.Unlock()
+	h.lock.Lock()
+	defer h.lock.Unlock()
 
 	h.log.Debug("Registering request ID", zap.Uint32("requestID", requestID))
 
@@ -143,9 +143,9 @@ func (h *RelayerExternalHandler) RegisterAppRequest(reqID ids.RequestID) {
 }
 
 // RegisterResponse registers an AppResponse with the timeout manager
-func (h *RelayerExternalHandler) RegisterAppResponse(inboundMessage message.InboundMessage) {
-	h.responseChansLock.Lock()
-	defer h.responseChansLock.Unlock()
+func (h *RelayerExternalHandler) registerAppResponse(inboundMessage message.InboundMessage) {
+	h.lock.Lock()
+	defer h.lock.Unlock()
 
 	// Extract the message fields
 	m := inboundMessage.Message()
@@ -173,6 +173,7 @@ func (h *RelayerExternalHandler) RegisterAppResponse(inboundMessage message.Inbo
 		return
 	}
 
+	// Remove the timeout on the request
 	reqID := ids.RequestID{
 		NodeID:             inboundMessage.NodeID(),
 		SourceChainID:      sourceBlockchainID,
@@ -180,8 +181,6 @@ func (h *RelayerExternalHandler) RegisterAppResponse(inboundMessage message.Inbo
 		RequestID:          requestID,
 		Op:                 byte(inboundMessage.Op()),
 	}
-
-	// Register the response with the timeout manager
 	h.timeoutManager.Remove(reqID)
 
 	// Dispatch to the appropriate response channel
@@ -189,18 +188,19 @@ func (h *RelayerExternalHandler) RegisterAppResponse(inboundMessage message.Inbo
 		responseChan <- inboundMessage
 	} else {
 		h.log.Debug("Could not find response channel for request", zap.Uint32("requestID", requestID))
+		return
 	}
 
 	// Check for the expected number of responses, and clear from the map if all expected responses have been received
-	responses := h.responsesCount[reqID.RequestID]
+	responses := h.responsesCount[requestID]
 	received := responses.received + 1
 	if received == responses.expected {
-		close(h.responseChans[reqID.RequestID])
-		delete(h.responseChans, reqID.RequestID)
-		delete(h.responsesCount, reqID.RequestID)
+		close(h.responseChans[requestID])
+		delete(h.responseChans, requestID)
+		delete(h.responsesCount, requestID)
 	} else {
-		h.responsesCount[reqID.RequestID] = expectedResponses{
-			expected: h.responsesCount[reqID.RequestID].expected,
+		h.responsesCount[requestID] = expectedResponses{
+			expected: responses.expected,
 			received: received,
 		}
 	}
