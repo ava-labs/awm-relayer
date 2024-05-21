@@ -85,7 +85,7 @@ func BatchRelay(network interfaces.LocalNetwork) {
 
 	numMessages := 50
 	sentMessages := set.NewSet[string](numMessages)
-	for i := range numMessages {
+	for i := 0; i < numMessages; i++ {
 		sentMessages.Add(strconv.Itoa(i))
 	}
 

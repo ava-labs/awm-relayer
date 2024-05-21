@@ -129,6 +129,7 @@ func NewApplicationRelayer(
 func (r *ApplicationRelayer) ProcessHeight(height uint64, msgs []messages.MessageHandler) error {
 	var eg errgroup.Group
 	for _, msg := range msgs {
+		msg := msg
 		eg.Go(func() error {
 			return r.ProcessMessage(msg)
 		})
