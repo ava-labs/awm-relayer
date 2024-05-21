@@ -436,88 +436,20 @@ func (r *ApplicationRelayer) createSignedMessageAppRequest(unsignedMessage *aval
 					"Processing response from node",
 					zap.String("nodeID", response.NodeID().String()),
 				)
-				// This anonymous function attempts to create a signed warp message from the accumulated responses
-				// Returns an error only if a non-recoverable error occurs, otherwise returns (nil, nil) to continue processing responses
-				// When a non-nil signedMsg is returned, createSignedMessage itself returns
-				signedMsg, err := func() (*avalancheWarp.Message, error) {
-					defer response.OnFinishedHandling()
-
-					// Check if this is an expected response.
-					m := response.Message()
-					rcvReqID, ok := message.GetRequestID(m)
-					if !ok {
-						// This should never occur, since inbound message validity is already checked by the inbound handler
-						r.logger.Error("Could not get requestID from message")
-						return nil, nil
-					}
-					nodeID := response.NodeID()
-					if !sentTo.Contains(nodeID) || rcvReqID != requestID {
-						r.logger.Debug("Skipping irrelevant app response")
-						return nil, nil
-					}
-
-					// Count the relevant app message
-					responseCount++
-
-					// If we receive an AppRequestFailed, then the request timed out.
-					// We still want to increment responseCount, since we are no longer expecting a response from that node.
-					if response.Op() == message.AppErrorOp {
-						r.logger.Debug("Request timed out")
-						return nil, nil
-					}
-
-					validator, vdrIndex := connectedValidators.GetValidator(nodeID)
-					signature, valid := r.isValidSignatureResponse(unsignedMessage, response, validator.PublicKey)
-					if valid {
-						r.logger.Debug(
-							"Got valid signature response",
-							zap.String("nodeID", nodeID.String()),
-						)
-						signatureMap[vdrIndex] = signature
-						accumulatedSignatureWeight.Add(accumulatedSignatureWeight, new(big.Int).SetUint64(validator.Weight))
-					} else {
-						r.logger.Debug(
-							"Got invalid signature response",
-							zap.String("nodeID", nodeID.String()),
-						)
-						return nil, nil
-					}
-
-					// As soon as the signatures exceed the stake weight threshold we try to aggregate and send the transaction.
-					if utils.CheckStakeWeightExceedsThreshold(
-						accumulatedSignatureWeight,
-						connectedValidators.TotalValidatorWeight,
-						r.warpQuorum.QuorumNumerator,
-						r.warpQuorum.QuorumDenominator,
-					) {
-						aggSig, vdrBitSet, err := r.aggregateSignatures(signatureMap)
-						if err != nil {
-							r.logger.Error(
-								"Failed to aggregate signature.",
-								zap.String("destinationBlockchainID", r.relayerID.DestinationBlockchainID.String()),
-								zap.Error(err),
-							)
-							return nil, err
-						}
-
-						signedMsg, err := avalancheWarp.NewMessage(unsignedMessage, &avalancheWarp.BitSetSignature{
-							Signers:   vdrBitSet.Bytes(),
-							Signature: *(*[bls.SignatureLen]byte)(bls.SignatureToBytes(aggSig)),
-						})
-						if err != nil {
-							r.logger.Error(
-								"Failed to create new signed message",
-								zap.Error(err),
-							)
-							return nil, err
-						}
-						return signedMsg, nil
-					}
-					// Not enough signatures, continue processing messages
-					return nil, nil
-				}()
+				signedMsg, relevant, err := r.handleResponse(
+					response,
+					sentTo,
+					requestID,
+					connectedValidators,
+					unsignedMessage,
+					signatureMap,
+					accumulatedSignatureWeight,
+				)
 				if err != nil {
 					return nil, err
+				}
+				if relevant {
+					responseCount++
 				}
 				// If we have sufficient signatures, return here.
 				if signedMsg != nil {
@@ -546,6 +478,94 @@ func (r *ApplicationRelayer) createSignedMessageAppRequest(unsignedMessage *aval
 		zap.String("destinationBlockchainID", r.relayerID.DestinationBlockchainID.String()),
 	)
 	return nil, errNotEnoughSignatures
+}
+
+// Attempts to create a signed warp message from the accumulated responses.
+// Returns a non-nil Warp message if [accumulatedSignatureWeight] exceeds the signature verification threshold.
+// Returns false in the second return parameter if the app response is not relevant to the current signature aggregation request.
+// Returns an error only if a non-recoverable error occurs, otherwise returns a nil error to continue processing responses.
+func (r *ApplicationRelayer) handleResponse(
+	response message.InboundMessage,
+	sentTo set.Set[ids.NodeID],
+	requestID uint32,
+	connectedValidators *peers.ConnectedCanonicalValidators,
+	unsignedMessage *avalancheWarp.UnsignedMessage,
+	signatureMap map[int]blsSignatureBuf,
+	accumulatedSignatureWeight *big.Int,
+) (*avalancheWarp.Message, bool, error) {
+	// Regardless of the response's relevance, call it's finished handler once this function returns
+	defer response.OnFinishedHandling()
+
+	// Check if this is an expected response.
+	m := response.Message()
+	rcvReqID, ok := message.GetRequestID(m)
+	if !ok {
+		// This should never occur, since inbound message validity is already checked by the inbound handler
+		r.logger.Error("Could not get requestID from message")
+		return nil, false, nil
+	}
+	nodeID := response.NodeID()
+	if !sentTo.Contains(nodeID) || rcvReqID != requestID {
+		r.logger.Debug("Skipping irrelevant app response")
+		return nil, false, nil
+	}
+
+	// If we receive an AppRequestFailed, then the request timed out.
+	// This is still a relevant response, since we are no longer expecting a response from that node.
+	if response.Op() == message.AppErrorOp {
+		r.logger.Debug("Request timed out")
+		return nil, true, nil
+	}
+
+	validator, vdrIndex := connectedValidators.GetValidator(nodeID)
+	signature, valid := r.isValidSignatureResponse(unsignedMessage, response, validator.PublicKey)
+	if valid {
+		r.logger.Debug(
+			"Got valid signature response",
+			zap.String("nodeID", nodeID.String()),
+		)
+		signatureMap[vdrIndex] = signature
+		accumulatedSignatureWeight.Add(accumulatedSignatureWeight, new(big.Int).SetUint64(validator.Weight))
+	} else {
+		r.logger.Debug(
+			"Got invalid signature response",
+			zap.String("nodeID", nodeID.String()),
+		)
+		return nil, true, nil
+	}
+
+	// As soon as the signatures exceed the stake weight threshold we try to aggregate and send the transaction.
+	if utils.CheckStakeWeightExceedsThreshold(
+		accumulatedSignatureWeight,
+		connectedValidators.TotalValidatorWeight,
+		r.warpQuorum.QuorumNumerator,
+		r.warpQuorum.QuorumDenominator,
+	) {
+		aggSig, vdrBitSet, err := r.aggregateSignatures(signatureMap)
+		if err != nil {
+			r.logger.Error(
+				"Failed to aggregate signature.",
+				zap.String("destinationBlockchainID", r.relayerID.DestinationBlockchainID.String()),
+				zap.Error(err),
+			)
+			return nil, true, err
+		}
+
+		signedMsg, err := avalancheWarp.NewMessage(unsignedMessage, &avalancheWarp.BitSetSignature{
+			Signers:   vdrBitSet.Bytes(),
+			Signature: *(*[bls.SignatureLen]byte)(bls.SignatureToBytes(aggSig)),
+		})
+		if err != nil {
+			r.logger.Error(
+				"Failed to create new signed message",
+				zap.Error(err),
+			)
+			return nil, true, err
+		}
+		return signedMsg, true, nil
+	}
+	// Not enough signatures, continue processing messages
+	return nil, true, nil
 }
 
 // isValidSignatureResponse tries to generate a signature from the peer.AsyncResponse, then verifies the signature against the node's public key.
