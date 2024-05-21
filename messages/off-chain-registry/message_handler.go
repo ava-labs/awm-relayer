@@ -29,7 +29,7 @@ const (
 	revertVersionNotFoundString        = "TeleporterRegistry: version not found"
 )
 
-type messageManager struct {
+type factory struct {
 	logger             logging.Logger
 	destinationClients map[ids.ID]vms.DestinationClient
 	registryAddress    common.Address
@@ -38,14 +38,14 @@ type messageManager struct {
 type messageHandler struct {
 	logger          logging.Logger
 	unsignedMessage *warp.UnsignedMessage
-	messageManager  *messageManager
+	factory         *factory
 }
 
-func NewMessageManager(
+func NewMessageHandlerFactory(
 	logger logging.Logger,
 	messageProtocolConfig config.MessageProtocolConfig,
 	destinationClients map[ids.ID]vms.DestinationClient,
-) (*messageManager, error) {
+) (*factory, error) {
 	// Marshal the map and unmarshal into the off-chain registry config
 	data, err := json.Marshal(messageProtocolConfig.Settings)
 	if err != nil {
@@ -65,18 +65,18 @@ func NewMessageManager(
 		)
 		return nil, err
 	}
-	return &messageManager{
+	return &factory{
 		logger:             logger,
 		destinationClients: destinationClients,
 		registryAddress:    common.HexToAddress(messageConfig.TeleporterRegistryAddress),
 	}, nil
 }
 
-func (m *messageManager) NewMessageHandler(unsignedMessage *warp.UnsignedMessage) (messages.MessageHandler, error) {
+func (f *factory) NewMessageHandler(unsignedMessage *warp.UnsignedMessage) (messages.MessageHandler, error) {
 	return &messageHandler{
-		logger:          m.logger,
+		logger:          f.logger,
 		unsignedMessage: unsignedMessage,
-		messageManager:  m,
+		factory:         f,
 	}, nil
 }
 
@@ -103,17 +103,17 @@ func (m *messageHandler) ShouldSendMessage(destinationBlockchainID ids.ID) (bool
 		)
 		return false, err
 	}
-	if destination != m.messageManager.registryAddress {
+	if destination != m.factory.registryAddress {
 		m.logger.Info(
 			"Message is not intended for the configured registry",
 			zap.String("destination", destination.String()),
-			zap.String("configuredRegistry", m.messageManager.registryAddress.String()),
+			zap.String("configuredRegistry", m.factory.registryAddress.String()),
 		)
 		return false, nil
 	}
 
 	// Get the correct destination client from the global map
-	destinationClient, ok := m.messageManager.destinationClients[destinationBlockchainID]
+	destinationClient, ok := m.factory.destinationClients[destinationBlockchainID]
 	if !ok {
 		return false, fmt.Errorf("relayer not configured to deliver to destination. destinationBlockchainID=%s", destinationBlockchainID.String())
 	}
@@ -123,7 +123,7 @@ func (m *messageHandler) ShouldSendMessage(destinationBlockchainID ids.ID) (bool
 	}
 
 	// Check if the version is already registered in the TeleporterRegistry contract.
-	registry, err := teleporterregistry.NewTeleporterRegistryCaller(m.messageManager.registryAddress, client)
+	registry, err := teleporterregistry.NewTeleporterRegistryCaller(m.factory.registryAddress, client)
 	if err != nil {
 		m.logger.Error(
 			"Failed to create TeleporterRegistry caller",
@@ -153,7 +153,7 @@ func (m *messageHandler) ShouldSendMessage(destinationBlockchainID ids.ID) (bool
 
 func (m *messageHandler) SendMessage(signedMessage *warp.Message, destinationBlockchainID ids.ID) error {
 	// Get the correct destination client from the global map
-	destinationClient, ok := m.messageManager.destinationClients[destinationBlockchainID]
+	destinationClient, ok := m.factory.destinationClients[destinationBlockchainID]
 	if !ok {
 		return fmt.Errorf("relayer not configured to deliver to destination. DestinationBlockchainID=%s", destinationBlockchainID)
 	}
@@ -170,7 +170,7 @@ func (m *messageHandler) SendMessage(signedMessage *warp.Message, destinationBlo
 		return err
 	}
 
-	err = destinationClient.SendTx(signedMessage, m.messageManager.registryAddress.Hex(), addProtocolVersionGasLimit, callData)
+	err = destinationClient.SendTx(signedMessage, m.factory.registryAddress.Hex(), addProtocolVersionGasLimit, callData)
 	if err != nil {
 		m.logger.Error(
 			"Failed to send tx.",
@@ -206,6 +206,6 @@ func (m *messageHandler) GetMessageRoutingInfo() (
 	return m.unsignedMessage.SourceChainID,
 		common.BytesToAddress(addressedPayload.SourceAddress),
 		m.unsignedMessage.SourceChainID,
-		m.messageManager.registryAddress,
+		m.factory.registryAddress,
 		nil
 }

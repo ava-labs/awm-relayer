@@ -38,18 +38,18 @@ const (
 
 // Listener handles all messages sent from a given source chain
 type Listener struct {
-	Subscriber          vms.Subscriber
-	requestIDLock       *sync.Mutex
-	currentRequestID    uint32
-	contractMessage     vms.ContractMessage
-	messageManagers     map[common.Address]messages.MessageManager
-	logger              logging.Logger
-	sourceBlockchain    config.SourceBlockchain
-	catchUpResultChan   chan bool
-	healthStatus        *atomic.Bool
-	globalConfig        *config.Config
-	applicationRelayers map[common.Hash]*ApplicationRelayer
-	ethClient           ethclient.Client
+	Subscriber              vms.Subscriber
+	requestIDLock           *sync.Mutex
+	currentRequestID        uint32
+	contractMessage         vms.ContractMessage
+	messageHandlerFactories map[common.Address]messages.MessageHandlerFactory
+	logger                  logging.Logger
+	sourceBlockchain        config.SourceBlockchain
+	catchUpResultChan       chan bool
+	healthStatus            *atomic.Bool
+	globalConfig            *config.Config
+	applicationRelayers     map[common.Hash]*ApplicationRelayer
+	ethClient               ethclient.Client
 }
 
 func NewListener(
@@ -92,24 +92,24 @@ func NewListener(
 	sub := vms.NewSubscriber(logger, config.ParseVM(sourceBlockchain.VM), blockchainID, ethWSClient)
 
 	// Create message managers for each supported message protocol
-	messageManagers := make(map[common.Address]messages.MessageManager)
+	messageHandlerFactories := make(map[common.Address]messages.MessageHandlerFactory)
 	for addressStr, cfg := range sourceBlockchain.MessageContracts {
 		address := common.HexToAddress(addressStr)
 		format := cfg.MessageFormat
 		var (
-			m   messages.MessageManager
+			m   messages.MessageHandlerFactory
 			err error
 		)
 		switch config.ParseMessageProtocol(format) {
 		case config.TELEPORTER:
-			m, err = teleporter.NewMessageManager(
+			m, err = teleporter.NewMessageHandlerFactory(
 				logger,
 				address,
 				cfg,
 				destinationClients,
 			)
 		case config.OFF_CHAIN_REGISTRY:
-			m, err = offchainregistry.NewMessageManager(
+			m, err = offchainregistry.NewMessageHandlerFactory(
 				logger,
 				cfg,
 				destinationClients,
@@ -124,7 +124,7 @@ func NewListener(
 			)
 			return nil, err
 		}
-		messageManagers[address] = m
+		messageHandlerFactories[address] = m
 	}
 
 	// Marks when the listener has finished the catch-up process on startup.
@@ -143,18 +143,18 @@ func NewListener(
 		zap.String("blockchainIDHex", sourceBlockchain.GetBlockchainID().Hex()),
 	)
 	lstnr := Listener{
-		Subscriber:          sub,
-		requestIDLock:       &sync.Mutex{},
-		currentRequestID:    rand.Uint32(), // Initialize to a random value to mitigate requestID collision
-		contractMessage:     vms.NewContractMessage(logger, sourceBlockchain),
-		messageManagers:     messageManagers,
-		logger:              logger,
-		sourceBlockchain:    sourceBlockchain,
-		catchUpResultChan:   catchUpResultChan,
-		healthStatus:        relayerHealth,
-		globalConfig:        cfg,
-		applicationRelayers: applicationRelayers,
-		ethClient:           ethClient,
+		Subscriber:              sub,
+		requestIDLock:           &sync.Mutex{},
+		currentRequestID:        rand.Uint32(), // Initialize to a random value to mitigate requestID collision
+		contractMessage:         vms.NewContractMessage(logger, sourceBlockchain),
+		messageHandlerFactories: messageHandlerFactories,
+		logger:                  logger,
+		sourceBlockchain:        sourceBlockchain,
+		catchUpResultChan:       catchUpResultChan,
+		healthStatus:            relayerHealth,
+		globalConfig:            cfg,
+		applicationRelayers:     applicationRelayers,
+		ethClient:               ethClient,
 	}
 
 	// Open the subscription. We must do this before processing any missed messages, otherwise we may miss an incoming message
@@ -374,7 +374,7 @@ func (lstnr *Listener) GetAppRelayerMessageHandler(warpMessageInfo *relayerTypes
 	error,
 ) {
 	// Check that the warp message is from a supported message protocol contract address.
-	messageManager, supportedMessageProtocol := lstnr.messageManagers[warpMessageInfo.SourceAddress]
+	messageHandlerFactory, supportedMessageProtocol := lstnr.messageHandlerFactories[warpMessageInfo.SourceAddress]
 	if !supportedMessageProtocol {
 		// Do not return an error here because it is expected for there to be messages from other contracts
 		// than just the ones supported by a single listener instance.
@@ -384,7 +384,7 @@ func (lstnr *Listener) GetAppRelayerMessageHandler(warpMessageInfo *relayerTypes
 		)
 		return nil, nil, nil
 	}
-	messageHandler, err := messageManager.NewMessageHandler(warpMessageInfo.UnsignedMessage)
+	messageHandler, err := messageHandlerFactory.NewMessageHandler(warpMessageInfo.UnsignedMessage)
 	if err != nil {
 		lstnr.logger.Error(
 			"Failed to create message handler",

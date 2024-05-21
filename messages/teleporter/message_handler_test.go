@@ -170,7 +170,7 @@ func TestShouldSendMessage(t *testing.T) {
 				test.destinationBlockchainID: mockClient,
 			}
 
-			messageManager, err := NewMessageManager(
+			messageManager, err := NewMessageHandlerFactory(
 				logger,
 				messageProtocolAddress,
 				messageProtocolConfig,

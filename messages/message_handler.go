@@ -1,7 +1,7 @@
 // Copyright (C) 2023, Ava Labs, Inc. All rights reserved.
 // See the file LICENSE for licensing terms.
 
-//go:generate mockgen -source=$GOFILE -destination=./mocks/mock_message_manager.go -package=mocks
+//go:generate mockgen -source=$GOFILE -destination=./mocks/mock_message_handler.go -package=mocks
 
 package messages
 
@@ -13,7 +13,7 @@ import (
 
 // MessageManager is specific to each message protocol. The interface handles choosing which messages to send
 // for each message protocol, and performs the sending to the destination chain.
-type MessageManager interface {
+type MessageHandlerFactory interface {
 	// Create a message handler to relay the Warp message
 	NewMessageHandler(unsignedMessage *warp.UnsignedMessage) (MessageHandler, error)
 }
