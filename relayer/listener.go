@@ -5,6 +5,7 @@ package relayer
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
 	"math/big"
 	"math/rand"
@@ -363,7 +364,10 @@ func (lstnr *Listener) getApplicationRelayer(
 	return nil
 }
 
-// TODONOW: Does this function make sense? There's probably a better way to organize this logic.
+// Returns the ApplicationRelayer that is configured to handle this message, as well as a one-time MessageHandler
+// instance that the ApplicationRelayer uses to relay this specific message.
+// The MessageHandler and ApplicationRelayer are decoupled to support batch workflows in which a single ApplicationRelayer
+// processes multiple messages (using their corresponding MessageHandlers) in a single shot.
 func (lstnr *Listener) GetAppRelayerMessageHandler(warpMessageInfo *relayerTypes.WarpMessageInfo) (
 	*ApplicationRelayer,
 	messages.MessageHandler,
@@ -418,4 +422,38 @@ func (lstnr *Listener) GetAppRelayerMessageHandler(warpMessageInfo *relayerTypes
 		return nil, nil, nil
 	}
 	return appRelayer, messageHandler, nil
+}
+
+func (lstnr *Listener) ProcessManualWarpMessages(
+	logger logging.Logger,
+	manualWarpMessages []*relayerTypes.WarpMessageInfo,
+	sourceBlockchain config.SourceBlockchain,
+) error {
+	// Send any messages that were specified in the configuration
+	for _, warpMessage := range manualWarpMessages {
+		logger.Info(
+			"Relaying manual Warp message",
+			zap.String("blockchainID", sourceBlockchain.BlockchainID),
+			zap.String("warpMessageBytes", hex.EncodeToString(warpMessage.UnsignedMessage.Bytes())),
+		)
+		appRelayer, handler, err := lstnr.GetAppRelayerMessageHandler(warpMessage)
+		if err != nil {
+			logger.Error(
+				"Failed to parse manual Warp message.",
+				zap.Error(err),
+				zap.String("warpMessageBytes", hex.EncodeToString(warpMessage.UnsignedMessage.Bytes())),
+			)
+			return err
+		}
+		err = appRelayer.ProcessMessage(handler)
+		if err != nil {
+			logger.Error(
+				"Failed to process manual Warp message",
+				zap.String("blockchainID", sourceBlockchain.BlockchainID),
+				zap.String("warpMessageBytes", hex.EncodeToString(warpMessage.UnsignedMessage.Bytes())),
+			)
+			return err
+		}
+	}
+	return nil
 }

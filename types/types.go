@@ -9,7 +9,6 @@ import (
 	"math/big"
 
 	avalancheWarp "github.com/ava-labs/avalanchego/vms/platformvm/warp"
-	"github.com/ava-labs/awm-relayer/messages"
 	"github.com/ava-labs/subnet-evm/core/types"
 	"github.com/ava-labs/subnet-evm/ethclient"
 	"github.com/ava-labs/subnet-evm/interfaces"
@@ -35,7 +34,6 @@ type WarpBlockInfo struct {
 type WarpMessageInfo struct {
 	SourceAddress   common.Address
 	UnsignedMessage *avalancheWarp.UnsignedMessage
-	MessageManager  messages.MessageManager
 }
 
 // Extract Warp logs from the block, if they exist
@@ -79,14 +77,14 @@ func NewWarpMessageInfo(log types.Log) (*WarpMessageInfo, error) {
 	if log.Topics[0] != WarpPrecompileLogFilter {
 		return nil, ErrInvalidLog
 	}
-	unsignedMsgBytes, err := UnpackWarpMessage(log.Data)
+	unsignedMsg, err := UnpackWarpMessage(log.Data)
 	if err != nil {
 		return nil, err
 	}
 
 	return &WarpMessageInfo{
 		SourceAddress:   common.BytesToAddress(log.Topics[1][:]),
-		UnsignedMessage: unsignedMsgBytes,
+		UnsignedMessage: unsignedMsg,
 	}, nil
 }
 

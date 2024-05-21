@@ -125,6 +125,7 @@ func NewApplicationRelayer(
 
 // Process [msgs] at height [height] by relaying each message to the destination chain.
 // Checkpoints the height with the checkpoint manager when all messages are relayed.
+// ProcessHeight is expected to be called for every block greater than or equal to the [startingHeight] provided in the cosntructor
 func (r *ApplicationRelayer) ProcessHeight(height uint64, msgs []messages.MessageHandler) error {
 	var eg errgroup.Group
 	for _, msg := range msgs {
@@ -429,7 +430,6 @@ func (r *ApplicationRelayer) createSignedMessageAppRequest(unsignedMessage *aval
 		if responsesExpected > 0 {
 			// Handle the responses. For each response, we need to call response.OnFinishedHandling() exactly once.
 			// Wrap the loop body in an anonymous function so that we do so on each loop iteration
-			// TODO: In order to run this concurrently, we need to route to each application relayer from the relayer responseChan
 			for response := range responseChan {
 				r.logger.Debug(
 					"Processing response from node",
