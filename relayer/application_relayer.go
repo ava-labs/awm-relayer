@@ -126,12 +126,12 @@ func NewApplicationRelayer(
 // Process [msgs] at height [height] by relaying each message to the destination chain.
 // Checkpoints the height with the checkpoint manager when all messages are relayed.
 // ProcessHeight is expected to be called for every block greater than or equal to the [startingHeight] provided in the cosntructor
-func (r *ApplicationRelayer) ProcessHeight(height uint64, msgs []messages.MessageHandler) error {
+func (r *ApplicationRelayer) ProcessHeight(height uint64, messages []messages.MessageHandler) error {
 	var eg errgroup.Group
-	for _, msg := range msgs {
-		msg := msg
+	for _, message := range messages {
+		m := message
 		eg.Go(func() error {
-			return r.ProcessMessage(msg)
+			return r.ProcessMessage(m)
 		})
 	}
 	if err := eg.Wait(); err != nil {
