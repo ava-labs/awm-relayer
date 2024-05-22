@@ -246,7 +246,10 @@ func (lstnr *Listener) ProcessLogs(ctx context.Context) error {
 				// Dispatch all messages in the block to the appropriate application relayer.
 				// An empty slice is still a valid argument to ProcessHeight; in this case the height is immediately committed.
 				handlers := messageHandlers[appRelayer.relayerID.ID]
-				appRelayer.ProcessHeight(block.BlockNumber, handlers)
+
+				// Process the height async. This is safe because the ApplicationRelayer maintains the threadsafe
+				// invariant that heights are committed to the database one at a time, in order, with no gaps.
+				go appRelayer.ProcessHeight(block.BlockNumber, handlers)
 			}
 		case err := <-lstnr.Subscriber.Err():
 			lstnr.healthStatus.Store(false)
