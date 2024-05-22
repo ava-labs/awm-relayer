@@ -309,6 +309,7 @@ func runListener(
 		messageCreator,
 		cfg,
 		ethClient,
+		destinationClients,
 	)
 	if err != nil {
 		logger.Error(
@@ -327,7 +328,6 @@ func runListener(
 	listener, err := relayer.NewListener(
 		logger,
 		sourceBlockchain,
-		destinationClients,
 		relayerHealth,
 		cfg,
 		applicationRelayers,
@@ -370,7 +370,8 @@ func createApplicationRelayers(
 	network *peers.AppRequestNetwork,
 	messageCreator message.Creator,
 	cfg *config.Config,
-	ethClient ethclient.Client,
+	srcEthClient ethclient.Client,
+	destinationClients map[ids.ID]vms.DestinationClient,
 ) (map[common.Hash]*relayer.ApplicationRelayer, uint64, error) {
 	// Create the ApplicationRelayers
 	logger.Info(
@@ -379,7 +380,7 @@ func createApplicationRelayers(
 	)
 	applicationRelayers := make(map[common.Hash]*relayer.ApplicationRelayer)
 
-	currentHeight, err := ethClient.BlockNumber(context.Background())
+	currentHeight, err := srcEthClient.BlockNumber(context.Background())
 	if err != nil {
 		logger.Error(
 			"Failed to get current block height",
@@ -418,6 +419,7 @@ func createApplicationRelayers(
 			relayerID,
 			db,
 			ticker,
+			destinationClients[relayerID.DestinationBlockchainID],
 			sourceBlockchain,
 			height,
 			cfg,

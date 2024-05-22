@@ -51,7 +51,6 @@ type Listener struct {
 func NewListener(
 	logger logging.Logger,
 	sourceBlockchain config.SourceBlockchain,
-	destinationClients map[ids.ID]vms.DestinationClient,
 	relayerHealth *atomic.Bool,
 	cfg *config.Config,
 	applicationRelayers map[common.Hash]*ApplicationRelayer,
@@ -97,13 +96,11 @@ func NewListener(
 				logger,
 				address,
 				cfg,
-				destinationClients,
 			)
 		case config.OFF_CHAIN_REGISTRY:
 			m, err = offchainregistry.NewMessageHandlerFactory(
 				logger,
 				cfg,
-				destinationClients,
 			)
 		default:
 			m, err = nil, fmt.Errorf("invalid message format %s", format)

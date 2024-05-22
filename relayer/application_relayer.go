@@ -27,6 +27,7 @@ import (
 	"github.com/ava-labs/awm-relayer/peers"
 	"github.com/ava-labs/awm-relayer/relayer/checkpoint"
 	"github.com/ava-labs/awm-relayer/utils"
+	"github.com/ava-labs/awm-relayer/vms"
 	coreEthMsg "github.com/ava-labs/coreth/plugin/evm/message"
 	msg "github.com/ava-labs/subnet-evm/plugin/evm/message"
 	warpBackend "github.com/ava-labs/subnet-evm/warp"
@@ -63,6 +64,7 @@ type ApplicationRelayer struct {
 	messageCreator    message.Creator
 	sourceBlockchain  config.SourceBlockchain
 	signingSubnetID   ids.ID
+	destinationClient vms.DestinationClient
 	relayerID         database.RelayerID
 	warpQuorum        config.WarpQuorum
 	checkpointManager *checkpoint.CheckpointManager
@@ -78,6 +80,7 @@ func NewApplicationRelayer(
 	relayerID database.RelayerID,
 	db database.RelayerDatabase,
 	ticker *utils.Ticker,
+	destinationClient vms.DestinationClient,
 	sourceBlockchain config.SourceBlockchain,
 	startingHeight uint64,
 	cfg *config.Config,
@@ -111,6 +114,7 @@ func NewApplicationRelayer(
 		network:           network,
 		messageCreator:    messageCreator,
 		sourceBlockchain:  sourceBlockchain,
+		destinationClient: destinationClient,
 		relayerID:         relayerID,
 		signingSubnetID:   signingSubnet,
 		warpQuorum:        quorum,
@@ -125,12 +129,12 @@ func NewApplicationRelayer(
 // Process [msgs] at height [height] by relaying each message to the destination chain.
 // Checkpoints the height with the checkpoint manager when all messages are relayed.
 // ProcessHeight is expected to be called for every block greater than or equal to the [startingHeight] provided in the cosntructor
-func (r *ApplicationRelayer) ProcessHeight(height uint64, messages []messages.MessageHandler) error {
+func (r *ApplicationRelayer) ProcessHeight(height uint64, handlers []messages.MessageHandler) error {
 	var eg errgroup.Group
-	for _, message := range messages {
-		m := message
+	for _, handler := range handlers {
+		h := handler
 		eg.Go(func() error {
-			return r.ProcessMessage(m)
+			return r.ProcessMessage(h)
 		})
 	}
 	if err := eg.Wait(); err != nil {
@@ -148,13 +152,13 @@ func (r *ApplicationRelayer) ProcessHeight(height uint64, messages []messages.Me
 		zap.Uint64("height", height),
 		zap.String("sourceBlockchainID", r.relayerID.SourceBlockchainID.String()),
 		zap.String("relayerID", r.relayerID.ID.String()),
-		zap.Int("numMessages", len(messages)),
+		zap.Int("numMessages", len(handlers)),
 	)
 	return nil
 }
 
 // Relays a message to the destination chain. Does not checkpoint the height.
-func (r *ApplicationRelayer) ProcessMessage(msg messages.MessageHandler) error {
+func (r *ApplicationRelayer) ProcessMessage(handler messages.MessageHandler) error {
 	// Increment the request ID. Make sure we don't hold the lock while we relay the message.
 	r.lock.Lock()
 	r.currentRequestID++
@@ -163,7 +167,7 @@ func (r *ApplicationRelayer) ProcessMessage(msg messages.MessageHandler) error {
 
 	err := r.relayMessage(
 		reqID,
-		msg,
+		handler,
 		true,
 	)
 
@@ -176,7 +180,7 @@ func (r *ApplicationRelayer) RelayerID() database.RelayerID {
 
 func (r *ApplicationRelayer) relayMessage(
 	requestID uint32,
-	messageHandler messages.MessageHandler,
+	handler messages.MessageHandler,
 	useAppRequestNetwork bool,
 ) error {
 	r.logger.Debug(
@@ -185,7 +189,7 @@ func (r *ApplicationRelayer) relayMessage(
 		zap.String("sourceBlockchainID", r.sourceBlockchain.BlockchainID),
 		zap.String("relayerID", r.relayerID.ID.String()),
 	)
-	shouldSend, err := messageHandler.ShouldSendMessage(r.relayerID.DestinationBlockchainID)
+	shouldSend, err := handler.ShouldSendMessage(r.destinationClient)
 	if err != nil {
 		r.logger.Error(
 			"Failed to check if message should be sent",
@@ -198,7 +202,7 @@ func (r *ApplicationRelayer) relayMessage(
 		r.logger.Info("Message should not be sent")
 		return nil
 	}
-	unsignedMessage := messageHandler.GetUnsignedMessage()
+	unsignedMessage := handler.GetUnsignedMessage()
 
 	startCreateSignedMessageTime := time.Now()
 	// Query nodes on the origin chain for signatures, and construct the signed warp message.
@@ -228,7 +232,7 @@ func (r *ApplicationRelayer) relayMessage(
 	// create signed message latency (ms)
 	r.setCreateSignedMessageLatencyMS(float64(time.Since(startCreateSignedMessageTime).Milliseconds()))
 
-	err = messageHandler.SendMessage(signedMessage, r.relayerID.DestinationBlockchainID)
+	err = handler.SendMessage(signedMessage, r.destinationClient)
 	if err != nil {
 		r.logger.Error(
 			"Failed to send warp message",

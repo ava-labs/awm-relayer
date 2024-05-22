@@ -8,6 +8,7 @@ package messages
 import (
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/vms/platformvm/warp"
+	"github.com/ava-labs/awm-relayer/vms"
 	"github.com/ethereum/go-ethereum/common"
 )
 
@@ -22,11 +23,11 @@ type MessageHandlerFactory interface {
 type MessageHandler interface {
 	// ShouldSendMessage returns true if the message should be sent to the destination chain
 	// If an error is returned, the boolean should be ignored by the caller.
-	ShouldSendMessage(destinationBlockchainID ids.ID) (bool, error)
+	ShouldSendMessage(destinationClient vms.DestinationClient) (bool, error)
 
 	// SendMessage sends the signed message to the destination chain. The payload parsed according to
 	// the VM rules is also passed in, since MessageManager does not assume any particular VM
-	SendMessage(signedMessage *warp.Message, destinationBlockchainID ids.ID) error
+	SendMessage(signedMessage *warp.Message, destinationClient vms.DestinationClient) error
 
 	// GetMessageRoutingInfo returns the source chain ID, origin sender address, destination chain ID, and destination address
 	GetMessageRoutingInfo() (

@@ -24,10 +24,9 @@ import (
 )
 
 type factory struct {
-	messageConfig      Config
-	protocolAddress    common.Address
-	destinationClients map[ids.ID]vms.DestinationClient
-	logger             logging.Logger
+	messageConfig   Config
+	protocolAddress common.Address
+	logger          logging.Logger
 }
 
 type messageHandler struct {
@@ -41,8 +40,7 @@ func NewMessageHandlerFactory(
 	logger logging.Logger,
 	messageProtocolAddress common.Address,
 	messageProtocolConfig config.MessageProtocolConfig,
-	destinationClients map[ids.ID]vms.DestinationClient,
-) (*factory, error) {
+) (messages.MessageHandlerFactory, error) {
 	// Marshal the map and unmarshal into the Teleporter config
 	data, err := json.Marshal(messageProtocolConfig.Settings)
 	if err != nil {
@@ -64,10 +62,9 @@ func NewMessageHandlerFactory(
 	}
 
 	return &factory{
-		messageConfig:      messageConfig,
-		protocolAddress:    messageProtocolAddress,
-		destinationClients: destinationClients,
-		logger:             logger,
+		messageConfig:   messageConfig,
+		protocolAddress: messageProtocolAddress,
+		logger:          logger,
 	}, nil
 }
 
@@ -121,14 +118,8 @@ func (m *messageHandler) GetMessageRoutingInfo() (
 }
 
 // ShouldSendMessage returns true if the message should be sent to the destination chain
-func (m *messageHandler) ShouldSendMessage(destinationBlockchainID ids.ID) (bool, error) {
-	// Get the correct destination client from the global map
-	destinationClient, ok := m.factory.destinationClients[destinationBlockchainID]
-	if !ok {
-		// This shouldn't occur, since the destination client map and message handler factories are built from the same configuration.
-		return false, fmt.Errorf("relayer not configured to deliver to destination. destinationBlockchainID=%s", destinationBlockchainID.String())
-	}
-
+func (m *messageHandler) ShouldSendMessage(destinationClient vms.DestinationClient) (bool, error) {
+	destinationBlockchainID := destinationClient.DestinationBlockchainID()
 	teleporterMessageID, err := teleporterUtils.CalculateMessageID(
 		m.factory.protocolAddress,
 		m.unsignedMessage.SourceChainID,
@@ -151,7 +142,7 @@ func (m *messageHandler) ShouldSendMessage(destinationBlockchainID ids.ID) (bool
 	}
 
 	// Check if the message has already been delivered to the destination chain
-	teleporterMessenger := m.factory.getTeleporterMessenger(destinationBlockchainID)
+	teleporterMessenger := m.factory.getTeleporterMessenger(destinationClient)
 	delivered, err := teleporterMessenger.MessageReceived(&bind.CallOpts{}, teleporterMessageID)
 	if err != nil {
 		m.logger.Error(
@@ -177,13 +168,8 @@ func (m *messageHandler) ShouldSendMessage(destinationBlockchainID ids.ID) (bool
 
 // SendMessage extracts the gasLimit and packs the call data to call the receiveCrossChainMessage method of the Teleporter contract,
 // and dispatches transaction construction and broadcast to the destination client
-func (m *messageHandler) SendMessage(signedMessage *warp.Message, destinationBlockchainID ids.ID) error {
-	// Get the correct destination client from the global map
-	destinationClient, ok := m.factory.destinationClients[destinationBlockchainID]
-	if !ok {
-		return fmt.Errorf("relayer not configured to deliver to destination. DestinationBlockchainID=%s", destinationBlockchainID)
-	}
-
+func (m *messageHandler) SendMessage(signedMessage *warp.Message, destinationClient vms.DestinationClient) error {
+	destinationBlockchainID := destinationClient.DestinationBlockchainID()
 	teleporterMessageID, err := teleporterUtils.CalculateMessageID(
 		m.factory.protocolAddress,
 		signedMessage.SourceChainID,
@@ -278,11 +264,7 @@ func (f *factory) parseTeleporterMessage(unsignedMessage *warp.UnsignedMessage) 
 // getTeleporterMessenger returns the Teleporter messenger instance for the destination chain.
 // Panic instead of returning errors because this should never happen, and if it does, we do not
 // want to log and swallow the error, since operations after this will fail too.
-func (f *factory) getTeleporterMessenger(destinationBlockchainID ids.ID) *teleportermessenger.TeleporterMessenger {
-	destinationClient, ok := f.destinationClients[destinationBlockchainID]
-	if !ok {
-		return nil
-	}
+func (f *factory) getTeleporterMessenger(destinationClient vms.DestinationClient) *teleportermessenger.TeleporterMessenger {
 	client, ok := destinationClient.Client().(ethclient.Client)
 	if !ok {
 		panic(fmt.Sprintf("Destination client for chain %s is not an Ethereum client", destinationClient.DestinationBlockchainID().String()))
