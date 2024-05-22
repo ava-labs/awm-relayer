@@ -5,14 +5,12 @@ package relayer
 
 import (
 	"context"
-	"encoding/hex"
 	"fmt"
 	"math/big"
 	"math/rand"
 	"sync"
 
 	"github.com/ava-labs/avalanchego/ids"
-	"github.com/ava-labs/avalanchego/message"
 	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/awm-relayer/config"
 	"github.com/ava-labs/awm-relayer/database"
@@ -20,9 +18,7 @@ import (
 	"github.com/ava-labs/awm-relayer/messages"
 	offchainregistry "github.com/ava-labs/awm-relayer/messages/off-chain-registry"
 	"github.com/ava-labs/awm-relayer/messages/teleporter"
-	"github.com/ava-labs/awm-relayer/peers"
 	relayerTypes "github.com/ava-labs/awm-relayer/types"
-	"github.com/ava-labs/awm-relayer/utils"
 	vms "github.com/ava-labs/awm-relayer/vms"
 	"github.com/ethereum/go-ethereum/common"
 	"go.uber.org/atomic"
@@ -54,13 +50,8 @@ type Listener struct {
 
 func NewListener(
 	logger logging.Logger,
-	metrics *ApplicationRelayerMetrics,
-	db database.RelayerDatabase,
-	ticker *utils.Ticker,
 	sourceBlockchain config.SourceBlockchain,
-	network *peers.AppRequestNetwork,
 	destinationClients map[ids.ID]vms.DestinationClient,
-	messageCreator message.Creator,
 	relayerHealth *atomic.Bool,
 	cfg *config.Config,
 	applicationRelayers map[common.Hash]*ApplicationRelayer,
@@ -434,14 +425,14 @@ func (lstnr *Listener) ProcessManualWarpMessages(
 		logger.Info(
 			"Relaying manual Warp message",
 			zap.String("blockchainID", sourceBlockchain.BlockchainID),
-			zap.String("warpMessageBytes", hex.EncodeToString(warpMessage.UnsignedMessage.Bytes())),
+			zap.String("warpMessageID", warpMessage.UnsignedMessage.ID().String()),
 		)
 		appRelayer, handler, err := lstnr.GetAppRelayerMessageHandler(warpMessage)
 		if err != nil {
 			logger.Error(
 				"Failed to parse manual Warp message.",
 				zap.Error(err),
-				zap.String("warpMessageBytes", hex.EncodeToString(warpMessage.UnsignedMessage.Bytes())),
+				zap.String("warpMessageID", warpMessage.UnsignedMessage.ID().String()),
 			)
 			return err
 		}
@@ -450,7 +441,7 @@ func (lstnr *Listener) ProcessManualWarpMessages(
 			logger.Error(
 				"Failed to process manual Warp message",
 				zap.String("blockchainID", sourceBlockchain.BlockchainID),
-				zap.String("warpMessageBytes", hex.EncodeToString(warpMessage.UnsignedMessage.Bytes())),
+				zap.String("warpMessageID", warpMessage.UnsignedMessage.ID().String()),
 			)
 			return err
 		}

@@ -125,7 +125,7 @@ func (m *messageHandler) ShouldSendMessage(destinationBlockchainID ids.ID) (bool
 	// Get the correct destination client from the global map
 	destinationClient, ok := m.factory.destinationClients[destinationBlockchainID]
 	if !ok {
-		// This shouldn't occur, since we already check this in Listener.RouteMessage. Return an error in this case.
+		// This shouldn't occur, since the destination client map and message handler factories are built from the same configuration.
 		return false, fmt.Errorf("relayer not configured to deliver to destination. destinationBlockchainID=%s", destinationBlockchainID.String())
 	}
 
@@ -291,7 +291,7 @@ func (f *factory) getTeleporterMessenger(destinationBlockchainID ids.ID) *telepo
 	// Get the teleporter messenger contract
 	teleporterMessenger, err := teleportermessenger.NewTeleporterMessenger(f.protocolAddress, client)
 	if err != nil {
-		panic("Failed to get teleporter messenger contract")
+		panic(fmt.Sprintf("Failed to get teleporter messenger contract: %w", err))
 	}
 	return teleporterMessenger
 }

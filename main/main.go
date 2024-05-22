@@ -5,6 +5,7 @@ package main
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
 	"log"
 	"net/http"
@@ -210,6 +211,7 @@ func main() {
 		if err != nil {
 			logger.Error(
 				"Failed to unpack manual Warp message",
+				zap.String("warpMessageBytes", hex.EncodeToString(msg.GetUnsignedMessageBytes())),
 				zap.Error(err),
 			)
 			panic(err)
@@ -324,13 +326,8 @@ func runListener(
 	// Create the Listener
 	listener, err := relayer.NewListener(
 		logger,
-		metrics,
-		db,
-		ticker,
 		sourceBlockchain,
-		network,
 		destinationClients,
-		messageCreator,
 		relayerHealth,
 		cfg,
 		applicationRelayers,

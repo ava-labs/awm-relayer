@@ -53,10 +53,9 @@ var (
 	errNotEnoughConnectedStake = errors.New("failed to connect to a threshold of stake")
 )
 
-// ApplicationRelayers are created for each warp message to be relayed.
-// They collect signatures from validators, aggregate them,
-// and send the signed warp message to the destination chain.
-// Each ApplicationRelayer runs in its own goroutine.
+// ApplicationRelayers define a Warp message route from a specific source address on a specific source blockchain
+// to a specific destination address on a specific destination blockchain. This routing information is
+// encapsulated in [relayerID], which also represents the database key for an ApplicationRelayer.
 type ApplicationRelayer struct {
 	logger            logging.Logger
 	metrics           *ApplicationRelayerMetrics
@@ -149,7 +148,7 @@ func (r *ApplicationRelayer) ProcessHeight(height uint64, messages []messages.Me
 		zap.Uint64("height", height),
 		zap.String("sourceBlockchainID", r.relayerID.SourceBlockchainID.String()),
 		zap.String("relayerID", r.relayerID.ID.String()),
-		zap.Int("numMessages", len(msgs)),
+		zap.Int("numMessages", len(messages)),
 	)
 	return nil
 }

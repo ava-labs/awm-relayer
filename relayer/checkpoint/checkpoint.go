@@ -102,8 +102,9 @@ func (cm *CheckpointManager) listenForWriteSignal() {
 // Heights are committed in sequence, so if height is not exactly one
 // greater than the current committedHeight, it is instead cached in memory
 // to potentially be committed later.
-// Requires that cm.lock be held
 func (cm *CheckpointManager) StageCommittedHeight(height uint64) {
+	cm.lock.Lock()
+	defer cm.lock.Unlock()
 	if height <= cm.committedHeight {
 		cm.logger.Debug(
 			"Attempting to commit height less than or equal to the committed height. Skipping.",
