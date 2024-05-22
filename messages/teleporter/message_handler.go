@@ -273,7 +273,7 @@ func (f *factory) getTeleporterMessenger(destinationClient vms.DestinationClient
 	// Get the teleporter messenger contract
 	teleporterMessenger, err := teleportermessenger.NewTeleporterMessenger(f.protocolAddress, client)
 	if err != nil {
-		panic(fmt.Sprintf("Failed to get teleporter messenger contract: %w", err))
+		panic(fmt.Sprintf("Failed to get teleporter messenger contract: %s", err.Error()))
 	}
 	return teleporterMessenger
 }
