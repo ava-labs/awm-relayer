@@ -114,10 +114,6 @@ func (c *destinationClient) SendTx(signedMessage *avalancheWarp.Message,
 	gasLimit uint64,
 	callData []byte,
 ) error {
-	// Synchronize teleporter message requests to the same destination chain so that message ordering is preserved
-	c.lock.Lock()
-	defer c.lock.Unlock()
-
 	// Get the current base fee estimation, which is based on the previous blocks gas usage.
 	baseFee, err := c.client.EstimateBaseFee(context.Background())
 	if err != nil {
@@ -142,6 +138,12 @@ func (c *destinationClient) SendTx(signedMessage *avalancheWarp.Message,
 	to := common.HexToAddress(toAddress)
 	gasFeeCap := baseFee.Mul(baseFee, big.NewInt(BaseFeeFactor))
 	gasFeeCap.Add(gasFeeCap, big.NewInt(MaxPriorityFeePerGas))
+
+	// Synchronize nonce access so that we send transactions in nonce order.
+	// Hold the lock until the transaction is sent to minimize the chance of
+	// an out-of-order transaction being dropped from the mempool.
+	c.lock.Lock()
+	defer c.lock.Unlock()
 
 	// Construct the actual transaction to broadcast on the destination chain
 	tx := predicateutils.NewPredicateTx(
@@ -175,9 +177,6 @@ func (c *destinationClient) SendTx(signedMessage *avalancheWarp.Message,
 		)
 		return err
 	}
-
-	// Increment the nonce to use on the destination chain now that we've sent
-	// a transaction using the current value.
 	c.currentNonce++
 	c.logger.Info(
 		"Sent transaction",
