@@ -129,7 +129,7 @@ func NewApplicationRelayer(
 // Process [msgs] at height [height] by relaying each message to the destination chain.
 // Checkpoints the height with the checkpoint manager when all messages are relayed.
 // ProcessHeight is expected to be called for every block greater than or equal to the [startingHeight] provided in the constructor
-func (r *ApplicationRelayer) ProcessHeight(height uint64, handlers []messages.MessageHandler) error {
+func (r *ApplicationRelayer) ProcessHeight(height uint64, handlers []messages.MessageHandler, errChan chan error) {
 	var eg errgroup.Group
 	for _, handler := range handlers {
 		h := handler
@@ -144,7 +144,8 @@ func (r *ApplicationRelayer) ProcessHeight(height uint64, handlers []messages.Me
 			zap.String("relayerID", r.relayerID.ID.String()),
 			zap.Error(err),
 		)
-		return err
+		errChan <- err
+		return
 	}
 	r.checkpointManager.StageCommittedHeight(height)
 	r.logger.Debug(
@@ -154,7 +155,6 @@ func (r *ApplicationRelayer) ProcessHeight(height uint64, handlers []messages.Me
 		zap.String("relayerID", r.relayerID.ID.String()),
 		zap.Int("numMessages", len(handlers)),
 	)
-	return nil
 }
 
 // Relays a message to the destination chain. Does not checkpoint the height.

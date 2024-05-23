@@ -176,8 +176,16 @@ func NewListener(
 // On subscriber error, attempts to reconnect and errors if unable.
 // Exits if context is cancelled by another goroutine.
 func (lstnr *Listener) ProcessLogs(ctx context.Context) error {
+	// Error channel for application relayer errors
+	errChan := make(chan error)
 	for {
 		select {
+		case err := <-errChan:
+			lstnr.healthStatus.Store(false)
+			lstnr.logger.Error(
+				"Received error from application relayer",
+				zap.Error(err),
+			)
 		case catchUpResult, ok := <-lstnr.catchUpResultChan:
 			// As soon as we've received anything on the channel, there are no more values expected.
 			// The expected case is that the channel is closed by the subscriber after writing a value to it,
@@ -246,7 +254,7 @@ func (lstnr *Listener) ProcessLogs(ctx context.Context) error {
 
 				// Process the height async. This is safe because the ApplicationRelayer maintains the threadsafe
 				// invariant that heights are committed to the database one at a time, in order, with no gaps.
-				go appRelayer.ProcessHeight(block.BlockNumber, handlers)
+				go appRelayer.ProcessHeight(block.BlockNumber, handlers, errChan)
 			}
 		case err := <-lstnr.Subscriber.Err():
 			lstnr.healthStatus.Store(false)
