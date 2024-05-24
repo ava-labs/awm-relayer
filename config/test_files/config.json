@@ -1,0 +1,41 @@
+{
+    "info-api": {
+      "base-url": "https://api.avax-test.network"
+    },
+    "p-chain-api": {
+      "base-url": "https://api.avax-test.network"
+    },
+    "source-blockchains": [
+      {
+        "subnet-id": "11111111111111111111111111111111LpoYY",
+        "blockchain-id": "yH8D7ThNJkxmtkuv2jgBa4P1Rn3Qpr4pPr7QYNfcdoS6k6HWp",
+        "vm": "evm",
+        "rpc-endpoint": {
+          "base-url": "https://api.avax-test.network/ext/bc/C/rpc"
+        },
+        "ws-endpoint": {
+          "base-url": "wss://api.avax-test.network/ext/bc/C/ws"
+        },
+        "message-contracts": {
+          "0x253b2784c75e510dD0fF1da844684a1aC0aa5fcf": {
+            "message-format": "teleporter",
+            "settings": {
+              "reward-address": "0x5072..."
+            }
+          }
+        }
+      }
+    ],
+    "destination-blockchains": [
+      {
+        "subnet-id": "7WtoAMPhrmh5KosDUsFL9yTcvw7YSxiKHPpdfs4JsgW47oZT5",
+        "blockchain-id": "2D8RG4UpSXbPbvPCAWppNJyqTG2i2CAXSkTgmTBBvs7GKNZjsY",
+        "vm": "evm",
+        "rpc-endpoint": {
+          "base-url": "https://subnets.avax.network/dispatch/testnet/rpc"
+        },
+        "account-private-key": "0xf4a2b939592564feb35ab10a8e04f6f2fe0943579fb3c9c33505298978b74893"
+      }
+    ]
+  }
+  

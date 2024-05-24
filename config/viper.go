@@ -13,6 +13,17 @@ import (
 	"github.com/spf13/viper"
 )
 
+func NewConfig(v *viper.Viper) (Config, bool, error) {
+	cfg, overwritten, err := BuildConfig(v)
+	if err != nil {
+		return cfg, overwritten, err
+	}
+	if err = cfg.Validate(); err != nil {
+		return Config{}, false, fmt.Errorf("failed to validate configuration: %w", err)
+	}
+	return cfg, overwritten, nil
+}
+
 // Build the viper instance. The config file must be provided via the command line flag or environment variable.
 // All config keys may be provided via config file or environment variable.
 func BuildViper(fs *pflag.FlagSet) (*viper.Viper, error) {
@@ -67,31 +78,11 @@ func BuildConfig(v *viper.Viper) (Config, bool, error) {
 	// Build the config from Viper
 	var (
 		cfg               Config
-		err               error
 		optionOverwritten bool = false
 	)
 
-	cfg.LogLevel = v.GetString(LogLevelKey)
-	cfg.StorageLocation = v.GetString(StorageLocationKey)
-	cfg.RedisURL = v.GetString(RedisURLKey)
-	cfg.ProcessMissedBlocks = v.GetBool(ProcessMissedBlocksKey)
-	cfg.APIPort = v.GetUint16(APIPortKey)
-	cfg.MetricsPort = v.GetUint16(MetricsPortKey)
-	cfg.DBWriteIntervalSeconds = v.GetUint64(DBWriteIntervalSecondsKey)
-	if err := v.UnmarshalKey(PChainAPIKey, &cfg.PChainAPI); err != nil {
-		return Config{}, false, fmt.Errorf("failed to unmarshal P-Chain API: %w", err)
-	}
-	if err := v.UnmarshalKey(InfoAPIKey, &cfg.InfoAPI); err != nil {
-		return Config{}, false, fmt.Errorf("failed to unmarshal Info API: %w", err)
-	}
-	if err := v.UnmarshalKey(ManualWarpMessagesKey, &cfg.ManualWarpMessages); err != nil {
-		return Config{}, false, fmt.Errorf("failed to unmarshal manual warp messages: %w", err)
-	}
-	if err := v.UnmarshalKey(DestinationBlockchainsKey, &cfg.DestinationBlockchains); err != nil {
-		return Config{}, false, fmt.Errorf("failed to unmarshal destination subnets: %w", err)
-	}
-	if err := v.UnmarshalKey(SourceBlockchainsKey, &cfg.SourceBlockchains); err != nil {
-		return Config{}, false, fmt.Errorf("failed to unmarshal source subnets: %w", err)
+	if err := v.Unmarshal(&cfg); err != nil {
+		return cfg, false, fmt.Errorf("failed to unmarshal viper config: %w", err)
 	}
 
 	// Explicitly overwrite the configured account private key
@@ -111,10 +102,6 @@ func BuildConfig(v *viper.Viper) (Config, bool, error) {
 			privateKey = privateKeyFromEnv
 		}
 		cfg.DestinationBlockchains[i].AccountPrivateKey = utils.SanitizeHexString(privateKey)
-	}
-
-	if err = cfg.Validate(); err != nil {
-		return Config{}, false, fmt.Errorf("failed to validate configuration: %w", err)
 	}
 
 	return cfg, optionOverwritten, nil

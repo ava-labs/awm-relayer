@@ -29,9 +29,9 @@ const (
 const (
 	defaultStorageLocation     = "./.awm-relayer-storage"
 	defaultProcessMissedBlocks = true
-	defaultAPIPort             = 8080
-	defaultMetricsPort         = 9090
-	defaultIntervalSeconds     = 10
+	defaultAPIPort             = uint16(8080)
+	defaultMetricsPort         = uint16(9090)
+	defaultIntervalSeconds     = uint64(10)
 )
 
 var defaultLogLevel = logging.Info.String()

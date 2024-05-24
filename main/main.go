@@ -63,7 +63,7 @@ func main() {
 		panic(fmt.Errorf("couldn't configure flags: %w", err))
 	}
 
-	cfg, optionOverwritten, err := config.BuildConfig(v)
+	cfg, optionOverwritten, err := config.NewConfig(v)
 	if err != nil {
 		panic(fmt.Errorf("couldn't build config: %w", err))
 	}
