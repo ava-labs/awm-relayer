@@ -62,6 +62,7 @@ type Config struct {
 
 	// convenience field to fetch a blockchain's subnet ID
 	blockchainIDToSubnetID map[ids.ID]ids.ID
+	overwrittenOptions     []string
 }
 
 func DisplayUsageText() {
@@ -207,6 +208,14 @@ func (c *Config) InitializeWarpQuorums() error {
 	}
 
 	return nil
+}
+
+func (c *Config) HasOverwrittenOptions() bool {
+	return len(c.overwrittenOptions) > 0
+}
+
+func (c *Config) GetOverwrittenOptions() []string {
+	return c.overwrittenOptions
 }
 
 //

@@ -13,15 +13,15 @@ import (
 	"github.com/spf13/viper"
 )
 
-func NewConfig(v *viper.Viper) (Config, bool, error) {
-	cfg, overwritten, err := BuildConfig(v)
+func NewConfig(v *viper.Viper) (Config, error) {
+	cfg, err := BuildConfig(v)
 	if err != nil {
-		return cfg, overwritten, err
+		return cfg, err
 	}
 	if err = cfg.Validate(); err != nil {
-		return Config{}, false, fmt.Errorf("failed to validate configuration: %w", err)
+		return Config{}, fmt.Errorf("failed to validate configuration: %w", err)
 	}
-	return cfg, overwritten, nil
+	return cfg, nil
 }
 
 // Build the viper instance. The config file must be provided via the command line flag or environment variable.
@@ -68,21 +68,18 @@ func SetDefaultConfigValues(v *viper.Viper) {
 //     b. Chain-specific account-private-key
 //  3. Config file
 //
-// Returns the Config option and a bool indicating whether any options provided from one source
-// were explicitly overridden by a higher precedence source.
-// TODO: Improve the optionOverwritten return value to reflect the key that was modified.
-func BuildConfig(v *viper.Viper) (Config, bool, error) {
+// Returns the Config
+func BuildConfig(v *viper.Viper) (Config, error) {
 	// Set default values
 	SetDefaultConfigValues(v)
 
 	// Build the config from Viper
 	var (
-		cfg               Config
-		optionOverwritten bool = false
+		cfg Config
 	)
 
 	if err := v.Unmarshal(&cfg); err != nil {
-		return cfg, false, fmt.Errorf("failed to unmarshal viper config: %w", err)
+		return cfg, fmt.Errorf("failed to unmarshal viper config: %w", err)
 	}
 
 	// Explicitly overwrite the configured account private key
@@ -93,16 +90,16 @@ func BuildConfig(v *viper.Viper) (Config, bool, error) {
 	for i, subnet := range cfg.DestinationBlockchains {
 		privateKey := subnet.AccountPrivateKey
 		if accountPrivateKey != "" {
-			optionOverwritten = true
 			privateKey = accountPrivateKey
+			cfg.overwrittenOptions = append(cfg.overwrittenOptions, fmt.Sprintf("destination-blockchain(%s).account-private-key", subnet.blockchainID))
 			// Otherwise, check for private keys suffixed with the chain ID and set it for that subnet
 			// Since the key is dynamic, this is only possible through environment variables
 		} else if privateKeyFromEnv := os.Getenv(fmt.Sprintf("%s_%s", accountPrivateKeyEnvVarName, subnet.BlockchainID)); privateKeyFromEnv != "" {
-			optionOverwritten = true
 			privateKey = privateKeyFromEnv
+			cfg.overwrittenOptions = append(cfg.overwrittenOptions, fmt.Sprintf("destination-blockchain(%s).account-private-key", subnet.blockchainID))
 		}
 		cfg.DestinationBlockchains[i].AccountPrivateKey = utils.SanitizeHexString(privateKey)
 	}
 
-	return cfg, optionOverwritten, nil
+	return cfg, nil
 }
