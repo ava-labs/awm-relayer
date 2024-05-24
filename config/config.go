@@ -7,22 +7,17 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net/url"
-	"os"
 
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/utils/constants"
 	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/avalanchego/utils/set"
-	"github.com/ava-labs/awm-relayer/utils"
 
 	"github.com/ava-labs/awm-relayer/ethclient"
 	"github.com/ava-labs/subnet-evm/precompile/contracts/warp"
 
 	// Force-load precompiles to trigger registration
 	_ "github.com/ava-labs/subnet-evm/precompile/registry"
-
-	"github.com/spf13/viper"
 )
 
 const (
@@ -50,13 +45,6 @@ awm-relayer --help                                      Display awm-relayer usag
 
 var errFailedToGetWarpQuorum = errors.New("failed to get warp quorum")
 
-// API configuration containing the base URL and query parameters
-type APIConfig struct {
-	BaseURL     string            `mapstructure:"base-url" json:"base-url"`
-	QueryParams map[string]string `mapstructure:"query-parameters" json:"query-parameters"`
-	HTTPHeaders map[string]string `mapstructure:"http-headers" json:"http-headers"`
-}
-
 // Top-level configuration
 type Config struct {
 	LogLevel               string                   `mapstructure:"log-level" json:"log-level"`
@@ -78,82 +66,6 @@ type Config struct {
 
 func DisplayUsageText() {
 	fmt.Printf("%s\n", usageText)
-}
-
-// BuildConfig constructs the relayer config using Viper.
-// The following precedence order is used. Each item takes precedence over the item below it:
-//  1. Flags
-//  2. Environment variables
-//     a. Global account-private-key
-//     b. Chain-specific account-private-key
-//  3. Config file
-//
-// Returns the Config option and a bool indicating whether any options provided from one source
-// were explicitly overridden by a higher precedence source.
-// TODO: Improve the optionOverwritten return value to reflect the key that was modified.
-func BuildConfig(v *viper.Viper) (Config, bool, error) {
-	// Set default values
-	SetDefaultConfigValues(v)
-
-	// Build the config from Viper
-	var (
-		cfg               Config
-		err               error
-		optionOverwritten bool = false
-	)
-
-	cfg.LogLevel = v.GetString(LogLevelKey)
-	cfg.StorageLocation = v.GetString(StorageLocationKey)
-	cfg.RedisURL = v.GetString(RedisURLKey)
-	cfg.ProcessMissedBlocks = v.GetBool(ProcessMissedBlocksKey)
-	cfg.APIPort = v.GetUint16(APIPortKey)
-	cfg.MetricsPort = v.GetUint16(MetricsPortKey)
-	cfg.DBWriteIntervalSeconds = v.GetUint64(DBWriteIntervalSecondsKey)
-	if err := v.UnmarshalKey(PChainAPIKey, &cfg.PChainAPI); err != nil {
-		return Config{}, false, fmt.Errorf("failed to unmarshal P-Chain API: %w", err)
-	}
-	if err := v.UnmarshalKey(InfoAPIKey, &cfg.InfoAPI); err != nil {
-		return Config{}, false, fmt.Errorf("failed to unmarshal Info API: %w", err)
-	}
-	if err := v.UnmarshalKey(ManualWarpMessagesKey, &cfg.ManualWarpMessages); err != nil {
-		return Config{}, false, fmt.Errorf("failed to unmarshal manual warp messages: %w", err)
-	}
-	if err := v.UnmarshalKey(DestinationBlockchainsKey, &cfg.DestinationBlockchains); err != nil {
-		return Config{}, false, fmt.Errorf("failed to unmarshal destination subnets: %w", err)
-	}
-	if err := v.UnmarshalKey(SourceBlockchainsKey, &cfg.SourceBlockchains); err != nil {
-		return Config{}, false, fmt.Errorf("failed to unmarshal source subnets: %w", err)
-	}
-
-	// Explicitly overwrite the configured account private key
-	// If account-private-key is set as a flag or environment variable,
-	// overwrite all destination subnet configurations to use that key
-	// In all cases, sanitize the key before setting it in the config
-	accountPrivateKey := v.GetString(AccountPrivateKeyKey)
-	if accountPrivateKey != "" {
-		optionOverwritten = true
-		for i := range cfg.DestinationBlockchains {
-			cfg.DestinationBlockchains[i].AccountPrivateKey = utils.SanitizeHexString(accountPrivateKey)
-		}
-	} else {
-		// Otherwise, check for private keys suffixed with the chain ID and set it for that subnet
-		// Since the key is dynamic, this is only possible through environment variables
-		for i, subnet := range cfg.DestinationBlockchains {
-			subnetAccountPrivateKey := os.Getenv(fmt.Sprintf("%s_%s", accountPrivateKeyEnvVarName, subnet.BlockchainID))
-			if subnetAccountPrivateKey != "" {
-				optionOverwritten = true
-				cfg.DestinationBlockchains[i].AccountPrivateKey = utils.SanitizeHexString(subnetAccountPrivateKey)
-			} else {
-				cfg.DestinationBlockchains[i].AccountPrivateKey = utils.SanitizeHexString(cfg.DestinationBlockchains[i].AccountPrivateKey)
-			}
-		}
-	}
-
-	if err = cfg.Validate(); err != nil {
-		return Config{}, false, fmt.Errorf("failed to validate configuration: %w", err)
-	}
-
-	return cfg, optionOverwritten, nil
 }
 
 // Validates the configuration
@@ -294,13 +206,6 @@ func (c *Config) InitializeWarpQuorums() error {
 		}
 	}
 
-	return nil
-}
-
-func (c *APIConfig) Validate() error {
-	if _, err := url.ParseRequestURI(c.BaseURL); err != nil {
-		return fmt.Errorf("invalid base URL: %w", err)
-	}
 	return nil
 }
 
