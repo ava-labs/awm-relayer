@@ -31,6 +31,16 @@ const (
 	warpConfigKey               = "warpConfig"
 )
 
+const (
+	defaultStorageLocation     = "./.awm-relayer-storage"
+	defaultProcessMissedBlocks = true
+	defaultAPIPort             = 8080
+	defaultMetricsPort         = 9090
+	defaultIntervalSeconds     = 10
+)
+
+var defaultLogLevel = logging.Info.String()
+
 const usageText = `
 Usage:
 awm-relayer --config-file path-to-config                Specifies the relayer config file and begin relaying messages.
@@ -64,15 +74,6 @@ type Config struct {
 
 	// convenience field to fetch a blockchain's subnet ID
 	blockchainIDToSubnetID map[ids.ID]ids.ID
-}
-
-func SetDefaultConfigValues(v *viper.Viper) {
-	v.SetDefault(LogLevelKey, logging.Info.String())
-	v.SetDefault(StorageLocationKey, "./.awm-relayer-storage")
-	v.SetDefault(ProcessMissedBlocksKey, true)
-	v.SetDefault(APIPortKey, 8080)
-	v.SetDefault(MetricsPortKey, 9090)
-	v.SetDefault(DBWriteIntervalSecondsKey, 10)
 }
 
 func DisplayUsageText() {

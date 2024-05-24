@@ -37,3 +37,12 @@ func BuildViper(fs *pflag.FlagSet) (*viper.Viper, error) {
 
 	return v, nil
 }
+
+func SetDefaultConfigValues(v *viper.Viper) {
+	v.SetDefault(LogLevelKey, defaultLogLevel)
+	v.SetDefault(StorageLocationKey, defaultStorageLocation)
+	v.SetDefault(ProcessMissedBlocksKey, defaultProcessMissedBlocks)
+	v.SetDefault(APIPortKey, defaultAPIPort)
+	v.SetDefault(MetricsPortKey, defaultMetricsPort)
+	v.SetDefault(DBWriteIntervalSecondsKey, defaultIntervalSeconds)
+}
