@@ -7,7 +7,6 @@ import (
 	"bufio"
 	"context"
 	"crypto/ecdsa"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"math/big"
@@ -20,6 +19,7 @@ import (
 	avalancheWarp "github.com/ava-labs/avalanchego/vms/platformvm/warp"
 	warpPayload "github.com/ava-labs/avalanchego/vms/platformvm/warp/payload"
 	"github.com/ava-labs/awm-relayer/config"
+	relayerUtils "github.com/ava-labs/awm-relayer/utils"
 	offchainregistry "github.com/ava-labs/awm-relayer/messages/off-chain-registry"
 	batchcrosschainmessenger "github.com/ava-labs/awm-relayer/tests/abi-bindings/go/BatchCrossChainMessenger"
 	"github.com/ava-labs/subnet-evm/accounts/abi/bind"
@@ -167,7 +167,7 @@ func CreateDefaultRelayerConfig(
 			RPCEndpoint: config.APIConfig{
 				BaseURL: fmt.Sprintf("http://%s:%d/ext/bc/%s/rpc", host, port, subnetInfo.BlockchainID.String()),
 			},
-			AccountPrivateKey: hex.EncodeToString(relayerKey.D.Bytes()),
+			AccountPrivateKey: relayerUtils.PrivateKeyToString(relayerKey),
 		}
 
 		log.Info(
