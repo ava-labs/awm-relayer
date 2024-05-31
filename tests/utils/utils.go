@@ -19,9 +19,9 @@ import (
 	avalancheWarp "github.com/ava-labs/avalanchego/vms/platformvm/warp"
 	warpPayload "github.com/ava-labs/avalanchego/vms/platformvm/warp/payload"
 	"github.com/ava-labs/awm-relayer/config"
-	relayerUtils "github.com/ava-labs/awm-relayer/utils"
 	offchainregistry "github.com/ava-labs/awm-relayer/messages/off-chain-registry"
 	batchcrosschainmessenger "github.com/ava-labs/awm-relayer/tests/abi-bindings/go/BatchCrossChainMessenger"
+	relayerUtils "github.com/ava-labs/awm-relayer/utils"
 	"github.com/ava-labs/subnet-evm/accounts/abi/bind"
 	"github.com/ava-labs/subnet-evm/core/types"
 	"github.com/ava-labs/subnet-evm/precompile/contracts/warp"
@@ -41,8 +41,10 @@ import (
 // Write the test database to /tmp since the data is not needed after the test
 var StorageLocation = fmt.Sprintf("%s/.awm-relayer-storage", os.TempDir())
 
-const DefaultRelayerCfgFname = "relayer-config.json"
-const DBUpdateSeconds = 1
+const (
+	DefaultRelayerCfgFname = "relayer-config.json"
+	DBUpdateSeconds        = 1
+)
 
 func BuildAndRunRelayerExecutable(ctx context.Context, relayerConfigPath string) context.CancelFunc {
 	// Build the awm-relayer binary
