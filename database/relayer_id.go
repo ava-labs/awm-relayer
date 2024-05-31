@@ -53,7 +53,7 @@ func CalculateRelayerID(
 	sourceBlockchainID ids.ID,
 	destinationBlockchainID ids.ID,
 	originSenderAddress common.Address,
-	desinationAddress common.Address,
+	destinationAddress common.Address,
 ) common.Hash {
 	return crypto.Keccak256Hash(
 		[]byte(strings.Join(
@@ -61,7 +61,7 @@ func CalculateRelayerID(
 				sourceBlockchainID.String(),
 				destinationBlockchainID.String(),
 				originSenderAddress.String(),
-				desinationAddress.String(),
+				destinationAddress.String(),
 			},
 			"-",
 		)),

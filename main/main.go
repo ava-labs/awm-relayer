@@ -234,27 +234,67 @@ func main() {
 			)
 			panic(err)
 		}
-		subnetInfo := s
+		sourceBlockchain := s
 
 		health := atomic.NewBool(true)
 		relayerHealth[blockchainID] = health
 
 		// errgroup will cancel the context when the first goroutine returns an error
 		errGroup.Go(func() error {
-			// runListener runs until it errors or the context is cancelled by another goroutine
-			return runListener(
+			// Dial the eth client
+			ethClient, err := ethclient.DialWithConfig(
+				context.Background(),
+				sourceBlockchain.RPCEndpoint.BaseURL,
+				sourceBlockchain.RPCEndpoint.HTTPHeaders,
+				sourceBlockchain.RPCEndpoint.QueryParams,
+			)
+			if err != nil {
+				logger.Error(
+					"Failed to connect to node via RPC",
+					zap.String("blockchainID", sourceBlockchain.BlockchainID),
+					zap.Error(err),
+				)
+				return err
+			}
+
+			// Create the ApplicationRelayers
+			applicationRelayers, minHeight, err := createApplicationRelayers(
 				ctx,
 				logger,
 				metrics,
 				db,
 				ticker,
-				*subnetInfo,
+				*sourceBlockchain,
 				network,
-				destinationClients,
 				messageCreator,
+				&cfg,
+				ethClient,
+				destinationClients,
+			)
+			if err != nil {
+				logger.Error(
+					"Failed to create application relayers",
+					zap.String("blockchainID", sourceBlockchain.BlockchainID),
+					zap.Error(err),
+				)
+				return err
+			}
+			logger.Info(
+				"Created application relayers",
+				zap.String("blockchainID", sourceBlockchain.BlockchainID),
+			)
+
+			// runListener runs until it errors or the context is cancelled by another goroutine
+			return runListener(
+				ctx,
+				logger,
+				*sourceBlockchain,
 				health,
 				manualWarpMessages[blockchainID],
 				&cfg,
+				ethClient,
+				applicationRelayers,
+				minHeight,
 			)
 		})
 	}
@@ -270,66 +310,20 @@ func main() {
 func runListener(
 	ctx context.Context,
 	logger logging.Logger,
-	metrics *relayer.ApplicationRelayerMetrics,
-	db database.RelayerDatabase,
-	ticker *utils.Ticker,
 	sourceBlockchain config.SourceBlockchain,
-	network *peers.AppRequestNetwork,
-	destinationClients map[ids.ID]vms.DestinationClient,
-	messageCreator message.Creator,
 	relayerHealth *atomic.Bool,
 	manualWarpMessages []*relayerTypes.WarpMessageInfo,
-	cfg *config.Config,
+	globalConfig *config.Config,
+	ethClient ethclient.Client,
+	applicationRelayers map[common.Hash]*relayer.ApplicationRelayer,
+	minHeight uint64,
 ) error {
-	// Dial the eth client
-	ethClient, err := ethclient.DialWithConfig(
-		context.Background(),
-		sourceBlockchain.RPCEndpoint.BaseURL,
-		sourceBlockchain.RPCEndpoint.HTTPHeaders,
-		sourceBlockchain.RPCEndpoint.QueryParams,
-	)
-	if err != nil {
-		logger.Error(
-			"Failed to connect to node via RPC",
-			zap.String("blockchainID", sourceBlockchain.BlockchainID),
-			zap.Error(err),
-		)
-		return err
-	}
-
-	// Create the ApplicationRelayers
-	applicationRelayers, minHeight, err := createApplicationRelayers(
-		ctx,
-		logger,
-		metrics,
-		db,
-		ticker,
-		sourceBlockchain,
-		network,
-		messageCreator,
-		cfg,
-		ethClient,
-		destinationClients,
-	)
-	if err != nil {
-		logger.Error(
-			"Failed to create application relayers",
-			zap.String("blockchainID", sourceBlockchain.BlockchainID),
-			zap.Error(err),
-		)
-		return err
-	}
-	logger.Info(
-		"Created application relayers",
-		zap.String("blockchainID", sourceBlockchain.BlockchainID),
-	)
-
 	// Create the Listener
 	listener, err := relayer.NewListener(
 		logger,
 		sourceBlockchain,
 		relayerHealth,
-		cfg,
+		globalConfig,
 		applicationRelayers,
 		minHeight,
 		ethClient,
@@ -360,6 +354,7 @@ func runListener(
 	return listener.ProcessLogs(ctx)
 }
 
+// createApplicationRelayers creates Application Relayers for a given source blockchain.
 func createApplicationRelayers(
 	ctx context.Context,
 	logger logging.Logger,
