@@ -7,7 +7,7 @@ require (
 	github.com/ava-labs/avalanchego v1.11.1
 	github.com/ava-labs/coreth v0.13.0-rc.0
 	github.com/ava-labs/subnet-evm v0.6.1
-	github.com/ava-labs/teleporter v1.0.0
+	github.com/ava-labs/teleporter v1.0.1
 	github.com/aws/aws-sdk-go-v2 v1.27.0
 	github.com/aws/aws-sdk-go-v2/config v1.27.9
 	github.com/aws/aws-sdk-go-v2/service/kms v1.32.1

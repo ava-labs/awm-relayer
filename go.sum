@@ -70,8 +70,8 @@ github.com/ava-labs/coreth v0.13.0-rc.0 h1:V2l3qj2ek3geKDJAnF2M94mYJK8kg2kePixuj
 github.com/ava-labs/coreth v0.13.0-rc.0/go.mod h1:eUMbBLDhlZASJjcbf0gIcD2GMn2rRRCUxC8MXLt5QQk=
 github.com/ava-labs/subnet-evm v0.6.1 h1:NyknPPWBKGN9VIwfKi1+oR6NpvephiNkWEwzjGcNLkA=
 github.com/ava-labs/subnet-evm v0.6.1/go.mod h1:PRwf9C3KgXzrANnrCvKa/gQVvIBomKzQgZM2ucECGYE=
-github.com/ava-labs/teleporter v1.0.0 h1:io209qZh3SDpwLre0oStMzOFRcPvOrmMQuLq5OFvzJo=
-github.com/ava-labs/teleporter v1.0.0/go.mod h1:4Wyz/5sZDHMaaLegh2ULyrAOWnyaBk6upTmbwSrVSMs=
+github.com/ava-labs/teleporter v1.0.1 h1:86bwwZCCb1lsvAqCYeT8jHvzkDRIsXmw1s63VtbCnAE=
+github.com/ava-labs/teleporter v1.0.1/go.mod h1:IyxFT32sIQ/5Y5x9LrYoOUldC/VFbHS8JZTAEg6aTCw=
 github.com/aws/aws-sdk-go-v2 v1.27.0 h1:7bZWKoXhzI+mMR/HjdMx8ZCC5+6fY0lS5tr0bbgiLlo=
 github.com/aws/aws-sdk-go-v2 v1.27.0/go.mod h1:ffIFB97e2yNsv4aTSGkqtHnppsIJzw7G7BReUZ3jCXM=
 github.com/aws/aws-sdk-go-v2/config v1.27.9 h1:gRx/NwpNEFSk+yQlgmk1bmxxvQ5TyJ76CWXs9XScTqg=
