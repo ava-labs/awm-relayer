@@ -9,6 +9,7 @@ import (
 	"crypto/ecdsa"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math/big"
 	"os"
@@ -83,15 +84,16 @@ func BuildAndRunRelayerExecutable(ctx context.Context, relayerConfigPath string)
 		}
 		cmdOutput <- "Command execution finished"
 	}()
+	// Spawn a goroutine that will panic if the relayer exits abnormally.
 	go func() {
-		err = relayerCmd.Wait()
-		if err != nil {
+		err := relayerCmd.Wait()
+		if !errors.As(relayerContext.Err(), &context.Canceled) {
 			panic(err)
 		}
 	}()
 	return func() {
 		relayerCancel()
-		relayerCmd.Wait()
+		<-relayerContext.Done()
 	}
 }
 
