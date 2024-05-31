@@ -83,6 +83,12 @@ func BuildAndRunRelayerExecutable(ctx context.Context, relayerConfigPath string)
 		}
 		cmdOutput <- "Command execution finished"
 	}()
+	go func() {
+		err = relayerCmd.Wait()
+		if err != nil {
+			panic(err)
+		}
+	}()
 	return func() {
 		relayerCancel()
 		relayerCmd.Wait()
