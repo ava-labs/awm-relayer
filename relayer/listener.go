@@ -52,7 +52,7 @@ func NewListener(
 	logger logging.Logger,
 	sourceBlockchain config.SourceBlockchain,
 	relayerHealth *atomic.Bool,
-	cfg *config.Config,
+	globalConfig *config.Config,
 	applicationRelayers map[common.Hash]*ApplicationRelayer,
 	startingHeight uint64,
 	ethClient ethclient.Client,
@@ -140,7 +140,7 @@ func NewListener(
 		sourceBlockchain:        sourceBlockchain,
 		catchUpResultChan:       catchUpResultChan,
 		healthStatus:            relayerHealth,
-		globalConfig:            cfg,
+		globalConfig:            globalConfig,
 		applicationRelayers:     applicationRelayers,
 		ethClient:               ethClient,
 	}

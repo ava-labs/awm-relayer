@@ -46,7 +46,10 @@ type destinationClient struct {
 	logger                  logging.Logger
 }
 
-func NewDestinationClient(logger logging.Logger, destinationBlockchain *config.DestinationBlockchain) (*destinationClient, error) {
+func NewDestinationClient(
+	logger logging.Logger,
+	destinationBlockchain *config.DestinationBlockchain,
+) (*destinationClient, error) {
 	// Dial the destination RPC endpoint
 	client, err := ethclient.DialWithConfig(
 		context.Background(),
@@ -109,7 +112,8 @@ func NewDestinationClient(logger logging.Logger, destinationBlockchain *config.D
 	}, nil
 }
 
-func (c *destinationClient) SendTx(signedMessage *avalancheWarp.Message,
+func (c *destinationClient) SendTx(
+	signedMessage *avalancheWarp.Message,
 	toAddress string,
 	gasLimit uint64,
 	callData []byte,
