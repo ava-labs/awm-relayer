@@ -196,10 +196,17 @@ func (m *messageHandler) SendMessage(signedMessage *warp.Message, destinationCli
 		)
 		return err
 	}
-	gasLimit, err := gasUtils.CalculateReceiveMessageGasLimit(numSigners, m.teleporterMessage.RequiredGasLimit)
+
+	gasLimit, err := gasUtils.CalculateReceiveMessageGasLimit(
+		numSigners,
+		m.teleporterMessage.RequiredGasLimit,
+		len(signedMessage.Bytes()),
+		len(signedMessage.Payload),
+		len(m.teleporterMessage.Receipts),
+	)
 	if err != nil {
 		m.logger.Error(
-			"Gas limit required overflowed uint64 max. not relaying message",
+			"Failed to calculate gas limit for receiveCrossChainMessage call",
 			zap.String("destinationBlockchainID", destinationBlockchainID.String()),
 			zap.String("warpMessageID", signedMessage.ID().String()),
 			zap.String("teleporterMessageID", teleporterMessageID.String()),
