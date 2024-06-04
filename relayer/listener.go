@@ -269,7 +269,7 @@ func (lstnr *Listener) ProcessLogs(ctx context.Context) error {
 			}
 
 			// Relay the messages in the block to the destination chains. Continue on failure.
-			lstnr.logger.Info(
+			lstnr.logger.Debug(
 				"Processing block",
 				zap.String("sourceBlockchainID", lstnr.sourceBlockchain.GetBlockchainID().String()),
 				zap.Uint64("blockNumber", block.BlockNumber),
