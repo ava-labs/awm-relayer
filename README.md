@@ -94,6 +94,10 @@ awm-relayer --version                                   Display awm-relayer vers
 awm-relayer --help                                      Display awm-relayer usage and exit.
 ```
 
+### Initialize the repository
+
+- Get all submodules: `git submodule update --init --recursive`
+
 ### Building
 
 Before building, be sure to install Go, which is required even if you're just building the Docker image.

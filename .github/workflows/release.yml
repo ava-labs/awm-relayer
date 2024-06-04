@@ -17,6 +17,7 @@ jobs:
         with:
           fetch-depth: 0
           path: awm-relayer
+          submodules: recursive
 
       - name: Set Go version
         run: |

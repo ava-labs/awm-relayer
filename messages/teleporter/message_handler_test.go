@@ -12,7 +12,6 @@ import (
 	"github.com/ava-labs/avalanchego/vms/platformvm/warp"
 	warpPayload "github.com/ava-labs/avalanchego/vms/platformvm/warp/payload"
 	"github.com/ava-labs/awm-relayer/config"
-	"github.com/ava-labs/awm-relayer/vms"
 	mock_evm "github.com/ava-labs/awm-relayer/vms/evm/mocks"
 	mock_vms "github.com/ava-labs/awm-relayer/vms/mocks"
 	"github.com/ava-labs/subnet-evm/accounts/abi/bind"
@@ -106,7 +105,7 @@ func TestShouldSendMessage(t *testing.T) {
 		senderAddressTimes      int
 		clientTimes             int
 		messageReceivedCall     *CallContractChecker
-		expectedError           bool
+		expectedParseError      bool
 		expectedResult          bool
 	}{
 		{
@@ -127,7 +126,7 @@ func TestShouldSendMessage(t *testing.T) {
 			name:                    "invalid message",
 			destinationBlockchainID: destinationBlockchainID,
 			warpUnsignedMessage:     invalidWarpUnsignedMessage,
-			expectedError:           true,
+			expectedParseError:      true,
 		},
 		{
 			name:                    "invalid destination chain id",
@@ -166,17 +165,21 @@ func TestShouldSendMessage(t *testing.T) {
 			logger := logging.NoLog{}
 
 			mockClient := mock_vms.NewMockDestinationClient(ctrl)
-			destinationClients := map[ids.ID]vms.DestinationClient{
-				test.destinationBlockchainID: mockClient,
-			}
 
-			messageManager, err := NewMessageManager(
+			factory, err := NewMessageHandlerFactory(
 				logger,
 				messageProtocolAddress,
 				messageProtocolConfig,
-				destinationClients,
 			)
 			require.NoError(t, err)
+			messageHandler, err := factory.NewMessageHandler(test.warpUnsignedMessage)
+			if test.expectedParseError {
+				// If we expect an error parsing the Warp message, we should not call ShouldSendMessage
+				require.Error(t, err)
+				return
+			} else {
+				require.NoError(t, err)
+			}
 			ethClient := mock_evm.NewMockClient(ctrl)
 			mockClient.EXPECT().
 				Client().
@@ -186,6 +189,7 @@ func TestShouldSendMessage(t *testing.T) {
 				SenderAddress().
 				Return(test.senderAddressResult).
 				Times(test.senderAddressTimes)
+			mockClient.EXPECT().DestinationBlockchainID().Return(destinationBlockchainID).AnyTimes()
 			if test.messageReceivedCall != nil {
 				messageReceivedInput := interfaces.CallMsg{
 					From: bind.CallOpts{}.From,
@@ -198,13 +202,9 @@ func TestShouldSendMessage(t *testing.T) {
 					Times(test.messageReceivedCall.times)
 			}
 
-			result, err := messageManager.ShouldSendMessage(test.warpUnsignedMessage, test.destinationBlockchainID)
-			if test.expectedError {
-				require.Error(t, err)
-			} else {
-				require.NoError(t, err)
-				require.Equal(t, test.expectedResult, result)
-			}
+			result, err := messageHandler.ShouldSendMessage(mockClient)
+			require.NoError(t, err)
+			require.Equal(t, test.expectedResult, result)
 		})
 	}
 }

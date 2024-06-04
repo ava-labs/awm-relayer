@@ -1,0 +1,6 @@
+[submodule "tests/contracts/lib/teleporter"]
+	path = tests/contracts/lib/teleporter
+	url = https://github.com/ava-labs/teleporter
+[submodule "tests/contracts/lib/forge-std"]
+	path = tests/contracts/lib/forge-std
+	url = https://github.com/foundry-rs/forge-std

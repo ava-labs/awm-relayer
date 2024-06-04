@@ -14,6 +14,7 @@ import (
 	warpPayload "github.com/ava-labs/avalanchego/vms/platformvm/warp/payload"
 	"github.com/ava-labs/awm-relayer/config"
 	"github.com/ava-labs/awm-relayer/ethclient"
+	"github.com/ava-labs/awm-relayer/messages"
 	"github.com/ava-labs/awm-relayer/vms"
 	"github.com/ava-labs/subnet-evm/accounts/abi/bind"
 	teleporterregistry "github.com/ava-labs/teleporter/abi-bindings/go/Teleporter/upgrades/TeleporterRegistry"
@@ -28,17 +29,21 @@ const (
 	revertVersionNotFoundString        = "TeleporterRegistry: version not found"
 )
 
-type messageManager struct {
-	logger             logging.Logger
-	destinationClients map[ids.ID]vms.DestinationClient
-	registryAddress    common.Address
+type factory struct {
+	logger          logging.Logger
+	registryAddress common.Address
 }
 
-func NewMessageManager(
+type messageHandler struct {
+	logger          logging.Logger
+	unsignedMessage *warp.UnsignedMessage
+	factory         *factory
+}
+
+func NewMessageHandlerFactory(
 	logger logging.Logger,
 	messageProtocolConfig config.MessageProtocolConfig,
-	destinationClients map[ids.ID]vms.DestinationClient,
-) (*messageManager, error) {
+) (messages.MessageHandlerFactory, error) {
 	// Marshal the map and unmarshal into the off-chain registry config
 	data, err := json.Marshal(messageProtocolConfig.Settings)
 	if err != nil {
@@ -58,17 +63,28 @@ func NewMessageManager(
 		)
 		return nil, err
 	}
-	return &messageManager{
-		logger:             logger,
-		destinationClients: destinationClients,
-		registryAddress:    common.HexToAddress(messageConfig.TeleporterRegistryAddress),
+	return &factory{
+		logger:          logger,
+		registryAddress: common.HexToAddress(messageConfig.TeleporterRegistryAddress),
 	}, nil
+}
+
+func (f *factory) NewMessageHandler(unsignedMessage *warp.UnsignedMessage) (messages.MessageHandler, error) {
+	return &messageHandler{
+		logger:          f.logger,
+		unsignedMessage: unsignedMessage,
+		factory:         f,
+	}, nil
+}
+
+func (m *messageHandler) GetUnsignedMessage() *warp.UnsignedMessage {
+	return m.unsignedMessage
 }
 
 // ShouldSendMessage returns false if any contract is already registered as the specified version in the TeleporterRegistry contract.
 // This is because a single contract address can be registered to multiple versions, but each version may only map to a single contract address.
-func (m *messageManager) ShouldSendMessage(unsignedMessage *warp.UnsignedMessage, destinationBlockchainID ids.ID) (bool, error) {
-	addressedPayload, err := warpPayload.ParseAddressedCall(unsignedMessage.Payload)
+func (m *messageHandler) ShouldSendMessage(destinationClient vms.DestinationClient) (bool, error) {
+	addressedPayload, err := warpPayload.ParseAddressedCall(m.unsignedMessage.Payload)
 	if err != nil {
 		m.logger.Error(
 			"Failed parsing addressed payload",
@@ -84,27 +100,23 @@ func (m *messageManager) ShouldSendMessage(unsignedMessage *warp.UnsignedMessage
 		)
 		return false, err
 	}
-	if destination != m.registryAddress {
+	if destination != m.factory.registryAddress {
 		m.logger.Info(
 			"Message is not intended for the configured registry",
 			zap.String("destination", destination.String()),
-			zap.String("configuredRegistry", m.registryAddress.String()),
+			zap.String("configuredRegistry", m.factory.registryAddress.String()),
 		)
 		return false, nil
 	}
 
 	// Get the correct destination client from the global map
-	destinationClient, ok := m.destinationClients[destinationBlockchainID]
-	if !ok {
-		return false, fmt.Errorf("relayer not configured to deliver to destination. destinationBlockchainID=%s", destinationBlockchainID.String())
-	}
 	client, ok := destinationClient.Client().(ethclient.Client)
 	if !ok {
 		panic(fmt.Sprintf("Destination client for chain %s is not an Ethereum client", destinationClient.DestinationBlockchainID().String()))
 	}
 
 	// Check if the version is already registered in the TeleporterRegistry contract.
-	registry, err := teleporterregistry.NewTeleporterRegistryCaller(m.registryAddress, client)
+	registry, err := teleporterregistry.NewTeleporterRegistryCaller(m.factory.registryAddress, client)
 	if err != nil {
 		m.logger.Error(
 			"Failed to create TeleporterRegistry caller",
@@ -132,30 +144,24 @@ func (m *messageManager) ShouldSendMessage(unsignedMessage *warp.UnsignedMessage
 	return false, nil
 }
 
-func (m *messageManager) SendMessage(signedMessage *warp.Message, destinationBlockchainID ids.ID) error {
-	// Get the correct destination client from the global map
-	destinationClient, ok := m.destinationClients[destinationBlockchainID]
-	if !ok {
-		return fmt.Errorf("relayer not configured to deliver to destination. DestinationBlockchainID=%s", destinationBlockchainID)
-	}
-
+func (m *messageHandler) SendMessage(signedMessage *warp.Message, destinationClient vms.DestinationClient) error {
 	// Construct the transaction call data to call the TeleporterRegistry contract.
 	// Only one off-chain registry Warp message is sent at a time, so we hardcode the index to 0 in the call.
 	callData, err := teleporterregistry.PackAddProtocolVersion(0)
 	if err != nil {
 		m.logger.Error(
 			"Failed packing receiveCrossChainMessage call data",
-			zap.String("destinationBlockchainID", destinationBlockchainID.String()),
+			zap.String("destinationBlockchainID", destinationClient.DestinationBlockchainID().String()),
 			zap.String("warpMessageID", signedMessage.ID().String()),
 		)
 		return err
 	}
 
-	err = destinationClient.SendTx(signedMessage, m.registryAddress.Hex(), addProtocolVersionGasLimit, callData)
+	err = destinationClient.SendTx(signedMessage, m.factory.registryAddress.Hex(), addProtocolVersionGasLimit, callData)
 	if err != nil {
 		m.logger.Error(
 			"Failed to send tx.",
-			zap.String("destinationBlockchainID", destinationBlockchainID.String()),
+			zap.String("destinationBlockchainID", destinationClient.DestinationBlockchainID().String()),
 			zap.String("warpMessageID", signedMessage.ID().String()),
 			zap.Error(err),
 		)
@@ -163,20 +169,20 @@ func (m *messageManager) SendMessage(signedMessage *warp.Message, destinationBlo
 	}
 	m.logger.Info(
 		"Sent message to destination chain",
-		zap.String("destinationBlockchainID", destinationBlockchainID.String()),
+		zap.String("destinationBlockchainID", destinationClient.DestinationBlockchainID().String()),
 		zap.String("warpMessageID", signedMessage.ID().String()),
 	)
 	return nil
 }
 
-func (m *messageManager) GetMessageRoutingInfo(unsignedMessage *warp.UnsignedMessage) (
+func (m *messageHandler) GetMessageRoutingInfo() (
 	ids.ID,
 	common.Address,
 	ids.ID,
 	common.Address,
 	error,
 ) {
-	addressedPayload, err := warpPayload.ParseAddressedCall(unsignedMessage.Payload)
+	addressedPayload, err := warpPayload.ParseAddressedCall(m.unsignedMessage.Payload)
 	if err != nil {
 		m.logger.Error(
 			"Failed parsing addressed payload",
@@ -184,9 +190,9 @@ func (m *messageManager) GetMessageRoutingInfo(unsignedMessage *warp.UnsignedMes
 		)
 		return ids.ID{}, common.Address{}, ids.ID{}, common.Address{}, err
 	}
-	return unsignedMessage.SourceChainID,
+	return m.unsignedMessage.SourceChainID,
 		common.BytesToAddress(addressedPayload.SourceAddress),
-		unsignedMessage.SourceChainID,
-		m.registryAddress,
+		m.unsignedMessage.SourceChainID,
+		m.factory.registryAddress,
 		nil
 }
