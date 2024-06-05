@@ -90,6 +90,7 @@ func BuildAndRunRelayerExecutable(ctx context.Context, relayerConfigPath string)
 	// Spawn a goroutine that will panic if the relayer exits abnormally.
 	go func() {
 		err := relayerCmd.Wait()
+		// Context cancellation is the only expected way for the process to exit, otherwise panic
 		if !errors.Is(relayerContext.Err(), context.Canceled) {
 			panic(fmt.Errorf("relayer exited abnormally: %w", err))
 		}
