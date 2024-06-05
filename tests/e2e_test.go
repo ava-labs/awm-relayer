@@ -77,4 +77,7 @@ var _ = ginkgo.Describe("[AWM Relayer Integration Tests", func() {
 	ginkgo.It("Allowed Addresses", func() {
 		AllowedAddresses(localNetworkInstance)
 	})
+	ginkgo.It("Batch Message", func() {
+		BatchRelay(localNetworkInstance)
+	})
 })
