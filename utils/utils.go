@@ -4,6 +4,8 @@
 package utils
 
 import (
+	"crypto/ecdsa"
+	"encoding/hex"
 	"errors"
 	"math/big"
 	"strings"
@@ -56,6 +58,11 @@ func BigToHashSafe(in *big.Int) (common.Hash, error) {
 	}
 
 	return common.BytesToHash(bytes), nil
+}
+
+func PrivateKeyToString(key *ecdsa.PrivateKey) string {
+	// Use FillBytes so leading zeroes are not stripped.
+	return hex.EncodeToString(key.D.FillBytes(make([]byte, 32)))
 }
 
 // SanitizeHexString removes the "0x" prefix from a hex string if it exists.

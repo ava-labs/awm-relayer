@@ -18,6 +18,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           path: awm-relayer
+          submodules: recursive
 
       - name: Run Snyk
         uses: snyk/actions/golang@master

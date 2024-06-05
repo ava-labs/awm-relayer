@@ -13,7 +13,6 @@ import (
 	"github.com/ava-labs/avalanchego/vms/platformvm/warp"
 	"github.com/ava-labs/avalanchego/vms/platformvm/warp/payload"
 	"github.com/ava-labs/awm-relayer/config"
-	"github.com/ava-labs/awm-relayer/vms"
 	mock_evm "github.com/ava-labs/awm-relayer/vms/evm/mocks"
 	mock_vms "github.com/ava-labs/awm-relayer/vms/mocks"
 	teleporterregistry "github.com/ava-labs/teleporter/abi-bindings/go/Teleporter/upgrades/TeleporterRegistry"
@@ -129,14 +128,10 @@ func TestShouldSendMessage(t *testing.T) {
 			logger := logging.NoLog{}
 
 			mockClient := mock_vms.NewMockDestinationClient(ctrl)
-			destinationClients := map[ids.ID]vms.DestinationClient{
-				test.destinationBlockchainID: mockClient,
-			}
 
-			messageManager, err := NewMessageManager(
+			factory, err := NewMessageHandlerFactory(
 				logger,
 				messageProtocolConfig,
-				destinationClients,
 			)
 			require.NoError(t, err)
 			ethClient := mock_evm.NewMockClient(ctrl)
@@ -144,6 +139,7 @@ func TestShouldSendMessage(t *testing.T) {
 				Client().
 				Return(ethClient).
 				Times(test.clientTimes)
+			mockClient.EXPECT().DestinationBlockchainID().Return(test.destinationBlockchainID).AnyTimes()
 			if test.getAddressFromVersionCall != nil {
 				output, err := packGetAddressFromVersionOutput(test.getAddressFromVersionCall.expectedAddress)
 				require.NoError(t, err)
@@ -160,8 +156,9 @@ func TestShouldSendMessage(t *testing.T) {
 			} else {
 				unsignedMessage = createRegistryUnsignedWarpMessage(t, test.entry, teleporterRegistryAddress, test.destinationBlockchainID)
 			}
-
-			result, err := messageManager.ShouldSendMessage(unsignedMessage, test.destinationBlockchainID)
+			messageHandler, err := factory.NewMessageHandler(unsignedMessage)
+			require.NoError(t, err)
+			result, err := messageHandler.ShouldSendMessage(mockClient)
 			if test.expectedError {
 				require.Error(t, err)
 			} else {

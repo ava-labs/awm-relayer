@@ -7,7 +7,6 @@ import (
 	"bufio"
 	"context"
 	"crypto/ecdsa"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"math/big"
@@ -21,6 +20,8 @@ import (
 	warpPayload "github.com/ava-labs/avalanchego/vms/platformvm/warp/payload"
 	"github.com/ava-labs/awm-relayer/config"
 	offchainregistry "github.com/ava-labs/awm-relayer/messages/off-chain-registry"
+	batchcrosschainmessenger "github.com/ava-labs/awm-relayer/tests/abi-bindings/go/BatchCrossChainMessenger"
+	relayerUtils "github.com/ava-labs/awm-relayer/utils"
 	"github.com/ava-labs/subnet-evm/accounts/abi/bind"
 	"github.com/ava-labs/subnet-evm/core/types"
 	"github.com/ava-labs/subnet-evm/precompile/contracts/warp"
@@ -40,8 +41,10 @@ import (
 // Write the test database to /tmp since the data is not needed after the test
 var StorageLocation = fmt.Sprintf("%s/.awm-relayer-storage", os.TempDir())
 
-const DefaultRelayerCfgFname = "relayer-config.json"
-const DBUpdateSeconds = 1
+const (
+	DefaultRelayerCfgFname = "relayer-config.json"
+	DBUpdateSeconds        = 1
+)
 
 func BuildAndRunRelayerExecutable(ctx context.Context, relayerConfigPath string) context.CancelFunc {
 	// Build the awm-relayer binary
@@ -166,7 +169,7 @@ func CreateDefaultRelayerConfig(
 			RPCEndpoint: config.APIConfig{
 				BaseURL: fmt.Sprintf("http://%s:%d/ext/bc/%s/rpc", host, port, subnetInfo.BlockchainID.String()),
 			},
-			AccountPrivateKey: hex.EncodeToString(relayerKey.D.Bytes()),
+			AccountPrivateKey: relayerUtils.PrivateKeyToString(relayerKey),
 		}
 
 		log.Info(
@@ -213,6 +216,42 @@ func FundRelayers(
 		)
 		utils.SendTransactionAndWaitForSuccess(ctx, subnetInfo, fundRelayerTx)
 	}
+}
+
+func SendBasicTeleporterMessageAsync(
+	ctx context.Context,
+	source interfaces.SubnetTestInfo,
+	destination interfaces.SubnetTestInfo,
+	fundedKey *ecdsa.PrivateKey,
+	destinationAddress common.Address,
+	ids chan<- ids.ID,
+) {
+	input := teleportermessenger.TeleporterMessageInput{
+		DestinationBlockchainID: destination.BlockchainID,
+		DestinationAddress:      destinationAddress,
+		FeeInfo: teleportermessenger.TeleporterFeeInfo{
+			FeeTokenAddress: common.Address{},
+			Amount:          big.NewInt(0),
+		},
+		RequiredGasLimit:        big.NewInt(1),
+		AllowedRelayerAddresses: []common.Address{},
+		Message:                 []byte{1, 2, 3, 4},
+	}
+
+	// Send a transaction to the Teleporter contract
+	log.Info(
+		"Sending teleporter transaction",
+		"sourceBlockchainID", source.BlockchainID,
+		"destinationBlockchainID", destination.BlockchainID,
+	)
+	_, teleporterMessageID := teleporterTestUtils.SendCrossChainMessageAndWaitForAcceptance(
+		ctx,
+		source,
+		destination,
+		input,
+		fundedKey,
+	)
+	ids <- teleporterMessageID
 }
 
 func SendBasicTeleporterMessage(
@@ -414,4 +453,27 @@ func TriggerProcessMissedBlocks(
 	Expect(delivered1).Should(BeFalse())
 	Expect(delivered2).Should(BeFalse())
 	Expect(delivered3).Should(BeTrue())
+}
+
+func DeployBatchCrossChainMessenger(
+	ctx context.Context,
+	senderKey *ecdsa.PrivateKey,
+	teleporterManager common.Address,
+	subnet interfaces.SubnetTestInfo,
+) (common.Address, *batchcrosschainmessenger.BatchCrossChainMessenger) {
+	opts, err := bind.NewKeyedTransactorWithChainID(
+		senderKey, subnet.EVMChainID)
+	Expect(err).Should(BeNil())
+	address, tx, exampleMessenger, err := batchcrosschainmessenger.DeployBatchCrossChainMessenger(
+		opts,
+		subnet.RPCClient,
+		subnet.TeleporterRegistryAddress,
+		teleporterManager,
+	)
+	Expect(err).Should(BeNil())
+
+	// Wait for the transaction to be mined
+	utils.WaitForTransactionSuccess(ctx, subnet, tx.Hash())
+
+	return address, exampleMessenger
 }

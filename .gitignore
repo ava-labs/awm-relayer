@@ -9,3 +9,7 @@ relayer-config.json
 main.log
 server.log
 *.test
+
+# Foundry outputs
+cache/
+out/

@@ -45,7 +45,7 @@ func CalculateStartingBlockHeight(
 	} else if err != nil {
 		// Otherwise, we've encountered an unknown database error
 		logger.Error(
-			"failed to get latest block from database",
+			"Failed to get latest block from database",
 			zap.String("relayerID", relayerID.ID.String()),
 			zap.Error(err),
 		)

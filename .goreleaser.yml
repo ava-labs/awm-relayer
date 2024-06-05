@@ -61,3 +61,5 @@ release:
   github:
     owner: ava-labs
     name: awm-relayer
+  # If tag indicates rc, will mark it as prerelease
+  prerelease: auto
