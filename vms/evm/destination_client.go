@@ -101,6 +101,13 @@ func NewDestinationClient(
 		return nil, err
 	}
 
+	logger.Info(
+		"Initialized destination client",
+		zap.String("blockchainID", destinationID.String()),
+		zap.String("evmChainID", evmChainID.String()),
+		zap.Uint64("nonce", nonce),
+	)
+
 	return &destinationClient{
 		client:                  client,
 		lock:                    new(sync.Mutex),
@@ -181,11 +188,12 @@ func (c *destinationClient) SendTx(
 		)
 		return err
 	}
-	c.currentNonce++
 	c.logger.Info(
 		"Sent transaction",
 		zap.String("txID", signedTx.Hash().String()),
+		zap.Uint64("nonce", c.currentNonce),
 	)
+	c.currentNonce++
 
 	return nil
 }
