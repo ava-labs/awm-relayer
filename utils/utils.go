@@ -12,7 +12,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ava-labs/subnet-evm/ethclient"
 	"github.com/ethereum/go-ethereum/common"
 )
 
@@ -75,29 +74,6 @@ func CallWithRetry[T any](ctx context.Context, f func() (T, error)) (T, error) {
 		}
 	}
 	return t, nil
-}
-
-// WaitForHeight waits until the client's current block height is at least the given height, or the context is canceled.
-func WaitForHeight(ctx context.Context, client ethclient.Client, height uint64) error {
-	queryTicker := time.NewTicker(200 * time.Millisecond)
-	defer queryTicker.Stop()
-	for {
-		h, err := client.BlockNumber(ctx)
-		if err != nil {
-			return err
-		}
-		if h >= height {
-			break
-		}
-
-		// Wait for the next round.
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-queryTicker.C:
-		}
-	}
-	return nil
 }
 
 //

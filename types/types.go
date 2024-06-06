@@ -59,10 +59,6 @@ func NewWarpBlockInfo(header *types.Header, ethClient ethclient.Client) (*WarpBl
 		if err != nil {
 			return nil, err
 		}
-		err = utils.WaitForHeight(cctx, ethClient, header.Number.Uint64())
-		if err != nil {
-			return nil, err
-		}
 	}
 	messages := make([]*WarpMessageInfo, len(logs))
 	for i, log := range logs {

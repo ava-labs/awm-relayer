@@ -259,22 +259,6 @@ func (m *messageHandler) SendMessage(signedMessage *warp.Message, destinationCli
 			zap.Error(err),
 		)
 		return err
-
-	}
-
-	heightCtx, heightCtxCancel := context.WithTimeout(context.Background(), utils.DefaultRPCRetryTimeout)
-	defer heightCtxCancel()
-	err = utils.WaitForHeight(heightCtx, destinationClient.Client().(ethclient.Client), receipt.BlockNumber.Uint64())
-	if err != nil {
-		m.logger.Error(
-			"Failed to wait for block height",
-			zap.String("destinationBlockchainID", destinationBlockchainID.String()),
-			zap.String("warpMessageID", signedMessage.ID().String()),
-			zap.String("teleporterMessageID", teleporterMessageID.String()),
-			zap.Uint64("blockNumber", receipt.BlockNumber.Uint64()),
-			zap.Error(err),
-		)
-		return err
 	}
 
 	m.logger.Info(
