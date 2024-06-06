@@ -157,7 +157,7 @@ func (m *messageHandler) SendMessage(signedMessage *warp.Message, destinationCli
 		return err
 	}
 
-	err = destinationClient.SendTx(signedMessage, m.factory.registryAddress.Hex(), addProtocolVersionGasLimit, callData)
+	_, err = destinationClient.SendTx(signedMessage, m.factory.registryAddress.Hex(), addProtocolVersionGasLimit, callData)
 	if err != nil {
 		m.logger.Error(
 			"Failed to send tx.",

@@ -125,7 +125,7 @@ func (c *destinationClient) SendTx(
 	toAddress string,
 	gasLimit uint64,
 	callData []byte,
-) error {
+) (common.Hash, error) {
 	// Get the current base fee estimation, which is based on the previous blocks gas usage.
 	baseFee, err := c.client.EstimateBaseFee(context.Background())
 	if err != nil {
@@ -133,7 +133,7 @@ func (c *destinationClient) SendTx(
 			"Failed to get base fee",
 			zap.Error(err),
 		)
-		return err
+		return common.Hash{}, err
 	}
 
 	// Get the suggested gas tip cap of the network
@@ -144,7 +144,7 @@ func (c *destinationClient) SendTx(
 			"Failed to get gas tip cap",
 			zap.Error(err),
 		)
-		return err
+		return common.Hash{}, err
 	}
 
 	to := common.HexToAddress(toAddress)
@@ -179,7 +179,7 @@ func (c *destinationClient) SendTx(
 			"Failed to sign transaction",
 			zap.Error(err),
 		)
-		return err
+		return common.Hash{}, err
 	}
 
 	if err := c.client.SendTransaction(context.Background(), signedTx); err != nil {
@@ -187,7 +187,7 @@ func (c *destinationClient) SendTx(
 			"Failed to send transaction",
 			zap.Error(err),
 		)
-		return err
+		return common.Hash{}, err
 	}
 	c.logger.Info(
 		"Sent transaction",
@@ -196,7 +196,7 @@ func (c *destinationClient) SendTx(
 	)
 	c.currentNonce++
 
-	return nil
+	return signedTx.Hash(), nil
 }
 
 func (c *destinationClient) Client() interface{} {
