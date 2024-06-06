@@ -193,7 +193,11 @@ func (h *RelayerExternalHandler) registerAppResponse(inboundMessage message.Inbo
 
 	// Check for the expected number of responses, and clear from the map if all expected responses have been received
 	// TODO: we can improve performance here by independently locking the response channel and response count maps
-	responses := h.responsesCount[requestID]
+	responses, ok := h.responsesCount[requestID]
+	if !ok {
+		h.log.Error("Could not find expected responses for request", zap.Uint32("requestID", requestID))
+		return
+	}
 	received := responses.received + 1
 	if received == responses.expected {
 		close(h.responseChans[requestID])
