@@ -260,6 +260,16 @@ func (m *messageHandler) SendMessage(signedMessage *warp.Message, destinationCli
 		)
 		return err
 	}
+	if receipt.Status != types.ReceiptStatusSuccessful {
+		m.logger.Error(
+			"Transaction failed",
+			zap.String("destinationBlockchainID", destinationBlockchainID.String()),
+			zap.String("warpMessageID", signedMessage.ID().String()),
+			zap.String("teleporterMessageID", teleporterMessageID.String()),
+			zap.String("txHash", txHash.String()),
+		)
+		return fmt.Errorf("transaction failed with status: %d", receipt.Status)
+	}
 
 	m.logger.Info(
 		"Sent message to destination chain",
