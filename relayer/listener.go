@@ -69,7 +69,7 @@ func RunListener(
 
 	// Wait for logs from the subscribed node
 	// Will only return on error or context cancellation
-	return listener.ProcessLogs(ctx)
+	return listener.processLogs(ctx)
 }
 
 func newListener(
@@ -177,7 +177,7 @@ func newListener(
 // Listens to the Subscriber logs channel to process them.
 // On subscriber error, attempts to reconnect and errors if unable.
 // Exits if context is cancelled by another goroutine.
-func (lstnr *Listener) ProcessLogs(ctx context.Context) error {
+func (lstnr *Listener) processLogs(ctx context.Context) error {
 	// Error channel for application relayer errors
 	errChan := make(chan error)
 	for {
@@ -230,7 +230,7 @@ func (lstnr *Listener) ProcessLogs(ctx context.Context) error {
 				zap.Uint64("blockNumber", block.BlockNumber),
 			)
 
-			go GetMessageCoordinator().ProcessWarpBlock(block, errChan)
+			go ProcessWarpBlock(block, errChan)
 		case err := <-lstnr.Subscriber.Err():
 			lstnr.healthStatus.Store(false)
 			lstnr.logger.Error(

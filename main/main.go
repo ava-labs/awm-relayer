@@ -239,7 +239,7 @@ func main() {
 		relayerHealth[s.GetBlockchainID()] = isHealthy
 
 		errGroup.Go(func() error {
-			return relayer.GetMessageCoordinator().ProcessManualWarpMessages(logger, manualWarpMessages[sourceBlockchain.GetBlockchainID()], *sourceBlockchain)
+			return relayer.ProcessManualWarpMessages(manualWarpMessages[sourceBlockchain.GetBlockchainID()])
 		})
 
 		// errgroup will cancel the context when the first goroutine returns an error

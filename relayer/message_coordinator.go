@@ -4,9 +4,10 @@
 package relayer
 
 import (
+	"fmt"
+
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/utils/logging"
-	"github.com/ava-labs/awm-relayer/config"
 	"github.com/ava-labs/awm-relayer/database"
 	"github.com/ava-labs/awm-relayer/messages"
 	relayerTypes "github.com/ava-labs/awm-relayer/types"
@@ -33,10 +34,6 @@ func SetMessageCoordinator(
 		MessageHandlerFactories: messageHandlerFactories,
 		ApplicationRelayers:     applicationRelayers,
 	}
-}
-
-func GetMessageCoordinator() *MessageCoordinator {
-	return globalMessageCoordinator
 }
 
 // GetAppRelayerMessageHandler Returns the ApplicationRelayer that is configured to handle this message, as well as a
@@ -166,21 +163,26 @@ func (mc *MessageCoordinator) getApplicationRelayer(
 	return nil
 }
 
-func (mc *MessageCoordinator) ProcessManualWarpMessages(
-	logger logging.Logger,
+func ProcessManualWarpMessages(manualWarpMessages []*relayerTypes.WarpMessageInfo) error {
+	if globalMessageCoordinator == nil {
+		return fmt.Errorf("global message coordinator not set")
+	}
+	return globalMessageCoordinator.processManualWarpMessages(manualWarpMessages)
+}
+
+func (mc *MessageCoordinator) processManualWarpMessages(
 	manualWarpMessages []*relayerTypes.WarpMessageInfo,
-	sourceBlockchain config.SourceBlockchain,
 ) error {
 	// Send any messages that were specified in the configuration
 	for _, warpMessage := range manualWarpMessages {
-		logger.Info(
+		mc.logger.Info(
 			"Relaying manual Warp message",
-			zap.String("blockchainID", sourceBlockchain.BlockchainID),
+			zap.String("blockchainID", warpMessage.UnsignedMessage.SourceChainID.String()),
 			zap.String("warpMessageID", warpMessage.UnsignedMessage.ID().String()),
 		)
 		appRelayer, handler, err := mc.GetAppRelayerMessageHandler(warpMessage)
 		if err != nil {
-			logger.Error(
+			mc.logger.Error(
 				"Failed to parse manual Warp message.",
 				zap.Error(err),
 				zap.String("warpMessageID", warpMessage.UnsignedMessage.ID().String()),
@@ -189,9 +191,9 @@ func (mc *MessageCoordinator) ProcessManualWarpMessages(
 		}
 		err = appRelayer.ProcessMessage(handler)
 		if err != nil {
-			logger.Error(
+			mc.logger.Error(
 				"Failed to process manual Warp message",
-				zap.String("blockchainID", sourceBlockchain.BlockchainID),
+				zap.String("blockchainID", warpMessage.UnsignedMessage.SourceChainID.String()),
 				zap.String("warpMessageID", warpMessage.UnsignedMessage.ID().String()),
 			)
 			return err
@@ -200,7 +202,14 @@ func (mc *MessageCoordinator) ProcessManualWarpMessages(
 	return nil
 }
 
-func (mc *MessageCoordinator) ProcessWarpBlock(block *relayerTypes.WarpBlockInfo, errChan chan error) {
+func ProcessWarpBlock(block *relayerTypes.WarpBlockInfo, errChan chan error) {
+	if globalMessageCoordinator == nil {
+		panic("global message coordinator not set")
+	}
+	globalMessageCoordinator.processWarpBlock(block, errChan)
+}
+
+func (mc *MessageCoordinator) processWarpBlock(block *relayerTypes.WarpBlockInfo, errChan chan error) {
 	// Register each message in the block with the appropriate application relayer
 	messageHandlers := make(map[common.Hash][]messages.MessageHandler)
 	for _, warpLogInfo := range block.Messages {
