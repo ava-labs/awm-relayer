@@ -62,18 +62,16 @@ func CallWithRetry[T any](ctx context.Context, f func() (T, error)) (T, error) {
 	for {
 		t, err = f()
 		if err == nil {
-			break
+			return t, nil
 		}
 
 		// Wait for the next round.
 		select {
 		case <-ctx.Done():
-			var zero T
-			return zero, ctx.Err()
+			return *new(T), ctx.Err()
 		case <-queryTicker.C:
 		}
 	}
-	return t, nil
 }
 
 //
