@@ -20,7 +20,7 @@ import (
 // DestinationClient is the interface for the destination chain client. Methods that interact with the destination chain
 // should generally be implemented in a thread safe way, as they will be called concurrently by the application relayers.
 type DestinationClient interface {
-	// SendTx contructs the transaction from warp primitives, and send to the configured destination chain endpoint
+	// SendTx constructs the transaction from warp primitives, and send to the configured destination chain endpoint
 	// TODO: Make generic for any VM.
 	SendTx(signedMessage *warp.Message, toAddress string, gasLimit uint64, callData []byte) error
 
@@ -51,7 +51,7 @@ func CreateDestinationClients(logger logging.Logger, relayerConfig config.Config
 		if err != nil {
 			logger.Error(
 				"Failed to decode base-58 encoded source chain ID",
-				zap.String("blockchainID", blockchainID.String()),
+				zap.String("blockchainID", subnetInfo.BlockchainID),
 				zap.Error(err),
 			)
 			return nil, err

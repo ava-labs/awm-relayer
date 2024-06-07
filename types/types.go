@@ -20,8 +20,7 @@ var WarpPrecompileLogFilter = warp.WarpABI.Events["SendWarpMessage"].ID
 var ErrInvalidLog = errors.New("invalid warp message log")
 
 // WarpBlockInfo describes the block height and logs needed to process Warp messages.
-// WarpBlockInfo instances are populated by the subscriber, and forwared to the
-// Listener to process
+// WarpBlockInfo instances are populated by the subscriber, and forwarded to the Listener to process.
 type WarpBlockInfo struct {
 	BlockNumber uint64
 	Messages    []*WarpMessageInfo
