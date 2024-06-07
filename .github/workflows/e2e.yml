@@ -14,7 +14,7 @@ on:
 jobs:
   e2e_tests:
     name: e2e_tests
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
 
     steps:
       - name: Checkout awm-relayer repository
