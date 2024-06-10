@@ -217,6 +217,10 @@ func main() {
 		sourceClients,
 		destinationClients,
 	)
+	if err != nil {
+		logger.Fatal("Failed to create Application Relayers", zap.Error(err))
+		panic(err)
+	}
 	relayer.SetMessageCoordinator(logger, messageHandlerFactories, applicationRelayers)
 
 	// Gather manual Warp messages specified in the configuration
