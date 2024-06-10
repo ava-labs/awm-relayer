@@ -13,7 +13,6 @@ import (
 	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/awm-relayer/config"
 	"github.com/ava-labs/awm-relayer/ethclient"
-	relayerTypes "github.com/ava-labs/awm-relayer/types"
 	"github.com/ava-labs/awm-relayer/vms"
 	"go.uber.org/atomic"
 	"go.uber.org/zap"
@@ -45,6 +44,7 @@ func RunListener(
 	ctx context.Context,
 	logger logging.Logger,
 	sourceBlockchain config.SourceBlockchain,
+	ethRPCClient ethclient.Client,
 	relayerHealth *atomic.Bool,
 	processMissedBlocks bool,
 	minHeight uint64,
@@ -54,6 +54,7 @@ func RunListener(
 		ctx,
 		logger,
 		sourceBlockchain,
+		ethRPCClient,
 		relayerHealth,
 		processMissedBlocks,
 		minHeight,
@@ -76,6 +77,7 @@ func newListener(
 	ctx context.Context,
 	logger logging.Logger,
 	sourceBlockchain config.SourceBlockchain,
+	ethRPCClient ethclient.Client,
 	relayerHealth *atomic.Bool,
 	processMissedBlocks bool,
 	startingHeight uint64,
@@ -111,22 +113,6 @@ func newListener(
 	// latest processed block to the database without risking missing a block in a fault
 	// scenario.
 	catchUpResultChan := make(chan bool, 1)
-
-	// Dial the eth client
-	ethRPCClient, err := ethclient.DialWithConfig(
-		ctx,
-		sourceBlockchain.RPCEndpoint.BaseURL,
-		sourceBlockchain.RPCEndpoint.HTTPHeaders,
-		sourceBlockchain.RPCEndpoint.QueryParams,
-	)
-	if err != nil {
-		logger.Error(
-			"Failed to connect to node via RPC",
-			zap.String("blockchainID", blockchainID.String()),
-			zap.Error(err),
-		)
-		return nil, err
-	}
 
 	logger.Info(
 		"Creating relayer",
@@ -212,25 +198,7 @@ func (lstnr *Listener) processLogs(ctx context.Context) error {
 				return fmt.Errorf("failed to catch up on historical blocks")
 			}
 		case blockHeader := <-lstnr.Subscriber.Headers():
-			// Parse the logs in the block, and group by application relayer
-
-			block, err := relayerTypes.NewWarpBlockInfo(blockHeader, lstnr.ethClient)
-			if err != nil {
-				lstnr.logger.Error(
-					"Failed to create Warp block info",
-					zap.Error(err),
-				)
-				continue
-			}
-
-			// Relay the messages in the block to the destination chains. Continue on failure.
-			lstnr.logger.Debug(
-				"Processing block",
-				zap.String("sourceBlockchainID", lstnr.sourceBlockchain.GetBlockchainID().String()),
-				zap.Uint64("blockNumber", block.BlockNumber),
-			)
-
-			go ProcessWarpBlock(block, errChan)
+			go ProcessBlock(blockHeader, lstnr.ethClient, errChan)
 		case err := <-lstnr.Subscriber.Err():
 			lstnr.healthStatus.Store(false)
 			lstnr.logger.Error(

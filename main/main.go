@@ -109,6 +109,14 @@ func main() {
 		panic(err)
 	}
 
+	// Initialize all source clients
+	logger.Info("Initializing destination clients")
+	sourceClients, err := createSourceClients(context.Background(), logger, &cfg)
+	if err != nil {
+		logger.Fatal("Failed to create source clients", zap.Error(err))
+		panic(err)
+	}
+
 	// Initialize metrics gathered through prometheus
 	gatherer, registerer, err := initializeMetrics()
 	if err != nil {
@@ -206,6 +214,7 @@ func main() {
 		network,
 		messageCreator,
 		&cfg,
+		sourceClients,
 		destinationClients,
 	)
 	relayer.SetMessageCoordinator(logger, messageHandlerFactories, applicationRelayers)
@@ -249,6 +258,7 @@ func main() {
 				ctx,
 				logger,
 				*sourceBlockchain,
+				sourceClients[sourceBlockchain.GetBlockchainID()],
 				isHealthy,
 				cfg.ProcessMissedBlocks,
 				minHeights[sourceBlockchain.GetBlockchainID()],
@@ -300,21 +310,16 @@ func createMessageHandlerFactories(
 	return messageHandlerFactories, nil
 }
 
-func createApplicationRelayers(
+func createSourceClients(
 	ctx context.Context,
 	logger logging.Logger,
-	relayerMetrics *relayer.ApplicationRelayerMetrics,
-	db database.RelayerDatabase,
-	ticker *utils.Ticker,
-	network *peers.AppRequestNetwork,
-	messageCreator message.Creator,
 	cfg *config.Config,
-	destinationClients map[ids.ID]vms.DestinationClient,
-) (map[common.Hash]*relayer.ApplicationRelayer, map[ids.ID]uint64, error) {
-	applicationRelayers := make(map[common.Hash]*relayer.ApplicationRelayer)
-	minHeights := make(map[ids.ID]uint64)
+) (map[ids.ID]ethclient.Client, error) {
+	var err error
+	clients := make(map[ids.ID]ethclient.Client)
+
 	for _, sourceBlockchain := range cfg.SourceBlockchains {
-		ethClient, err := ethclient.DialWithConfig(
+		clients[sourceBlockchain.GetBlockchainID()], err = ethclient.DialWithConfig(
 			ctx,
 			sourceBlockchain.RPCEndpoint.BaseURL,
 			sourceBlockchain.RPCEndpoint.HTTPHeaders,
@@ -326,15 +331,33 @@ func createApplicationRelayers(
 				zap.String("blockchainID", sourceBlockchain.BlockchainID),
 				zap.Error(err),
 			)
-			return nil, nil, err
+			return nil, err
 		}
+	}
+	return clients, nil
+}
 
-		currentHeight, err := ethClient.BlockNumber(ctx)
+// Returns a map of application relayers, as well as a map of source blockchain IDs to starting heights.
+func createApplicationRelayers(
+	ctx context.Context,
+	logger logging.Logger,
+	relayerMetrics *relayer.ApplicationRelayerMetrics,
+	db database.RelayerDatabase,
+	ticker *utils.Ticker,
+	network *peers.AppRequestNetwork,
+	messageCreator message.Creator,
+	cfg *config.Config,
+	sourceClients map[ids.ID]ethclient.Client,
+	destinationClients map[ids.ID]vms.DestinationClient,
+) (map[common.Hash]*relayer.ApplicationRelayer, map[ids.ID]uint64, error) {
+	applicationRelayers := make(map[common.Hash]*relayer.ApplicationRelayer)
+	minHeights := make(map[ids.ID]uint64)
+	for _, sourceBlockchain := range cfg.SourceBlockchains {
+		currentHeight, err := sourceClients[sourceBlockchain.GetBlockchainID()].BlockNumber(ctx)
 		if err != nil {
 			logger.Error("Failed to get current block height", zap.Error(err))
 			return nil, nil, err
 		}
-		ethClient.Close()
 
 		// Create the ApplicationRelayers
 		applicationRelayersForSource, minHeight, err := createApplicationRelayersForSourceChain(

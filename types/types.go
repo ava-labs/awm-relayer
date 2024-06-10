@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/big"
 	"time"
 
 	avalancheWarp "github.com/ava-labs/avalanchego/vms/platformvm/warp"
@@ -49,7 +50,7 @@ func NewWarpBlockInfo(header *types.Header, ethClient ethclient.Client) (*WarpBl
 	)
 	// Check if the block contains warp logs, and fetch them from the client if it does
 	if header.Bloom.Test(WarpPrecompileLogFilter[:]) {
-		logs, err = fetchWarpLogsWithRetries(ethClient, header, filterLogsRetries, retryInterval)
+		logs, err = fetchWarpLogsWithRetries(ethClient, header.Number, filterLogsRetries, retryInterval)
 		if err != nil {
 			return nil, err
 		}
@@ -102,9 +103,26 @@ func UnpackWarpMessage(unsignedMsgBytes []byte) (*avalancheWarp.UnsignedMessage,
 	return unsignedMsg, nil
 }
 
+func FetchWarpMessageFromID(ethClient ethclient.Client, warpMessageID common.Hash, blockNum *big.Int) (*WarpMessageInfo, error) {
+	logs, err := ethClient.FilterLogs(context.Background(), interfaces.FilterQuery{
+		Topics:    [][]common.Hash{{WarpPrecompileLogFilter}, nil, {warpMessageID}},
+		Addresses: []common.Address{warp.ContractAddress},
+		FromBlock: blockNum,
+		ToBlock:   blockNum,
+	})
+	if err != nil {
+		return nil, err
+	}
+	if len(logs) != 1 {
+		return nil, ErrInvalidLog
+	}
+
+	return NewWarpMessageInfo(logs[0])
+}
+
 // The node serving the filter logs request may be behind the node serving the block header request,
 // so we retry a few times to ensure we get the logs
-func fetchWarpLogsWithRetries(ethClient ethclient.Client, header *types.Header, numRetries int, retryInterval time.Duration) ([]types.Log, error) {
+func fetchWarpLogsWithRetries(ethClient ethclient.Client, blockNum *big.Int, numRetries int, retryInterval time.Duration) ([]types.Log, error) {
 	var (
 		logs []types.Log
 		err  error
@@ -112,10 +130,10 @@ func fetchWarpLogsWithRetries(ethClient ethclient.Client, header *types.Header, 
 
 	for i := 0; i < numRetries; i++ {
 		logs, err = ethClient.FilterLogs(context.Background(), interfaces.FilterQuery{
-			Topics:    [][]common.Hash{{WarpPrecompileLogFilter}},
+			Topics:    [][]common.Hash{{WarpPrecompileLogFilter}, nil},
 			Addresses: []common.Address{warp.ContractAddress},
-			FromBlock: header.Number,
-			ToBlock:   header.Number,
+			FromBlock: blockNum,
+			ToBlock:   blockNum,
 		})
 		if err == nil {
 			return logs, nil
@@ -124,5 +142,5 @@ func fetchWarpLogsWithRetries(ethClient ethclient.Client, header *types.Header, 
 			time.Sleep(retryInterval)
 		}
 	}
-	return nil, fmt.Errorf("failed to fetch warp logs for block %d after %d retries: %w", header.Number.Uint64(), filterLogsRetries, err)
+	return nil, fmt.Errorf("failed to fetch warp logs for block %d after %d retries: %w", blockNum.Uint64(), filterLogsRetries, err)
 }
