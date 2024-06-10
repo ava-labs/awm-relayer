@@ -242,6 +242,23 @@ func (m *messageHandler) SendMessage(signedMessage *warp.Message, destinationCli
 	}
 
 	// Wait for the message to be included in a block before returning
+	err = m.waitForReceipt(signedMessage, destinationClient, txHash, teleporterMessageID)
+	if err != nil {
+		return err
+	}
+
+	m.logger.Info(
+		"Delivered message to destination chain",
+		zap.String("destinationBlockchainID", destinationBlockchainID.String()),
+		zap.String("warpMessageID", signedMessage.ID().String()),
+		zap.String("teleporterMessageID", teleporterMessageID.String()),
+		zap.String("txHash", txHash.String()),
+	)
+	return nil
+}
+
+func (m *messageHandler) waitForReceipt(signedMessage *warp.Message, destinationClient vms.DestinationClient, txHash common.Hash, teleporterMessageID ids.ID) error {
+	destinationBlockchainID := destinationClient.DestinationBlockchainID()
 	callCtx, callCtxCancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer callCtxCancel()
 	receipt, err := utils.CallWithRetry[*types.Receipt](
@@ -270,13 +287,6 @@ func (m *messageHandler) SendMessage(signedMessage *warp.Message, destinationCli
 		)
 		return fmt.Errorf("transaction failed with status: %d", receipt.Status)
 	}
-
-	m.logger.Info(
-		"Sent message to destination chain",
-		zap.String("destinationBlockchainID", destinationBlockchainID.String()),
-		zap.String("warpMessageID", signedMessage.ID().String()),
-		zap.String("teleporterMessageID", teleporterMessageID.String()),
-	)
 	return nil
 }
 
