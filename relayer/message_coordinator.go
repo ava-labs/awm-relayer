@@ -201,17 +201,10 @@ func (mc *MessageCoordinator) processManualWarpMessages(
 	return nil
 }
 
-func ProcessBlock(blockHeader *types.Header, ethClient ethclient.Client, errChan chan error) {
-	if globalMessageCoordinator == nil {
-		panic("global message coordinator not set")
-	}
-	globalMessageCoordinator.processBlock(blockHeader, ethClient, errChan)
-}
-
 func (mc *MessageCoordinator) ProcessMessage(blockchainID ids.ID, messageID common.Hash, blockNum *big.Int) error {
 	ethClient, ok := mc.SourceClients[blockchainID]
 	if !ok {
-		return fmt.Errorf("source client not set for blockchain ID: %s", blockchainID.String())
+		return fmt.Errorf("source client not set for blockchain: %s", blockchainID.String())
 	}
 
 	warpMessage, err := relayerTypes.FetchWarpMessageFromID(ethClient, messageID, blockNum)
@@ -236,18 +229,23 @@ func (mc *MessageCoordinator) ProcessMessage(blockchainID ids.ID, messageID comm
 	return appRelayer.ProcessMessage(handler)
 }
 
+func ProcessBlock(blockHeader *types.Header, ethClient ethclient.Client, errChan chan error) {
+	if globalMessageCoordinator == nil {
+		panic("global message coordinator not set")
+	}
+	globalMessageCoordinator.processBlock(blockHeader, ethClient, errChan)
+}
+
+// Meant to be ran asynchronously. Errors should be sent to errChan.
 func (mc *MessageCoordinator) processBlock(blockHeader *types.Header, ethClient ethclient.Client, errChan chan error) {
 	// Parse the logs in the block, and group by application relayer
 	block, err := relayerTypes.NewWarpBlockInfo(blockHeader, ethClient)
 	if err != nil {
 		mc.logger.Error("Failed to create Warp block info", zap.Error(err))
+		errChan <- err
 		return
 	}
 
-	mc.processWarpBlock(block, errChan)
-}
-
-func (mc *MessageCoordinator) processWarpBlock(block *relayerTypes.WarpBlockInfo, errChan chan error) {
 	// Register each message in the block with the appropriate application relayer
 	messageHandlers := make(map[common.Hash][]messages.MessageHandler)
 	for _, warpLogInfo := range block.Messages {
@@ -256,6 +254,7 @@ func (mc *MessageCoordinator) processWarpBlock(block *relayerTypes.WarpBlockInfo
 			mc.logger.Error(
 				"Failed to parse message",
 				zap.String("blockchainID", warpLogInfo.UnsignedMessage.SourceChainID.String()),
+				zap.String("protocolAddress", warpLogInfo.SourceAddress.String()),
 				zap.Error(err),
 			)
 			continue
@@ -272,6 +271,6 @@ func (mc *MessageCoordinator) processWarpBlock(block *relayerTypes.WarpBlockInfo
 		// An empty slice is still a valid argument to ProcessHeight; in this case the height is immediately committed.
 		handlers := messageHandlers[appRelayer.relayerID.ID]
 
-		appRelayer.ProcessHeight(block.BlockNumber, handlers, errChan)
+		go appRelayer.ProcessHeight(block.BlockNumber, handlers, errChan)
 	}
 }
