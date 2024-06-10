@@ -19,7 +19,6 @@ import (
 	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/awm-relayer/config"
 	"github.com/ava-labs/awm-relayer/database"
-	clientUtils "github.com/ava-labs/awm-relayer/ethclient"
 	"github.com/ava-labs/awm-relayer/peers"
 	"github.com/ava-labs/awm-relayer/relayer"
 	"github.com/ava-labs/awm-relayer/types"
@@ -243,7 +242,7 @@ func main() {
 		// errgroup will cancel the context when the first goroutine returns an error
 		errGroup.Go(func() error {
 			// Dial the eth client
-			ethClient, err := clientUtils.DialWithConfig(
+			ethClient, err := utils.DialWithConfig(
 				context.Background(),
 				sourceBlockchain.RPCEndpoint.BaseURL,
 				sourceBlockchain.RPCEndpoint.HTTPHeaders,

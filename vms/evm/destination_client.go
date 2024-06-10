@@ -14,7 +14,7 @@ import (
 	"github.com/ava-labs/avalanchego/utils/logging"
 	avalancheWarp "github.com/ava-labs/avalanchego/vms/platformvm/warp"
 	"github.com/ava-labs/awm-relayer/config"
-	clientUtils "github.com/ava-labs/awm-relayer/ethclient"
+	"github.com/ava-labs/awm-relayer/utils"
 	"github.com/ava-labs/awm-relayer/vms/evm/signer"
 	"github.com/ava-labs/subnet-evm/core/types"
 	"github.com/ava-labs/subnet-evm/ethclient"
@@ -52,7 +52,7 @@ func NewDestinationClient(
 	destinationBlockchain *config.DestinationBlockchain,
 ) (*destinationClient, error) {
 	// Dial the destination RPC endpoint
-	client, err := clientUtils.DialWithConfig(
+	client, err := utils.DialWithConfig(
 		context.Background(),
 		destinationBlockchain.RPCEndpoint.BaseURL,
 		destinationBlockchain.RPCEndpoint.HTTPHeaders,

@@ -17,7 +17,6 @@ import (
 	"github.com/ava-labs/avalanchego/utils/set"
 	"github.com/ava-labs/awm-relayer/utils"
 
-	clientUtils "github.com/ava-labs/awm-relayer/ethclient"
 	"github.com/ava-labs/subnet-evm/ethclient"
 	"github.com/ava-labs/subnet-evm/precompile/contracts/warp"
 
@@ -615,7 +614,7 @@ func (s *DestinationBlockchain) initializeWarpQuorum() error {
 		return fmt.Errorf("invalid subnetID in configuration. error: %w", err)
 	}
 
-	client, err := clientUtils.DialWithConfig(context.Background(), s.RPCEndpoint.BaseURL, s.RPCEndpoint.HTTPHeaders, s.RPCEndpoint.QueryParams)
+	client, err := utils.DialWithConfig(context.Background(), s.RPCEndpoint.BaseURL, s.RPCEndpoint.HTTPHeaders, s.RPCEndpoint.QueryParams)
 	if err != nil {
 		return fmt.Errorf("failed to dial destination blockchain %s: %w", blockchainID, err)
 	}
