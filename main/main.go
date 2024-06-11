@@ -91,7 +91,7 @@ func main() {
 	logger.Info("Initializing awm-relayer")
 	overwrittenLog := ""
 	if cfg.HasOverwrittenOptions() {
-		overwrittenLog = fmt.Sprintf("Some options were overwritten: %s", strings.Join(cfg.GetOverwrittenOptions(), ", "))
+		overwrittenLog = fmt.Sprintf(" Some options were overwritten: %s", strings.Join(cfg.GetOverwrittenOptions(), ", "))
 	}
 	logger.Info(fmt.Sprintf("Set config options.%s", overwrittenLog))
 
