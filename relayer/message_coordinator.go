@@ -201,7 +201,14 @@ func (mc *MessageCoordinator) processManualWarpMessages(
 	return nil
 }
 
-func (mc *MessageCoordinator) ProcessMessage(blockchainID ids.ID, messageID common.Hash, blockNum *big.Int) error {
+func ProcessMessage(blockchainID ids.ID, messageID common.Hash, blockNum *big.Int) error {
+	if globalMessageCoordinator == nil {
+		panic("global message coordinator not set")
+	}
+	return globalMessageCoordinator.processMessage(blockchainID, messageID, blockNum)
+}
+
+func (mc *MessageCoordinator) processMessage(blockchainID ids.ID, messageID common.Hash, blockNum *big.Int) error {
 	ethClient, ok := mc.SourceClients[blockchainID]
 	if !ok {
 		return fmt.Errorf("source client not set for blockchain: %s", blockchainID.String())

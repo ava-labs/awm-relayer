@@ -166,13 +166,6 @@ func main() {
 		}),
 	)
 
-	http.Handle("/health", health.NewHandler(checker))
-
-	// start the health check server
-	go func() {
-		log.Fatalln(http.ListenAndServe(fmt.Sprintf(":%d", cfg.APIPort), nil))
-	}()
-
 	startMetricsServer(logger, gatherer, cfg.MetricsPort)
 
 	relayerMetrics, err := relayer.NewApplicationRelayerMetrics(registerer)
@@ -222,6 +215,15 @@ func main() {
 		panic(err)
 	}
 	relayer.SetMessageCoordinator(logger, messageHandlerFactories, applicationRelayers)
+
+	// Initialize the API after the message coordinator is set
+	http.Handle("/health", health.NewHandler(checker))
+	http.Handle("/relay-message", relayer.RelayMessageAPIHandler())
+
+	// start the health check server
+	go func() {
+		log.Fatalln(http.ListenAndServe(fmt.Sprintf(":%d", cfg.APIPort), nil))
+	}()
 
 	// Gather manual Warp messages specified in the configuration
 	manualWarpMessages := make(map[ids.ID][]*relayerTypes.WarpMessageInfo)
