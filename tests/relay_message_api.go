@@ -40,6 +40,7 @@ func RelayMessageAPI(network interfaces.LocalNetwork) {
 	warpMessage1 := getWarpMessageFromLog(ctx, receipt1, subnetAInfo)
 	receipt2, _, _ := testUtils.SendBasicTeleporterMessage(ctx, subnetAInfo, subnetBInfo, fundedKey, fundedAddress)
 	warpMessage2 := getWarpMessageFromLog(ctx, receipt2, subnetAInfo)
+	warpMessage2.ID()
 
 	// Set up relayer config
 	relayerConfig := testUtils.CreateDefaultRelayerConfig(
@@ -82,9 +83,8 @@ func RelayMessageAPI(network interfaces.LocalNetwork) {
 
 	res, err := client.Do(req)
 	Expect(err).Should(BeNil())
+	Expect(res.Status).Should(Equal(http.StatusOK))
 
-	res.
-
-		// Cancel the command and stop the relayer
-		relayerCleanup()
+	// Cancel the command and stop the relayer
+	relayerCleanup()
 }

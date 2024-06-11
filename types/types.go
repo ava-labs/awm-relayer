@@ -6,9 +6,7 @@ package types
 import (
 	"context"
 	"errors"
-	"fmt"
 	"math/big"
-	"time"
 
 	avalancheWarp "github.com/ava-labs/avalanchego/vms/platformvm/warp"
 	"github.com/ava-labs/awm-relayer/utils"
@@ -125,29 +123,4 @@ func FetchWarpMessageFromID(ethClient ethclient.Client, warpMessageID common.Has
 	}
 
 	return NewWarpMessageInfo(logs[0])
-}
-
-// The node serving the filter logs request may be behind the node serving the block header request,
-// so we retry a few times to ensure we get the logs
-func fetchWarpLogsWithRetries(ethClient ethclient.Client, blockNum *big.Int, numRetries int, retryInterval time.Duration) ([]types.Log, error) {
-	var (
-		logs []types.Log
-		err  error
-	)
-
-	for i := 0; i < numRetries; i++ {
-		logs, err = ethClient.FilterLogs(context.Background(), interfaces.FilterQuery{
-			Topics:    [][]common.Hash{{WarpPrecompileLogFilter}, nil},
-			Addresses: []common.Address{warp.ContractAddress},
-			FromBlock: blockNum,
-			ToBlock:   blockNum,
-		})
-		if err == nil {
-			return logs, nil
-		}
-		if i != numRetries-1 {
-			time.Sleep(retryInterval)
-		}
-	}
-	return nil, fmt.Errorf("failed to fetch warp logs for block %d after %d retries: %w", blockNum.Uint64(), filterLogsRetries, err)
 }
