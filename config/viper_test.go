@@ -2,19 +2,17 @@ package config
 
 import (
 	"bytes"
+	"os"
 	"testing"
 
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/require"
-
-	_ "embed"
 )
-
-//go:embed test_files/config.json
-var configFile string
 
 func TestBuildConfig(t *testing.T) {
 	v := viper.New()
+	cfgBytes, err := os.ReadFile("../sample-relayer-config.json")
+	configFile := string(cfgBytes)
 	buf := bytes.NewBufferString(configFile)
 	v.SetConfigType("json")
 	require.NoError(t, v.ReadConfig(buf))
@@ -61,6 +59,6 @@ func TestBuildConfig(t *testing.T) {
 			BaseURL: "https://subnets.avax.network/dispatch/testnet/rpc",
 		},
 		VM:                "evm",
-		AccountPrivateKey: "f4a2b939592564feb35ab10a8e04f6f2fe0943579fb3c9c33505298978b74893",
+		AccountPrivateKey: "7493...",
 	}, cfg.DestinationBlockchains[0])
 }
