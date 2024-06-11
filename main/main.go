@@ -19,13 +19,13 @@ import (
 	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/awm-relayer/config"
 	"github.com/ava-labs/awm-relayer/database"
-	"github.com/ava-labs/awm-relayer/ethclient"
 	"github.com/ava-labs/awm-relayer/peers"
 	"github.com/ava-labs/awm-relayer/relayer"
 	"github.com/ava-labs/awm-relayer/types"
 	relayerTypes "github.com/ava-labs/awm-relayer/types"
 	"github.com/ava-labs/awm-relayer/utils"
 	"github.com/ava-labs/awm-relayer/vms"
+	"github.com/ava-labs/subnet-evm/ethclient"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -242,7 +242,7 @@ func main() {
 		// errgroup will cancel the context when the first goroutine returns an error
 		errGroup.Go(func() error {
 			// Dial the eth client
-			ethClient, err := ethclient.DialWithConfig(
+			ethClient, err := utils.DialWithConfig(
 				context.Background(),
 				sourceBlockchain.RPCEndpoint.BaseURL,
 				sourceBlockchain.RPCEndpoint.HTTPHeaders,
