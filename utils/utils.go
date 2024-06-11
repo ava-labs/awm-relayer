@@ -4,11 +4,13 @@
 package utils
 
 import (
+	"context"
 	"crypto/ecdsa"
 	"encoding/hex"
 	"errors"
 	"math/big"
 	"strings"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 )
@@ -21,6 +23,10 @@ var (
 	ErrTooLarge = errors.New("exceeds uint256 maximum value")
 	// Generic private key parsing error used to obfuscate the actual error
 	ErrInvalidPrivateKeyHex = errors.New("invalid account private key hex string")
+)
+
+const (
+	DefaultRPCRetryTimeout = 5 * time.Second
 )
 
 //
@@ -39,6 +45,33 @@ func CheckStakeWeightExceedsThreshold(accumulatedSignatureWeight *big.Int, total
 	scaledSigWeight := new(big.Int).Mul(accumulatedSignatureWeight, new(big.Int).SetUint64(quorumDenominator))
 
 	return scaledTotalWeight.Cmp(scaledSigWeight) != 1
+}
+
+//
+// Chain Utils
+//
+
+// Calls f until it returns a non-error result or the context is canceled, with a 200ms delay between calls.
+func CallWithRetry[T any](ctx context.Context, f func() (T, error)) (T, error) {
+	queryTicker := time.NewTicker(200 * time.Millisecond)
+	defer queryTicker.Stop()
+	var (
+		t   T
+		err error
+	)
+	for {
+		t, err = f()
+		if err == nil {
+			return t, nil
+		}
+
+		// Wait for the next round.
+		select {
+		case <-ctx.Done():
+			return *new(T), ctx.Err()
+		case <-queryTicker.C:
+		}
+	}
 }
 
 //

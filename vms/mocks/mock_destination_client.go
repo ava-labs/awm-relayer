@@ -5,6 +5,7 @@
 //
 //	mockgen -source=destination_client.go -destination=./mocks/mock_destination_client.go -package=mocks
 //
+
 // Package mocks is a generated GoMock package.
 package mocks
 
@@ -69,11 +70,12 @@ func (mr *MockDestinationClientMockRecorder) DestinationBlockchainID() *gomock.C
 }
 
 // SendTx mocks base method.
-func (m *MockDestinationClient) SendTx(signedMessage *warp.Message, toAddress string, gasLimit uint64, callData []byte) error {
+func (m *MockDestinationClient) SendTx(signedMessage *warp.Message, toAddress string, gasLimit uint64, callData []byte) (common.Hash, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SendTx", signedMessage, toAddress, gasLimit, callData)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(common.Hash)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // SendTx indicates an expected call of SendTx.

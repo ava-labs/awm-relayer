@@ -11,6 +11,7 @@ import (
 	"time"
 
 	avalancheWarp "github.com/ava-labs/avalanchego/vms/platformvm/warp"
+	"github.com/ava-labs/awm-relayer/utils"
 	"github.com/ava-labs/subnet-evm/core/types"
 	"github.com/ava-labs/subnet-evm/ethclient"
 	"github.com/ava-labs/subnet-evm/interfaces"
@@ -20,11 +21,6 @@ import (
 
 var WarpPrecompileLogFilter = warp.WarpABI.Events["SendWarpMessage"].ID
 var ErrInvalidLog = errors.New("invalid warp message log")
-
-const (
-	filterLogsRetries = 5
-	retryInterval     = 1 * time.Second
-)
 
 // WarpBlockInfo describes the block height and logs needed to process Warp messages.
 // WarpBlockInfo instances are populated by the subscriber, and forwarded to the Listener to process.
@@ -50,7 +46,18 @@ func NewWarpBlockInfo(header *types.Header, ethClient ethclient.Client) (*WarpBl
 	)
 	// Check if the block contains warp logs, and fetch them from the client if it does
 	if header.Bloom.Test(WarpPrecompileLogFilter[:]) {
-		logs, err = fetchWarpLogsWithRetries(ethClient, header.Number, filterLogsRetries, retryInterval)
+		cctx, cancel := context.WithTimeout(context.Background(), utils.DefaultRPCRetryTimeout)
+		defer cancel()
+		logs, err = utils.CallWithRetry[[]types.Log](
+			cctx,
+			func() ([]types.Log, error) {
+				return ethClient.FilterLogs(context.Background(), interfaces.FilterQuery{
+					Topics:    [][]common.Hash{{WarpPrecompileLogFilter}},
+					Addresses: []common.Address{warp.ContractAddress},
+					FromBlock: header.Number,
+					ToBlock:   header.Number,
+				})
+			})
 		if err != nil {
 			return nil, err
 		}

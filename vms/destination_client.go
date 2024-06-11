@@ -20,9 +20,10 @@ import (
 // DestinationClient is the interface for the destination chain client. Methods that interact with the destination chain
 // should generally be implemented in a thread safe way, as they will be called concurrently by the application relayers.
 type DestinationClient interface {
-	// SendTx constructs the transaction from warp primitives, and send to the configured destination chain endpoint
+	// SendTx constructs the transaction from warp primitives, and sends to the configured destination chain endpoint.
+	// Returns the hash of the sent transaction.
 	// TODO: Make generic for any VM.
-	SendTx(signedMessage *warp.Message, toAddress string, gasLimit uint64, callData []byte) error
+	SendTx(signedMessage *warp.Message, toAddress string, gasLimit uint64, callData []byte) (common.Hash, error)
 
 	// Client returns the underlying client for the destination chain
 	Client() interface{}

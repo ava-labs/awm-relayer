@@ -4,18 +4,22 @@
 package teleporter
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/avalanchego/vms/platformvm/warp"
 	warpPayload "github.com/ava-labs/avalanchego/vms/platformvm/warp/payload"
 	"github.com/ava-labs/awm-relayer/config"
-	"github.com/ava-labs/awm-relayer/ethclient"
 	"github.com/ava-labs/awm-relayer/messages"
+	"github.com/ava-labs/awm-relayer/utils"
 	"github.com/ava-labs/awm-relayer/vms"
 	"github.com/ava-labs/subnet-evm/accounts/abi/bind"
+	"github.com/ava-labs/subnet-evm/core/types"
+	"github.com/ava-labs/subnet-evm/ethclient"
 	teleportermessenger "github.com/ava-labs/teleporter/abi-bindings/go/Teleporter/TeleporterMessenger"
 	gasUtils "github.com/ava-labs/teleporter/utils/gas-utils"
 	teleporterUtils "github.com/ava-labs/teleporter/utils/teleporter-utils"
@@ -225,7 +229,7 @@ func (m *messageHandler) SendMessage(signedMessage *warp.Message, destinationCli
 		return err
 	}
 
-	err = destinationClient.SendTx(signedMessage, m.factory.protocolAddress.Hex(), gasLimit, callData)
+	txHash, err := destinationClient.SendTx(signedMessage, m.factory.protocolAddress.Hex(), gasLimit, callData)
 	if err != nil {
 		m.logger.Error(
 			"Failed to send tx.",
@@ -236,12 +240,53 @@ func (m *messageHandler) SendMessage(signedMessage *warp.Message, destinationCli
 		)
 		return err
 	}
+
+	// Wait for the message to be included in a block before returning
+	err = m.waitForReceipt(signedMessage, destinationClient, txHash, teleporterMessageID)
+	if err != nil {
+		return err
+	}
+
 	m.logger.Info(
-		"Sent message to destination chain",
+		"Delivered message to destination chain",
 		zap.String("destinationBlockchainID", destinationBlockchainID.String()),
 		zap.String("warpMessageID", signedMessage.ID().String()),
 		zap.String("teleporterMessageID", teleporterMessageID.String()),
+		zap.String("txHash", txHash.String()),
 	)
+	return nil
+}
+
+func (m *messageHandler) waitForReceipt(signedMessage *warp.Message, destinationClient vms.DestinationClient, txHash common.Hash, teleporterMessageID ids.ID) error {
+	destinationBlockchainID := destinationClient.DestinationBlockchainID()
+	callCtx, callCtxCancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer callCtxCancel()
+	receipt, err := utils.CallWithRetry[*types.Receipt](
+		callCtx,
+		func() (*types.Receipt, error) {
+			return destinationClient.Client().(ethclient.Client).TransactionReceipt(callCtx, txHash)
+		},
+	)
+	if err != nil {
+		m.logger.Error(
+			"Failed to get transaction receipt",
+			zap.String("destinationBlockchainID", destinationBlockchainID.String()),
+			zap.String("warpMessageID", signedMessage.ID().String()),
+			zap.String("teleporterMessageID", teleporterMessageID.String()),
+			zap.Error(err),
+		)
+		return err
+	}
+	if receipt.Status != types.ReceiptStatusSuccessful {
+		m.logger.Error(
+			"Transaction failed",
+			zap.String("destinationBlockchainID", destinationBlockchainID.String()),
+			zap.String("warpMessageID", signedMessage.ID().String()),
+			zap.String("teleporterMessageID", teleporterMessageID.String()),
+			zap.String("txHash", txHash.String()),
+		)
+		return fmt.Errorf("transaction failed with status: %d", receipt.Status)
+	}
 	return nil
 }
 

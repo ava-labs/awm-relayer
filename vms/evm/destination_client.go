@@ -14,9 +14,10 @@ import (
 	"github.com/ava-labs/avalanchego/utils/logging"
 	avalancheWarp "github.com/ava-labs/avalanchego/vms/platformvm/warp"
 	"github.com/ava-labs/awm-relayer/config"
-	"github.com/ava-labs/awm-relayer/ethclient"
+	"github.com/ava-labs/awm-relayer/utils"
 	"github.com/ava-labs/awm-relayer/vms/evm/signer"
 	"github.com/ava-labs/subnet-evm/core/types"
+	"github.com/ava-labs/subnet-evm/ethclient"
 	"github.com/ava-labs/subnet-evm/precompile/contracts/warp"
 	predicateutils "github.com/ava-labs/subnet-evm/predicate"
 	"github.com/ethereum/go-ethereum/common"
@@ -51,7 +52,7 @@ func NewDestinationClient(
 	destinationBlockchain *config.DestinationBlockchain,
 ) (*destinationClient, error) {
 	// Dial the destination RPC endpoint
-	client, err := ethclient.DialWithConfig(
+	client, err := utils.DialWithConfig(
 		context.Background(),
 		destinationBlockchain.RPCEndpoint.BaseURL,
 		destinationBlockchain.RPCEndpoint.HTTPHeaders,
@@ -124,7 +125,7 @@ func (c *destinationClient) SendTx(
 	toAddress string,
 	gasLimit uint64,
 	callData []byte,
-) error {
+) (common.Hash, error) {
 	// Get the current base fee estimation, which is based on the previous blocks gas usage.
 	baseFee, err := c.client.EstimateBaseFee(context.Background())
 	if err != nil {
@@ -132,7 +133,7 @@ func (c *destinationClient) SendTx(
 			"Failed to get base fee",
 			zap.Error(err),
 		)
-		return err
+		return common.Hash{}, err
 	}
 
 	// Get the suggested gas tip cap of the network
@@ -143,7 +144,7 @@ func (c *destinationClient) SendTx(
 			"Failed to get gas tip cap",
 			zap.Error(err),
 		)
-		return err
+		return common.Hash{}, err
 	}
 
 	to := common.HexToAddress(toAddress)
@@ -178,7 +179,7 @@ func (c *destinationClient) SendTx(
 			"Failed to sign transaction",
 			zap.Error(err),
 		)
-		return err
+		return common.Hash{}, err
 	}
 
 	if err := c.client.SendTransaction(context.Background(), signedTx); err != nil {
@@ -186,7 +187,7 @@ func (c *destinationClient) SendTx(
 			"Failed to send transaction",
 			zap.Error(err),
 		)
-		return err
+		return common.Hash{}, err
 	}
 	c.logger.Info(
 		"Sent transaction",
@@ -195,7 +196,7 @@ func (c *destinationClient) SendTx(
 	)
 	c.currentNonce++
 
-	return nil
+	return signedTx.Hash(), nil
 }
 
 func (c *destinationClient) Client() interface{} {

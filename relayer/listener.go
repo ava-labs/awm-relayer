@@ -12,8 +12,9 @@ import (
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/awm-relayer/config"
-	"github.com/ava-labs/awm-relayer/ethclient"
+	"github.com/ava-labs/awm-relayer/utils"
 	"github.com/ava-labs/awm-relayer/vms"
+	"github.com/ava-labs/subnet-evm/ethclient"
 	"go.uber.org/atomic"
 	"go.uber.org/zap"
 )
@@ -90,7 +91,7 @@ func newListener(
 		)
 		return nil, err
 	}
-	ethWSClient, err := ethclient.DialWithConfig(
+	ethWSClient, err := utils.DialWithConfig(
 		ctx,
 		sourceBlockchain.WSEndpoint.BaseURL,
 		sourceBlockchain.WSEndpoint.HTTPHeaders,
