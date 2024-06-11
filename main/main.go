@@ -325,7 +325,7 @@ func createSourceClients(
 	clients := make(map[ids.ID]ethclient.Client)
 
 	for _, sourceBlockchain := range cfg.SourceBlockchains {
-		clients[sourceBlockchain.GetBlockchainID()], err = ethclient.DialWithConfig(
+		clients[sourceBlockchain.GetBlockchainID()], err = utils.DialWithConfig(
 			ctx,
 			sourceBlockchain.RPCEndpoint.BaseURL,
 			sourceBlockchain.RPCEndpoint.HTTPHeaders,
