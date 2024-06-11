@@ -33,11 +33,13 @@ func SetMessageCoordinator(
 	logger logging.Logger,
 	messageHandlerFactories map[ids.ID]map[common.Address]messages.MessageHandlerFactory,
 	applicationRelayers map[common.Hash]*ApplicationRelayer,
+	sourceClients map[ids.ID]ethclient.Client,
 ) {
 	globalMessageCoordinator = &MessageCoordinator{
 		logger:                  logger,
 		MessageHandlerFactories: messageHandlerFactories,
 		ApplicationRelayers:     applicationRelayers,
+		SourceClients:           sourceClients,
 	}
 }
 
@@ -211,11 +213,13 @@ func ProcessMessage(blockchainID ids.ID, messageID common.Hash, blockNum *big.In
 func (mc *MessageCoordinator) processMessage(blockchainID ids.ID, messageID common.Hash, blockNum *big.Int) error {
 	ethClient, ok := mc.SourceClients[blockchainID]
 	if !ok {
+		mc.logger.Error("Source client not found", zap.String("blockchainID", blockchainID.String()))
 		return fmt.Errorf("source client not set for blockchain: %s", blockchainID.String())
 	}
 
 	warpMessage, err := relayerTypes.FetchWarpMessageFromID(ethClient, messageID, blockNum)
 	if err != nil {
+		mc.logger.Error("Failed to fetch warp from blockchain", zap.String("blockchainID", blockchainID.String()), zap.Error(err))
 		return err
 	}
 

@@ -203,6 +203,7 @@ func CreateDefaultRelayerConfig(
 		ProcessMissedBlocks:    false,
 		SourceBlockchains:      sources,
 		DestinationBlockchains: destinations,
+		APIPort:                1234,
 	}
 }
 

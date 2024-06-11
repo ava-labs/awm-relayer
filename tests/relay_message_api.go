@@ -36,11 +36,8 @@ func RelayMessageAPI(network interfaces.LocalNetwork) {
 	testUtils.FundRelayers(ctx, []interfaces.SubnetTestInfo{subnetAInfo, subnetBInfo}, fundedKey, relayerKey)
 
 	log.Info("Sending teleporter messages")
-	receipt1, _, _ := testUtils.SendBasicTeleporterMessage(ctx, subnetAInfo, subnetBInfo, fundedKey, fundedAddress)
-	warpMessage1 := getWarpMessageFromLog(ctx, receipt1, subnetAInfo)
-	receipt2, _, _ := testUtils.SendBasicTeleporterMessage(ctx, subnetAInfo, subnetBInfo, fundedKey, fundedAddress)
-	warpMessage2 := getWarpMessageFromLog(ctx, receipt2, subnetAInfo)
-	warpMessage2.ID()
+	receipt, _, _ := testUtils.SendBasicTeleporterMessage(ctx, subnetAInfo, subnetBInfo, fundedKey, fundedAddress)
+	warpMessage := getWarpMessageFromLog(ctx, receipt, subnetAInfo)
 
 	// Set up relayer config
 	relayerConfig := testUtils.CreateDefaultRelayerConfig(
@@ -65,17 +62,18 @@ func RelayMessageAPI(network interfaces.LocalNetwork) {
 
 	reqBody := relayer.RelayMessageRequest{
 		BlockchainID: subnetAInfo.BlockchainID.String(),
-		MessageID:    warpMessage1.ID().String(),
-		BlockNum:     receipt1.BlockNumber.String(),
+		MessageID:    warpMessage.ID().Hex(),
+		BlockNum:     receipt.BlockNumber.String(),
 	}
 
 	b, err := json.Marshal(reqBody)
 	Expect(err).Should(BeNil())
 	bodyReader := bytes.NewReader(b)
 
-	requestURL := fmt.Sprintf("http://localhost:%d", relayerConfig.APIPort)
+	requestURL := fmt.Sprintf("http://localhost:%d/relay-message", relayerConfig.APIPort)
 	req, err := http.NewRequest(http.MethodPost, requestURL, bodyReader)
 	Expect(err).Should(BeNil())
+	req.Header.Set("Content-Type", "application/json")
 
 	client := http.Client{
 		Timeout: 30 * time.Second,
@@ -83,7 +81,7 @@ func RelayMessageAPI(network interfaces.LocalNetwork) {
 
 	res, err := client.Do(req)
 	Expect(err).Should(BeNil())
-	Expect(res.Status).Should(Equal(http.StatusOK))
+	Expect(res.Status).Should(Equal("200 OK"))
 
 	// Cancel the command and stop the relayer
 	relayerCleanup()

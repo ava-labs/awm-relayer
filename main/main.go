@@ -214,7 +214,7 @@ func main() {
 		logger.Fatal("Failed to create Application Relayers", zap.Error(err))
 		panic(err)
 	}
-	relayer.SetMessageCoordinator(logger, messageHandlerFactories, applicationRelayers)
+	relayer.SetMessageCoordinator(logger, messageHandlerFactories, applicationRelayers, sourceClients)
 
 	// Initialize the API after the message coordinator is set
 	http.Handle("/health", health.NewHandler(checker))

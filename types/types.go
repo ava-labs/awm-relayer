@@ -6,6 +6,7 @@ package types
 import (
 	"context"
 	"errors"
+	"fmt"
 	"math/big"
 
 	avalancheWarp "github.com/ava-labs/avalanchego/vms/platformvm/warp"
@@ -108,18 +109,18 @@ func UnpackWarpMessage(unsignedMsgBytes []byte) (*avalancheWarp.UnsignedMessage,
 	return unsignedMsg, nil
 }
 
-func FetchWarpMessageFromID(ethClient ethclient.Client, warpMessageID common.Hash, blockNum *big.Int) (*WarpMessageInfo, error) {
+func FetchWarpMessageFromID(ethClient ethclient.Client, warpID common.Hash, blockNum *big.Int) (*WarpMessageInfo, error) {
 	logs, err := ethClient.FilterLogs(context.Background(), interfaces.FilterQuery{
-		Topics:    [][]common.Hash{{WarpPrecompileLogFilter}, nil, {warpMessageID}},
+		Topics:    [][]common.Hash{{WarpPrecompileLogFilter}, nil, {warpID}},
 		Addresses: []common.Address{warp.ContractAddress},
 		FromBlock: blockNum,
 		ToBlock:   blockNum,
 	})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("could not fetch logs: %w", err)
 	}
 	if len(logs) != 1 {
-		return nil, ErrInvalidLog
+		return nil, fmt.Errorf("found more than 1 log: %d", len(logs))
 	}
 
 	return NewWarpMessageInfo(logs[0])
