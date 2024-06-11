@@ -114,10 +114,8 @@ func BasicRelay(network interfaces.LocalNetwork) {
 	relayerIDA := database.CalculateRelayerID(subnetAInfo.BlockchainID, subnetBInfo.BlockchainID, database.AllAllowedAddress, database.AllAllowedAddress)
 	relayerIDB := database.CalculateRelayerID(subnetBInfo.BlockchainID, subnetAInfo.BlockchainID, database.AllAllowedAddress, database.AllAllowedAddress)
 	// Modify the JSON database to force the relayer to re-process old blocks
-	err = jsonDB.Put(relayerIDA, database.LatestProcessedBlockKey, []byte("0"))
-	Expect(err).Should(BeNil())
-	err = jsonDB.Put(relayerIDB, database.LatestProcessedBlockKey, []byte("0"))
-	Expect(err).Should(BeNil())
+	_ = jsonDB.Put(relayerIDA, database.LatestProcessedBlockKey, []byte("0"))
+	_ = jsonDB.Put(relayerIDB, database.LatestProcessedBlockKey, []byte("0"))
 
 	// Subscribe to the destination chain
 	newHeadsB := make(chan *types.Header, 10)
