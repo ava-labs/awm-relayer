@@ -16,6 +16,9 @@ relayer_path="$RELAYER_PATH/build/awm-relayer"
 # Set the PATHS
 GOPATH="$(go env GOPATH)"
 
+TELEPORTER_PATH="$RELAYER_PATH"/tests/contracts/lib/teleporter
+source $TELEPORTER_PATH/scripts/constants.sh
+
 # Avalabs docker hub repo is avaplatform/awm-relayer.
 # Here we default to the local image (awm-relayer) as to avoid unintentional pushes
 # You should probably set it - export DOCKER_REPO='avaplatform/awm-relayer'

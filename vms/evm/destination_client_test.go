@@ -96,7 +96,7 @@ func TestSendTx(t *testing.T) {
 				mockClient.EXPECT().SendTransaction(gomock.Any(), gomock.Any()).Return(test.sendTransactionErr).Times(test.sendTransactionTimes),
 			)
 
-			err := destinationClient.SendTx(warpMsg, toAddress, 0, []byte{})
+			_, err := destinationClient.SendTx(warpMsg, toAddress, 0, []byte{})
 			if test.expectError {
 				require.Error(t, err)
 			} else {

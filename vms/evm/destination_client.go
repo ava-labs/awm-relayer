@@ -14,9 +14,10 @@ import (
 	"github.com/ava-labs/avalanchego/utils/logging"
 	avalancheWarp "github.com/ava-labs/avalanchego/vms/platformvm/warp"
 	"github.com/ava-labs/awm-relayer/config"
-	"github.com/ava-labs/awm-relayer/ethclient"
+	"github.com/ava-labs/awm-relayer/utils"
 	"github.com/ava-labs/awm-relayer/vms/evm/signer"
 	"github.com/ava-labs/subnet-evm/core/types"
+	"github.com/ava-labs/subnet-evm/ethclient"
 	"github.com/ava-labs/subnet-evm/precompile/contracts/warp"
 	predicateutils "github.com/ava-labs/subnet-evm/predicate"
 	"github.com/ethereum/go-ethereum/common"
@@ -46,9 +47,12 @@ type destinationClient struct {
 	logger                  logging.Logger
 }
 
-func NewDestinationClient(logger logging.Logger, destinationBlockchain *config.DestinationBlockchain) (*destinationClient, error) {
+func NewDestinationClient(
+	logger logging.Logger,
+	destinationBlockchain *config.DestinationBlockchain,
+) (*destinationClient, error) {
 	// Dial the destination RPC endpoint
-	client, err := ethclient.DialWithConfig(
+	client, err := utils.DialWithConfig(
 		context.Background(),
 		destinationBlockchain.RPCEndpoint.BaseURL,
 		destinationBlockchain.RPCEndpoint.HTTPHeaders,
@@ -98,6 +102,13 @@ func NewDestinationClient(logger logging.Logger, destinationBlockchain *config.D
 		return nil, err
 	}
 
+	logger.Info(
+		"Initialized destination client",
+		zap.String("blockchainID", destinationID.String()),
+		zap.String("evmChainID", evmChainID.String()),
+		zap.Uint64("nonce", nonce),
+	)
+
 	return &destinationClient{
 		client:                  client,
 		lock:                    new(sync.Mutex),
@@ -109,15 +120,12 @@ func NewDestinationClient(logger logging.Logger, destinationBlockchain *config.D
 	}, nil
 }
 
-func (c *destinationClient) SendTx(signedMessage *avalancheWarp.Message,
+func (c *destinationClient) SendTx(
+	signedMessage *avalancheWarp.Message,
 	toAddress string,
 	gasLimit uint64,
 	callData []byte,
-) error {
-	// Synchronize teleporter message requests to the same destination chain so that message ordering is preserved
-	c.lock.Lock()
-	defer c.lock.Unlock()
-
+) (common.Hash, error) {
 	// Get the current base fee estimation, which is based on the previous blocks gas usage.
 	baseFee, err := c.client.EstimateBaseFee(context.Background())
 	if err != nil {
@@ -125,7 +133,7 @@ func (c *destinationClient) SendTx(signedMessage *avalancheWarp.Message,
 			"Failed to get base fee",
 			zap.Error(err),
 		)
-		return err
+		return common.Hash{}, err
 	}
 
 	// Get the suggested gas tip cap of the network
@@ -136,12 +144,18 @@ func (c *destinationClient) SendTx(signedMessage *avalancheWarp.Message,
 			"Failed to get gas tip cap",
 			zap.Error(err),
 		)
-		return err
+		return common.Hash{}, err
 	}
 
 	to := common.HexToAddress(toAddress)
 	gasFeeCap := baseFee.Mul(baseFee, big.NewInt(BaseFeeFactor))
 	gasFeeCap.Add(gasFeeCap, big.NewInt(MaxPriorityFeePerGas))
+
+	// Synchronize nonce access so that we send transactions in nonce order.
+	// Hold the lock until the transaction is sent to minimize the chance of
+	// an out-of-order transaction being dropped from the mempool.
+	c.lock.Lock()
+	defer c.lock.Unlock()
 
 	// Construct the actual transaction to broadcast on the destination chain
 	tx := predicateutils.NewPredicateTx(
@@ -165,7 +179,7 @@ func (c *destinationClient) SendTx(signedMessage *avalancheWarp.Message,
 			"Failed to sign transaction",
 			zap.Error(err),
 		)
-		return err
+		return common.Hash{}, err
 	}
 
 	if err := c.client.SendTransaction(context.Background(), signedTx); err != nil {
@@ -173,18 +187,16 @@ func (c *destinationClient) SendTx(signedMessage *avalancheWarp.Message,
 			"Failed to send transaction",
 			zap.Error(err),
 		)
-		return err
+		return common.Hash{}, err
 	}
-
-	// Increment the nonce to use on the destination chain now that we've sent
-	// a transaction using the current value.
-	c.currentNonce++
 	c.logger.Info(
 		"Sent transaction",
 		zap.String("txID", signedTx.Hash().String()),
+		zap.Uint64("nonce", c.currentNonce),
 	)
+	c.currentNonce++
 
-	return nil
+	return signedTx.Hash(), nil
 }
 
 func (c *destinationClient) Client() interface{} {
