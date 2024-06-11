@@ -12,6 +12,7 @@ import (
 func TestBuildConfig(t *testing.T) {
 	v := viper.New()
 	cfgBytes, err := os.ReadFile("../sample-relayer-config.json")
+	require.NoError(t, err)
 	configFile := string(cfgBytes)
 	buf := bytes.NewBufferString(configFile)
 	v.SetConfigType("json")
