@@ -167,13 +167,11 @@ func (r *ApplicationRelayer) ProcessMessage(handler messages.MessageHandler) err
 	reqID := r.currentRequestID
 	r.lock.Unlock()
 
-	err := r.relayMessage(
+	return r.relayMessage(
 		reqID,
 		handler,
 		true,
 	)
-
-	return err
 }
 
 func (r *ApplicationRelayer) RelayerID() database.RelayerID {

@@ -9,10 +9,15 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 )
 
+const RelayMessageApiPath = "/relay-message"
+
 type RelayMessageRequest struct {
+	// cb58 encoding of the blockchain ID
 	BlockchainID string `json:"blockchain-id"`
-	MessageID    string `json:"message-id"`
-	BlockNum     string `json:"block-num"`
+	// Hex encoding of the warp message ID
+	MessageID string `json:"message-id"`
+	// Integer representation of the block number
+	BlockNum string `json:"block-num"`
 }
 
 func RelayMessageAPIHandler() http.HandlerFunc {

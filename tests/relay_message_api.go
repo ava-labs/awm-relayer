@@ -35,7 +35,7 @@ func RelayMessageAPI(network interfaces.LocalNetwork) {
 	Expect(err).Should(BeNil())
 	testUtils.FundRelayers(ctx, []interfaces.SubnetTestInfo{subnetAInfo, subnetBInfo}, fundedKey, relayerKey)
 
-	log.Info("Sending teleporter messages")
+	log.Info("Sending teleporter message")
 	receipt, _, _ := testUtils.SendBasicTeleporterMessage(ctx, subnetAInfo, subnetBInfo, fundedKey, fundedAddress)
 	warpMessage := getWarpMessageFromLog(ctx, receipt, subnetAInfo)
 
@@ -66,22 +66,41 @@ func RelayMessageAPI(network interfaces.LocalNetwork) {
 		BlockNum:     receipt.BlockNumber.String(),
 	}
 
-	b, err := json.Marshal(reqBody)
-	Expect(err).Should(BeNil())
-	bodyReader := bytes.NewReader(b)
-
-	requestURL := fmt.Sprintf("http://localhost:%d/relay-message", relayerConfig.APIPort)
-	req, err := http.NewRequest(http.MethodPost, requestURL, bodyReader)
-	Expect(err).Should(BeNil())
-	req.Header.Set("Content-Type", "application/json")
-
 	client := http.Client{
 		Timeout: 30 * time.Second,
 	}
 
-	res, err := client.Do(req)
-	Expect(err).Should(BeNil())
-	Expect(res.Status).Should(Equal("200 OK"))
+	requestURL := fmt.Sprintf("http://localhost:%d%s", relayerConfig.APIPort, relayer.RelayMessageApiPath)
+
+	// Send request to API
+	{
+		b, err := json.Marshal(reqBody)
+		Expect(err).Should(BeNil())
+		bodyReader := bytes.NewReader(b)
+
+		req, err := http.NewRequest(http.MethodPost, requestURL, bodyReader)
+		Expect(err).Should(BeNil())
+		req.Header.Set("Content-Type", "application/json")
+
+		res, err := client.Do(req)
+		Expect(err).Should(BeNil())
+		Expect(res.Status).Should(Equal("200 OK"))
+	}
+
+	// Send the same request to ensure the correct response.
+	{
+		b, err := json.Marshal(reqBody)
+		Expect(err).Should(BeNil())
+		bodyReader := bytes.NewReader(b)
+
+		req, err := http.NewRequest(http.MethodPost, requestURL, bodyReader)
+		Expect(err).Should(BeNil())
+		req.Header.Set("Content-Type", "application/json")
+
+		res, err := client.Do(req)
+		Expect(err).Should(BeNil())
+		Expect(res.Status).Should(Equal("200 OK"))
+	}
 
 	// Cancel the command and stop the relayer
 	relayerCleanup()
