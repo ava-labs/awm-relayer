@@ -10,6 +10,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/alexliesenfeld/health"
 	"github.com/ava-labs/avalanchego/api/metrics"
@@ -66,7 +67,7 @@ func main() {
 		panic(fmt.Errorf("couldn't configure flags: %w", err))
 	}
 
-	cfg, optionOverwritten, err := config.BuildConfig(v)
+	cfg, err := config.NewConfig(v)
 	if err != nil {
 		panic(fmt.Errorf("couldn't build config: %w", err))
 	}
@@ -92,8 +93,8 @@ func main() {
 
 	logger.Info("Initializing awm-relayer")
 	overwrittenLog := ""
-	if optionOverwritten {
-		overwrittenLog = " Some options were overwritten"
+	if cfg.HasOverwrittenOptions() {
+		overwrittenLog = fmt.Sprintf(" Some options were overwritten: %s", strings.Join(cfg.GetOverwrittenOptions(), ", "))
 	}
 	logger.Info(fmt.Sprintf("Set config options.%s", overwrittenLog))
 

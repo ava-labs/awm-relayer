@@ -62,9 +62,9 @@ func runConfigModifierEnvVarTest(t *testing.T, testCase configMondifierEnvVarTes
 	}
 	v, err := BuildViper(fs)
 	require.NoError(t, err)
-	parsedCfg, optionOverwritten, err := BuildConfig(v)
+	parsedCfg, err := NewConfig(v)
 	require.NoError(t, err)
-	require.Equal(t, optionOverwritten, testCase.expectedOverwritten)
+	require.Equal(t, parsedCfg.HasOverwrittenOptions(), testCase.expectedOverwritten)
 
 	require.True(t, testCase.resultVerifier(parsedCfg))
 }
