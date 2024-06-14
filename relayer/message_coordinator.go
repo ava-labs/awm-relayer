@@ -220,7 +220,7 @@ func (mc *MessageCoordinator) processMessage(blockchainID ids.ID, messageID comm
 	warpMessage, err := relayerTypes.FetchWarpMessageFromID(ethClient, messageID, blockNum)
 	if err != nil {
 		mc.logger.Error("Failed to fetch warp from blockchain", zap.String("blockchainID", blockchainID.String()), zap.Error(err))
-		return err
+		return fmt.Errorf("could not fetch warp message from ID: %w", err)
 	}
 
 	appRelayer, handler, err := mc.GetAppRelayerMessageHandler(warpMessage)
@@ -230,7 +230,7 @@ func (mc *MessageCoordinator) processMessage(blockchainID ids.ID, messageID comm
 			zap.String("blockchainID", warpMessage.UnsignedMessage.SourceChainID.String()),
 			zap.Error(err),
 		)
-		return err
+		return fmt.Errorf("error getting application relayer: %w", err)
 	}
 	if appRelayer == nil {
 		mc.logger.Error("Application relayer not found")
