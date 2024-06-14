@@ -32,7 +32,7 @@ func RelayMessageAPIHandler() http.HandlerFunc {
 
 		blockchainID, err := ids.FromString(req.BlockchainID)
 		if err != nil {
-			http.Error(w, "invalid blockchainID"+err.Error(), http.StatusBadRequest)
+			http.Error(w, "invalid blockchainID: "+err.Error(), http.StatusBadRequest)
 			return
 		}
 		messageID := common.HexToHash(req.MessageID)
