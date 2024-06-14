@@ -20,5 +20,5 @@ func NewSigner(destinationBlockchain *config.DestinationBlockchain) (Signer, err
 	if destinationBlockchain.AccountPrivateKey == "" {
 		return NewKMSSigner(destinationBlockchain.KMSAWSRegion, destinationBlockchain.KMSKeyID)
 	}
-	return NewTxSigner(destinationBlockchain)
+	return NewTxSigner(destinationBlockchain.AccountPrivateKey)
 }

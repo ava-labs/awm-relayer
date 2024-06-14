@@ -29,7 +29,7 @@ var destinationSubnet = config.DestinationBlockchain{
 }
 
 func TestSendTx(t *testing.T) {
-	txSigner, err := signer.NewTxSigner(&destinationSubnet)
+	txSigner, err := signer.NewTxSigner(destinationSubnet.AccountPrivateKey)
 	require.NoError(t, err)
 
 	testError := fmt.Errorf("call errored")

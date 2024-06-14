@@ -56,7 +56,7 @@ func TestNewTxSigner(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
-			txSigner, err := NewTxSigner(&testCase.dst)
+			txSigner, err := NewTxSigner(testCase.dst.AccountPrivateKey)
 			require.Equal(t, testCase.expectedResult.err, err)
 			if err == nil {
 				require.Equal(t, testCase.expectedResult.pk.D.Int64(), txSigner.pk.D.Int64())
