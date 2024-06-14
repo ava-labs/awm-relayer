@@ -13,9 +13,9 @@ sequenceDiagram
 
     Subscriber->>Listener : (async) New block
     activate Listener
-    Listener->>Listener : Collect Warp Logs
-    Listener->>Listener : Create message handlers
-    Listener-->>ApplicationRelayer : (async) Message handlers for block
+    Listener->>Listener : Collect Warp Logs in block
+    Listener->>Listener : Create handlers for each message
+    Listener-->>ApplicationRelayer : (async) Pass message handlers for block
     deactivate Listener
     activate ApplicationRelayer
     par foreach Warp message in block
