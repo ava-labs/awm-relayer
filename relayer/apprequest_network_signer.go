@@ -99,19 +99,7 @@ func (s *AppRequestMessageSigner) SignMessage(unsignedMessage *avalancheWarp.Uns
 		return nil, errNotEnoughConnectedStake
 	}
 
-	// Make sure to use the correct codec
-	var reqBytes []byte
-	if s.srcBlockchainSubnetID == constants.PrimaryNetworkID {
-		req := coreEthMsg.MessageSignatureRequest{
-			MessageID: unsignedMessage.ID(),
-		}
-		reqBytes, err = coreEthMsg.RequestToBytes(coreEthCodec, req)
-	} else {
-		req := msg.MessageSignatureRequest{
-			MessageID: unsignedMessage.ID(),
-		}
-		reqBytes, err = msg.RequestToBytes(codec, req)
-	}
+	reqBytes, err := marshalRequestMessage(s.srcBlockchainID, unsignedMessage.ID())
 	if err != nil {
 		s.logger.Error(
 			"Failed to marshal request bytes",
@@ -423,8 +411,23 @@ func validateSignatureResponse(
 	}
 
 	if !bls.Verify(pubKey, sig, unsignedMessage.Bytes()) {
-		return blsSignatureBuf{}, fmt.Errorf("failed verification for signature: %v", err)
+		return blsSignatureBuf{}, fmt.Errorf("failed verification for signature")
 	}
 
 	return signature, nil
+}
+
+// marshalRequestMessage wraps message in a Request then it marshals it
+// function makes sure to use the correct codec depending of the source blockchain subnet ID
+func marshalRequestMessage(message ids.ID, srcBlockchainSubnetID ids.ID) ([]byte, error) {
+	if srcBlockchainSubnetID == constants.PrimaryNetworkID {
+		req := coreEthMsg.MessageSignatureRequest{
+			MessageID: message,
+		}
+		return coreEthMsg.RequestToBytes(coreEthCodec, req)
+	}
+	req := msg.MessageSignatureRequest{
+		MessageID: message,
+	}
+	return msg.RequestToBytes(codec, req)
 }
