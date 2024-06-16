@@ -68,7 +68,6 @@ type AppRequestMessageSigner struct {
 }
 
 func (s *AppRequestMessageSigner) SignMessage(unsignedMessage *avalancheWarp.UnsignedMessage) (*avalancheWarp.Message, error) {
-	s.logger.Info("Fetching aggregate signature from the source chain validators via AppRequest")
 	s.logger.Info(
 		"Fetching aggregate signature from the source chain validators via AppRequest",
 		zap.String("warpMessageID", unsignedMessage.ID().String()),
