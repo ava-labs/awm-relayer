@@ -11,7 +11,6 @@ import (
 
 	"github.com/ava-labs/avalanchego/utils/crypto/bls"
 	"github.com/ava-labs/avalanchego/utils/logging"
-	avalancheWarp "github.com/ava-labs/avalanchego/vms/platformvm/warp"
 	"github.com/ava-labs/awm-relayer/config"
 	"github.com/ava-labs/awm-relayer/database"
 	"github.com/ava-labs/awm-relayer/messages"
@@ -56,12 +55,6 @@ type ApplicationRelayer struct {
 	currentRequestID     uint32
 	messageSignerFactory MessageSignerFactory
 	lock                 *sync.RWMutex
-}
-
-type MessageSignerFactory func(requestID uint32) MessageSigner
-
-type MessageSigner interface {
-	SignMessage(unsignedMessage *avalancheWarp.UnsignedMessage) (*avalancheWarp.Message, error)
 }
 
 func NewApplicationRelayer(

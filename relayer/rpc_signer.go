@@ -13,20 +13,23 @@ import (
 	"go.uber.org/zap"
 )
 
+type WarpBackendNewClient func(uri, chain string) (warpBackend.Client, error)
+
 func NewRPCMessageSigner(
-	warpQuorum config.WarpQuorum,
 	srcBlockchain config.SourceBlockchain,
 	destBlockchain config.DestinationBlockchain,
+	warpBackendNewClient WarpBackendNewClient,
 	logger logging.Logger,
 ) *RPCMessageSigner {
 	return &RPCMessageSigner{
-		warpQuorumNumerator:        warpQuorum.QuorumNumerator,
+		warpQuorumNumerator:        destBlockchain.GetWarpQuorum().QuorumNumerator,
 		signingSubnetID:            srcBlockchain.GetSubnetID(),
 		sourceBlockchainID:         srcBlockchain.GetBlockchainID(),
 		sourceBlockchainRPCBaseURL: srcBlockchain.RPCEndpoint.BaseURL,
 		destinationBlockchainID:    destBlockchain.GetBlockchainID(),
+		delayBeforeRetry:           time.Duration(signatureRequestRetryWaitPeriodMs/maxRelayerQueryAttempts) * time.Millisecond,
 		logger:                     logger,
-		warpBackendNewClient:       warpBackend.NewClient,
+		warpBackendNewClient:       warpBackendNewClient,
 	}
 }
 
@@ -36,17 +39,18 @@ type RPCMessageSigner struct {
 	sourceBlockchainID         ids.ID
 	sourceBlockchainRPCBaseURL string
 	// warpBackendNewClient is a private field for testing purpose
-	warpBackendNewClient func(uri, chain string) (warpBackend.Client, error)
+	warpBackendNewClient WarpBackendNewClient
+	delayBeforeRetry     time.Duration // as milliseconds
 	// logging purpose
 	logger                  logging.Logger
 	destinationBlockchainID ids.ID
 }
 
-func (s *RPCMessageSigner) Sign(unsignedMessage *avalancheWarp.UnsignedMessage) (*avalancheWarp.Message, error) {
+func (s *RPCMessageSigner) SignMessage(unsignedMessage *avalancheWarp.UnsignedMessage) (*avalancheWarp.Message, error) {
 	s.logger.Info("Fetching aggregate signature from the source chain validators via API")
 	// TODO: To properly support this, we should provide a dedicated Warp API endpoint in the config
 	uri := utils.StripFromString(s.sourceBlockchainRPCBaseURL, "/ext")
-	warpClient, err := warpBackend.NewClient(uri, s.sourceBlockchainID.String())
+	warpClient, err := s.warpBackendNewClient(uri, s.sourceBlockchainID.String())
 	if err != nil {
 		s.logger.Error(
 			"Failed to create Warp API client",
@@ -89,7 +93,7 @@ func (s *RPCMessageSigner) Sign(unsignedMessage *avalancheWarp.UnsignedMessage) 
 		if attempt != maxRelayerQueryAttempts {
 			// Sleep such that all retries are uniformly spread across totalRelayerQueryPeriodMs
 			// TODO: We may want to consider an exponential back off rather than a uniform sleep period.
-			time.Sleep(time.Duration(signatureRequestRetryWaitPeriodMs/maxRelayerQueryAttempts) * time.Millisecond)
+			time.Sleep(s.delayBeforeRetry)
 		}
 	}
 	s.logger.Warn(
