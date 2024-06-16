@@ -11,8 +11,10 @@ import (
 	"time"
 
 	"github.com/ava-labs/avalanchego/ids"
+	"github.com/ava-labs/avalanchego/message"
 	"github.com/ava-labs/avalanchego/network"
 	snowVdrs "github.com/ava-labs/avalanchego/snow/validators"
+	"github.com/ava-labs/avalanchego/subnets"
 	"github.com/ava-labs/avalanchego/utils/constants"
 	"github.com/ava-labs/avalanchego/utils/ips"
 	"github.com/ava-labs/avalanchego/utils/logging"
@@ -259,6 +261,18 @@ func (n *AppRequestNetwork) ConnectToCanonicalValidators(subnetID ids.ID) (*Conn
 		ValidatorSet:          validatorSet,
 		nodeValidatorIndexMap: nodeValidatorIndexMap,
 	}, nil
+}
+
+func (h *AppRequestNetwork) RegisterAppRequest(reqID ids.RequestID) {
+	h.Handler.RegisterAppRequest(reqID)
+}
+
+func (h *AppRequestNetwork) RegisterRequestID(requestID uint32, numExpectedResponses int) chan message.InboundMessage {
+	return h.Handler.RegisterRequestID(requestID, numExpectedResponses)
+}
+
+func (h *AppRequestNetwork) Send(msg message.OutboundMessage, nodeIDs set.Set[ids.NodeID], subnetID ids.ID, allower subnets.Allower) set.Set[ids.NodeID] {
+	return h.Network.Send(msg, nodeIDs, subnetID, allower)
 }
 
 // Private helpers

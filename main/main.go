@@ -407,11 +407,38 @@ func createApplicationRelayers(
 		if minHeight == 0 || height < minHeight {
 			minHeight = height
 		}
+
+		signingSubnet := sourceBlockchain.GetSubnetID()
+		if sourceBlockchain.GetSubnetID() == constants.PrimaryNetworkID {
+			signingSubnet = cfg.GetSubnetID(relayerID.DestinationBlockchainID)
+		}
+		quorum, err := cfg.GetWarpQuorum(relayerID.DestinationBlockchainID)
+		if err != nil {
+			logger.Error(
+				"Failed to get warp quorum from config. Relayer may not be configured to deliver to the destination chain.",
+				zap.String("destinationBlockchainID", relayerID.DestinationBlockchainID.String()),
+				zap.Error(err),
+			)
+			return nil, 0, err
+		}
+		messageSignerFactory := func(requestID uint32) relayer.MessageSigner {
+			return relayer.NewAppRequestMessageSigner(
+				logger,
+				network,
+				sourceBlockchain.GetBlockchainID(),
+				sourceBlockchain.GetSubnetID(),
+				relayerID.DestinationBlockchainID,
+				messageCreator,
+				signingSubnet,
+				quorum,
+				requestID,
+			)
+		}
 		applicationRelayer, err := relayer.NewApplicationRelayer(
 			logger,
 			metrics,
-			network,
-			messageCreator,
+			// network,
+			// messageCreator,
 			relayerID,
 			db,
 			ticker,
@@ -419,6 +446,7 @@ func createApplicationRelayers(
 			sourceBlockchain,
 			height,
 			cfg,
+			messageSignerFactory,
 		)
 		if err != nil {
 			logger.Error(
