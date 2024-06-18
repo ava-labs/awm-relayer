@@ -308,7 +308,7 @@ func createMessageHandlerFactories(
 				m, err = nil, fmt.Errorf("invalid message format %s", format)
 			}
 			if err != nil {
-				logger.Error("Failed to create message manager", zap.Error(err))
+				logger.Error("Failed to create message handler factory", zap.Error(err))
 				return nil, err
 			}
 			messageHandlerFactoriesForSource[address] = m
