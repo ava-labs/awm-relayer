@@ -28,15 +28,14 @@ const (
 
 // Listener handles all messages sent from a given source chain
 type Listener struct {
-	Subscriber          vms.Subscriber
-	currentRequestID    uint32
-	contractMessage     vms.ContractMessage
-	logger              logging.Logger
-	sourceBlockchain    config.SourceBlockchain
-	catchUpResultChan   chan bool
-	healthStatus        *atomic.Bool
-	processMissedBlocks bool
-	ethClient           ethclient.Client
+	Subscriber        vms.Subscriber
+	currentRequestID  uint32
+	contractMessage   vms.ContractMessage
+	logger            logging.Logger
+	sourceBlockchain  config.SourceBlockchain
+	catchUpResultChan chan bool
+	healthStatus      *atomic.Bool
+	ethClient         ethclient.Client
 }
 
 // runListener creates a Listener instance and the ApplicationRelayers for a subnet.
@@ -123,15 +122,14 @@ func newListener(
 		zap.String("blockchainIDHex", sourceBlockchain.GetBlockchainID().Hex()),
 	)
 	lstnr := Listener{
-		Subscriber:          sub,
-		currentRequestID:    rand.Uint32(), // Initialize to a random value to mitigate requestID collision
-		contractMessage:     vms.NewContractMessage(logger, sourceBlockchain),
-		logger:              logger,
-		sourceBlockchain:    sourceBlockchain,
-		catchUpResultChan:   catchUpResultChan,
-		healthStatus:        relayerHealth,
-		processMissedBlocks: processMissedBlocks,
-		ethClient:           ethRPCClient,
+		Subscriber:        sub,
+		currentRequestID:  rand.Uint32(), // Initialize to a random value to mitigate requestID collision
+		contractMessage:   vms.NewContractMessage(logger, sourceBlockchain),
+		logger:            logger,
+		sourceBlockchain:  sourceBlockchain,
+		catchUpResultChan: catchUpResultChan,
+		healthStatus:      relayerHealth,
+		ethClient:         ethRPCClient,
 	}
 
 	// Open the subscription. We must do this before processing any missed messages, otherwise we may miss an incoming message
@@ -145,7 +143,7 @@ func newListener(
 		return nil, err
 	}
 
-	if lstnr.processMissedBlocks {
+	if processMissedBlocks {
 		// Process historical blocks in a separate goroutine so that the main processing loop can
 		// start processing new blocks as soon as possible. Otherwise, it's possible for
 		// ProcessFromHeight to overload the message queue and cause a deadlock.
