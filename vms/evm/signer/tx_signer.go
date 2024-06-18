@@ -9,7 +9,6 @@ import (
 	"math/big"
 	"runtime"
 
-	"github.com/ava-labs/awm-relayer/config"
 	"github.com/ava-labs/awm-relayer/utils"
 	"github.com/ava-labs/subnet-evm/core/types"
 	"github.com/ethereum/go-ethereum/common"
@@ -23,8 +22,8 @@ type TxSigner struct {
 	eoa common.Address
 }
 
-func NewTxSigner(destinationBlockchain *config.DestinationBlockchain) (*TxSigner, error) {
-	pk, err := crypto.HexToECDSA(utils.SanitizeHexString(destinationBlockchain.AccountPrivateKey))
+func NewTxSigner(hexPrivateKey string) (*TxSigner, error) {
+	pk, err := crypto.HexToECDSA(utils.SanitizeHexString(hexPrivateKey))
 	if err != nil {
 		return nil, utils.ErrInvalidPrivateKeyHex
 	}
