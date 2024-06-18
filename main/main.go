@@ -111,7 +111,7 @@ func main() {
 	}
 
 	// Initialize all source clients
-	logger.Info("Initializing destination clients")
+	logger.Info("Initializing source clients")
 	sourceClients, err := createSourceClients(context.Background(), logger, &cfg)
 	if err != nil {
 		logger.Fatal("Failed to create source clients", zap.Error(err))
