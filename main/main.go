@@ -212,7 +212,8 @@ func main() {
 		destinationClients,
 	)
 	if err != nil {
-		logger.Fatal("Failed to create Application Relayers", zap.Error(err))
+		logger.Fatal("Failed to create application relayers", zap.Error(err))
+``
 		panic(err)
 	}
 	relayer.SetMessageCoordinator(logger, messageHandlerFactories, applicationRelayers, sourceClients)
