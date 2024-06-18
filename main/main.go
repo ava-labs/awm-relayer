@@ -195,7 +195,7 @@ func main() {
 
 	messageHandlerFactories, err := createMessageHandlerFactories(logger, &cfg)
 	if err != nil {
-		logger.Fatal("Failed to create Message Handler Factories", zap.Error(err))
+		logger.Fatal("Failed to create message handler factories", zap.Error(err))
 		panic(err)
 	}
 
