@@ -216,6 +216,7 @@ func main() {
 
 	// Initialize the API after the message coordinator is set
 	http.Handle("/health", health.NewHandler(checker))
+	http.HandleFunc(relayer.RelayApiPath, relayer.RelayAPIHandler)
 	http.HandleFunc(relayer.RelayMessageApiPath, relayer.RelayMessageAPIHandler)
 
 	// start the health check server

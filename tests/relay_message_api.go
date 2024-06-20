@@ -75,7 +75,7 @@ func RelayMessageAPI(network interfaces.LocalNetwork) {
 		Timeout: 30 * time.Second,
 	}
 
-	requestURL := fmt.Sprintf("http://localhost:%d%s", relayerConfig.APIPort, relayer.RelayMessageApiPath)
+	requestURL := fmt.Sprintf("http://localhost:%d%s", relayerConfig.APIPort, relayer.RelayApiPath)
 
 	// Send request to API
 	{

@@ -35,7 +35,7 @@ type ManualWarpMessage struct {
 	DestinationAddress      common.Address
 }
 
-func RelayAPIHandler(w http.ResponseWriter, r *http.Request) {
+func RelayMessageAPIHandler(w http.ResponseWriter, r *http.Request) {
 	var req ManualWarpMessage
 
 	err := json.NewDecoder(r.Body).Decode(&req)
@@ -64,7 +64,7 @@ func RelayAPIHandler(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write([]byte("Message processed successfully. Transaction Hash: " + txHash.Hex()))
 }
 
-func RelayMessageAPIHandler(w http.ResponseWriter, r *http.Request) {
+func RelayAPIHandler(w http.ResponseWriter, r *http.Request) {
 	var req RelayMessageRequest
 
 	err := json.NewDecoder(r.Body).Decode(&req)

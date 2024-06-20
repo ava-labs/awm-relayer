@@ -17,7 +17,6 @@ import (
 	"github.com/ava-labs/awm-relayer/relayer"
 	testUtils "github.com/ava-labs/awm-relayer/tests/utils"
 	"github.com/ava-labs/subnet-evm/accounts/abi/bind"
-	"github.com/ava-labs/subnet-evm/core/types"
 	"github.com/ava-labs/teleporter/tests/interfaces"
 	teleporterTestUtils "github.com/ava-labs/teleporter/tests/utils"
 	"github.com/ethereum/go-ethereum/common"
@@ -94,15 +93,13 @@ func ManualMessage(network interfaces.LocalNetwork) {
 	)
 	relayerConfigPath := testUtils.WriteRelayerConfig(relayerConfig, testUtils.DefaultRelayerCfgFname)
 
-	// Subscribe to the destination chain
-	newHeadsC := make(chan *types.Header, 10)
-	sub, err := cChainInfo.WSClient.SubscribeNewHead(ctx, newHeadsC)
-	Expect(err).Should(BeNil())
-	defer sub.Unsubscribe()
-
 	log.Info("Starting the relayer")
 	relayerCleanup := testUtils.BuildAndRunRelayerExecutable(ctx, relayerConfigPath)
 	defer relayerCleanup()
+
+	// Sleep for some time to make sure relayer has started up and subscribed.
+	log.Info("Waiting for the relayer to start up")
+	time.Sleep(15 * time.Second)
 
 	reqBody := relayer.ManualWarpMessage{
 		UnsignedMessageBytes:    unsignedMessage.Bytes(),
@@ -132,8 +129,8 @@ func ManualMessage(network interfaces.LocalNetwork) {
 		Expect(err).Should(BeNil())
 		Expect(res.Status).Should(Equal("200 OK"))
 
-		newVersion, err := cChainInfo.TeleporterRegistry.LatestVersion(&bind.CallOpts{})
+		newVersion, err := cChainInfo.TeleporterRegistry.LatesatVersion(&bind.CallOpts{})
 		Expect(err).Should(BeNil())
-		Expect(newVersion.Cmp(expectedNewVersion)).Should(Equal(0))
+		Expect(newVersion.Uint64()).Should(Equal(expectedNewVersion.Uint64()))
 	}
 }

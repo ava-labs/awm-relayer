@@ -246,6 +246,7 @@ func (r *ApplicationRelayer) relayMessage(
 	r.logger.Info(
 		"Finished relaying message to destination chain",
 		zap.String("destinationBlockchainID", r.relayerID.DestinationBlockchainID.String()),
+		zap.String("txHash", txHash.Hex()),
 	)
 	r.incSuccessfulRelayMessageCount()
 
