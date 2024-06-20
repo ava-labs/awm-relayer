@@ -129,7 +129,7 @@ func ManualMessage(network interfaces.LocalNetwork) {
 		Expect(err).Should(BeNil())
 		Expect(res.Status).Should(Equal("200 OK"))
 
-		newVersion, err := cChainInfo.TeleporterRegistry.LatesatVersion(&bind.CallOpts{})
+		newVersion, err := cChainInfo.TeleporterRegistry.LatestVersion(&bind.CallOpts{})
 		Expect(err).Should(BeNil())
 		Expect(newVersion.Uint64()).Should(Equal(expectedNewVersion.Uint64()))
 	}
