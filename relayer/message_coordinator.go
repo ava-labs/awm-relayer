@@ -190,7 +190,7 @@ func (mc *MessageCoordinator) processManualWarpMessages(
 			)
 			return err
 		}
-		err = appRelayer.ProcessMessage(handler)
+		_, err = appRelayer.ProcessMessage(handler)
 		if err != nil {
 			mc.logger.Error(
 				"Failed to process manual Warp message",
@@ -203,24 +203,24 @@ func (mc *MessageCoordinator) processManualWarpMessages(
 	return nil
 }
 
-func ProcessMessage(blockchainID ids.ID, messageID common.Hash, blockNum *big.Int) error {
+func ProcessMessage(blockchainID ids.ID, messageID common.Hash, blockNum *big.Int) (common.Hash, error) {
 	if globalMessageCoordinator == nil {
 		panic("global message coordinator not set")
 	}
 	return globalMessageCoordinator.processMessage(blockchainID, messageID, blockNum)
 }
 
-func (mc *MessageCoordinator) processMessage(blockchainID ids.ID, messageID common.Hash, blockNum *big.Int) error {
+func (mc *MessageCoordinator) processMessage(blockchainID ids.ID, messageID common.Hash, blockNum *big.Int) (common.Hash, error) {
 	ethClient, ok := mc.SourceClients[blockchainID]
 	if !ok {
 		mc.logger.Error("Source client not found", zap.String("blockchainID", blockchainID.String()))
-		return fmt.Errorf("source client not set for blockchain: %s", blockchainID.String())
+		return common.Hash{}, fmt.Errorf("source client not set for blockchain: %s", blockchainID.String())
 	}
 
 	warpMessage, err := relayerTypes.FetchWarpMessageFromID(ethClient, messageID, blockNum)
 	if err != nil {
 		mc.logger.Error("Failed to fetch warp from blockchain", zap.String("blockchainID", blockchainID.String()), zap.Error(err))
-		return fmt.Errorf("could not fetch warp message from ID: %w", err)
+		return common.Hash{}, fmt.Errorf("could not fetch warp message from ID: %w", err)
 	}
 
 	appRelayer, handler, err := mc.GetAppRelayerMessageHandler(warpMessage)
@@ -230,11 +230,11 @@ func (mc *MessageCoordinator) processMessage(blockchainID ids.ID, messageID comm
 			zap.String("blockchainID", warpMessage.UnsignedMessage.SourceChainID.String()),
 			zap.Error(err),
 		)
-		return fmt.Errorf("error getting application relayer: %w", err)
+		return common.Hash{}, fmt.Errorf("error getting application relayer: %w", err)
 	}
 	if appRelayer == nil {
 		mc.logger.Error("Application relayer not found")
-		return errors.New("application relayer not found")
+		return common.Hash{}, errors.New("application relayer not found")
 	}
 
 	return appRelayer.ProcessMessage(handler)

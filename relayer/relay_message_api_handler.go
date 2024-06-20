@@ -41,11 +41,11 @@ func RelayMessageAPIHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = ProcessMessage(blockchainID, messageID, blockNum)
+	txHash, err := ProcessMessage(blockchainID, messageID, blockNum)
 	if err != nil {
 		http.Error(w, "error processing message: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	_, _ = w.Write([]byte("Message processed successfully"))
+	_, _ = w.Write([]byte("Message processed successfully. Transaction Hash: " + txHash.Hex()))
 }
