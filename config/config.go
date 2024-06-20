@@ -118,7 +118,7 @@ func (c *Config) Validate() error {
 		blockchainIDToSubnetID[s.blockchainID] = s.subnetID
 	}
 	c.blockchainIDToSubnetID = blockchainIDToSubnetID
-	
+
 	return nil
 }
 

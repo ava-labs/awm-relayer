@@ -13,6 +13,7 @@ import (
 
 	"github.com/ava-labs/awm-relayer/relayer"
 
+	avalancheWarp "github.com/ava-labs/avalanchego/vms/platformvm/warp"
 	testUtils "github.com/ava-labs/awm-relayer/tests/utils"
 	"github.com/ava-labs/subnet-evm/core/types"
 	subnetEvmInterfaces "github.com/ava-labs/subnet-evm/interfaces"
@@ -22,7 +23,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
-	avalancheWarp "github.com/ava-labs/avalanchego/vms/platformvm/warp"
 	. "github.com/onsi/gomega"
 )
 
