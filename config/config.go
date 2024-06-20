@@ -58,7 +58,6 @@ type Config struct {
 	SourceBlockchains      []*SourceBlockchain      `mapstructure:"source-blockchains" json:"source-blockchains"`
 	DestinationBlockchains []*DestinationBlockchain `mapstructure:"destination-blockchains" json:"destination-blockchains"`
 	ProcessMissedBlocks    bool                     `mapstructure:"process-missed-blocks" json:"process-missed-blocks"`
-	ManualWarpMessages     []*ManualWarpMessage     `mapstructure:"manual-warp-messages" json:"manual-warp-messages"`
 
 	// convenience field to fetch a blockchain's subnet ID
 	blockchainIDToSubnetID map[ids.ID]ids.ID
@@ -119,14 +118,7 @@ func (c *Config) Validate() error {
 		blockchainIDToSubnetID[s.blockchainID] = s.subnetID
 	}
 	c.blockchainIDToSubnetID = blockchainIDToSubnetID
-
-	// Validate the manual warp messages
-	for i, msg := range c.ManualWarpMessages {
-		if err := msg.Validate(); err != nil {
-			return fmt.Errorf("invalid manual warp message at index %d: %w", i, err)
-		}
-	}
-
+	
 	return nil
 }
 

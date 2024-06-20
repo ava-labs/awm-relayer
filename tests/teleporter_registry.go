@@ -4,13 +4,17 @@
 package tests
 
 import (
+	"bytes"
 	"context"
-	"encoding/hex"
+	"encoding/json"
+	"fmt"
 	"math/big"
+	"net/http"
+	"time"
 
 	runner_sdk "github.com/ava-labs/avalanche-network-runner/client"
-	"github.com/ava-labs/awm-relayer/config"
 	offchainregistry "github.com/ava-labs/awm-relayer/messages/off-chain-registry"
+	"github.com/ava-labs/awm-relayer/relayer"
 	testUtils "github.com/ava-labs/awm-relayer/tests/utils"
 	"github.com/ava-labs/subnet-evm/accounts/abi/bind"
 	"github.com/ava-labs/subnet-evm/core/types"
@@ -25,7 +29,7 @@ import (
 // Tests relayer support for off-chain Teleporter Registry updates
 // - Configures the relayer to send an off-chain message to the Teleporter Registry
 // - Verifies that the Teleporter Registry is updated
-func TeleporterRegistry(network interfaces.LocalNetwork) {
+func ManualMessage(network interfaces.LocalNetwork) {
 	cChainInfo := network.GetPrimaryNetworkInfo()
 	subnetAInfo, subnetBInfo := teleporterTestUtils.GetTwoSubnets(network)
 	fundedAddress, fundedKey := network.GetFundedAccountInfo()
@@ -88,19 +92,7 @@ func TeleporterRegistry(network interfaces.LocalNetwork) {
 		fundedAddress,
 		relayerKey,
 	)
-	relayerConfig.ManualWarpMessages = []*config.ManualWarpMessage{
-		{
-			UnsignedMessageBytes:    hex.EncodeToString(unsignedMessage.Bytes()),
-			SourceBlockchainID:      cChainInfo.BlockchainID.String(),
-			DestinationBlockchainID: cChainInfo.BlockchainID.String(),
-			SourceAddress:           offchainregistry.OffChainRegistrySourceAddress.Hex(),
-			DestinationAddress:      cChainInfo.TeleporterRegistryAddress.Hex(),
-		},
-	}
 	relayerConfigPath := testUtils.WriteRelayerConfig(relayerConfig, testUtils.DefaultRelayerCfgFname)
-	//
-	// Run the Relayer. On startup, we should deliver the message provided in the config
-	//
 
 	// Subscribe to the destination chain
 	newHeadsC := make(chan *types.Header, 10)
@@ -112,11 +104,36 @@ func TeleporterRegistry(network interfaces.LocalNetwork) {
 	relayerCleanup := testUtils.BuildAndRunRelayerExecutable(ctx, relayerConfigPath)
 	defer relayerCleanup()
 
-	log.Info("Waiting for a new block confirmation on the C-Chain")
-	<-newHeadsC
+	reqBody := relayer.ManualWarpMessage{
+		UnsignedMessageBytes:    unsignedMessage.Bytes(),
+		SourceBlockchainID:      cChainInfo.BlockchainID,
+		DestinationBlockchainID: cChainInfo.BlockchainID,
+		SourceAddress:           offchainregistry.OffChainRegistrySourceAddress,
+		DestinationAddress:      cChainInfo.TeleporterRegistryAddress,
+	}
 
-	log.Info("Verifying that the Teleporter Registry was updated")
-	newVersion, err := cChainInfo.TeleporterRegistry.LatestVersion(&bind.CallOpts{})
-	Expect(err).Should(BeNil())
-	Expect(newVersion.Cmp(expectedNewVersion)).Should(Equal(0))
+	client := http.Client{
+		Timeout: 30 * time.Second,
+	}
+
+	requestURL := fmt.Sprintf("http://localhost:%d%s", relayerConfig.APIPort, relayer.RelayMessageApiPath)
+
+	// Send request to API
+	{
+		b, err := json.Marshal(reqBody)
+		Expect(err).Should(BeNil())
+		bodyReader := bytes.NewReader(b)
+
+		req, err := http.NewRequest(http.MethodPost, requestURL, bodyReader)
+		Expect(err).Should(BeNil())
+		req.Header.Set("Content-Type", "application/json")
+
+		res, err := client.Do(req)
+		Expect(err).Should(BeNil())
+		Expect(res.Status).Should(Equal("200 OK"))
+
+		newVersion, err := cChainInfo.TeleporterRegistry.LatestVersion(&bind.CallOpts{})
+		Expect(err).Should(BeNil())
+		Expect(newVersion.Cmp(expectedNewVersion)).Should(Equal(0))
+	}
 }

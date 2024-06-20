@@ -68,9 +68,6 @@ var _ = ginkgo.Describe("[AWM Relayer Integration Tests", func() {
 	ginkgo.It("Basic Relay", func() {
 		BasicRelay(localNetworkInstance)
 	})
-	ginkgo.It("Teleporter Registry", func() {
-		TeleporterRegistry(localNetworkInstance)
-	})
 	ginkgo.It("Shared Database", func() {
 		SharedDatabaseAccess(localNetworkInstance)
 	})

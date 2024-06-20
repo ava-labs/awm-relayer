@@ -14,10 +14,15 @@ import (
 	"github.com/ava-labs/awm-relayer/relayer"
 
 	testUtils "github.com/ava-labs/awm-relayer/tests/utils"
+	"github.com/ava-labs/subnet-evm/core/types"
+	subnetEvmInterfaces "github.com/ava-labs/subnet-evm/interfaces"
+	"github.com/ava-labs/subnet-evm/precompile/contracts/warp"
 	"github.com/ava-labs/teleporter/tests/interfaces"
 	"github.com/ava-labs/teleporter/tests/utils"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
+	avalancheWarp "github.com/ava-labs/avalanchego/vms/platformvm/warp"
 	. "github.com/onsi/gomega"
 )
 
@@ -104,4 +109,23 @@ func RelayMessageAPI(network interfaces.LocalNetwork) {
 
 	// Cancel the command and stop the relayer
 	relayerCleanup()
+}
+
+func getWarpMessageFromLog(ctx context.Context, receipt *types.Receipt, source interfaces.SubnetTestInfo) *avalancheWarp.UnsignedMessage {
+	log.Info("Fetching relevant warp logs from the newly produced block")
+	logs, err := source.RPCClient.FilterLogs(ctx, subnetEvmInterfaces.FilterQuery{
+		BlockHash: &receipt.BlockHash,
+		Addresses: []common.Address{warp.Module.Address},
+	})
+	Expect(err).Should(BeNil())
+	Expect(len(logs)).Should(Equal(1))
+
+	// Check for relevant warp log from subscription and ensure that it matches
+	// the log extracted from the last block.
+	txLog := logs[0]
+	log.Info("Parsing logData as unsigned warp message")
+	unsignedMsg, err := warp.UnpackSendWarpEventDataToMessage(txLog.Data)
+	Expect(err).Should(BeNil())
+
+	return unsignedMsg
 }

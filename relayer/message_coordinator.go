@@ -164,43 +164,33 @@ func (mc *MessageCoordinator) getApplicationRelayer(
 	return nil
 }
 
-func ProcessManualWarpMessages(manualWarpMessages []*relayerTypes.WarpMessageInfo) error {
+func ProcessManualWarpMessage(warpMessage *relayerTypes.WarpMessageInfo) (common.Hash, error) {
 	if globalMessageCoordinator == nil {
-		return fmt.Errorf("global message coordinator not set")
+		return common.Hash{}, fmt.Errorf("global message coordinator not set")
 	}
-	return globalMessageCoordinator.processManualWarpMessages(manualWarpMessages)
+	return globalMessageCoordinator.processManualWarpMessage(warpMessage)
 }
 
-func (mc *MessageCoordinator) processManualWarpMessages(
-	manualWarpMessages []*relayerTypes.WarpMessageInfo,
-) error {
+func (mc *MessageCoordinator) processManualWarpMessage(
+	warpMessage *relayerTypes.WarpMessageInfo,
+) (common.Hash, error) {
 	// Send any messages that were specified in the configuration
-	for _, warpMessage := range manualWarpMessages {
-		mc.logger.Info(
-			"Relaying manual Warp message",
-			zap.String("blockchainID", warpMessage.UnsignedMessage.SourceChainID.String()),
+	mc.logger.Info(
+		"Relaying manual Warp message",
+		zap.String("blockchainID", warpMessage.UnsignedMessage.SourceChainID.String()),
+		zap.String("warpMessageID", warpMessage.UnsignedMessage.ID().String()),
+	)
+	appRelayer, handler, err := mc.GetAppRelayerMessageHandler(warpMessage)
+	if err != nil {
+		mc.logger.Error(
+			"Failed to parse manual Warp message.",
+			zap.Error(err),
 			zap.String("warpMessageID", warpMessage.UnsignedMessage.ID().String()),
 		)
-		appRelayer, handler, err := mc.GetAppRelayerMessageHandler(warpMessage)
-		if err != nil {
-			mc.logger.Error(
-				"Failed to parse manual Warp message.",
-				zap.Error(err),
-				zap.String("warpMessageID", warpMessage.UnsignedMessage.ID().String()),
-			)
-			return err
-		}
-		_, err = appRelayer.ProcessMessage(handler)
-		if err != nil {
-			mc.logger.Error(
-				"Failed to process manual Warp message",
-				zap.String("blockchainID", warpMessage.UnsignedMessage.SourceChainID.String()),
-				zap.String("warpMessageID", warpMessage.UnsignedMessage.ID().String()),
-			)
-			return err
-		}
+		return common.Hash{}, err
 	}
-	return nil
+
+	return appRelayer.ProcessMessage(handler)
 }
 
 func ProcessMessage(blockchainID ids.ID, messageID common.Hash, blockNum *big.Int) (common.Hash, error) {

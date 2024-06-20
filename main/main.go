@@ -5,7 +5,6 @@ package main
 
 import (
 	"context"
-	"encoding/hex"
 	"fmt"
 	"log"
 	"net/http"
@@ -26,8 +25,6 @@ import (
 	"github.com/ava-labs/awm-relayer/database"
 	"github.com/ava-labs/awm-relayer/peers"
 	"github.com/ava-labs/awm-relayer/relayer"
-	"github.com/ava-labs/awm-relayer/types"
-	relayerTypes "github.com/ava-labs/awm-relayer/types"
 	"github.com/ava-labs/awm-relayer/utils"
 	"github.com/ava-labs/awm-relayer/vms"
 	"github.com/ava-labs/subnet-evm/ethclient"
@@ -226,26 +223,6 @@ func main() {
 		log.Fatalln(http.ListenAndServe(fmt.Sprintf(":%d", cfg.APIPort), nil))
 	}()
 
-	// Gather manual Warp messages specified in the configuration
-	manualWarpMessages := make(map[ids.ID][]*relayerTypes.WarpMessageInfo)
-	for _, msg := range cfg.ManualWarpMessages {
-		sourceBlockchainID := msg.GetSourceBlockchainID()
-		unsignedMsg, err := types.UnpackWarpMessage(msg.GetUnsignedMessageBytes())
-		if err != nil {
-			logger.Fatal(
-				"Failed to unpack manual Warp message",
-				zap.String("warpMessageBytes", hex.EncodeToString(msg.GetUnsignedMessageBytes())),
-				zap.Error(err),
-			)
-			panic(err)
-		}
-		warpLogInfo := relayerTypes.WarpMessageInfo{
-			SourceAddress:   msg.GetSourceAddress(),
-			UnsignedMessage: unsignedMsg,
-		}
-		manualWarpMessages[sourceBlockchainID] = append(manualWarpMessages[sourceBlockchainID], &warpLogInfo)
-	}
-
 	// Create listeners for each of the subnets configured as a source
 	errGroup, ctx := errgroup.WithContext(context.Background())
 	for _, s := range cfg.SourceBlockchains {
@@ -253,10 +230,6 @@ func main() {
 
 		isHealthy := atomic.NewBool(true)
 		relayerHealth[s.GetBlockchainID()] = isHealthy
-
-		errGroup.Go(func() error {
-			return relayer.ProcessManualWarpMessages(manualWarpMessages[sourceBlockchain.GetBlockchainID()])
-		})
 
 		// errgroup will cancel the context when the first goroutine returns an error
 		errGroup.Go(func() error {
