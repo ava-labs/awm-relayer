@@ -4,8 +4,12 @@
 package tests
 
 import (
+	"context"
 	"encoding/hex"
 	"os"
+	"os/exec"
+	"os/signal"
+	"syscall"
 	"testing"
 
 	testUtils "github.com/ava-labs/awm-relayer/tests/utils"
@@ -21,7 +25,12 @@ const (
 	warpGenesisFile = "./tests/utils/warp-genesis.json"
 )
 
-var localNetworkInstance *local.LocalNetwork
+var (
+	localNetworkInstance *local.LocalNetwork
+
+	decider       *exec.Cmd
+	cancelDecider context.CancelFunc
+)
 
 func TestE2E(t *testing.T) {
 	if os.Getenv("RUN_E2E") == "" {
@@ -34,6 +43,7 @@ func TestE2E(t *testing.T) {
 
 // Define the Relayer before and after suite functions.
 var _ = ginkgo.BeforeSuite(func() {
+
 	localNetworkInstance = local.NewLocalNetwork(warpGenesisFile)
 	// Generate the Teleporter deployment values
 	teleporterContractAddress := common.HexToAddress(
@@ -63,11 +73,31 @@ var _ = ginkgo.BeforeSuite(func() {
 		teleporterContractAddress,
 		fundedKey,
 	)
+
+	var ctx context.Context
+	ctx, cancelDecider = context.WithCancel(context.Background())
+	// we'll call cancelDecider in AfterSuite, but also call it if this
+	// process is killed, because AfterSuite won't always run then:
+	signalChan := make(chan os.Signal, 2)
+	signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-signalChan
+		cancelDecider()
+	}()
+	decider = exec.CommandContext(ctx, "./tests/cmd/decider/decider")
+	decider.Start()
+	log.Info("Started decider service")
+
 	log.Info("Set up ginkgo before suite")
 })
 
 var _ = ginkgo.AfterSuite(func() {
-	localNetworkInstance.TearDownNetwork()
+	if localNetworkInstance != nil {
+		localNetworkInstance.TearDownNetwork()
+	}
+	if decider != nil {
+		cancelDecider()
+	}
 })
 
 var _ = ginkgo.Describe("[AWM Relayer Integration Tests", func() {

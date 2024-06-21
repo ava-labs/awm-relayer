@@ -5,8 +5,10 @@ package teleporter
 
 import (
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"time"
 
 	"github.com/ava-labs/avalanchego/ids"
@@ -15,6 +17,7 @@ import (
 	warpPayload "github.com/ava-labs/avalanchego/vms/platformvm/warp/payload"
 	"github.com/ava-labs/awm-relayer/config"
 	"github.com/ava-labs/awm-relayer/messages"
+	pbDecider "github.com/ava-labs/awm-relayer/proto/pb/decider/v1"
 	"github.com/ava-labs/awm-relayer/utils"
 	"github.com/ava-labs/awm-relayer/vms"
 	"github.com/ava-labs/subnet-evm/accounts/abi/bind"
@@ -25,12 +28,14 @@ import (
 	teleporterUtils "github.com/ava-labs/teleporter/utils/teleporter-utils"
 	"github.com/ethereum/go-ethereum/common"
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
 )
 
 type factory struct {
 	messageConfig   Config
 	protocolAddress common.Address
 	logger          logging.Logger
+	deciderClient   pbDecider.DeciderServiceClient
 }
 
 type messageHandler struct {
@@ -38,12 +43,14 @@ type messageHandler struct {
 	teleporterMessage *teleportermessenger.TeleporterMessage
 	unsignedMessage   *warp.UnsignedMessage
 	factory           *factory
+	deciderClient     pbDecider.DeciderServiceClient
 }
 
 func NewMessageHandlerFactory(
 	logger logging.Logger,
 	messageProtocolAddress common.Address,
 	messageProtocolConfig config.MessageProtocolConfig,
+	grpcClient *grpc.ClientConn,
 ) (messages.MessageHandlerFactory, error) {
 	// Marshal the map and unmarshal into the Teleporter config
 	data, err := json.Marshal(messageProtocolConfig.Settings)
@@ -65,10 +72,18 @@ func NewMessageHandlerFactory(
 		return nil, err
 	}
 
+	var deciderClient pbDecider.DeciderServiceClient
+	if grpcClient == nil {
+		deciderClient = nil
+	} else {
+		deciderClient = pbDecider.NewDeciderServiceClient(grpcClient)
+	}
+
 	return &factory{
 		messageConfig:   messageConfig,
 		protocolAddress: messageProtocolAddress,
 		logger:          logger,
+		deciderClient:   deciderClient,
 	}, nil
 }
 
@@ -86,6 +101,7 @@ func (f *factory) NewMessageHandler(unsignedMessage *warp.UnsignedMessage) (mess
 		teleporterMessage: teleporterMessage,
 		unsignedMessage:   unsignedMessage,
 		factory:           f,
+		deciderClient:     f.deciderClient,
 	}, nil
 }
 
@@ -167,7 +183,47 @@ func (m *messageHandler) ShouldSendMessage(destinationClient vms.DestinationClie
 		return false, nil
 	}
 
-	return true, nil
+	var decision bool = true
+	deciderClientValue := reflect.ValueOf(m.deciderClient)
+	if deciderClientValue.IsValid() && !deciderClientValue.IsNil() {
+		warpMsgIDStr := m.unsignedMessage.ID().Hex()
+
+		warpMsgID, err := hex.DecodeString(warpMsgIDStr)
+		if err != nil {
+			m.logger.Error(
+				"Error decoding message ID",
+				zap.String("warpMsgIDStr", warpMsgIDStr),
+				zap.Error(err),
+			)
+			return decision, err
+		}
+
+		// TODO: add a timeout to the context
+		response, err := m.deciderClient.ShouldSendMessage(
+			context.Background(),
+			&pbDecider.ShouldSendMessageRequest{
+				NetworkId:           m.unsignedMessage.NetworkID,
+				SourceChainId:       m.unsignedMessage.SourceChainID[:],
+				Payload:             m.unsignedMessage.Payload,
+				BytesRepresentation: m.unsignedMessage.Bytes(),
+				Id:                  warpMsgID,
+			},
+		)
+		if err != nil {
+			m.logger.Error(
+				"Error response from decider.",
+				zap.String("destinationBlockchainID", destinationBlockchainID.String()),
+				zap.String("teleporterMessageID", teleporterMessageID.String()),
+				zap.Any("warpMessageID", warpMsgIDStr),
+				zap.Error(err),
+			)
+			return decision, err
+		}
+
+		decision = response.ShouldSendMessage
+	}
+
+	return decision, nil
 }
 
 // SendMessage extracts the gasLimit and packs the call data to call the receiveCrossChainMessage

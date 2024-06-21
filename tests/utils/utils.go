@@ -1,7 +1,7 @@
 // Copyright (C) 2023, Ava Labs, Inc. All rights reserved.
 // See the file LICENSE for licensing terms.
 
-package tests
+package utils
 
 import (
 	"bufio"
@@ -95,6 +95,7 @@ func BuildAndRunRelayerExecutable(ctx context.Context, relayerConfigPath string)
 			panic(fmt.Errorf("relayer exited abnormally: %w", err))
 		}
 	}()
+
 	return func() {
 		relayerCancel()
 		<-relayerContext.Done()
@@ -190,6 +191,8 @@ func CreateDefaultRelayerConfig(
 		)
 	}
 
+	var deciderPort uint16 = 50051
+
 	return config.Config{
 		LogLevel: logging.Info.LowerString(),
 		PChainAPI: &config.APIConfig{
@@ -205,6 +208,8 @@ func CreateDefaultRelayerConfig(
 		SourceBlockchains:      sources,
 		DestinationBlockchains: destinations,
 		APIPort:                8080,
+		DeciderHost:            "localhost",
+		DeciderPort:            &deciderPort,
 	}
 }
 

@@ -58,6 +58,8 @@ type Config struct {
 	SourceBlockchains      []*SourceBlockchain      `mapstructure:"source-blockchains" json:"source-blockchains"`
 	DestinationBlockchains []*DestinationBlockchain `mapstructure:"destination-blockchains" json:"destination-blockchains"`
 	ProcessMissedBlocks    bool                     `mapstructure:"process-missed-blocks" json:"process-missed-blocks"`
+	DeciderHost            string                   `mapstructure:"decider-host" json:"decider-host"`
+	DeciderPort            *uint16                  `mapstructure:"decider-port" json:"decider-port"`
 
 	// convenience field to fetch a blockchain's subnet ID
 	blockchainIDToSubnetID map[ids.ID]ids.ID

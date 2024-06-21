@@ -27,5 +27,17 @@ jobs:
       with:
         go-version-file: 'go.mod'
 
+    - name: Install buf
+      uses: bufbuild/buf-setup-action@v1.31.0
+      with:
+        github_token: ${{ github.token }}
+
     - name: Run Lint
       run: ./scripts/lint.sh --go-lint
+
+    - name: Ensure protobuf changes are checked in
+      run: |
+        scripts/protobuf_codegen.sh
+        git update-index --really-refresh >> /dev/null
+        git diff-index HEAD # to show the differences
+        git diff-index --quiet HEAD || (echo 'protobuf generated code changes have not all been checked in' && exit 1)

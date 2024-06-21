@@ -101,7 +101,7 @@ awm-relayer --help                                      Display awm-relayer usag
 
 ### Building
 
-Before building, be sure to install Go, which is required even if you're just building the Docker image.
+Before building, be sure to install Go, which is required even if you're just building the Docker image. You'll also need to install [buf](github.com/bufbuild/buf/).
 
 Build the relayer by running the script:
 

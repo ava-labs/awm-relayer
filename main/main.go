@@ -9,6 +9,8 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"runtime"
+	"strconv"
 	"strings"
 
 	"github.com/ava-labs/avalanchego/api/metrics"
@@ -33,9 +35,16 @@ import (
 	"go.uber.org/atomic"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/connectivity"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
-var version = "v0.0.0-dev"
+var (
+	version = "v0.0.0-dev"
+
+	grpcClient *grpc.ClientConn // for connecting to the decider service
+)
 
 func main() {
 	fs := config.BuildFlagSet()
@@ -216,6 +225,33 @@ func main() {
 
 	// Create listeners for each of the subnets configured as a source
 	errGroup, ctx := errgroup.WithContext(context.Background())
+
+	if cfg.DeciderPort != nil {
+		port := strconv.FormatUint(uint64(*cfg.DeciderPort), 10)
+
+		host := cfg.DeciderHost
+		if len(host) == 0 {
+			host = "localhost"
+		}
+
+		grpcClient, err = grpc.NewClient(
+			strings.Join([]string{host, port}, ":"),
+			grpc.WithTransportCredentials(
+				insecure.NewCredentials(),
+			),
+		)
+		if err != nil {
+			logger.Fatal(
+				"Failed to instantiate decider client",
+				zap.Error(err),
+			)
+			panic(err)
+		}
+		runtime.SetFinalizer(grpcClient, func(c *grpc.ClientConn) { c.Close() })
+		grpcClient.WaitForStateChange(ctx, connectivity.Ready)
+	}
+
+	// Create listeners for each of the subnets configured as a source
 	for _, s := range cfg.SourceBlockchains {
 		sourceBlockchain := s
 
@@ -259,6 +295,7 @@ func createMessageHandlerFactories(
 					logger,
 					address,
 					cfg,
+					grpcClient,
 				)
 			case config.OFF_CHAIN_REGISTRY:
 				m, err = offchainregistry.NewMessageHandlerFactory(
