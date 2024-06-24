@@ -4,13 +4,19 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
+	"os/exec"
+	"os/signal"
+	"runtime"
 	"strings"
+	"time"
 
 	"github.com/alexliesenfeld/health"
 	"github.com/ava-labs/avalanchego/api/metrics"
@@ -33,9 +39,16 @@ import (
 	"go.uber.org/atomic"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/connectivity"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
-var version = "v0.0.0-dev"
+var (
+	version = "v0.0.0-dev"
+
+	grpcClient *grpc.ClientConn // for connecting to the decider service
+)
 
 func main() {
 	fs := config.BuildFlagSet()
@@ -232,8 +245,101 @@ func main() {
 		manualWarpMessages[sourceBlockchainID] = append(manualWarpMessages[sourceBlockchainID], &warpLogInfo)
 	}
 
-	// Create listeners for each of the subnets configured as a source
 	errGroup, ctx := errgroup.WithContext(context.Background())
+
+	if len(cfg.DeciderPluginPath) > 0 {
+		var cancel context.CancelFunc
+		args := make([]string, 0)
+		cmdCtx, cancel := context.WithCancel(ctx)
+		cmd := exec.CommandContext(cmdCtx, cfg.DeciderPluginPath, args...)
+		cmdStdOutReader, err := cmd.StdoutPipe()
+		if err != nil {
+			logger.Error(
+				"Failed to pipe stdout from decider plugin process",
+				zap.Error(err),
+			)
+			panic(err)
+		}
+		cmdStdErrReader, err := cmd.StderrPipe()
+		if err != nil {
+			logger.Error(
+				"Failed to pipe stdout from decider plugin process",
+				zap.Error(err),
+			)
+			panic(err)
+		}
+		// Start goroutines to read and output the command's stdout and stderr
+		stopScanning := make(chan bool)
+		errGroup.Go(func() error {
+			scanner := bufio.NewScanner(cmdStdOutReader)
+			for scanner.Scan() {
+				logger.Info(scanner.Text())
+			}
+			stopScanning <- true
+			return nil
+		})
+		errGroup.Go(func() error {
+			scanner := bufio.NewScanner(cmdStdErrReader)
+			for scanner.Scan() {
+				logger.Error(scanner.Text())
+			}
+			stopScanning <- true
+			return nil
+		})
+		errGroup.Go(func() error {
+			err = cmd.Start()
+			if err != nil {
+				logger.Error("Failed to start decider process")
+				return err
+			}
+			grpcClient, err = grpc.NewClient(
+				"127.0.0.1:50051",
+				grpc.WithTransportCredentials(insecure.NewCredentials()),
+			)
+			if err != nil {
+				logger.Fatal(
+					"Could not connect to decider process",
+					zap.Error(err),
+				)
+				panic(err)
+			}
+			logger.Info("Decider running")
+			<-ctx.Done()
+			logger.Info("global context cancelled, cancelling decider")
+			<-stopScanning
+			cancel()
+			<-cmdCtx.Done()
+			logger.Info("waiting for decider to finish")
+			err := cmd.Wait()
+			if err != nil {
+				return err
+			}
+			logger.Info("decider finished")
+			return nil
+		})
+		for timeout := time.After(5 * time.Second); grpcClient == nil; {
+			select {
+			case <-timeout:
+				panic("timed out waiting for decider client to become non-nil")
+			default:
+				time.Sleep(100 * time.Millisecond)
+			}
+		}
+		runtime.SetFinalizer(grpcClient, func(c *grpc.ClientConn) { c.Close() })
+		grpcClient.WaitForStateChange(ctx, connectivity.Ready)
+		// Spawn a goroutine that will panic if the decider exits abnormally.
+		errGroup.Go(func() error {
+			err := cmd.Wait()
+			// Context cancellation is the only expected way for the process to exit, otherwise panic
+			if !errors.Is(cmdCtx.Err(), context.Canceled) {
+				panic(fmt.Errorf("decider exited abnormally: %w", err))
+			}
+			return nil
+		})
+		//logger.Info("Waiting for state change")
+	}
+
+	// Create listeners for each of the subnets configured as a source
 	for _, s := range cfg.SourceBlockchains {
 		blockchainID, err := ids.FromString(s.BlockchainID)
 		if err != nil {
@@ -302,11 +408,18 @@ func main() {
 				manualWarpMessages[blockchainID],
 				&cfg,
 				ethClient,
+				grpcClient,
 				applicationRelayers,
 				minHeight,
 			)
 		})
 	}
+	signalChannel := make(chan os.Signal, 1)
+	signal.Notify(signalChannel, os.Interrupt, os.Kill)
+	errGroup.Go(func() error {
+		<-signalChannel
+		return errors.New("Relayer exiting gracefully")
+	})
 	err = errGroup.Wait()
 	logger.Error(
 		"Relayer exiting.",
@@ -324,6 +437,7 @@ func runListener(
 	manualWarpMessages []*relayerTypes.WarpMessageInfo,
 	globalConfig *config.Config,
 	ethClient ethclient.Client,
+	grpcClient *grpc.ClientConn,
 	applicationRelayers map[common.Hash]*relayer.ApplicationRelayer,
 	minHeight uint64,
 ) error {
@@ -336,6 +450,7 @@ func runListener(
 		applicationRelayers,
 		minHeight,
 		ethClient,
+		grpcClient,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create listener instance: %w", err)

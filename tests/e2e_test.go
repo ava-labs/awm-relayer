@@ -54,11 +54,14 @@ var _ = ginkgo.BeforeSuite(func() {
 	)
 	log.Info("Deployed Teleporter contracts")
 	localNetworkInstance.DeployTeleporterRegistryContracts(teleporterContractAddress, fundedKey)
+
 	log.Info("Set up ginkgo before suite")
 })
 
 var _ = ginkgo.AfterSuite(func() {
-	localNetworkInstance.TearDownNetwork()
+	if localNetworkInstance != nil {
+		localNetworkInstance.TearDownNetwork()
+	}
 })
 
 var _ = ginkgo.Describe("[AWM Relayer Integration Tests", func() {

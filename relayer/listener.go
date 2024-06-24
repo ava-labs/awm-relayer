@@ -24,6 +24,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"go.uber.org/atomic"
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
 )
 
 const (
@@ -57,6 +58,7 @@ func NewListener(
 	applicationRelayers map[common.Hash]*ApplicationRelayer,
 	startingHeight uint64,
 	ethClient ethclient.Client,
+	grpcClient *grpc.ClientConn,
 ) (*Listener, error) {
 	blockchainID, err := ids.FromString(sourceBlockchain.BlockchainID)
 	if err != nil {
@@ -97,6 +99,7 @@ func NewListener(
 				logger,
 				address,
 				cfg,
+				grpcClient,
 			)
 		case config.OFF_CHAIN_REGISTRY:
 			m, err = offchainregistry.NewMessageHandlerFactory(

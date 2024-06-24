@@ -170,6 +170,7 @@ func TestShouldSendMessage(t *testing.T) {
 				logger,
 				messageProtocolAddress,
 				messageProtocolConfig,
+				nil,
 			)
 			require.NoError(t, err)
 			messageHandler, err := factory.NewMessageHandler(test.warpUnsignedMessage)
