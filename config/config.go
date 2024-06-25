@@ -130,6 +130,15 @@ func (c *Config) Validate() error {
 	return nil
 }
 
+func (c *Config) GetDestinationBlockchain(blockchainID ids.ID) (DestinationBlockchain, bool) {
+	for _, s := range c.DestinationBlockchains {
+		if blockchainID.String() == s.BlockchainID {
+			return *s, true
+		}
+	}
+	return DestinationBlockchain{}, false
+}
+
 func (c *Config) GetSubnetID(blockchainID ids.ID) ids.ID {
 	return c.blockchainIDToSubnetID[blockchainID]
 }

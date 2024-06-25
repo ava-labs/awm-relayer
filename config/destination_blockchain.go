@@ -105,6 +105,10 @@ func (s *DestinationBlockchain) initializeWarpQuorum() error {
 	return nil
 }
 
+func (c *DestinationBlockchain) GetWarpQuorum() WarpQuorum {
+	return c.warpQuorum
+}
+
 // Warp Quorum configuration, fetched from the chain config
 type WarpQuorum struct {
 	QuorumNumerator   uint64

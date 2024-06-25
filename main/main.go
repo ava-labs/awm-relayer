@@ -407,11 +407,23 @@ func createApplicationRelayers(
 		if minHeight == 0 || height < minHeight {
 			minHeight = height
 		}
+		destBlockchain, ok := cfg.GetDestinationBlockchain(relayerID.DestinationBlockchainID)
+		if !ok {
+			logger.Error("failed to find destination blockchain config",
+				zap.String("relayerID", relayerID.ID.String()),
+				zap.Error(err),
+			)
+		}
+		signerFactory := relayer.NewAppRequestNetworkSignerFactory(
+			logger,
+			network,
+			sourceBlockchain,
+			destBlockchain,
+			messageCreator,
+		)
 		applicationRelayer, err := relayer.NewApplicationRelayer(
 			logger,
 			metrics,
-			network,
-			messageCreator,
 			relayerID,
 			db,
 			ticker,
@@ -419,6 +431,7 @@ func createApplicationRelayers(
 			sourceBlockchain,
 			height,
 			cfg,
+			signerFactory,
 		)
 		if err != nil {
 			logger.Error(
