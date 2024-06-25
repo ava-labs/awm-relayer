@@ -19,8 +19,6 @@ import (
 	"go.uber.org/zap"
 )
 
-var globalMessageCoordinator *MessageCoordinator
-
 type MessageCoordinator struct {
 	logger logging.Logger
 	// Maps Source blockchain ID and protocol address to a Message Handler Factory
@@ -29,13 +27,13 @@ type MessageCoordinator struct {
 	SourceClients           map[ids.ID]ethclient.Client
 }
 
-func SetMessageCoordinator(
+func NewMessageCoordinator(
 	logger logging.Logger,
 	messageHandlerFactories map[ids.ID]map[common.Address]messages.MessageHandlerFactory,
 	applicationRelayers map[common.Hash]*ApplicationRelayer,
 	sourceClients map[ids.ID]ethclient.Client,
-) {
-	globalMessageCoordinator = &MessageCoordinator{
+) *MessageCoordinator {
+	return &MessageCoordinator{
 		logger:                  logger,
 		MessageHandlerFactories: messageHandlerFactories,
 		ApplicationRelayers:     applicationRelayers,
@@ -164,13 +162,6 @@ func (mc *MessageCoordinator) getApplicationRelayer(
 	return nil
 }
 
-func ProcessManualWarpMessage(warpMessage *relayerTypes.WarpMessageInfo) (common.Hash, error) {
-	if globalMessageCoordinator == nil {
-		return common.Hash{}, fmt.Errorf("global message coordinator not set")
-	}
-	return globalMessageCoordinator.processManualWarpMessage(warpMessage)
-}
-
 func (mc *MessageCoordinator) processManualWarpMessage(
 	warpMessage *relayerTypes.WarpMessageInfo,
 ) (common.Hash, error) {
@@ -191,13 +182,6 @@ func (mc *MessageCoordinator) processManualWarpMessage(
 	}
 
 	return appRelayer.ProcessMessage(handler)
-}
-
-func ProcessMessage(blockchainID ids.ID, messageID common.Hash, blockNum *big.Int) (common.Hash, error) {
-	if globalMessageCoordinator == nil {
-		panic("global message coordinator not set")
-	}
-	return globalMessageCoordinator.processMessage(blockchainID, messageID, blockNum)
 }
 
 func (mc *MessageCoordinator) processMessage(blockchainID ids.ID, messageID common.Hash, blockNum *big.Int) (common.Hash, error) {
@@ -228,13 +212,6 @@ func (mc *MessageCoordinator) processMessage(blockchainID ids.ID, messageID comm
 	}
 
 	return appRelayer.ProcessMessage(handler)
-}
-
-func ProcessBlock(blockHeader *types.Header, ethClient ethclient.Client, errChan chan error) {
-	if globalMessageCoordinator == nil {
-		panic("global message coordinator not set")
-	}
-	globalMessageCoordinator.processBlock(blockHeader, ethClient, errChan)
 }
 
 // Meant to be ran asynchronously. Errors should be sent to errChan.

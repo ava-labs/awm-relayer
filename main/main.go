@@ -212,12 +212,12 @@ func main() {
 		logger.Fatal("Failed to create application relayers", zap.Error(err))
 		panic(err)
 	}
-	relayer.SetMessageCoordinator(logger, messageHandlerFactories, applicationRelayers, sourceClients)
+	messageCoordinator := relayer.NewMessageCoordinator(logger, messageHandlerFactories, applicationRelayers, sourceClients)
 
 	// Initialize the API after the message coordinator is set
 	http.Handle("/health", health.NewHandler(checker))
-	http.HandleFunc(relayer.RelayApiPath, relayer.RelayAPIHandler)
-	http.HandleFunc(relayer.RelayMessageApiPath, relayer.RelayMessageAPIHandler)
+	http.Handle(relayer.RelayApiPath, relayer.RelayAPIHandler(messageCoordinator))
+	http.Handle(relayer.RelayMessageApiPath, relayer.RelayMessageAPIHandler(messageCoordinator))
 
 	// start the health check server
 	go func() {
@@ -243,6 +243,7 @@ func main() {
 				isHealthy,
 				cfg.ProcessMissedBlocks,
 				minHeights[sourceBlockchain.GetBlockchainID()],
+				messageCoordinator,
 			)
 		})
 	}

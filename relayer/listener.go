@@ -36,6 +36,7 @@ type Listener struct {
 	catchUpResultChan chan bool
 	healthStatus      *atomic.Bool
 	ethClient         ethclient.Client
+	messageCoordinator *MessageCoordinator
 }
 
 // runListener creates a Listener instance and the ApplicationRelayers for a subnet.
@@ -48,6 +49,7 @@ func RunListener(
 	relayerHealth *atomic.Bool,
 	processMissedBlocks bool,
 	minHeight uint64,
+	messageCoordinator *MessageCoordinator,
 ) error {
 	// Create the Listener
 	listener, err := newListener(
@@ -58,6 +60,7 @@ func RunListener(
 		relayerHealth,
 		processMissedBlocks,
 		minHeight,
+		messageCoordinator,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create listener instance: %w", err)
@@ -81,6 +84,7 @@ func newListener(
 	relayerHealth *atomic.Bool,
 	processMissedBlocks bool,
 	startingHeight uint64,
+	messageCoordinator *MessageCoordinator,
 ) (*Listener, error) {
 	blockchainID, err := ids.FromString(sourceBlockchain.BlockchainID)
 	if err != nil {
@@ -197,7 +201,7 @@ func (lstnr *Listener) processLogs(ctx context.Context) error {
 				return fmt.Errorf("failed to catch up on historical blocks")
 			}
 		case blockHeader := <-lstnr.Subscriber.Headers():
-			go ProcessBlock(blockHeader, lstnr.ethClient, errChan)
+			go lstnr.messageCoordinator.processBlock(blockHeader, lstnr.ethClient, errChan)
 		case err := <-lstnr.Subscriber.Err():
 			lstnr.healthStatus.Store(false)
 			lstnr.logger.Error(

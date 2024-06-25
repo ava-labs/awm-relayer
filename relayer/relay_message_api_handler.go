@@ -35,61 +35,65 @@ type ManualWarpMessage struct {
 	DestinationAddress      common.Address
 }
 
-func RelayMessageAPIHandler(w http.ResponseWriter, r *http.Request) {
-	var req ManualWarpMessage
+func RelayMessageAPIHandler(messageCoordinator *MessageCoordinator) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req ManualWarpMessage
 
-	err := json.NewDecoder(r.Body).Decode(&req)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
+		err := json.NewDecoder(r.Body).Decode(&req)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 
-	unsignedMessage, err := types.UnpackWarpMessage(req.UnsignedMessageBytes)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
+		unsignedMessage, err := types.UnpackWarpMessage(req.UnsignedMessageBytes)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 
-	warpMessageInfo := &relayerTypes.WarpMessageInfo{
-		SourceAddress:   req.SourceAddress,
-		UnsignedMessage: unsignedMessage,
-	}
+		warpMessageInfo := &relayerTypes.WarpMessageInfo{
+			SourceAddress:   req.SourceAddress,
+			UnsignedMessage: unsignedMessage,
+		}
 
-	txHash, err := ProcessManualWarpMessage(warpMessageInfo)
-	if err != nil {
-		http.Error(w, "error processing message: "+err.Error(), http.StatusInternalServerError)
-		return
-	}
+		txHash, err := messageCoordinator.processManualWarpMessage(warpMessageInfo)
+		if err != nil {
+			http.Error(w, "error processing message: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
 
-	_, _ = w.Write([]byte("Message processed successfully. Transaction Hash: " + txHash.Hex()))
+		_, _ = w.Write([]byte("Message processed successfully. Transaction Hash: " + txHash.Hex()))
+	})
 }
 
-func RelayAPIHandler(w http.ResponseWriter, r *http.Request) {
-	var req RelayMessageRequest
+func RelayAPIHandler(messageCoordinator *MessageCoordinator) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req RelayMessageRequest
 
-	err := json.NewDecoder(r.Body).Decode(&req)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
+		err := json.NewDecoder(r.Body).Decode(&req)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 
-	blockchainID, err := ids.FromString(req.BlockchainID)
-	if err != nil {
-		http.Error(w, "invalid blockchainID: "+err.Error(), http.StatusBadRequest)
-		return
-	}
-	messageID := common.HexToHash(req.MessageID)
-	blockNum, ok := new(big.Int).SetString(req.BlockNum, 10)
-	if !ok {
-		http.Error(w, "invalid blockNum", http.StatusBadRequest)
-		return
-	}
+		blockchainID, err := ids.FromString(req.BlockchainID)
+		if err != nil {
+			http.Error(w, "invalid blockchainID: "+err.Error(), http.StatusBadRequest)
+			return
+		}
+		messageID := common.HexToHash(req.MessageID)
+		blockNum, ok := new(big.Int).SetString(req.BlockNum, 10)
+		if !ok {
+			http.Error(w, "invalid blockNum", http.StatusBadRequest)
+			return
+		}
 
-	txHash, err := ProcessMessage(blockchainID, messageID, blockNum)
-	if err != nil {
-		http.Error(w, "error processing message: "+err.Error(), http.StatusInternalServerError)
-		return
-	}
+		txHash, err := messageCoordinator.processMessage(blockchainID, messageID, blockNum)
+		if err != nil {
+			http.Error(w, "error processing message: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
 
-	_, _ = w.Write([]byte("Message processed successfully. Transaction Hash: " + txHash.Hex()))
+		_, _ = w.Write([]byte("Message processed successfully. Transaction Hash: " + txHash.Hex()))
+	})
 }
