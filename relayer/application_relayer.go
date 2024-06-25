@@ -30,7 +30,8 @@ import (
 	"github.com/ava-labs/awm-relayer/vms"
 	coreEthMsg "github.com/ava-labs/coreth/plugin/evm/message"
 	msg "github.com/ava-labs/subnet-evm/plugin/evm/message"
-	warpBackend "github.com/ava-labs/subnet-evm/warp"
+	"github.com/ava-labs/subnet-evm/rpc"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"golang.org/x/sync/errgroup"
 
 	"go.uber.org/zap"
@@ -70,7 +71,7 @@ type ApplicationRelayer struct {
 	checkpointManager *checkpoint.CheckpointManager
 	currentRequestID  uint32
 	lock              *sync.RWMutex
-	warpClient        warpBackend.Client
+	warpClient        *rpc.Client
 }
 
 func NewApplicationRelayer(
@@ -109,9 +110,16 @@ func NewApplicationRelayer(
 	checkpointManager := checkpoint.NewCheckpointManager(logger, db, sub, relayerID, startingHeight)
 	checkpointManager.Run()
 
-	var warpClient warpBackend.Client
+	var warpClient *rpc.Client
 	if !sourceBlockchain.UseAppRequestNetwork() {
-		warpClient, err = warpBackend.NewClient(sourceBlockchain.WarpAPIEndpoint.BaseURL, sourceBlockchain.GetBlockchainID().String())
+		// The subnet-evm Warp API client does not support query parameters or HTTP headers, and expects the URI to be in a specific form.
+		// Instead, we invoke the Warp API directly via the RPC client.
+		warpClient, err = utils.DialWithConfig(
+			context.Background(),
+			sourceBlockchain.WarpAPIEndpoint.BaseURL,
+			sourceBlockchain.WarpAPIEndpoint.HTTPHeaders,
+			sourceBlockchain.WarpAPIEndpoint.QueryParams,
+		)
 		if err != nil {
 			logger.Error(
 				"Failed to create Warp API client",
@@ -271,7 +279,7 @@ func (r *ApplicationRelayer) createSignedMessage(unsignedMessage *avalancheWarp.
 	r.logger.Info("Fetching aggregate signature from the source chain validators via API")
 
 	var (
-		signedWarpMessageBytes []byte
+		signedWarpMessageBytes hexutil.Bytes
 		err                    error
 	)
 	for attempt := 1; attempt <= maxRelayerQueryAttempts; attempt++ {
@@ -282,8 +290,11 @@ func (r *ApplicationRelayer) createSignedMessage(unsignedMessage *avalancheWarp.
 			zap.String("destinationBlockchainID", r.relayerID.DestinationBlockchainID.String()),
 			zap.String("signingSubnetID", r.signingSubnetID.String()),
 		)
-		signedWarpMessageBytes, err = r.warpClient.GetMessageAggregateSignature(
+
+		err = r.warpClient.CallContext(
 			context.Background(),
+			&signedWarpMessageBytes,
+			"warp_getMessageAggregateSignature",
 			unsignedMessage.ID(),
 			r.warpQuorum.QuorumNumerator,
 			r.signingSubnetID.String(),

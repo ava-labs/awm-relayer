@@ -15,8 +15,17 @@ import (
 
 var ErrInvalidEndpoint = errors.New("invalid rpc endpoint")
 
-// DialWithContext returns an ethclient.Client with the internal RPC client configured with the provided options.
-func DialWithConfig(ctx context.Context, baseURL string, httpHeaders, queryParams map[string]string) (ethclient.Client, error) {
+// NewEthClientWithConfig returns an ethclient.Client with the internal RPC client configured with the provided options.
+func NewEthClientWithConfig(ctx context.Context, baseURL string, httpHeaders, queryParams map[string]string) (ethclient.Client, error) {
+	client, err := DialWithConfig(ctx, baseURL, httpHeaders, queryParams)
+	if err != nil {
+		return nil, err
+	}
+	return ethclient.NewClient(client), nil
+}
+
+// DialWithConfig dials the provided baseURL with the provided httpHeaders and queryParams
+func DialWithConfig(ctx context.Context, baseURL string, httpHeaders, queryParams map[string]string) (*rpc.Client, error) {
 	url, err := addQueryParams(baseURL, queryParams)
 	if err != nil {
 		return nil, err
@@ -25,7 +34,7 @@ func DialWithConfig(ctx context.Context, baseURL string, httpHeaders, queryParam
 	if err != nil {
 		return nil, err
 	}
-	return ethclient.NewClient(client), nil
+	return client, nil
 }
 
 // addQueryParams adds the query parameters to the url

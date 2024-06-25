@@ -243,7 +243,7 @@ func main() {
 		// errgroup will cancel the context when the first goroutine returns an error
 		errGroup.Go(func() error {
 			// Dial the eth client
-			ethClient, err := utils.DialWithConfig(
+			ethClient, err := utils.NewEthClientWithConfig(
 				context.Background(),
 				sourceBlockchain.RPCEndpoint.BaseURL,
 				sourceBlockchain.RPCEndpoint.HTTPHeaders,
