@@ -11,9 +11,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/ava-labs/awm-relayer/relayer"
-
 	avalancheWarp "github.com/ava-labs/avalanchego/vms/platformvm/warp"
+	"github.com/ava-labs/awm-relayer/api"
 	testUtils "github.com/ava-labs/awm-relayer/tests/utils"
 	"github.com/ava-labs/subnet-evm/core/types"
 	subnetEvmInterfaces "github.com/ava-labs/subnet-evm/interfaces"
@@ -65,7 +64,7 @@ func RelayMessageAPI(network interfaces.LocalNetwork) {
 	log.Info("Waiting for the relayer to start up")
 	time.Sleep(15 * time.Second)
 
-	reqBody := relayer.RelayMessageRequest{
+	reqBody := api.RelayMessageRequest{
 		BlockchainID: subnetAInfo.BlockchainID.String(),
 		MessageID:    warpMessage.ID().Hex(),
 		BlockNum:     receipt.BlockNumber.String(),
@@ -75,7 +74,7 @@ func RelayMessageAPI(network interfaces.LocalNetwork) {
 		Timeout: 30 * time.Second,
 	}
 
-	requestURL := fmt.Sprintf("http://localhost:%d%s", relayerConfig.APIPort, relayer.RelayApiPath)
+	requestURL := fmt.Sprintf("http://localhost:%d%s", relayerConfig.APIPort, api.RelayApiPath)
 
 	// Send request to API
 	{

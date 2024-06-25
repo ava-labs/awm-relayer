@@ -13,8 +13,8 @@ import (
 	"time"
 
 	runner_sdk "github.com/ava-labs/avalanche-network-runner/client"
+	"github.com/ava-labs/awm-relayer/api"
 	offchainregistry "github.com/ava-labs/awm-relayer/messages/off-chain-registry"
-	"github.com/ava-labs/awm-relayer/relayer"
 	testUtils "github.com/ava-labs/awm-relayer/tests/utils"
 	"github.com/ava-labs/subnet-evm/accounts/abi/bind"
 	"github.com/ava-labs/teleporter/tests/interfaces"
@@ -101,7 +101,7 @@ func ManualMessage(network interfaces.LocalNetwork) {
 	log.Info("Waiting for the relayer to start up")
 	time.Sleep(15 * time.Second)
 
-	reqBody := relayer.ManualWarpMessage{
+	reqBody := api.ManualWarpMessage{
 		UnsignedMessageBytes:    unsignedMessage.Bytes(),
 		SourceBlockchainID:      cChainInfo.BlockchainID,
 		DestinationBlockchainID: cChainInfo.BlockchainID,
@@ -113,7 +113,7 @@ func ManualMessage(network interfaces.LocalNetwork) {
 		Timeout: 30 * time.Second,
 	}
 
-	requestURL := fmt.Sprintf("http://localhost:%d%s", relayerConfig.APIPort, relayer.RelayMessageApiPath)
+	requestURL := fmt.Sprintf("http://localhost:%d%s", relayerConfig.APIPort, api.RelayMessageApiPath)
 
 	// Send request to API
 	{

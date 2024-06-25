@@ -162,7 +162,7 @@ func (mc *MessageCoordinator) getApplicationRelayer(
 	return nil
 }
 
-func (mc *MessageCoordinator) processManualWarpMessage(
+func (mc *MessageCoordinator) ProcessManualWarpMessage(
 	warpMessage *relayerTypes.WarpMessageInfo,
 ) (common.Hash, error) {
 	// Send any messages that were specified in the configuration
@@ -184,7 +184,7 @@ func (mc *MessageCoordinator) processManualWarpMessage(
 	return appRelayer.ProcessMessage(handler)
 }
 
-func (mc *MessageCoordinator) processMessage(blockchainID ids.ID, messageID common.Hash, blockNum *big.Int) (common.Hash, error) {
+func (mc *MessageCoordinator) ProcessMessage(blockchainID ids.ID, messageID common.Hash, blockNum *big.Int) (common.Hash, error) {
 	ethClient, ok := mc.SourceClients[blockchainID]
 	if !ok {
 		mc.logger.Error("Source client not found", zap.String("blockchainID", blockchainID.String()))
@@ -215,7 +215,7 @@ func (mc *MessageCoordinator) processMessage(blockchainID ids.ID, messageID comm
 }
 
 // Meant to be ran asynchronously. Errors should be sent to errChan.
-func (mc *MessageCoordinator) processBlock(blockHeader *types.Header, ethClient ethclient.Client, errChan chan error) {
+func (mc *MessageCoordinator) ProcessBlock(blockHeader *types.Header, ethClient ethclient.Client, errChan chan error) {
 	// Parse the logs in the block, and group by application relayer
 	block, err := relayerTypes.NewWarpBlockInfo(blockHeader, ethClient)
 	if err != nil {

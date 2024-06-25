@@ -15,12 +15,12 @@ import (
 	offchainregistry "github.com/ava-labs/awm-relayer/messages/off-chain-registry"
 	"github.com/ava-labs/awm-relayer/messages/teleporter"
 
-	"github.com/alexliesenfeld/health"
 	"github.com/ava-labs/avalanchego/api/metrics"
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/message"
 	"github.com/ava-labs/avalanchego/utils/constants"
 	"github.com/ava-labs/avalanchego/utils/logging"
+	"github.com/ava-labs/awm-relayer/api"
 	"github.com/ava-labs/awm-relayer/config"
 	"github.com/ava-labs/awm-relayer/database"
 	"github.com/ava-labs/awm-relayer/peers"
@@ -124,7 +124,6 @@ func main() {
 
 	// Initialize the global app request network
 	logger.Info("Initializing app request network")
-
 	// The app request network generates P2P networking logs that are verbose at the info level.
 	// Unless the log level is debug or lower, set the network log level to error to avoid spamming the logs.
 	networkLogLevel := logging.Error
@@ -140,29 +139,6 @@ func main() {
 		logger.Fatal("Failed to create app request network", zap.Error(err))
 		panic(err)
 	}
-
-	// Each goroutine will have an atomic bool that it can set to false if it ever disconnects from its subscription.
-	relayerHealth := make(map[ids.ID]*atomic.Bool)
-
-	checker := health.NewChecker(
-		health.WithCheck(health.Check{
-			Name: "relayers-all",
-			Check: func(context.Context) error {
-				// Store the IDs as the cb58 encoding
-				var unhealthyRelayers []string
-				for id, health := range relayerHealth {
-					if !health.Load() {
-						unhealthyRelayers = append(unhealthyRelayers, id.String())
-					}
-				}
-
-				if len(unhealthyRelayers) > 0 {
-					return fmt.Errorf("relayers are unhealthy for blockchains %v", unhealthyRelayers)
-				}
-				return nil
-			},
-		}),
-	)
 
 	startMetricsServer(logger, gatherer, cfg.MetricsPort)
 
@@ -190,6 +166,8 @@ func main() {
 	ticker := utils.NewTicker(cfg.DBWriteIntervalSeconds)
 	go ticker.Run()
 
+	relayerHealth := createHealthTrackers(&cfg)
+
 	messageHandlerFactories, err := createMessageHandlerFactories(logger, &cfg)
 	if err != nil {
 		logger.Fatal("Failed to create message handler factories", zap.Error(err))
@@ -214,10 +192,10 @@ func main() {
 	}
 	messageCoordinator := relayer.NewMessageCoordinator(logger, messageHandlerFactories, applicationRelayers, sourceClients)
 
-	// Initialize the API after the message coordinator is set
-	http.Handle("/health", health.NewHandler(checker))
-	http.Handle(relayer.RelayApiPath, relayer.RelayAPIHandler(messageCoordinator))
-	http.Handle(relayer.RelayMessageApiPath, relayer.RelayMessageAPIHandler(messageCoordinator))
+	// Each goroutine will have an atomic bool that it can set to false if it ever disconnects from its subscription.
+	api.HandleHealthCheck(relayerHealth)
+	api.HandleRelay(messageCoordinator)
+	api.HandleRelayMessage(messageCoordinator)
 
 	// start the health check server
 	go func() {
@@ -229,9 +207,6 @@ func main() {
 	for _, s := range cfg.SourceBlockchains {
 		sourceBlockchain := s
 
-		isHealthy := atomic.NewBool(true)
-		relayerHealth[s.GetBlockchainID()] = isHealthy
-
 		// errgroup will cancel the context when the first goroutine returns an error
 		errGroup.Go(func() error {
 			// runListener runs until it errors or the context is cancelled by another goroutine
@@ -240,7 +215,7 @@ func main() {
 				logger,
 				*sourceBlockchain,
 				sourceClients[sourceBlockchain.GetBlockchainID()],
-				isHealthy,
+				relayerHealth[sourceBlockchain.GetBlockchainID()],
 				cfg.ProcessMissedBlocks,
 				minHeights[sourceBlockchain.GetBlockchainID()],
 				messageCoordinator,
@@ -444,6 +419,14 @@ func createApplicationRelayersForSourceChain(
 		applicationRelayers[relayerID.ID] = applicationRelayer
 	}
 	return applicationRelayers, minHeight, nil
+}
+
+func createHealthTrackers(cfg *config.Config) map[ids.ID]*atomic.Bool {
+	healthTrackers := make(map[ids.ID]*atomic.Bool, len(cfg.SourceBlockchains))
+	for _, sourceBlockchain := range cfg.SourceBlockchains {
+		healthTrackers[sourceBlockchain.GetBlockchainID()] = atomic.NewBool(true)
+	}
+	return healthTrackers
 }
 
 func startMetricsServer(logger logging.Logger, gatherer prometheus.Gatherer, port uint16) {
