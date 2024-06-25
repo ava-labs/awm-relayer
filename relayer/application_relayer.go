@@ -170,7 +170,6 @@ func (r *ApplicationRelayer) ProcessMessage(handler messages.MessageHandler) err
 	err := r.relayMessage(
 		reqID,
 		handler,
-		true,
 	)
 
 	return err
@@ -183,7 +182,6 @@ func (r *ApplicationRelayer) RelayerID() database.RelayerID {
 func (r *ApplicationRelayer) relayMessage(
 	requestID uint32,
 	handler messages.MessageHandler,
-	useAppRequestNetwork bool,
 ) error {
 	r.logger.Debug(
 		"Relaying message",
@@ -209,7 +207,7 @@ func (r *ApplicationRelayer) relayMessage(
 	startCreateSignedMessageTime := time.Now()
 	// Query nodes on the origin chain for signatures, and construct the signed warp message.
 	var signedMessage *avalancheWarp.Message
-	if useAppRequestNetwork {
+	if r.sourceBlockchain.UseAppRequestNetwork() {
 		signedMessage, err = r.createSignedMessageAppRequest(unsignedMessage, requestID)
 		if err != nil {
 			r.logger.Error(
@@ -257,9 +255,7 @@ func (r *ApplicationRelayer) relayMessage(
 // will need to be accounted for here.
 func (r *ApplicationRelayer) createSignedMessage(unsignedMessage *avalancheWarp.UnsignedMessage) (*avalancheWarp.Message, error) {
 	r.logger.Info("Fetching aggregate signature from the source chain validators via API")
-	// TODO: To properly support this, we should provide a dedicated Warp API endpoint in the config
-	uri := utils.StripFromString(r.sourceBlockchain.RPCEndpoint.BaseURL, "/ext")
-	warpClient, err := warpBackend.NewClient(uri, r.sourceBlockchain.GetBlockchainID().String())
+	warpClient, err := warpBackend.NewClient(r.sourceBlockchain.WarpAPIEndpoint.BaseURL, r.sourceBlockchain.GetBlockchainID().String())
 	if err != nil {
 		r.logger.Error(
 			"Failed to create Warp API client",
