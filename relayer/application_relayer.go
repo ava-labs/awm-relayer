@@ -70,6 +70,7 @@ type ApplicationRelayer struct {
 	checkpointManager *checkpoint.CheckpointManager
 	currentRequestID  uint32
 	lock              *sync.RWMutex
+	warpClient        warpBackend.Client
 }
 
 func NewApplicationRelayer(
@@ -108,6 +109,18 @@ func NewApplicationRelayer(
 	checkpointManager := checkpoint.NewCheckpointManager(logger, db, sub, relayerID, startingHeight)
 	checkpointManager.Run()
 
+	var warpClient warpBackend.Client
+	if !sourceBlockchain.UseAppRequestNetwork() {
+		warpClient, err = warpBackend.NewClient(sourceBlockchain.WarpAPIEndpoint.BaseURL, sourceBlockchain.GetBlockchainID().String())
+		if err != nil {
+			logger.Error(
+				"Failed to create Warp API client",
+				zap.Error(err),
+			)
+			return nil, err
+		}
+	}
+
 	ar := ApplicationRelayer{
 		logger:            logger,
 		metrics:           metrics,
@@ -121,6 +134,7 @@ func NewApplicationRelayer(
 		checkpointManager: checkpointManager,
 		currentRequestID:  rand.Uint32(), // TODONOW: pass via ctor
 		lock:              &sync.RWMutex{},
+		warpClient:        warpClient,
 	}
 
 	return &ar, nil
@@ -255,16 +269,11 @@ func (r *ApplicationRelayer) relayMessage(
 // will need to be accounted for here.
 func (r *ApplicationRelayer) createSignedMessage(unsignedMessage *avalancheWarp.UnsignedMessage) (*avalancheWarp.Message, error) {
 	r.logger.Info("Fetching aggregate signature from the source chain validators via API")
-	warpClient, err := warpBackend.NewClient(r.sourceBlockchain.WarpAPIEndpoint.BaseURL, r.sourceBlockchain.GetBlockchainID().String())
-	if err != nil {
-		r.logger.Error(
-			"Failed to create Warp API client",
-			zap.Error(err),
-		)
-		return nil, err
-	}
 
-	var signedWarpMessageBytes []byte
+	var (
+		signedWarpMessageBytes []byte
+		err                    error
+	)
 	for attempt := 1; attempt <= maxRelayerQueryAttempts; attempt++ {
 		r.logger.Debug(
 			"Relayer collecting signatures from peers.",
@@ -273,7 +282,7 @@ func (r *ApplicationRelayer) createSignedMessage(unsignedMessage *avalancheWarp.
 			zap.String("destinationBlockchainID", r.relayerID.DestinationBlockchainID.String()),
 			zap.String("signingSubnetID", r.signingSubnetID.String()),
 		)
-		signedWarpMessageBytes, err = warpClient.GetMessageAggregateSignature(
+		signedWarpMessageBytes, err = r.warpClient.GetMessageAggregateSignature(
 			context.Background(),
 			unsignedMessage.ID(),
 			r.warpQuorum.QuorumNumerator,
