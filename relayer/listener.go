@@ -28,14 +28,14 @@ const (
 
 // Listener handles all messages sent from a given source chain
 type Listener struct {
-	Subscriber        vms.Subscriber
-	currentRequestID  uint32
-	contractMessage   vms.ContractMessage
-	logger            logging.Logger
-	sourceBlockchain  config.SourceBlockchain
-	catchUpResultChan chan bool
-	healthStatus      *atomic.Bool
-	ethClient         ethclient.Client
+	Subscriber         vms.Subscriber
+	currentRequestID   uint32
+	contractMessage    vms.ContractMessage
+	logger             logging.Logger
+	sourceBlockchain   config.SourceBlockchain
+	catchUpResultChan  chan bool
+	healthStatus       *atomic.Bool
+	ethClient          ethclient.Client
 	messageCoordinator *MessageCoordinator
 }
 
