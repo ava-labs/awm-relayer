@@ -126,14 +126,15 @@ func newListener(
 		zap.String("blockchainIDHex", sourceBlockchain.GetBlockchainID().Hex()),
 	)
 	lstnr := Listener{
-		Subscriber:        sub,
-		currentRequestID:  rand.Uint32(), // Initialize to a random value to mitigate requestID collision
-		contractMessage:   vms.NewContractMessage(logger, sourceBlockchain),
-		logger:            logger,
-		sourceBlockchain:  sourceBlockchain,
-		catchUpResultChan: catchUpResultChan,
-		healthStatus:      relayerHealth,
-		ethClient:         ethRPCClient,
+		Subscriber:         sub,
+		currentRequestID:   rand.Uint32(), // Initialize to a random value to mitigate requestID collision
+		contractMessage:    vms.NewContractMessage(logger, sourceBlockchain),
+		logger:             logger,
+		sourceBlockchain:   sourceBlockchain,
+		catchUpResultChan:  catchUpResultChan,
+		healthStatus:       relayerHealth,
+		ethClient:          ethRPCClient,
+		messageCoordinator: messageCoordinator,
 	}
 
 	// Open the subscription. We must do this before processing any missed messages, otherwise we may miss an incoming message

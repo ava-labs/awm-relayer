@@ -129,6 +129,9 @@ func ManualMessage(network interfaces.LocalNetwork) {
 		Expect(err).Should(BeNil())
 		Expect(res.Status).Should(Equal("200 OK"))
 
+		// Wait for all nodes to see new transaction
+		time.Sleep(1 * time.Second)
+
 		newVersion, err := cChainInfo.TeleporterRegistry.LatestVersion(&bind.CallOpts{})
 		Expect(err).Should(BeNil())
 		Expect(newVersion.Uint64()).Should(Equal(expectedNewVersion.Uint64()))
