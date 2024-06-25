@@ -22,9 +22,9 @@ import (
 type MessageCoordinator struct {
 	logger logging.Logger
 	// Maps Source blockchain ID and protocol address to a Message Handler Factory
-	MessageHandlerFactories map[ids.ID]map[common.Address]messages.MessageHandlerFactory
-	ApplicationRelayers     map[common.Hash]*ApplicationRelayer
-	SourceClients           map[ids.ID]ethclient.Client
+	messageHandlerFactories map[ids.ID]map[common.Address]messages.MessageHandlerFactory
+	applicationRelayers     map[common.Hash]*ApplicationRelayer
+	sourceClients           map[ids.ID]ethclient.Client
 }
 
 func NewMessageCoordinator(
@@ -35,9 +35,9 @@ func NewMessageCoordinator(
 ) *MessageCoordinator {
 	return &MessageCoordinator{
 		logger:                  logger,
-		MessageHandlerFactories: messageHandlerFactories,
-		ApplicationRelayers:     applicationRelayers,
-		SourceClients:           sourceClients,
+		messageHandlerFactories: messageHandlerFactories,
+		applicationRelayers:     applicationRelayers,
+		sourceClients:           sourceClients,
 	}
 }
 
@@ -53,7 +53,7 @@ func (mc *MessageCoordinator) GetAppRelayerMessageHandler(
 	error,
 ) {
 	// Check that the warp message is from a supported message protocol contract address.
-	messageHandlerFactory, supportedMessageProtocol := mc.MessageHandlerFactories[warpMessageInfo.UnsignedMessage.SourceChainID][warpMessageInfo.SourceAddress]
+	messageHandlerFactory, supportedMessageProtocol := mc.messageHandlerFactories[warpMessageInfo.UnsignedMessage.SourceChainID][warpMessageInfo.SourceAddress]
 	if !supportedMessageProtocol {
 		// Do not return an error here because it is expected for there to be messages from other contracts
 		// than just the ones supported by a single listener instance.
@@ -116,7 +116,7 @@ func (mc *MessageCoordinator) getApplicationRelayer(
 		originSenderAddress,
 		destinationAddress,
 	)
-	if applicationRelayer, ok := mc.ApplicationRelayers[applicationRelayerID]; ok {
+	if applicationRelayer, ok := mc.applicationRelayers[applicationRelayerID]; ok {
 		return applicationRelayer
 	}
 
@@ -127,7 +127,7 @@ func (mc *MessageCoordinator) getApplicationRelayer(
 		originSenderAddress,
 		database.AllAllowedAddress,
 	)
-	if applicationRelayer, ok := mc.ApplicationRelayers[applicationRelayerID]; ok {
+	if applicationRelayer, ok := mc.applicationRelayers[applicationRelayerID]; ok {
 		return applicationRelayer
 	}
 
@@ -138,7 +138,7 @@ func (mc *MessageCoordinator) getApplicationRelayer(
 		database.AllAllowedAddress,
 		destinationAddress,
 	)
-	if applicationRelayer, ok := mc.ApplicationRelayers[applicationRelayerID]; ok {
+	if applicationRelayer, ok := mc.applicationRelayers[applicationRelayerID]; ok {
 		return applicationRelayer
 	}
 
@@ -149,7 +149,7 @@ func (mc *MessageCoordinator) getApplicationRelayer(
 		database.AllAllowedAddress,
 		database.AllAllowedAddress,
 	)
-	if applicationRelayer, ok := mc.ApplicationRelayers[applicationRelayerID]; ok {
+	if applicationRelayer, ok := mc.applicationRelayers[applicationRelayerID]; ok {
 		return applicationRelayer
 	}
 	mc.logger.Debug(
@@ -185,7 +185,7 @@ func (mc *MessageCoordinator) ProcessManualWarpMessage(
 }
 
 func (mc *MessageCoordinator) ProcessMessage(blockchainID ids.ID, messageID common.Hash, blockNum *big.Int) (common.Hash, error) {
-	ethClient, ok := mc.SourceClients[blockchainID]
+	ethClient, ok := mc.sourceClients[blockchainID]
 	if !ok {
 		mc.logger.Error("Source client not found", zap.String("blockchainID", blockchainID.String()))
 		return common.Hash{}, fmt.Errorf("source client not set for blockchain: %s", blockchainID.String())
@@ -244,7 +244,7 @@ func (mc *MessageCoordinator) ProcessBlock(blockHeader *types.Header, ethClient 
 		messageHandlers[appRelayer.relayerID.ID] = append(messageHandlers[appRelayer.relayerID.ID], handler)
 	}
 	// Initiate message relay of all registered messages
-	for _, appRelayer := range mc.ApplicationRelayers {
+	for _, appRelayer := range mc.applicationRelayers {
 		// Dispatch all messages in the block to the appropriate application relayer.
 		// An empty slice is still a valid argument to ProcessHeight; in this case the height is immediately committed.
 		handlers := messageHandlers[appRelayer.relayerID.ID]
