@@ -59,19 +59,19 @@ var (
 // to a specific destination address on a specific destination blockchain. This routing information is
 // encapsulated in [relayerID], which also represents the database key for an ApplicationRelayer.
 type ApplicationRelayer struct {
-	logger            logging.Logger
-	metrics           *ApplicationRelayerMetrics
-	network           *peers.AppRequestNetwork
-	messageCreator    message.Creator
-	sourceBlockchain  config.SourceBlockchain
-	signingSubnetID   ids.ID
-	destinationClient vms.DestinationClient
-	relayerID         database.RelayerID
-	warpQuorum        config.WarpQuorum
-	checkpointManager *checkpoint.CheckpointManager
-	currentRequestID  uint32
-	lock              *sync.RWMutex
-	warpClient        *rpc.Client
+	logger                    logging.Logger
+	metrics                   *ApplicationRelayerMetrics
+	network                   *peers.AppRequestNetwork
+	messageCreator            message.Creator
+	sourceBlockchain          config.SourceBlockchain
+	signingSubnetID           ids.ID
+	destinationClient         vms.DestinationClient
+	relayerID                 database.RelayerID
+	warpQuorum                config.WarpQuorum
+	checkpointManager         *checkpoint.CheckpointManager
+	currentRequestID          uint32
+	lock                      *sync.RWMutex
+	sourceWarpSignatureClient *rpc.Client
 }
 
 func NewApplicationRelayer(
@@ -130,19 +130,19 @@ func NewApplicationRelayer(
 	}
 
 	ar := ApplicationRelayer{
-		logger:            logger,
-		metrics:           metrics,
-		network:           network,
-		messageCreator:    messageCreator,
-		sourceBlockchain:  sourceBlockchain,
-		destinationClient: destinationClient,
-		relayerID:         relayerID,
-		signingSubnetID:   signingSubnet,
-		warpQuorum:        quorum,
-		checkpointManager: checkpointManager,
-		currentRequestID:  rand.Uint32(), // TODONOW: pass via ctor
-		lock:              &sync.RWMutex{},
-		warpClient:        warpClient,
+		logger:                    logger,
+		metrics:                   metrics,
+		network:                   network,
+		messageCreator:            messageCreator,
+		sourceBlockchain:          sourceBlockchain,
+		destinationClient:         destinationClient,
+		relayerID:                 relayerID,
+		signingSubnetID:           signingSubnet,
+		warpQuorum:                quorum,
+		checkpointManager:         checkpointManager,
+		currentRequestID:          rand.Uint32(), // TODONOW: pass via ctor
+		lock:                      &sync.RWMutex{},
+		sourceWarpSignatureClient: warpClient,
 	}
 
 	return &ar, nil
@@ -229,7 +229,9 @@ func (r *ApplicationRelayer) relayMessage(
 	startCreateSignedMessageTime := time.Now()
 	// Query nodes on the origin chain for signatures, and construct the signed warp message.
 	var signedMessage *avalancheWarp.Message
-	if r.sourceBlockchain.UseAppRequestNetwork() {
+
+	// sourceWarpSignatureClient is nil iff the source blockchain is configured to fetch signatures via AppRequest
+	if r.sourceWarpSignatureClient == nil {
 		signedMessage, err = r.createSignedMessageAppRequest(unsignedMessage, requestID)
 		if err != nil {
 			r.logger.Error(
@@ -291,7 +293,7 @@ func (r *ApplicationRelayer) createSignedMessage(unsignedMessage *avalancheWarp.
 			zap.String("signingSubnetID", r.signingSubnetID.String()),
 		)
 
-		err = r.warpClient.CallContext(
+		err = r.sourceWarpSignatureClient.CallContext(
 			context.Background(),
 			&signedWarpMessageBytes,
 			"warp_getMessageAggregateSignature",
