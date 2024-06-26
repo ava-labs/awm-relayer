@@ -126,13 +126,14 @@ func main() {
 	logger.Info("Initializing app request network")
 	// The app request network generates P2P networking logs that are verbose at the info level.
 	// Unless the log level is debug or lower, set the network log level to error to avoid spamming the logs.
+	// We do not collect metrics for the network.
 	networkLogLevel := logging.Error
 	if logLevel <= logging.Debug {
 		networkLogLevel = logLevel
 	}
 	network, err := peers.NewNetwork(
 		networkLogLevel,
-		registerer,
+		prometheus.DefaultRegisterer,
 		&cfg,
 	)
 	if err != nil {
@@ -149,7 +150,14 @@ func main() {
 	}
 
 	// Initialize message creator passed down to relayers for creating app requests.
-	messageCreator, err := message.NewCreator(logger, registerer, "message_creator", constants.DefaultNetworkCompressionType, constants.DefaultNetworkMaximumInboundTimeout)
+	// We do not collect metrics for the message creator.
+	messageCreator, err := message.NewCreator(
+		logger,
+		prometheus.DefaultRegisterer,
+		"message_creator",
+		constants.DefaultNetworkCompressionType,
+		constants.DefaultNetworkMaximumInboundTimeout,
+	)
 	if err != nil {
 		logger.Fatal("Failed to create message creator", zap.Error(err))
 		panic(err)
@@ -276,7 +284,7 @@ func createSourceClients(
 	clients := make(map[ids.ID]ethclient.Client)
 
 	for _, sourceBlockchain := range cfg.SourceBlockchains {
-		clients[sourceBlockchain.GetBlockchainID()], err = utils.DialWithConfig(
+		clients[sourceBlockchain.GetBlockchainID()], err = utils.NewEthClientWithConfig(
 			ctx,
 			sourceBlockchain.RPCEndpoint.BaseURL,
 			sourceBlockchain.RPCEndpoint.HTTPHeaders,

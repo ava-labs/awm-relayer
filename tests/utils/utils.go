@@ -201,6 +201,7 @@ func CreateDefaultRelayerConfig(
 		StorageLocation:        StorageLocation,
 		DBWriteIntervalSeconds: DBUpdateSeconds,
 		ProcessMissedBlocks:    false,
+		MetricsPort:            9090,
 		SourceBlockchains:      sources,
 		DestinationBlockchains: destinations,
 		APIPort:                1234,

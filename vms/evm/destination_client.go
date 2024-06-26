@@ -52,7 +52,7 @@ func NewDestinationClient(
 	destinationBlockchain *config.DestinationBlockchain,
 ) (*destinationClient, error) {
 	// Dial the destination RPC endpoint
-	client, err := utils.DialWithConfig(
+	client, err := utils.NewEthClientWithConfig(
 		context.Background(),
 		destinationBlockchain.RPCEndpoint.BaseURL,
 		destinationBlockchain.RPCEndpoint.HTTPHeaders,

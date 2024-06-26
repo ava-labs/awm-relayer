@@ -30,8 +30,9 @@ import (
 	"github.com/ava-labs/awm-relayer/vms"
 	coreEthMsg "github.com/ava-labs/coreth/plugin/evm/message"
 	msg "github.com/ava-labs/subnet-evm/plugin/evm/message"
-	warpBackend "github.com/ava-labs/subnet-evm/warp"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ava-labs/subnet-evm/rpc"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"golang.org/x/sync/errgroup"
 
 	"go.uber.org/zap"
@@ -59,18 +60,19 @@ var (
 // to a specific destination address on a specific destination blockchain. This routing information is
 // encapsulated in [relayerID], which also represents the database key for an ApplicationRelayer.
 type ApplicationRelayer struct {
-	logger            logging.Logger
-	metrics           *ApplicationRelayerMetrics
-	network           *peers.AppRequestNetwork
-	messageCreator    message.Creator
-	sourceBlockchain  config.SourceBlockchain
-	signingSubnetID   ids.ID
-	destinationClient vms.DestinationClient
-	relayerID         database.RelayerID
-	warpQuorum        config.WarpQuorum
-	checkpointManager *checkpoint.CheckpointManager
-	currentRequestID  uint32
-	lock              *sync.RWMutex
+	logger                    logging.Logger
+	metrics                   *ApplicationRelayerMetrics
+	network                   *peers.AppRequestNetwork
+	messageCreator            message.Creator
+	sourceBlockchain          config.SourceBlockchain
+	signingSubnetID           ids.ID
+	destinationClient         vms.DestinationClient
+	relayerID                 database.RelayerID
+	warpQuorum                config.WarpQuorum
+	checkpointManager         *checkpoint.CheckpointManager
+	currentRequestID          uint32
+	lock                      *sync.RWMutex
+	sourceWarpSignatureClient *rpc.Client // nil if configured to fetch signatures via AppRequest for the source blockchain
 }
 
 func NewApplicationRelayer(
@@ -109,19 +111,39 @@ func NewApplicationRelayer(
 	checkpointManager := checkpoint.NewCheckpointManager(logger, db, sub, relayerID, startingHeight)
 	checkpointManager.Run()
 
+	var warpClient *rpc.Client
+	if !sourceBlockchain.UseAppRequestNetwork() {
+		// The subnet-evm Warp API client does not support query parameters or HTTP headers, and expects the URI to be in a specific form.
+		// Instead, we invoke the Warp API directly via the RPC client.
+		warpClient, err = utils.DialWithConfig(
+			context.Background(),
+			sourceBlockchain.WarpAPIEndpoint.BaseURL,
+			sourceBlockchain.WarpAPIEndpoint.HTTPHeaders,
+			sourceBlockchain.WarpAPIEndpoint.QueryParams,
+		)
+		if err != nil {
+			logger.Error(
+				"Failed to create Warp API client",
+				zap.Error(err),
+			)
+			return nil, err
+		}
+	}
+
 	ar := ApplicationRelayer{
-		logger:            logger,
-		metrics:           metrics,
-		network:           network,
-		messageCreator:    messageCreator,
-		sourceBlockchain:  sourceBlockchain,
-		destinationClient: destinationClient,
-		relayerID:         relayerID,
-		signingSubnetID:   signingSubnet,
-		warpQuorum:        quorum,
-		checkpointManager: checkpointManager,
-		currentRequestID:  rand.Uint32(), // TODONOW: pass via ctor
-		lock:              &sync.RWMutex{},
+		logger:                    logger,
+		metrics:                   metrics,
+		network:                   network,
+		messageCreator:            messageCreator,
+		sourceBlockchain:          sourceBlockchain,
+		destinationClient:         destinationClient,
+		relayerID:                 relayerID,
+		signingSubnetID:           signingSubnet,
+		warpQuorum:                quorum,
+		checkpointManager:         checkpointManager,
+		currentRequestID:          rand.Uint32(), // TODONOW: pass via ctor
+		lock:                      &sync.RWMutex{},
+		sourceWarpSignatureClient: warpClient,
 	}
 
 	return &ar, nil
@@ -172,7 +194,6 @@ func (r *ApplicationRelayer) ProcessMessage(handler messages.MessageHandler) (co
 	return r.relayMessage(
 		reqID,
 		handler,
-		true,
 	)
 }
 
@@ -183,7 +204,6 @@ func (r *ApplicationRelayer) RelayerID() database.RelayerID {
 func (r *ApplicationRelayer) relayMessage(
 	requestID uint32,
 	handler messages.MessageHandler,
-	useAppRequestNetwork bool,
 ) (common.Hash, error) {
 	r.logger.Debug(
 		"Relaying message",
@@ -209,7 +229,10 @@ func (r *ApplicationRelayer) relayMessage(
 	startCreateSignedMessageTime := time.Now()
 	// Query nodes on the origin chain for signatures, and construct the signed warp message.
 	var signedMessage *avalancheWarp.Message
-	if useAppRequestNetwork {
+
+	// sourceWarpSignatureClient is nil iff the source blockchain is configured to fetch signatures via AppRequest
+	if r.sourceWarpSignatureClient == nil {
+		r.incFetchSignatureAppRequestCount()
 		signedMessage, err = r.createSignedMessageAppRequest(unsignedMessage, requestID)
 		if err != nil {
 			r.logger.Error(
@@ -220,6 +243,7 @@ func (r *ApplicationRelayer) relayMessage(
 			return common.Hash{}, err
 		}
 	} else {
+		r.incFetchSignatureRPCCount()
 		signedMessage, err = r.createSignedMessage(unsignedMessage)
 		if err != nil {
 			r.logger.Error(
@@ -258,18 +282,11 @@ func (r *ApplicationRelayer) relayMessage(
 // will need to be accounted for here.
 func (r *ApplicationRelayer) createSignedMessage(unsignedMessage *avalancheWarp.UnsignedMessage) (*avalancheWarp.Message, error) {
 	r.logger.Info("Fetching aggregate signature from the source chain validators via API")
-	// TODO: To properly support this, we should provide a dedicated Warp API endpoint in the config
-	uri := utils.StripFromString(r.sourceBlockchain.RPCEndpoint.BaseURL, "/ext")
-	warpClient, err := warpBackend.NewClient(uri, r.sourceBlockchain.GetBlockchainID().String())
-	if err != nil {
-		r.logger.Error(
-			"Failed to create Warp API client",
-			zap.Error(err),
-		)
-		return nil, err
-	}
 
-	var signedWarpMessageBytes []byte
+	var (
+		signedWarpMessageBytes hexutil.Bytes
+		err                    error
+	)
 	for attempt := 1; attempt <= maxRelayerQueryAttempts; attempt++ {
 		r.logger.Debug(
 			"Relayer collecting signatures from peers.",
@@ -278,8 +295,11 @@ func (r *ApplicationRelayer) createSignedMessage(unsignedMessage *avalancheWarp.
 			zap.String("destinationBlockchainID", r.relayerID.DestinationBlockchainID.String()),
 			zap.String("signingSubnetID", r.signingSubnetID.String()),
 		)
-		signedWarpMessageBytes, err = warpClient.GetMessageAggregateSignature(
+
+		err = r.sourceWarpSignatureClient.CallContext(
 			context.Background(),
+			&signedWarpMessageBytes,
+			"warp_getMessageAggregateSignature",
 			unsignedMessage.ID(),
 			r.warpQuorum.QuorumNumerator,
 			r.signingSubnetID.String(),
@@ -732,4 +752,20 @@ func (r *ApplicationRelayer) setCreateSignedMessageLatencyMS(latency float64) {
 			r.relayerID.DestinationBlockchainID.String(),
 			r.sourceBlockchain.GetBlockchainID().String(),
 			r.sourceBlockchain.GetSubnetID().String()).Set(latency)
+}
+
+func (r *ApplicationRelayer) incFetchSignatureRPCCount() {
+	r.metrics.fetchSignatureRPCCount.
+		WithLabelValues(
+			r.relayerID.DestinationBlockchainID.String(),
+			r.sourceBlockchain.GetBlockchainID().String(),
+			r.sourceBlockchain.GetSubnetID().String()).Inc()
+}
+
+func (r *ApplicationRelayer) incFetchSignatureAppRequestCount() {
+	r.metrics.fetchSignatureAppRequestCount.
+		WithLabelValues(
+			r.relayerID.DestinationBlockchainID.String(),
+			r.sourceBlockchain.GetBlockchainID().String(),
+			r.sourceBlockchain.GetSubnetID().String()).Inc()
 }

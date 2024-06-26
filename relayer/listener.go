@@ -94,7 +94,8 @@ func newListener(
 		)
 		return nil, err
 	}
-	ethWSClient, err := utils.DialWithConfig(
+
+	ethWSClient, err := utils.NewEthClientWithConfig(
 		ctx,
 		sourceBlockchain.WSEndpoint.BaseURL,
 		sourceBlockchain.WSEndpoint.HTTPHeaders,
