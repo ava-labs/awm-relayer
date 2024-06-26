@@ -241,7 +241,7 @@ func createMessageHandlerFactories(
 	messageHandlerFactories := make(map[ids.ID]map[common.Address]messages.MessageHandlerFactory)
 	for _, sourceBlockchain := range globalConfig.SourceBlockchains {
 		messageHandlerFactoriesForSource := make(map[common.Address]messages.MessageHandlerFactory)
-		// Create message managers for each supported message protocol
+		// Create message handler factories for each supported message protocol
 		for addressStr, cfg := range sourceBlockchain.MessageContracts {
 			address := common.HexToAddress(addressStr)
 			format := cfg.MessageFormat
