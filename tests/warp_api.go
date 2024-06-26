@@ -21,9 +21,13 @@ import (
 	. "github.com/onsi/gomega"
 )
 
+// Fully formed name of the metric that tracks the number aggregate signatures fetched from the Warp API
+const rpcSignatureMetricName = "app_fetch_signature_rpc_count"
+
 // This tests the basic functionality of the relayer using the Warp API/, rather than app requests. Includes:
 // - Relaying from Subnet A to Subnet B
 // - Relaying from Subnet B to Subnet A
+// - Verifying the messages were signed using the Warp API
 func WarpAPIRelay(network interfaces.LocalNetwork) {
 	subnetAInfo := network.GetPrimaryNetworkInfo()
 	subnetBInfo, _ := utils.GetTwoSubnets(network)
@@ -106,12 +110,11 @@ func WarpAPIRelay(network interfaces.LocalNetwork) {
 	Expect(err).Should(BeNil())
 	defer resp.Body.Close()
 
-	metricName := "app_fetch_signature_rpc_count"
 	var totalCount uint64
 	scanner := bufio.NewScanner(strings.NewReader(string(body)))
 	for scanner.Scan() {
 		line := scanner.Text()
-		if strings.HasPrefix(line, metricName) {
+		if strings.HasPrefix(line, rpcSignatureMetricName) {
 			log.Info("Found metric line", "metric", line)
 			parts := strings.Fields(line)
 
