@@ -232,6 +232,7 @@ func (r *ApplicationRelayer) relayMessage(
 
 	// sourceWarpSignatureClient is nil iff the source blockchain is configured to fetch signatures via AppRequest
 	if r.sourceWarpSignatureClient == nil {
+		r.incFetchSignatureAppRequestCount()
 		signedMessage, err = r.createSignedMessageAppRequest(unsignedMessage, requestID)
 		if err != nil {
 			r.logger.Error(
@@ -242,6 +243,7 @@ func (r *ApplicationRelayer) relayMessage(
 			return err
 		}
 	} else {
+		r.incFetchSignatureRPCCount()
 		signedMessage, err = r.createSignedMessage(unsignedMessage)
 		if err != nil {
 			r.logger.Error(
@@ -749,4 +751,20 @@ func (r *ApplicationRelayer) setCreateSignedMessageLatencyMS(latency float64) {
 			r.relayerID.DestinationBlockchainID.String(),
 			r.sourceBlockchain.GetBlockchainID().String(),
 			r.sourceBlockchain.GetSubnetID().String()).Set(latency)
+}
+
+func (r *ApplicationRelayer) incFetchSignatureRPCCount() {
+	r.metrics.fetchSignatureRPCCount.
+		WithLabelValues(
+			r.relayerID.DestinationBlockchainID.String(),
+			r.sourceBlockchain.GetBlockchainID().String(),
+			r.sourceBlockchain.GetSubnetID().String()).Inc()
+}
+
+func (r *ApplicationRelayer) incFetchSignatureAppRequestCount() {
+	r.metrics.fetchSignatureAppRequestCount.
+		WithLabelValues(
+			r.relayerID.DestinationBlockchainID.String(),
+			r.sourceBlockchain.GetBlockchainID().String(),
+			r.sourceBlockchain.GetSubnetID().String()).Inc()
 }

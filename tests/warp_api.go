@@ -4,7 +4,13 @@
 package tests
 
 import (
+	"bufio"
 	"context"
+	"fmt"
+	"io"
+	"net/http"
+	"strconv"
+	"strings"
 	"time"
 
 	testUtils "github.com/ava-labs/awm-relayer/tests/utils"
@@ -88,6 +94,36 @@ func WarpAPIRelay(network interfaces.LocalNetwork) {
 		fundedKey,
 		fundedAddress,
 	)
+
+	//
+	// Verify the messages were signed using the Warp API
+	//
+	log.Info("Verifying the messages were signed using the Warp API")
+	resp, err := http.Get(fmt.Sprintf("http://localhost:%d/metrics", relayerConfig.MetricsPort))
+	Expect(err).Should(BeNil())
+
+	body, err := io.ReadAll(resp.Body)
+	Expect(err).Should(BeNil())
+	defer resp.Body.Close()
+
+	metricName := "app_fetch_signature_rpc_count"
+	var totalCount uint64
+	scanner := bufio.NewScanner(strings.NewReader(string(body)))
+	for scanner.Scan() {
+		line := scanner.Text()
+		if strings.HasPrefix(line, metricName) {
+			log.Info("Found metric line", "metric", line)
+			parts := strings.Fields(line)
+
+			// Fetch the metric count from the last field of the line
+			value, err := strconv.ParseUint(parts[len(parts)-1], 10, 64)
+			if err != nil {
+				continue
+			}
+			totalCount += value
+		}
+	}
+	Expect(totalCount).Should(Equal(uint64(2)))
 
 	log.Info("Finished sending warp message, closing down output channel")
 	// Cancel the command and stop the relayer
