@@ -28,12 +28,9 @@ type RelayMessageRequest struct {
 }
 
 // Defines a manual warp message to be sent from the relayer through the API.
-type ManualWarpMessage struct {
-	UnsignedMessageBytes    []byte
-	SourceBlockchainID      ids.ID
-	DestinationBlockchainID ids.ID
-	SourceAddress           common.Address
-	DestinationAddress      common.Address
+type ManualWarpMessageRequest struct {
+	UnsignedMessageBytes []byte
+	SourceAddress        common.Address
 }
 
 func HandleRelayMessage(messageCoordinator *relayer.MessageCoordinator) {
@@ -46,7 +43,7 @@ func HandleRelay(messageCoordinator *relayer.MessageCoordinator) {
 
 func relayMessageAPIHandler(messageCoordinator *relayer.MessageCoordinator) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var req ManualWarpMessage
+		var req ManualWarpMessageRequest
 
 		err := json.NewDecoder(r.Body).Decode(&req)
 		if err != nil {

@@ -101,12 +101,9 @@ func ManualMessage(network interfaces.LocalNetwork) {
 	log.Info("Waiting for the relayer to start up")
 	time.Sleep(15 * time.Second)
 
-	reqBody := api.ManualWarpMessage{
-		UnsignedMessageBytes:    unsignedMessage.Bytes(),
-		SourceBlockchainID:      cChainInfo.BlockchainID,
-		DestinationBlockchainID: cChainInfo.BlockchainID,
-		SourceAddress:           offchainregistry.OffChainRegistrySourceAddress,
-		DestinationAddress:      cChainInfo.TeleporterRegistryAddress,
+	reqBody := api.ManualWarpMessageRequest{
+		UnsignedMessageBytes: unsignedMessage.Bytes(),
+		SourceAddress:        offchainregistry.OffChainRegistrySourceAddress,
 	}
 
 	client := http.Client{
