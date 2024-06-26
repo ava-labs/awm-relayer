@@ -80,4 +80,7 @@ var _ = ginkgo.Describe("[AWM Relayer Integration Tests", func() {
 	ginkgo.It("Batch Message", func() {
 		BatchRelay(localNetworkInstance)
 	})
+	ginkgo.It("Warp API", func() {
+		WarpAPIRelay(localNetworkInstance)
+	})
 })

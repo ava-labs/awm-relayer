@@ -14,9 +14,11 @@ var (
 )
 
 type ApplicationRelayerMetrics struct {
-	successfulRelayMessageCount  *prometheus.CounterVec
-	createSignedMessageLatencyMS *prometheus.GaugeVec
-	failedRelayMessageCount      *prometheus.CounterVec
+	successfulRelayMessageCount   *prometheus.CounterVec
+	createSignedMessageLatencyMS  *prometheus.GaugeVec
+	failedRelayMessageCount       *prometheus.CounterVec
+	fetchSignatureAppRequestCount *prometheus.CounterVec
+	fetchSignatureRPCCount        *prometheus.CounterVec
 }
 
 func NewApplicationRelayerMetrics(registerer prometheus.Registerer) (*ApplicationRelayerMetrics, error) {
@@ -53,9 +55,35 @@ func NewApplicationRelayerMetrics(registerer prometheus.Registerer) (*Applicatio
 	}
 	registerer.MustRegister(failedRelayMessageCount)
 
+	fetchSignatureAppRequestCount := prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "fetch_signature_app_request_count",
+			Help: "Number of aggregate signatures constructed via AppRequest",
+		},
+		[]string{"destination_chain_id", "source_chain_id", "source_subnet_id"},
+	)
+	if fetchSignatureAppRequestCount == nil {
+		return nil, ErrFailedToCreateApplicationRelayerMetrics
+	}
+	registerer.MustRegister(fetchSignatureAppRequestCount)
+
+	fetchSignatureRPCCount := prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "fetch_signature_rpc_count",
+			Help: "Number of aggregate signatures fetched via Warp API",
+		},
+		[]string{"destination_chain_id", "source_chain_id", "source_subnet_id"},
+	)
+	if fetchSignatureRPCCount == nil {
+		return nil, ErrFailedToCreateApplicationRelayerMetrics
+	}
+	registerer.MustRegister(fetchSignatureRPCCount)
+
 	return &ApplicationRelayerMetrics{
-		successfulRelayMessageCount:  successfulRelayMessageCount,
-		createSignedMessageLatencyMS: createSignedMessageLatencyMS,
-		failedRelayMessageCount:      failedRelayMessageCount,
+		successfulRelayMessageCount:   successfulRelayMessageCount,
+		createSignedMessageLatencyMS:  createSignedMessageLatencyMS,
+		failedRelayMessageCount:       failedRelayMessageCount,
+		fetchSignatureAppRequestCount: fetchSignatureAppRequestCount,
+		fetchSignatureRPCCount:        fetchSignatureRPCCount,
 	}, nil
 }

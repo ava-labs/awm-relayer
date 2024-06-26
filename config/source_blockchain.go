@@ -24,11 +24,13 @@ type SourceBlockchain struct {
 	SupportedDestinations             []*SupportedDestination          `mapstructure:"supported-destinations" json:"supported-destinations"`
 	ProcessHistoricalBlocksFromHeight uint64                           `mapstructure:"process-historical-blocks-from-height" json:"process-historical-blocks-from-height"`
 	AllowedOriginSenderAddresses      []string                         `mapstructure:"allowed-origin-sender-addresses" json:"allowed-origin-sender-addresses"`
+	WarpAPIEndpoint                   APIConfig                        `mapstructure:"warp-api-endpoint" json:"warp-api-endpoint"`
 
 	// convenience fields to access parsed data after initialization
 	subnetID                     ids.ID
 	blockchainID                 ids.ID
 	allowedOriginSenderAddresses []common.Address
+	useAppRequestNetwork         bool
 }
 
 // Validates the source subnet configuration, including verifying that the supported destinations are present in destinationBlockchainIDs
@@ -46,6 +48,14 @@ func (s *SourceBlockchain) Validate(destinationBlockchainIDs *set.Set[string]) e
 	}
 	if err := s.WSEndpoint.Validate(); err != nil {
 		return fmt.Errorf("invalid ws-endpoint in source subnet configuration: %w", err)
+	}
+	// The Warp API endpoint is optional. If omitted, signatures are fetched from validators via app request.
+	if s.WarpAPIEndpoint.BaseURL != "" {
+		if err := s.WarpAPIEndpoint.Validate(); err != nil {
+			return fmt.Errorf("invalid warp-api-endpoint in source subnet configuration: %w", err)
+		}
+	} else {
+		s.useAppRequestNetwork = true
 	}
 
 	// Validate the VM specific settings
@@ -138,6 +148,10 @@ func (s *SourceBlockchain) GetBlockchainID() ids.ID {
 
 func (s *SourceBlockchain) GetAllowedOriginSenderAddresses() []common.Address {
 	return s.allowedOriginSenderAddresses
+}
+
+func (s *SourceBlockchain) UseAppRequestNetwork() bool {
+	return s.useAppRequestNetwork
 }
 
 // Specifies a supported destination blockchain and addresses for a source blockchain.
