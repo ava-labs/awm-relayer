@@ -200,7 +200,7 @@ func main() {
 	}
 	messageCoordinator := relayer.NewMessageCoordinator(logger, messageHandlerFactories, applicationRelayers, sourceClients)
 
-	// Each goroutine will have an atomic bool that it can set to false if it ever disconnects from its subscription.
+	// Each Listener goroutine will have an atomic bool that it can set to false to indicate an unrecoverable error
 	api.HandleHealthCheck(relayerHealth)
 	api.HandleRelay(messageCoordinator)
 	api.HandleRelayMessage(messageCoordinator)
