@@ -71,7 +71,7 @@ type ApplicationRelayer struct {
 	checkpointManager         *checkpoint.CheckpointManager
 	currentRequestID          uint32
 	lock                      *sync.RWMutex
-	sourceWarpSignatureClient *rpc.Client
+	sourceWarpSignatureClient *rpc.Client // nil if the source blockchain is configured to sign messages via AppRequest
 }
 
 func NewApplicationRelayer(
