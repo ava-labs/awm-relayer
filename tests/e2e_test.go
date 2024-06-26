@@ -62,24 +62,24 @@ var _ = ginkgo.AfterSuite(func() {
 })
 
 var _ = ginkgo.Describe("[AWM Relayer Integration Tests", func() {
-	// ginkgo.It("Manually Provided Message", func() {
-	// 	ManualMessage(localNetworkInstance)
-	// })
-	// ginkgo.It("Basic Relay", func() {
-	// 	BasicRelay(localNetworkInstance)
-	// })
-	// ginkgo.It("Teleporter Registry", func() {
-	// 	TeleporterRegistry(localNetworkInstance)
-	// })
-	// ginkgo.It("Shared Database", func() {
-	// 	SharedDatabaseAccess(localNetworkInstance)
-	// })
-	// ginkgo.It("Allowed Addresses", func() {
-	// 	AllowedAddresses(localNetworkInstance)
-	// })
-	// ginkgo.It("Batch Message", func() {
-	// 	BatchRelay(localNetworkInstance)
-	// })
+	ginkgo.It("Manually Provided Message", func() {
+		ManualMessage(localNetworkInstance)
+	})
+	ginkgo.It("Basic Relay", func() {
+		BasicRelay(localNetworkInstance)
+	})
+	ginkgo.It("Teleporter Registry", func() {
+		TeleporterRegistry(localNetworkInstance)
+	})
+	ginkgo.It("Shared Database", func() {
+		SharedDatabaseAccess(localNetworkInstance)
+	})
+	ginkgo.It("Allowed Addresses", func() {
+		AllowedAddresses(localNetworkInstance)
+	})
+	ginkgo.It("Batch Message", func() {
+		BatchRelay(localNetworkInstance)
+	})
 	ginkgo.It("Warp API", func() {
 		WarpAPIRelay(localNetworkInstance)
 	})
