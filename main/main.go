@@ -122,13 +122,14 @@ func main() {
 
 	// The app request network generates P2P networking logs that are verbose at the info level.
 	// Unless the log level is debug or lower, set the network log level to error to avoid spamming the logs.
+	// We do not collect metrics for the network.
 	networkLogLevel := logging.Error
 	if logLevel <= logging.Debug {
 		networkLogLevel = logLevel
 	}
 	network, err := peers.NewNetwork(
 		networkLogLevel,
-		registerer,
+		prometheus.DefaultRegisterer,
 		&cfg,
 	)
 	if err != nil {
@@ -181,7 +182,14 @@ func main() {
 	}
 
 	// Initialize message creator passed down to relayers for creating app requests.
-	messageCreator, err := message.NewCreator(logger, registerer, "message_creator", constants.DefaultNetworkCompressionType, constants.DefaultNetworkMaximumInboundTimeout)
+	// We do not collect metrics for the message creator.
+	messageCreator, err := message.NewCreator(
+		logger,
+		prometheus.DefaultRegisterer,
+		"message_creator",
+		constants.DefaultNetworkCompressionType,
+		constants.DefaultNetworkMaximumInboundTimeout,
+	)
 	if err != nil {
 		logger.Error(
 			"Failed to create message creator",
