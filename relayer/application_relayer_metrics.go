@@ -58,7 +58,7 @@ func NewApplicationRelayerMetrics(registerer prometheus.Registerer) (*Applicatio
 	fetchSignatureAppRequestCount := prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "fetch_signature_app_request_count",
-			Help: "Number messages signed via AppRequest",
+			Help: "Number of aggregate signatures constructed via AppRequest",
 		},
 		[]string{"destination_chain_id", "source_chain_id", "source_subnet_id"},
 	)
