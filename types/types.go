@@ -6,8 +6,6 @@ package types
 import (
 	"context"
 	"errors"
-	"fmt"
-	"math/big"
 
 	avalancheWarp "github.com/ava-labs/avalanchego/vms/platformvm/warp"
 	"github.com/ava-labs/awm-relayer/utils"
@@ -18,8 +16,10 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 )
 
-var WarpPrecompileLogFilter = warp.WarpABI.Events["SendWarpMessage"].ID
-var ErrInvalidLog = errors.New("invalid warp message log")
+var (
+	WarpPrecompileLogFilter = warp.WarpABI.Events["SendWarpMessage"].ID
+	ErrInvalidLog           = errors.New("invalid warp message log")
+)
 
 // WarpBlockInfo describes the block height and logs needed to process Warp messages.
 // WarpBlockInfo instances are populated by the subscriber, and forwarded to the Listener to process.
@@ -107,21 +107,4 @@ func UnpackWarpMessage(unsignedMsgBytes []byte) (*avalancheWarp.UnsignedMessage,
 		}
 	}
 	return unsignedMsg, nil
-}
-
-func FetchWarpMessageFromID(ethClient ethclient.Client, warpID common.Hash, blockNum *big.Int) (*WarpMessageInfo, error) {
-	logs, err := ethClient.FilterLogs(context.Background(), interfaces.FilterQuery{
-		Topics:    [][]common.Hash{{WarpPrecompileLogFilter}, nil, {warpID}},
-		Addresses: []common.Address{warp.ContractAddress},
-		FromBlock: blockNum,
-		ToBlock:   blockNum,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("could not fetch logs: %w", err)
-	}
-	if len(logs) != 1 {
-		return nil, fmt.Errorf("found more than 1 log: %d", len(logs))
-	}
-
-	return NewWarpMessageInfo(logs[0])
 }

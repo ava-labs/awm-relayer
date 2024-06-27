@@ -4,6 +4,7 @@
 package relayer
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"math/big"
@@ -15,10 +16,15 @@ import (
 	relayerTypes "github.com/ava-labs/awm-relayer/types"
 	"github.com/ava-labs/subnet-evm/core/types"
 	"github.com/ava-labs/subnet-evm/ethclient"
+	"github.com/ava-labs/subnet-evm/interfaces"
+	"github.com/ava-labs/subnet-evm/precompile/contracts/warp"
 	"github.com/ethereum/go-ethereum/common"
 	"go.uber.org/zap"
 )
 
+// MessageCoordinator contains all the logic required to process messages in the relayer.
+// Other components such as the listeners or the API should pass messages to the MessageCoordinator
+// so that it can parse the message(s) and pass them the the proper ApplicationRelayer.
 type MessageCoordinator struct {
 	logger logging.Logger
 	// Maps Source blockchain ID and protocol address to a Message Handler Factory
@@ -41,11 +47,11 @@ func NewMessageCoordinator(
 	}
 }
 
-// GetAppRelayerMessageHandler returns the ApplicationRelayer that is configured to handle this message, as well as a
+// getAppRelayerMessageHandler returns the ApplicationRelayer that is configured to handle this message, as well as a
 // one-time MessageHandler instance that the ApplicationRelayer uses to relay this specific message.
 // The MessageHandler and ApplicationRelayer are decoupled to support batch workflows in which a single ApplicationRelayer
 // processes multiple messages (using their corresponding MessageHandlers) in a single shot.
-func (mc *MessageCoordinator) GetAppRelayerMessageHandler(
+func (mc *MessageCoordinator) getAppRelayerMessageHandler(
 	warpMessageInfo *relayerTypes.WarpMessageInfo,
 ) (
 	*ApplicationRelayer,
@@ -171,7 +177,7 @@ func (mc *MessageCoordinator) ProcessManualWarpMessage(
 		zap.String("blockchainID", warpMessage.UnsignedMessage.SourceChainID.String()),
 		zap.String("warpMessageID", warpMessage.UnsignedMessage.ID().String()),
 	)
-	appRelayer, handler, err := mc.GetAppRelayerMessageHandler(warpMessage)
+	appRelayer, handler, err := mc.getAppRelayerMessageHandler(warpMessage)
 	if err != nil {
 		mc.logger.Error(
 			"Failed to parse manual Warp message.",
@@ -184,20 +190,20 @@ func (mc *MessageCoordinator) ProcessManualWarpMessage(
 	return appRelayer.ProcessMessage(handler)
 }
 
-func (mc *MessageCoordinator) ProcessMessage(blockchainID ids.ID, messageID common.Hash, blockNum *big.Int) (common.Hash, error) {
+func (mc *MessageCoordinator) ProcessMessageID(blockchainID ids.ID, messageID common.Hash, blockNum *big.Int) (common.Hash, error) {
 	ethClient, ok := mc.sourceClients[blockchainID]
 	if !ok {
 		mc.logger.Error("Source client not found", zap.String("blockchainID", blockchainID.String()))
 		return common.Hash{}, fmt.Errorf("source client not set for blockchain: %s", blockchainID.String())
 	}
 
-	warpMessage, err := relayerTypes.FetchWarpMessageFromID(ethClient, messageID, blockNum)
+	warpMessage, err := FetchWarpMessageFromID(ethClient, messageID, blockNum)
 	if err != nil {
 		mc.logger.Error("Failed to fetch warp from blockchain", zap.String("blockchainID", blockchainID.String()), zap.Error(err))
 		return common.Hash{}, fmt.Errorf("could not fetch warp message from ID: %w", err)
 	}
 
-	appRelayer, handler, err := mc.GetAppRelayerMessageHandler(warpMessage)
+	appRelayer, handler, err := mc.getAppRelayerMessageHandler(warpMessage)
 	if err != nil {
 		mc.logger.Error(
 			"Failed to parse message",
@@ -227,7 +233,7 @@ func (mc *MessageCoordinator) ProcessBlock(blockHeader *types.Header, ethClient 
 	// Register each message in the block with the appropriate application relayer
 	messageHandlers := make(map[common.Hash][]messages.MessageHandler)
 	for _, warpLogInfo := range block.Messages {
-		appRelayer, handler, err := mc.GetAppRelayerMessageHandler(warpLogInfo)
+		appRelayer, handler, err := mc.getAppRelayerMessageHandler(warpLogInfo)
 		if err != nil {
 			mc.logger.Error(
 				"Failed to parse message",
@@ -251,4 +257,21 @@ func (mc *MessageCoordinator) ProcessBlock(blockHeader *types.Header, ethClient 
 
 		go appRelayer.ProcessHeight(block.BlockNumber, handlers, errChan)
 	}
+}
+
+func FetchWarpMessageFromID(ethClient ethclient.Client, warpID common.Hash, blockNum *big.Int) (*relayerTypes.WarpMessageInfo, error) {
+	logs, err := ethClient.FilterLogs(context.Background(), interfaces.FilterQuery{
+		Topics:    [][]common.Hash{{relayerTypes.WarpPrecompileLogFilter}, nil, {warpID}},
+		Addresses: []common.Address{warp.ContractAddress},
+		FromBlock: blockNum,
+		ToBlock:   blockNum,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("could not fetch logs: %w", err)
+	}
+	if len(logs) != 1 {
+		return nil, fmt.Errorf("found more than 1 log: %d", len(logs))
+	}
+
+	return relayerTypes.NewWarpMessageInfo(logs[0])
 }

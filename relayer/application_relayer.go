@@ -184,6 +184,7 @@ func (r *ApplicationRelayer) ProcessHeight(height uint64, handlers []messages.Me
 }
 
 // Relays a message to the destination chain. Does not checkpoint the height.
+// returns the transaction hash if the message is successfully relayed.
 func (r *ApplicationRelayer) ProcessMessage(handler messages.MessageHandler) (common.Hash, error) {
 	// Increment the request ID. Make sure we don't hold the lock while we relay the message.
 	r.lock.Lock()
@@ -191,16 +192,14 @@ func (r *ApplicationRelayer) ProcessMessage(handler messages.MessageHandler) (co
 	reqID := r.currentRequestID
 	r.lock.Unlock()
 
-	return r.relayMessage(
-		reqID,
-		handler,
-	)
+	return r.relayMessage(reqID, handler)
 }
 
 func (r *ApplicationRelayer) RelayerID() database.RelayerID {
 	return r.relayerID
 }
 
+// returns the transaction hash if the message is successfully relayed.
 func (r *ApplicationRelayer) relayMessage(
 	requestID uint32,
 	handler messages.MessageHandler,

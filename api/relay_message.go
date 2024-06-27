@@ -27,6 +27,11 @@ type RelayMessageRequest struct {
 	BlockNum string `json:"block-num"`
 }
 
+type RelayMessageResponse struct {
+	// hex encoding of the source blockchain ID for the message
+	TransactionHash string `json:"transaction-hash"`
+}
+
 // Defines a manual warp message to be sent from the relayer through the API.
 type ManualWarpMessageRequest struct {
 	UnsignedMessageBytes []byte
@@ -68,7 +73,17 @@ func relayMessageAPIHandler(messageCoordinator *relayer.MessageCoordinator) http
 			return
 		}
 
-		_, _ = w.Write([]byte("Message processed successfully. Transaction Hash: " + txHash.Hex()))
+		resp, err := json.Marshal(
+			RelayMessageResponse{
+				TransactionHash: txHash.Hex(),
+			},
+		)
+		if err != nil {
+			http.Error(w, "error writing response: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		_, _ = w.Write(resp)
 	})
 }
 
@@ -94,12 +109,22 @@ func relayAPIHandler(messageCoordinator *relayer.MessageCoordinator) http.Handle
 			return
 		}
 
-		txHash, err := messageCoordinator.ProcessMessage(blockchainID, messageID, blockNum)
+		txHash, err := messageCoordinator.ProcessMessageID(blockchainID, messageID, blockNum)
 		if err != nil {
 			http.Error(w, "error processing message: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
 
-		_, _ = w.Write([]byte("Message processed successfully. Transaction Hash: " + txHash.Hex()))
+		resp, err := json.Marshal(
+			RelayMessageResponse{
+				TransactionHash: txHash.Hex(),
+			},
+		)
+		if err != nil {
+			http.Error(w, "error writing response: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		_, _ = w.Write(resp)
 	})
 }

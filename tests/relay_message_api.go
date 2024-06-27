@@ -8,9 +8,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"time"
 
+	"github.com/ava-labs/avalanchego/ids"
 	avalancheWarp "github.com/ava-labs/avalanchego/vms/platformvm/warp"
 	"github.com/ava-labs/awm-relayer/api"
 	testUtils "github.com/ava-labs/awm-relayer/tests/utils"
@@ -19,6 +21,7 @@ import (
 	"github.com/ava-labs/subnet-evm/precompile/contracts/warp"
 	"github.com/ava-labs/teleporter/tests/interfaces"
 	"github.com/ava-labs/teleporter/tests/utils"
+	teleporterTestUtils "github.com/ava-labs/teleporter/tests/utils"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
@@ -40,7 +43,7 @@ func RelayMessageAPI(network interfaces.LocalNetwork) {
 	testUtils.FundRelayers(ctx, []interfaces.SubnetTestInfo{subnetAInfo, subnetBInfo}, fundedKey, relayerKey)
 
 	log.Info("Sending teleporter message")
-	receipt, _, _ := testUtils.SendBasicTeleporterMessage(ctx, subnetAInfo, subnetBInfo, fundedKey, fundedAddress)
+	receipt, _, teleporterMessageID := testUtils.SendBasicTeleporterMessage(ctx, subnetAInfo, subnetBInfo, fundedKey, fundedAddress)
 	warpMessage := getWarpMessageFromLog(ctx, receipt, subnetAInfo)
 
 	// Set up relayer config
@@ -89,6 +92,20 @@ func RelayMessageAPI(network interfaces.LocalNetwork) {
 		res, err := client.Do(req)
 		Expect(err).Should(BeNil())
 		Expect(res.Status).Should(Equal("200 OK"))
+
+		defer res.Body.Close()
+		body, err := io.ReadAll(res.Body)
+		Expect(err).Should(BeNil())
+
+		var response api.RelayMessageResponse
+		err = json.Unmarshal(body, &response)
+		Expect(err).Should(BeNil())
+
+		receipt, err := subnetBInfo.RPCClient.TransactionReceipt(ctx, common.HexToHash(response.TransactionHash))
+		Expect(err).Should(BeNil())
+		receiveEvent, err := teleporterTestUtils.GetEventFromLogs(receipt.Logs, subnetBInfo.TeleporterMessenger.ParseReceiveCrossChainMessage)
+		Expect(err).Should(BeNil())
+		Expect(ids.ID(receiveEvent.MessageID)).Should(Equal(teleporterMessageID))
 	}
 
 	// Send the same request to ensure the correct response.
@@ -104,6 +121,15 @@ func RelayMessageAPI(network interfaces.LocalNetwork) {
 		res, err := client.Do(req)
 		Expect(err).Should(BeNil())
 		Expect(res.Status).Should(Equal("200 OK"))
+
+		defer res.Body.Close()
+		body, err := io.ReadAll(res.Body)
+		Expect(err).Should(BeNil())
+
+		var response api.RelayMessageResponse
+		err = json.Unmarshal(body, &response)
+		Expect(err).Should(BeNil())
+		Expect(response.TransactionHash).Should(Equal("0x0000000000000000000000000000000000000000000000000000000000000000"))
 	}
 
 	// Cancel the command and stop the relayer
