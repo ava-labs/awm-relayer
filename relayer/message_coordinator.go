@@ -41,7 +41,7 @@ func NewMessageCoordinator(
 	}
 }
 
-// GetAppRelayerMessageHandler Returns the ApplicationRelayer that is configured to handle this message, as well as a
+// GetAppRelayerMessageHandler returns the ApplicationRelayer that is configured to handle this message, as well as a
 // one-time MessageHandler instance that the ApplicationRelayer uses to relay this specific message.
 // The MessageHandler and ApplicationRelayer are decoupled to support batch workflows in which a single ApplicationRelayer
 // processes multiple messages (using their corresponding MessageHandlers) in a single shot.
