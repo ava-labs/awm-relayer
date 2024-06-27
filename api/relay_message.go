@@ -23,7 +23,7 @@ type RelayMessageRequest struct {
 	BlockchainID string `json:"blockchain-id"`
 	// Required. Hex encoding of the warp message ID
 	MessageID string `json:"message-id"`
-	// Required. Integer representation of the block number
+	// Required. Integer representation of the block number that the message was sent in
 	BlockNum string `json:"block-num"`
 }
 
