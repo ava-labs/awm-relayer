@@ -34,8 +34,8 @@ type RelayMessageResponse struct {
 
 // Defines a manual warp message to be sent from the relayer through the API.
 type ManualWarpMessageRequest struct {
-	UnsignedMessageBytes []byte
-	SourceAddress        common.Address
+	UnsignedMessageBytes []byte `json:"unsigned-message-bytes"`
+	SourceAddress        string `json:"source-address"`
 }
 
 func HandleRelayMessage(messageCoordinator *relayer.MessageCoordinator) {
@@ -49,7 +49,6 @@ func HandleRelay(messageCoordinator *relayer.MessageCoordinator) {
 func relayMessageAPIHandler(messageCoordinator *relayer.MessageCoordinator) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var req ManualWarpMessageRequest
-
 		err := json.NewDecoder(r.Body).Decode(&req)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
@@ -63,7 +62,7 @@ func relayMessageAPIHandler(messageCoordinator *relayer.MessageCoordinator) http
 		}
 
 		warpMessageInfo := &relayerTypes.WarpMessageInfo{
-			SourceAddress:   req.SourceAddress,
+			SourceAddress:   common.HexToAddress(req.SourceAddress),
 			UnsignedMessage: unsignedMessage,
 		}
 
@@ -90,7 +89,6 @@ func relayMessageAPIHandler(messageCoordinator *relayer.MessageCoordinator) http
 func relayAPIHandler(messageCoordinator *relayer.MessageCoordinator) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var req RelayMessageRequest
-
 		err := json.NewDecoder(r.Body).Decode(&req)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
