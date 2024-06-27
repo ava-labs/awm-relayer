@@ -19,7 +19,7 @@ const (
 )
 
 type RelayMessageRequest struct {
-	// Required. cb58 encoding of the blockchain ID
+	// Required. cb58 encoding of the source blockchain ID for the message
 	BlockchainID string `json:"blockchain-id"`
 	// Required. Hex encoding of the warp message ID
 	MessageID string `json:"message-id"`
