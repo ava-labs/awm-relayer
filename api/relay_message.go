@@ -66,7 +66,7 @@ func relayMessageAPIHandler(messageCoordinator *relayer.MessageCoordinator) http
 			UnsignedMessage: unsignedMessage,
 		}
 
-		txHash, err := messageCoordinator.ProcessManualWarpMessage(warpMessageInfo)
+		txHash, err := messageCoordinator.ProcessWarpMessage(warpMessageInfo)
 		if err != nil {
 			http.Error(w, "error processing message: "+err.Error(), http.StatusInternalServerError)
 			return

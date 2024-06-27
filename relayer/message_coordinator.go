@@ -168,23 +168,19 @@ func (mc *MessageCoordinator) getApplicationRelayer(
 	return nil
 }
 
-func (mc *MessageCoordinator) ProcessManualWarpMessage(
-	warpMessage *relayerTypes.WarpMessageInfo,
-) (common.Hash, error) {
-	// Send any messages that were specified in the configuration
-	mc.logger.Info(
-		"Relaying manual Warp message",
-		zap.String("blockchainID", warpMessage.UnsignedMessage.SourceChainID.String()),
-		zap.String("warpMessageID", warpMessage.UnsignedMessage.ID().String()),
-	)
+func (mc *MessageCoordinator) ProcessWarpMessage(warpMessage *relayerTypes.WarpMessageInfo) (common.Hash, error) {
 	appRelayer, handler, err := mc.getAppRelayerMessageHandler(warpMessage)
 	if err != nil {
 		mc.logger.Error(
-			"Failed to parse manual Warp message.",
+			"Failed to parse Warp message.",
 			zap.Error(err),
 			zap.String("warpMessageID", warpMessage.UnsignedMessage.ID().String()),
 		)
 		return common.Hash{}, err
+	}
+	if appRelayer == nil {
+		mc.logger.Error("Application relayer not found")
+		return common.Hash{}, errors.New("application relayer not found")
 	}
 
 	return appRelayer.ProcessMessage(handler)
@@ -203,21 +199,7 @@ func (mc *MessageCoordinator) ProcessMessageID(blockchainID ids.ID, messageID co
 		return common.Hash{}, fmt.Errorf("could not fetch warp message from ID: %w", err)
 	}
 
-	appRelayer, handler, err := mc.getAppRelayerMessageHandler(warpMessage)
-	if err != nil {
-		mc.logger.Error(
-			"Failed to parse message",
-			zap.String("blockchainID", warpMessage.UnsignedMessage.SourceChainID.String()),
-			zap.Error(err),
-		)
-		return common.Hash{}, fmt.Errorf("error getting application relayer: %w", err)
-	}
-	if appRelayer == nil {
-		mc.logger.Error("Application relayer not found")
-		return common.Hash{}, errors.New("application relayer not found")
-	}
-
-	return appRelayer.ProcessMessage(handler)
+	return mc.ProcessWarpMessage(warpMessage)
 }
 
 // Meant to be ran asynchronously. Errors should be sent to errChan.
