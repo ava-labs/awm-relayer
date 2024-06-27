@@ -103,7 +103,7 @@ func ManualMessage(network interfaces.LocalNetwork) {
 
 	reqBody := api.ManualWarpMessageRequest{
 		UnsignedMessageBytes: unsignedMessage.Bytes(),
-		SourceAddress:        offchainregistry.OffChainRegistrySourceAddress,
+		SourceAddress:        offchainregistry.OffChainRegistrySourceAddress.Hex(),
 	}
 
 	client := http.Client{
