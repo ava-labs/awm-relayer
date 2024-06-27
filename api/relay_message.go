@@ -14,8 +14,8 @@ import (
 )
 
 const (
-	RelayApiPath        = "/relay"
-	RelayMessageApiPath = RelayApiPath + "/message"
+	RelayAPIPath        = "/relay"
+	RelayMessageAPIPath = RelayAPIPath + "/message"
 )
 
 type RelayMessageRequest struct {
@@ -34,11 +34,11 @@ type ManualWarpMessageRequest struct {
 }
 
 func HandleRelayMessage(messageCoordinator *relayer.MessageCoordinator) {
-	http.Handle(RelayApiPath, relayAPIHandler(messageCoordinator))
+	http.Handle(RelayAPIPath, relayAPIHandler(messageCoordinator))
 }
 
 func HandleRelay(messageCoordinator *relayer.MessageCoordinator) {
-	http.Handle(RelayMessageApiPath, relayMessageAPIHandler(messageCoordinator))
+	http.Handle(RelayMessageAPIPath, relayMessageAPIHandler(messageCoordinator))
 }
 
 func relayMessageAPIHandler(messageCoordinator *relayer.MessageCoordinator) http.Handler {
