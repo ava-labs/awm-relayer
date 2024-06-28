@@ -1,7 +1,7 @@
 // Copyright (C) 2023, Ava Labs, Inc. All rights reserved.
 // See the file LICENSE for licensing terms.
 
-package tests
+package utils
 
 import (
 	"bufio"
@@ -14,6 +14,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/utils/logging"
@@ -21,6 +22,7 @@ import (
 	warpPayload "github.com/ava-labs/avalanchego/vms/platformvm/warp/payload"
 	"github.com/ava-labs/awm-relayer/config"
 	offchainregistry "github.com/ava-labs/awm-relayer/messages/off-chain-registry"
+	"github.com/ava-labs/awm-relayer/proto/pb/mock_decider"
 	batchcrosschainmessenger "github.com/ava-labs/awm-relayer/tests/abi-bindings/go/BatchCrossChainMessenger"
 	relayerUtils "github.com/ava-labs/awm-relayer/utils"
 	"github.com/ava-labs/subnet-evm/accounts/abi/bind"
@@ -37,6 +39,8 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	. "github.com/onsi/gomega"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 // Write the test database to /tmp since the data is not needed after the test
@@ -95,6 +99,23 @@ func BuildAndRunRelayerExecutable(ctx context.Context, relayerConfigPath string)
 			panic(fmt.Errorf("relayer exited abnormally: %w", err))
 		}
 	}()
+
+	// Prime the mock decider to say "yes, SHOULD send message" for all
+	time.Sleep(3 * time.Second) // to wait for the mock to start up
+	rpcClient, err := grpc.NewClient(
+		"127.0.0.1:50051",
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+	)
+	defer rpcClient.Close()
+	Expect(err).Should(BeNil())
+	_, err = mock_decider.NewMockDeciderClient(rpcClient).SetShouldSendMessageResponse(
+		ctx,
+		&mock_decider.SetShouldSendMessageResponseRequest{
+			ShouldSendMessageResponse: true,
+		},
+	)
+	Expect(err).Should(BeNil())
+
 	return func() {
 		relayerCancel()
 		<-relayerContext.Done()
@@ -204,6 +225,7 @@ func CreateDefaultRelayerConfig(
 		MetricsPort:            9090,
 		SourceBlockchains:      sources,
 		DestinationBlockchains: destinations,
+		DeciderPluginPath:      "./tests/cmd/decider/decider",
 	}
 }
 

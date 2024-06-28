@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package mock_decider;
+
+import "google/protobuf/empty.proto";
+
+option go_package = "github.com/ava-labs/awm-relayer/proto/pb/mock_decider";
+
+service MockDecider {
+  rpc SetShouldSendMessageResponse(SetShouldSendMessageResponseRequest) returns (google.protobuf.Empty);
+}
+
+message SetShouldSendMessageResponseRequest {
+  bool should_send_message_response = 1;
+}

@@ -2,7 +2,7 @@
 # Copyright (C) 2023, Ava Labs, Inc. All rights reserved.
 # See the file LICENSE for licensing terms.
 
-set -e
+set -ex
 
 SUBNET_EVM_PATH=
 LOCAL=
@@ -66,6 +66,7 @@ source "$RELAYER_PATH"/scripts/versions.sh
 go install -v github.com/onsi/ginkgo/v2/ginkgo@${GINKGO_VERSION}
 
 ginkgo build ./tests/
+go build -v -o tests/cmd/decider/decider ./tests/cmd/decider/
 
 # Run the tests
 echo "Running e2e tests $RUN_E2E"
