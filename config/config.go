@@ -58,7 +58,6 @@ type Config struct {
 	SourceBlockchains      []*SourceBlockchain      `mapstructure:"source-blockchains" json:"source-blockchains"`
 	DestinationBlockchains []*DestinationBlockchain `mapstructure:"destination-blockchains" json:"destination-blockchains"`
 	ProcessMissedBlocks    bool                     `mapstructure:"process-missed-blocks" json:"process-missed-blocks"`
-	ManualWarpMessages     []*ManualWarpMessage     `mapstructure:"manual-warp-messages" json:"manual-warp-messages"`
 
 	// convenience field to fetch a blockchain's subnet ID
 	blockchainIDToSubnetID map[ids.ID]ids.ID
@@ -71,7 +70,7 @@ func DisplayUsageText() {
 
 // Validates the configuration
 // Does not modify the public fields as derived from the configuration passed to the application,
-// but does initialize private fields available through getters
+// but does initialize private fields available through getters.
 func (c *Config) Validate() error {
 	if len(c.SourceBlockchains) == 0 {
 		return errors.New("relayer not configured to relay from any subnets. A list of source subnets must be provided in the configuration file")
@@ -119,13 +118,6 @@ func (c *Config) Validate() error {
 		blockchainIDToSubnetID[s.blockchainID] = s.subnetID
 	}
 	c.blockchainIDToSubnetID = blockchainIDToSubnetID
-
-	// Validate the manual warp messages
-	for i, msg := range c.ManualWarpMessages {
-		if err := msg.Validate(); err != nil {
-			return fmt.Errorf("invalid manual warp message at index %d: %w", i, err)
-		}
-	}
 
 	return nil
 }

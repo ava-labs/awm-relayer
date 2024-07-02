@@ -144,7 +144,7 @@ func (m *messageHandler) ShouldSendMessage(destinationClient vms.DestinationClie
 	return false, nil
 }
 
-func (m *messageHandler) SendMessage(signedMessage *warp.Message, destinationClient vms.DestinationClient) error {
+func (m *messageHandler) SendMessage(signedMessage *warp.Message, destinationClient vms.DestinationClient) (common.Hash, error) {
 	// Construct the transaction call data to call the TeleporterRegistry contract.
 	// Only one off-chain registry Warp message is sent at a time, so we hardcode the index to 0 in the call.
 	callData, err := teleporterregistry.PackAddProtocolVersion(0)
@@ -154,10 +154,10 @@ func (m *messageHandler) SendMessage(signedMessage *warp.Message, destinationCli
 			zap.String("destinationBlockchainID", destinationClient.DestinationBlockchainID().String()),
 			zap.String("warpMessageID", signedMessage.ID().String()),
 		)
-		return err
+		return common.Hash{}, err
 	}
 
-	_, err = destinationClient.SendTx(signedMessage, m.factory.registryAddress.Hex(), addProtocolVersionGasLimit, callData)
+	txHash, err := destinationClient.SendTx(signedMessage, m.factory.registryAddress.Hex(), addProtocolVersionGasLimit, callData)
 	if err != nil {
 		m.logger.Error(
 			"Failed to send tx.",
@@ -165,14 +165,14 @@ func (m *messageHandler) SendMessage(signedMessage *warp.Message, destinationCli
 			zap.String("warpMessageID", signedMessage.ID().String()),
 			zap.Error(err),
 		)
-		return err
+		return common.Hash{}, err
 	}
 	m.logger.Info(
 		"Sent message to destination chain",
 		zap.String("destinationBlockchainID", destinationClient.DestinationBlockchainID().String()),
 		zap.String("warpMessageID", signedMessage.ID().String()),
 	)
-	return nil
+	return txHash, nil
 }
 
 func (m *messageHandler) GetMessageRoutingInfo() (
