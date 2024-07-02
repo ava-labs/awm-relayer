@@ -324,7 +324,7 @@ The relayer consists of the following components:
 {
  "blockchain-id": "<cb58-encoding of blockchain ID>",
  "message-id": "<Hex encoding of Warp message ID>",
- "block-num": <Integer representation of the block number that the message was sent in>
+ "block-num": "<Integer representation of the block number that the message was sent in>"
 }
 ```
 - If successful, the endpoint will return the following JSON:

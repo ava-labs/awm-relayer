@@ -11,10 +11,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/ava-labs/awm-relayer/messages"
-	offchainregistry "github.com/ava-labs/awm-relayer/messages/off-chain-registry"
-	"github.com/ava-labs/awm-relayer/messages/teleporter"
-
 	"github.com/ava-labs/avalanchego/api/metrics"
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/message"
@@ -23,6 +19,9 @@ import (
 	"github.com/ava-labs/awm-relayer/api"
 	"github.com/ava-labs/awm-relayer/config"
 	"github.com/ava-labs/awm-relayer/database"
+	"github.com/ava-labs/awm-relayer/messages"
+	offchainregistry "github.com/ava-labs/awm-relayer/messages/off-chain-registry"
+	"github.com/ava-labs/awm-relayer/messages/teleporter"
 	"github.com/ava-labs/awm-relayer/peers"
 	"github.com/ava-labs/awm-relayer/relayer"
 	"github.com/ava-labs/awm-relayer/utils"
@@ -202,8 +201,8 @@ func main() {
 
 	// Each Listener goroutine will have an atomic bool that it can set to false to indicate an unrecoverable error
 	api.HandleHealthCheck(relayerHealth)
-	api.HandleRelay(messageCoordinator)
-	api.HandleRelayMessage(messageCoordinator)
+	api.HandleRelay(logger, messageCoordinator)
+	api.HandleRelayMessage(logger, messageCoordinator)
 
 	// start the health check server
 	go func() {

@@ -186,14 +186,14 @@ func (mc *MessageCoordinator) ProcessWarpMessage(warpMessage *relayerTypes.WarpM
 	return appRelayer.ProcessMessage(handler)
 }
 
-func (mc *MessageCoordinator) ProcessMessageID(blockchainID ids.ID, messageID common.Hash, blockNum *big.Int) (common.Hash, error) {
+func (mc *MessageCoordinator) ProcessMessageID(blockchainID ids.ID, messageID ids.ID, blockNum *big.Int) (common.Hash, error) {
 	ethClient, ok := mc.sourceClients[blockchainID]
 	if !ok {
 		mc.logger.Error("Source client not found", zap.String("blockchainID", blockchainID.String()))
 		return common.Hash{}, fmt.Errorf("source client not set for blockchain: %s", blockchainID.String())
 	}
 
-	warpMessage, err := FetchWarpMessageFromID(ethClient, messageID, blockNum)
+	warpMessage, err := FetchWarpMessage(ethClient, messageID, blockNum)
 	if err != nil {
 		mc.logger.Error("Failed to fetch warp from blockchain", zap.String("blockchainID", blockchainID.String()), zap.Error(err))
 		return common.Hash{}, fmt.Errorf("could not fetch warp message from ID: %w", err)
@@ -241,9 +241,9 @@ func (mc *MessageCoordinator) ProcessBlock(blockHeader *types.Header, ethClient 
 	}
 }
 
-func FetchWarpMessageFromID(ethClient ethclient.Client, warpID common.Hash, blockNum *big.Int) (*relayerTypes.WarpMessageInfo, error) {
+func FetchWarpMessage(ethClient ethclient.Client, warpID ids.ID, blockNum *big.Int) (*relayerTypes.WarpMessageInfo, error) {
 	logs, err := ethClient.FilterLogs(context.Background(), interfaces.FilterQuery{
-		Topics:    [][]common.Hash{{relayerTypes.WarpPrecompileLogFilter}, nil, {warpID}},
+		Topics:    [][]common.Hash{{relayerTypes.WarpPrecompileLogFilter}, nil, {common.Hash(warpID)}},
 		Addresses: []common.Address{warp.ContractAddress},
 		FromBlock: blockNum,
 		ToBlock:   blockNum,

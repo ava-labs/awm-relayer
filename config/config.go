@@ -70,7 +70,7 @@ func DisplayUsageText() {
 
 // Validates the configuration
 // Does not modify the public fields as derived from the configuration passed to the application,
-// but does initialize private fields available through getters
+// but does initialize private fields available through getters.
 func (c *Config) Validate() error {
 	if len(c.SourceBlockchains) == 0 {
 		return errors.New("relayer not configured to relay from any subnets. A list of source subnets must be provided in the configuration file")
