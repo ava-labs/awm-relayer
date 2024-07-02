@@ -358,7 +358,7 @@ The relayer consists of the following components:
     "relayers-all": {
       "status": "down",
       "timestamp": "2024-06-01T05:06:07.685522Z",
-      "error": "<List of cb-58 encoded IDs for unhealth relayers>"
+      "error": "<List of cb-58 encoded IDs for unhealthy relayers>"
     }
   }
 }
