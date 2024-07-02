@@ -338,7 +338,7 @@ The relayer consists of the following components:
 - Used to manually relay a warp message. The body of the request must contain the following JSON:
 ```json
 {
- "unsigned-message-bytes": "<byte array containing the unsigned warp message>",
+ "unsigned-message-bytes": "<Hex encoded byte array containing the unsigned warp message>",
  "source-address": "<Hex encoding of address that sent the warp message>"
 }
 ```
