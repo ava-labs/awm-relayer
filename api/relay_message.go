@@ -78,7 +78,7 @@ func relayMessageAPIHandler(messageCoordinator *relayer.MessageCoordinator) http
 			},
 		)
 		if err != nil {
-			http.Error(w, "error writing response: "+err.Error(), http.StatusInternalServerError)
+			http.Error(w, "error marshaling response: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
 
