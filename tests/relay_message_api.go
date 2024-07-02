@@ -69,7 +69,7 @@ func RelayMessageAPI(network interfaces.LocalNetwork) {
 
 	reqBody := api.RelayMessageRequest{
 		BlockchainID: subnetAInfo.BlockchainID.String(),
-		MessageID:    warpMessage.ID().Hex(),
+		MessageID:    warpMessage.ID().String(),
 		BlockNum:     receipt.BlockNumber.String(),
 	}
 
