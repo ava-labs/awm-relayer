@@ -52,14 +52,14 @@ func relayMessageAPIHandler(logger logging.Logger, messageCoordinator *relayer.M
 		var req ManualWarpMessageRequest
 		err := json.NewDecoder(r.Body).Decode(&req)
 		if err != nil {
-			logger.Warn("could not decode request body")
+			logger.Warn("Could not decode request body")
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
 		unsignedMessage, err := types.UnpackWarpMessage(req.UnsignedMessageBytes)
 		if err != nil {
-			logger.Warn("error unpacking warp message", zap.Error(err))
+			logger.Warn("Error unpacking warp message", zap.Error(err))
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
@@ -71,7 +71,7 @@ func relayMessageAPIHandler(logger logging.Logger, messageCoordinator *relayer.M
 
 		txHash, err := messageCoordinator.ProcessWarpMessage(warpMessageInfo)
 		if err != nil {
-			logger.Error("error processing message", zap.Error(err))
+			logger.Error("Error processing message", zap.Error(err))
 			http.Error(w, "error processing message: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
@@ -82,14 +82,14 @@ func relayMessageAPIHandler(logger logging.Logger, messageCoordinator *relayer.M
 			},
 		)
 		if err != nil {
-			logger.Error("error marshaling response", zap.Error(err))
+			logger.Error("Error marshaling response", zap.Error(err))
 			http.Error(w, "error marshaling response: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
 
 		_, err = w.Write(resp)
 		if err != nil {
-			logger.Error("error writing response", zap.Error(err))
+			logger.Error("Error writing response", zap.Error(err))
 		}
 	})
 }
@@ -99,27 +99,27 @@ func relayAPIHandler(logger logging.Logger, messageCoordinator *relayer.MessageC
 		var req RelayMessageRequest
 		err := json.NewDecoder(r.Body).Decode(&req)
 		if err != nil {
-			logger.Warn("could not decode request body")
+			logger.Warn("Could not decode request body")
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
 		blockchainID, err := ids.FromString(req.BlockchainID)
 		if err != nil {
-			logger.Warn("invalid blockchainID", zap.String("blockchainID", req.BlockchainID))
+			logger.Warn("Invalid blockchainID", zap.String("blockchainID", req.BlockchainID))
 			http.Error(w, "invalid blockchainID: "+err.Error(), http.StatusBadRequest)
 			return
 		}
 		messageID, err := ids.FromString(req.MessageID)
 		if err != nil {
-			logger.Warn("invalid messageID", zap.String("messageID", req.MessageID))
+			logger.Warn("Invalid messageID", zap.String("messageID", req.MessageID))
 			http.Error(w, "invalid messageID: "+err.Error(), http.StatusBadRequest)
 			return
 		}
 
 		txHash, err := messageCoordinator.ProcessMessageID(blockchainID, messageID, new(big.Int).SetUint64(req.BlockNum))
 		if err != nil {
-			logger.Error("error processing message", zap.Error(err))
+			logger.Error("Error processing message", zap.Error(err))
 			http.Error(w, "error processing message: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
@@ -130,14 +130,14 @@ func relayAPIHandler(logger logging.Logger, messageCoordinator *relayer.MessageC
 			},
 		)
 		if err != nil {
-			logger.Error("error marshalling response", zap.Error(err))
+			logger.Error("Error marshalling response", zap.Error(err))
 			http.Error(w, "error marshalling response: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
 
 		_, err = w.Write(resp)
 		if err != nil {
-			logger.Error("error writing response", zap.Error(err))
+			logger.Error("Error writing response", zap.Error(err))
 		}
 	})
 }

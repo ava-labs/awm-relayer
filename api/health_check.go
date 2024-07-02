@@ -32,7 +32,7 @@ func healthCheckHandler(logger logging.Logger, relayerHealth map[ids.ID]*atomic.
 				}
 
 				if len(unhealthyRelayers) > 0 {
-					logger.Fatal("relayers are unhealthy for blockchains", zap.Strings("blockchains", unhealthyRelayers))
+					logger.Fatal("Relayers are unhealthy for blockchains", zap.Strings("blockchains", unhealthyRelayers))
 					return fmt.Errorf("relayers are unhealthy for blockchains %v", unhealthyRelayers)
 				}
 				return nil
