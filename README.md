@@ -319,7 +319,7 @@ The relayer consists of the following components:
 ### API
 
 #### `/relay`
-- Used to manually relay a warp message. The body of the request must contain the following JSON:
+- Used to manually relay a Warp message. The body of the request must contain the following JSON:
 ```json
 {
  "blockchain-id": "<cb58-encoding of blockchain ID>",
