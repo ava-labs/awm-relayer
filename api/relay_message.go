@@ -29,7 +29,7 @@ type RelayMessageRequest struct {
 }
 
 type RelayMessageResponse struct {
-	// hex encoding of the source blockchain ID for the message
+	// hex encoding of the transaction hash containing the processed message
 	TransactionHash string `json:"transaction-hash"`
 }
 
