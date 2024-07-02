@@ -24,8 +24,8 @@ type RelayMessageRequest struct {
 	BlockchainID string `json:"blockchain-id"`
 	// Required. cb58 encoding of the warp message ID
 	MessageID string `json:"message-id"`
-	// Required. Integer representation of the block number that the message was sent in
-	BlockNum string `json:"block-num"`
+	// Required. Block number that the message was sent in
+	BlockNum uint64 `json:"block-num"`
 }
 
 type RelayMessageResponse struct {
@@ -116,14 +116,8 @@ func relayAPIHandler(logger logging.Logger, messageCoordinator *relayer.MessageC
 			http.Error(w, "invalid messageID: "+err.Error(), http.StatusBadRequest)
 			return
 		}
-		blockNum, ok := new(big.Int).SetString(req.BlockNum, 10)
-		if !ok {
-			logger.Warn("invalid blockNum", zap.String("blockNum", req.BlockNum))
-			http.Error(w, "invalid blockNum", http.StatusBadRequest)
-			return
-		}
 
-		txHash, err := messageCoordinator.ProcessMessageID(blockchainID, messageID, blockNum)
+		txHash, err := messageCoordinator.ProcessMessageID(blockchainID, messageID, new(big.Int).SetUint64(req.BlockNum))
 		if err != nil {
 			logger.Error("error processing message", zap.Error(err))
 			http.Error(w, "error processing message: "+err.Error(), http.StatusInternalServerError)

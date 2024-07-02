@@ -200,7 +200,7 @@ func main() {
 	messageCoordinator := relayer.NewMessageCoordinator(logger, messageHandlerFactories, applicationRelayers, sourceClients)
 
 	// Each Listener goroutine will have an atomic bool that it can set to false to indicate an unrecoverable error
-	api.HandleHealthCheck(relayerHealth)
+	api.HandleHealthCheck(logger, relayerHealth)
 	api.HandleRelay(logger, messageCoordinator)
 	api.HandleRelayMessage(logger, messageCoordinator)
 
