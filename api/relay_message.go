@@ -119,7 +119,7 @@ func relayAPIHandler(messageCoordinator *relayer.MessageCoordinator) http.Handle
 			},
 		)
 		if err != nil {
-			http.Error(w, "error writing response: "+err.Error(), http.StatusInternalServerError)
+			http.Error(w, "error marshalling response: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
 
