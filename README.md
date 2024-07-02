@@ -345,7 +345,7 @@ The relayer consists of the following components:
 - If successful, the endpoint will return the following JSON:
 ```json
 {
- "transaction-hash": "<Transaction hash that includes the delivered warp message>",
+ "transaction-hash": "<Transaction hash that includes the delivered Warp message>",
 }
 ```
 
