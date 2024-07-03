@@ -5,25 +5,25 @@ package main
 
 import (
 	"context"
-	"encoding/hex"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
 	"strings"
 
-	"github.com/alexliesenfeld/health"
 	"github.com/ava-labs/avalanchego/api/metrics"
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/message"
 	"github.com/ava-labs/avalanchego/utils/constants"
 	"github.com/ava-labs/avalanchego/utils/logging"
+	"github.com/ava-labs/awm-relayer/api"
 	"github.com/ava-labs/awm-relayer/config"
 	"github.com/ava-labs/awm-relayer/database"
+	"github.com/ava-labs/awm-relayer/messages"
+	offchainregistry "github.com/ava-labs/awm-relayer/messages/off-chain-registry"
+	"github.com/ava-labs/awm-relayer/messages/teleporter"
 	"github.com/ava-labs/awm-relayer/peers"
 	"github.com/ava-labs/awm-relayer/relayer"
-	"github.com/ava-labs/awm-relayer/types"
-	relayerTypes "github.com/ava-labs/awm-relayer/types"
 	"github.com/ava-labs/awm-relayer/utils"
 	"github.com/ava-labs/awm-relayer/vms"
 	"github.com/ava-labs/subnet-evm/ethclient"
@@ -102,24 +102,27 @@ func main() {
 	logger.Info("Initializing destination clients")
 	destinationClients, err := vms.CreateDestinationClients(logger, cfg)
 	if err != nil {
-		logger.Error(
-			"Failed to create destination clients",
-			zap.Error(err),
-		)
+		logger.Fatal("Failed to create destination clients", zap.Error(err))
+		panic(err)
+	}
+
+	// Initialize all source clients
+	logger.Info("Initializing source clients")
+	sourceClients, err := createSourceClients(context.Background(), logger, &cfg)
+	if err != nil {
+		logger.Fatal("Failed to create source clients", zap.Error(err))
 		panic(err)
 	}
 
 	// Initialize metrics gathered through prometheus
 	gatherer, registerer, err := initializeMetrics()
 	if err != nil {
-		logger.Fatal("Failed to set up prometheus metrics",
-			zap.Error(err))
+		logger.Fatal("Failed to set up prometheus metrics", zap.Error(err))
 		panic(err)
 	}
 
 	// Initialize the global app request network
 	logger.Info("Initializing app request network")
-
 	// The app request network generates P2P networking logs that are verbose at the info level.
 	// Unless the log level is debug or lower, set the network log level to error to avoid spamming the logs.
 	// We do not collect metrics for the network.
@@ -133,51 +136,15 @@ func main() {
 		&cfg,
 	)
 	if err != nil {
-		logger.Error(
-			"Failed to create app request network",
-			zap.Error(err),
-		)
+		logger.Fatal("Failed to create app request network", zap.Error(err))
 		panic(err)
 	}
 
-	// Each goroutine will have an atomic bool that it can set to false if it ever disconnects from its subscription.
-	relayerHealth := make(map[ids.ID]*atomic.Bool)
-
-	checker := health.NewChecker(
-		health.WithCheck(health.Check{
-			Name: "relayers-all",
-			Check: func(context.Context) error {
-				// Store the IDs as the cb58 encoding
-				var unhealthyRelayers []string
-				for id, health := range relayerHealth {
-					if !health.Load() {
-						unhealthyRelayers = append(unhealthyRelayers, id.String())
-					}
-				}
-
-				if len(unhealthyRelayers) > 0 {
-					return fmt.Errorf("relayers are unhealthy for blockchains %v", unhealthyRelayers)
-				}
-				return nil
-			},
-		}),
-	)
-
-	http.Handle("/health", health.NewHandler(checker))
-
-	// start the health check server
-	go func() {
-		log.Fatalln(http.ListenAndServe(fmt.Sprintf(":%d", cfg.APIPort), nil))
-	}()
-
 	startMetricsServer(logger, gatherer, cfg.MetricsPort)
 
-	metrics, err := relayer.NewApplicationRelayerMetrics(registerer)
+	relayerMetrics, err := relayer.NewApplicationRelayerMetrics(registerer)
 	if err != nil {
-		logger.Error(
-			"Failed to create application relayer metrics",
-			zap.Error(err),
-		)
+		logger.Fatal("Failed to create application relayer metrics", zap.Error(err))
 		panic(err)
 	}
 
@@ -191,20 +158,14 @@ func main() {
 		constants.DefaultNetworkMaximumInboundTimeout,
 	)
 	if err != nil {
-		logger.Error(
-			"Failed to create message creator",
-			zap.Error(err),
-		)
+		logger.Fatal("Failed to create message creator", zap.Error(err))
 		panic(err)
 	}
 
 	// Initialize the database
 	db, err := database.NewDatabase(logger, &cfg)
 	if err != nil {
-		logger.Error(
-			"Failed to create database",
-			zap.Error(err),
-		)
+		logger.Fatal("Failed to create database", zap.Error(err))
 		panic(err)
 	}
 
@@ -212,159 +173,194 @@ func main() {
 	ticker := utils.NewTicker(cfg.DBWriteIntervalSeconds)
 	go ticker.Run()
 
-	// Gather manual Warp messages specified in the configuration
-	manualWarpMessages := make(map[ids.ID][]*relayerTypes.WarpMessageInfo)
-	for _, msg := range cfg.ManualWarpMessages {
-		sourceBlockchainID := msg.GetSourceBlockchainID()
-		unsignedMsg, err := types.UnpackWarpMessage(msg.GetUnsignedMessageBytes())
-		if err != nil {
-			logger.Error(
-				"Failed to unpack manual Warp message",
-				zap.String("warpMessageBytes", hex.EncodeToString(msg.GetUnsignedMessageBytes())),
-				zap.Error(err),
-			)
-			panic(err)
-		}
-		warpLogInfo := relayerTypes.WarpMessageInfo{
-			SourceAddress:   msg.GetSourceAddress(),
-			UnsignedMessage: unsignedMsg,
-		}
-		manualWarpMessages[sourceBlockchainID] = append(manualWarpMessages[sourceBlockchainID], &warpLogInfo)
+	relayerHealth := createHealthTrackers(&cfg)
+
+	messageHandlerFactories, err := createMessageHandlerFactories(logger, &cfg)
+	if err != nil {
+		logger.Fatal("Failed to create message handler factories", zap.Error(err))
+		panic(err)
 	}
+
+	applicationRelayers, minHeights, err := createApplicationRelayers(
+		context.Background(),
+		logger,
+		relayerMetrics,
+		db,
+		ticker,
+		network,
+		messageCreator,
+		&cfg,
+		sourceClients,
+		destinationClients,
+	)
+	if err != nil {
+		logger.Fatal("Failed to create application relayers", zap.Error(err))
+		panic(err)
+	}
+	messageCoordinator := relayer.NewMessageCoordinator(logger, messageHandlerFactories, applicationRelayers, sourceClients)
+
+	// Each Listener goroutine will have an atomic bool that it can set to false to indicate an unrecoverable error
+	api.HandleHealthCheck(logger, relayerHealth)
+	api.HandleRelay(logger, messageCoordinator)
+	api.HandleRelayMessage(logger, messageCoordinator)
+
+	// start the health check server
+	go func() {
+		log.Fatalln(http.ListenAndServe(fmt.Sprintf(":%d", cfg.APIPort), nil))
+	}()
 
 	// Create listeners for each of the subnets configured as a source
 	errGroup, ctx := errgroup.WithContext(context.Background())
 	for _, s := range cfg.SourceBlockchains {
-		blockchainID, err := ids.FromString(s.BlockchainID)
-		if err != nil {
-			logger.Error(
-				"Invalid subnetID in configuration",
-				zap.Error(err),
-			)
-			panic(err)
-		}
 		sourceBlockchain := s
-
-		health := atomic.NewBool(true)
-		relayerHealth[blockchainID] = health
 
 		// errgroup will cancel the context when the first goroutine returns an error
 		errGroup.Go(func() error {
-			// Dial the eth client
-			ethClient, err := utils.NewEthClientWithConfig(
-				context.Background(),
-				sourceBlockchain.RPCEndpoint.BaseURL,
-				sourceBlockchain.RPCEndpoint.HTTPHeaders,
-				sourceBlockchain.RPCEndpoint.QueryParams,
-			)
-			if err != nil {
-				logger.Error(
-					"Failed to connect to node via RPC",
-					zap.String("blockchainID", sourceBlockchain.BlockchainID),
-					zap.Error(err),
-				)
-				return err
-			}
-
-			// Create the ApplicationRelayers
-			applicationRelayers, minHeight, err := createApplicationRelayers(
-				ctx,
-				logger,
-				metrics,
-				db,
-				ticker,
-				*sourceBlockchain,
-				network,
-				messageCreator,
-				&cfg,
-				ethClient,
-				destinationClients,
-			)
-			if err != nil {
-				logger.Error(
-					"Failed to create application relayers",
-					zap.String("blockchainID", sourceBlockchain.BlockchainID),
-					zap.Error(err),
-				)
-				return err
-			}
-			logger.Info(
-				"Created application relayers",
-				zap.String("blockchainID", sourceBlockchain.BlockchainID),
-			)
-
 			// runListener runs until it errors or the context is cancelled by another goroutine
-			return runListener(
+			return relayer.RunListener(
 				ctx,
 				logger,
 				*sourceBlockchain,
-				health,
-				manualWarpMessages[blockchainID],
-				&cfg,
-				ethClient,
-				applicationRelayers,
-				minHeight,
+				sourceClients[sourceBlockchain.GetBlockchainID()],
+				relayerHealth[sourceBlockchain.GetBlockchainID()],
+				cfg.ProcessMissedBlocks,
+				minHeights[sourceBlockchain.GetBlockchainID()],
+				messageCoordinator,
 			)
 		})
 	}
 	err = errGroup.Wait()
-	logger.Error(
-		"Relayer exiting.",
-		zap.Error(err),
-	)
+	logger.Error("Relayer exiting.", zap.Error(err))
 }
 
-// runListener creates a Listener instance and the ApplicationRelayers for a subnet.
-// The Listener listens for warp messages on that subnet, and the ApplicationRelayers handle delivery to the destination
-func runListener(
+func createMessageHandlerFactories(
+	logger logging.Logger,
+	globalConfig *config.Config,
+) (map[ids.ID]map[common.Address]messages.MessageHandlerFactory, error) {
+	messageHandlerFactories := make(map[ids.ID]map[common.Address]messages.MessageHandlerFactory)
+	for _, sourceBlockchain := range globalConfig.SourceBlockchains {
+		messageHandlerFactoriesForSource := make(map[common.Address]messages.MessageHandlerFactory)
+		// Create message handler factories for each supported message protocol
+		for addressStr, cfg := range sourceBlockchain.MessageContracts {
+			address := common.HexToAddress(addressStr)
+			format := cfg.MessageFormat
+			var (
+				m   messages.MessageHandlerFactory
+				err error
+			)
+			switch config.ParseMessageProtocol(format) {
+			case config.TELEPORTER:
+				m, err = teleporter.NewMessageHandlerFactory(
+					logger,
+					address,
+					cfg,
+				)
+			case config.OFF_CHAIN_REGISTRY:
+				m, err = offchainregistry.NewMessageHandlerFactory(
+					logger,
+					cfg,
+				)
+			default:
+				m, err = nil, fmt.Errorf("invalid message format %s", format)
+			}
+			if err != nil {
+				logger.Error("Failed to create message handler factory", zap.Error(err))
+				return nil, err
+			}
+			messageHandlerFactoriesForSource[address] = m
+		}
+		messageHandlerFactories[sourceBlockchain.GetBlockchainID()] = messageHandlerFactoriesForSource
+	}
+	return messageHandlerFactories, nil
+}
+
+func createSourceClients(
 	ctx context.Context,
 	logger logging.Logger,
-	sourceBlockchain config.SourceBlockchain,
-	relayerHealth *atomic.Bool,
-	manualWarpMessages []*relayerTypes.WarpMessageInfo,
-	globalConfig *config.Config,
-	ethClient ethclient.Client,
-	applicationRelayers map[common.Hash]*relayer.ApplicationRelayer,
-	minHeight uint64,
-) error {
-	// Create the Listener
-	listener, err := relayer.NewListener(
-		logger,
-		sourceBlockchain,
-		relayerHealth,
-		globalConfig,
-		applicationRelayers,
-		minHeight,
-		ethClient,
-	)
-	if err != nil {
-		return fmt.Errorf("failed to create listener instance: %w", err)
+	cfg *config.Config,
+) (map[ids.ID]ethclient.Client, error) {
+	var err error
+	clients := make(map[ids.ID]ethclient.Client)
+
+	for _, sourceBlockchain := range cfg.SourceBlockchains {
+		clients[sourceBlockchain.GetBlockchainID()], err = utils.NewEthClientWithConfig(
+			ctx,
+			sourceBlockchain.RPCEndpoint.BaseURL,
+			sourceBlockchain.RPCEndpoint.HTTPHeaders,
+			sourceBlockchain.RPCEndpoint.QueryParams,
+		)
+		if err != nil {
+			logger.Error(
+				"Failed to connect to node via RPC",
+				zap.String("blockchainID", sourceBlockchain.BlockchainID),
+				zap.Error(err),
+			)
+			return nil, err
+		}
 	}
-	logger.Info(
-		"Created listener",
-		zap.String("blockchainID", sourceBlockchain.BlockchainID),
-	)
-	err = listener.ProcessManualWarpMessages(logger, manualWarpMessages, sourceBlockchain)
-	if err != nil {
-		logger.Error(
-			"Failed to process manual Warp messages",
+	return clients, nil
+}
+
+// Returns a map of application relayers, as well as a map of source blockchain IDs to starting heights.
+func createApplicationRelayers(
+	ctx context.Context,
+	logger logging.Logger,
+	relayerMetrics *relayer.ApplicationRelayerMetrics,
+	db database.RelayerDatabase,
+	ticker *utils.Ticker,
+	network *peers.AppRequestNetwork,
+	messageCreator message.Creator,
+	cfg *config.Config,
+	sourceClients map[ids.ID]ethclient.Client,
+	destinationClients map[ids.ID]vms.DestinationClient,
+) (map[common.Hash]*relayer.ApplicationRelayer, map[ids.ID]uint64, error) {
+	applicationRelayers := make(map[common.Hash]*relayer.ApplicationRelayer)
+	minHeights := make(map[ids.ID]uint64)
+	for _, sourceBlockchain := range cfg.SourceBlockchains {
+		currentHeight, err := sourceClients[sourceBlockchain.GetBlockchainID()].BlockNumber(ctx)
+		if err != nil {
+			logger.Error("Failed to get current block height", zap.Error(err))
+			return nil, nil, err
+		}
+
+		// Create the ApplicationRelayers
+		applicationRelayersForSource, minHeight, err := createApplicationRelayersForSourceChain(
+			ctx,
+			logger,
+			relayerMetrics,
+			db,
+			ticker,
+			*sourceBlockchain,
+			network,
+			messageCreator,
+			cfg,
+			currentHeight,
+			destinationClients,
+		)
+		if err != nil {
+			logger.Error(
+				"Failed to create application relayers",
+				zap.String("blockchainID", sourceBlockchain.BlockchainID),
+				zap.Error(err),
+			)
+			return nil, nil, err
+		}
+
+		for relayerID, applicationRelayer := range applicationRelayersForSource {
+			applicationRelayers[relayerID] = applicationRelayer
+		}
+		minHeights[sourceBlockchain.GetBlockchainID()] = minHeight
+
+		logger.Info(
+			"Created application relayers",
 			zap.String("blockchainID", sourceBlockchain.BlockchainID),
-			zap.Error(err),
 		)
 	}
-
-	logger.Info(
-		"Listener initialized. Listening for messages to relay.",
-		zap.String("originBlockchainID", sourceBlockchain.BlockchainID),
-	)
-
-	// Wait for logs from the subscribed node
-	// Will only return on error or context cancellation
-	return listener.ProcessLogs(ctx)
+	return applicationRelayers, minHeights, nil
 }
 
 // createApplicationRelayers creates Application Relayers for a given source blockchain.
-func createApplicationRelayers(
+func createApplicationRelayersForSourceChain(
 	ctx context.Context,
 	logger logging.Logger,
 	metrics *relayer.ApplicationRelayerMetrics,
@@ -374,7 +370,7 @@ func createApplicationRelayers(
 	network *peers.AppRequestNetwork,
 	messageCreator message.Creator,
 	cfg *config.Config,
-	srcEthClient ethclient.Client,
+	currentHeight uint64,
 	destinationClients map[ids.ID]vms.DestinationClient,
 ) (map[common.Hash]*relayer.ApplicationRelayer, uint64, error) {
 	// Create the ApplicationRelayers
@@ -384,17 +380,8 @@ func createApplicationRelayers(
 	)
 	applicationRelayers := make(map[common.Hash]*relayer.ApplicationRelayer)
 
-	currentHeight, err := srcEthClient.BlockNumber(context.Background())
-	if err != nil {
-		logger.Error(
-			"Failed to get current block height",
-			zap.Error(err),
-		)
-		return nil, 0, err
-	}
-
 	// Each ApplicationRelayer determines its starting height based on the database state.
-	// The Listener begins processing messages starting from the minimum height across all of the ApplicationRelayers
+	// The Listener begins processing messages starting from the minimum height across all the ApplicationRelayers
 	minHeight := uint64(0)
 	for _, relayerID := range database.GetSourceBlockchainRelayerIDs(&sourceBlockchain) {
 		height, err := database.CalculateStartingBlockHeight(
@@ -439,6 +426,14 @@ func createApplicationRelayers(
 		applicationRelayers[relayerID.ID] = applicationRelayer
 	}
 	return applicationRelayers, minHeight, nil
+}
+
+func createHealthTrackers(cfg *config.Config) map[ids.ID]*atomic.Bool {
+	healthTrackers := make(map[ids.ID]*atomic.Bool, len(cfg.SourceBlockchains))
+	for _, sourceBlockchain := range cfg.SourceBlockchains {
+		healthTrackers[sourceBlockchain.GetBlockchainID()] = atomic.NewBool(true)
+	}
+	return healthTrackers
 }
 
 func startMetricsServer(logger logging.Logger, gatherer prometheus.Gatherer, port uint16) {

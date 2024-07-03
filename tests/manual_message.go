@@ -4,34 +4,44 @@
 package tests
 
 import (
+	"bytes"
 	"context"
-	"encoding/hex"
+	"encoding/json"
+	"fmt"
+	"math/big"
+	"net/http"
 	"time"
 
-	avalancheWarp "github.com/ava-labs/avalanchego/vms/platformvm/warp"
-	"github.com/ava-labs/awm-relayer/config"
+	runner_sdk "github.com/ava-labs/avalanche-network-runner/client"
+	"github.com/ava-labs/awm-relayer/api"
+	offchainregistry "github.com/ava-labs/awm-relayer/messages/off-chain-registry"
 	testUtils "github.com/ava-labs/awm-relayer/tests/utils"
 	"github.com/ava-labs/subnet-evm/accounts/abi/bind"
-	"github.com/ava-labs/subnet-evm/core/types"
-	subnetEvmInterfaces "github.com/ava-labs/subnet-evm/interfaces"
-	"github.com/ava-labs/subnet-evm/precompile/contracts/warp"
 	"github.com/ava-labs/teleporter/tests/interfaces"
-	"github.com/ava-labs/teleporter/tests/utils"
+	teleporterTestUtils "github.com/ava-labs/teleporter/tests/utils"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
-
 	. "github.com/onsi/gomega"
 )
 
-// This tests relaying a message manually provided in the relayer config
+// Tests relayer support for off-chain Teleporter Registry updates
+// - Configures the relayer to send an off-chain message to the Teleporter Registry
+// - Verifies that the Teleporter Registry is updated
 func ManualMessage(network interfaces.LocalNetwork) {
-	subnetAInfo := network.GetPrimaryNetworkInfo()
-	subnetBInfo, _ := utils.GetTwoSubnets(network)
+	cChainInfo := network.GetPrimaryNetworkInfo()
+	subnetAInfo, subnetBInfo := teleporterTestUtils.GetTwoSubnets(network)
 	fundedAddress, fundedKey := network.GetFundedAccountInfo()
 	teleporterContractAddress := network.GetTeleporterContractAddress()
 	err := testUtils.ClearRelayerStorage()
 	Expect(err).Should(BeNil())
+
+	//
+	// Get the current Teleporter Registry version
+	//
+	currentVersion, err := cChainInfo.TeleporterRegistry.LatestVersion(&bind.CallOpts{})
+	Expect(err).Should(BeNil())
+	expectedNewVersion := currentVersion.Add(currentVersion, big.NewInt(1))
 
 	//
 	// Fund the relayer address on all subnets
@@ -41,89 +51,86 @@ func ManualMessage(network interfaces.LocalNetwork) {
 	log.Info("Funding relayer address on all subnets")
 	relayerKey, err := crypto.GenerateKey()
 	Expect(err).Should(BeNil())
-	testUtils.FundRelayers(ctx, []interfaces.SubnetTestInfo{subnetAInfo, subnetBInfo}, fundedKey, relayerKey)
+	testUtils.FundRelayers(ctx, []interfaces.SubnetTestInfo{cChainInfo}, fundedKey, relayerKey)
 
 	//
-	// Send two Teleporter message on Subnet A, before the relayer is running
+	// Define the off-chain Warp message
 	//
-
-	log.Info("Sending two teleporter messages on subnet A")
-	// This message will be delivered by the relayer
-	receipt1, _, id1 := testUtils.SendBasicTeleporterMessage(ctx, subnetAInfo, subnetBInfo, fundedKey, fundedAddress)
-	msg1 := getWarpMessageFromLog(ctx, receipt1, subnetAInfo)
-
-	// This message will not be delivered by the relayer
-	_, _, id2 := testUtils.SendBasicTeleporterMessage(ctx, subnetAInfo, subnetBInfo, fundedKey, fundedAddress)
+	log.Info("Creating off-chain Warp message")
+	newProtocolAddress := common.HexToAddress("0x0123456789abcdef0123456789abcdef01234567")
+	networkID := network.GetNetworkID()
 
 	//
-	// Set up relayer config to deliver one of the two previously sent messages
+	// Set up the nodes to accept the off-chain message
+	//
+	// Create chain config file with off chain message for each chain
+	unsignedMessage, warpEnabledChainConfigC := teleporterTestUtils.InitOffChainMessageChainConfig(networkID, cChainInfo, newProtocolAddress, 2)
+	_, warpEnabledChainConfigA := teleporterTestUtils.InitOffChainMessageChainConfig(networkID, subnetAInfo, newProtocolAddress, 2)
+	_, warpEnabledChainConfigB := teleporterTestUtils.InitOffChainMessageChainConfig(networkID, subnetBInfo, newProtocolAddress, 2)
+
+	// Create chain config with off chain messages
+	chainConfigs := make(map[string]string)
+	teleporterTestUtils.SetChainConfig(chainConfigs, cChainInfo, warpEnabledChainConfigC)
+	teleporterTestUtils.SetChainConfig(chainConfigs, subnetBInfo, warpEnabledChainConfigB)
+	teleporterTestUtils.SetChainConfig(chainConfigs, subnetAInfo, warpEnabledChainConfigA)
+
+	// Restart nodes with new chain config
+	nodeNames := network.GetAllNodeNames()
+	log.Info("Restarting nodes with new chain config")
+	network.RestartNodes(ctx, nodeNames, runner_sdk.WithChainConfigs(chainConfigs))
+	// Refresh the subnet info to get the new clients
+	cChainInfo = network.GetPrimaryNetworkInfo()
+
+	//
+	// Set up relayer config
 	//
 	relayerConfig := testUtils.CreateDefaultRelayerConfig(
-		[]interfaces.SubnetTestInfo{subnetAInfo, subnetBInfo},
-		[]interfaces.SubnetTestInfo{subnetAInfo, subnetBInfo},
+		[]interfaces.SubnetTestInfo{cChainInfo},
+		[]interfaces.SubnetTestInfo{cChainInfo},
 		teleporterContractAddress,
 		fundedAddress,
 		relayerKey,
 	)
-	relayerConfig.ManualWarpMessages = []*config.ManualWarpMessage{
-		{
-			UnsignedMessageBytes:    hex.EncodeToString(msg1.Bytes()),
-			SourceBlockchainID:      subnetAInfo.BlockchainID.String(),
-			DestinationBlockchainID: subnetBInfo.BlockchainID.String(),
-			SourceAddress:           teleporterContractAddress.Hex(),
-			DestinationAddress:      teleporterContractAddress.Hex(),
-		},
-	}
-
 	relayerConfigPath := testUtils.WriteRelayerConfig(relayerConfig, testUtils.DefaultRelayerCfgFname)
-
-	//
-	// Run the Relayer. On startup, we should deliver the message provided in the config
-	//
-
-	// Subscribe to the destination chain
-	newHeadsB := make(chan *types.Header, 10)
-	sub, err := subnetBInfo.WSClient.SubscribeNewHead(ctx, newHeadsB)
-	Expect(err).Should(BeNil())
-	defer sub.Unsubscribe()
 
 	log.Info("Starting the relayer")
 	relayerCleanup := testUtils.BuildAndRunRelayerExecutable(ctx, relayerConfigPath)
 	defer relayerCleanup()
 
-	log.Info("Waiting for a new block confirmation on subnet B")
-	<-newHeadsB
-	delivered1, err := subnetBInfo.TeleporterMessenger.MessageReceived(
-		&bind.CallOpts{}, id1,
-	)
-	Expect(err).Should(BeNil())
-	Expect(delivered1).Should(BeTrue())
+	// Sleep for some time to make sure relayer has started up and subscribed.
+	log.Info("Waiting for the relayer to start up")
+	time.Sleep(15 * time.Second)
 
-	log.Info("Waiting for 10s to ensure no new block confirmations on destination chain")
-	Consistently(newHeadsB, 10*time.Second, 500*time.Millisecond).ShouldNot(Receive())
+	reqBody := api.ManualWarpMessageRequest{
+		UnsignedMessageBytes: unsignedMessage.Bytes(),
+		SourceAddress:        offchainregistry.OffChainRegistrySourceAddress.Hex(),
+	}
 
-	delivered2, err := subnetBInfo.TeleporterMessenger.MessageReceived(
-		&bind.CallOpts{}, id2,
-	)
-	Expect(err).Should(BeNil())
-	Expect(delivered2).Should(BeFalse())
-}
+	client := http.Client{
+		Timeout: 30 * time.Second,
+	}
 
-func getWarpMessageFromLog(ctx context.Context, receipt *types.Receipt, source interfaces.SubnetTestInfo) *avalancheWarp.UnsignedMessage {
-	log.Info("Fetching relevant warp logs from the newly produced block")
-	logs, err := source.RPCClient.FilterLogs(ctx, subnetEvmInterfaces.FilterQuery{
-		BlockHash: &receipt.BlockHash,
-		Addresses: []common.Address{warp.Module.Address},
-	})
-	Expect(err).Should(BeNil())
-	Expect(len(logs)).Should(Equal(1))
+	requestURL := fmt.Sprintf("http://localhost:%d%s", relayerConfig.APIPort, api.RelayMessageAPIPath)
 
-	// Check for relevant warp log from subscription and ensure that it matches
-	// the log extracted from the last block.
-	txLog := logs[0]
-	log.Info("Parsing logData as unsigned warp message")
-	unsignedMsg, err := warp.UnpackSendWarpEventDataToMessage(txLog.Data)
-	Expect(err).Should(BeNil())
+	// Send request to API
+	{
+		b, err := json.Marshal(reqBody)
+		Expect(err).Should(BeNil())
+		bodyReader := bytes.NewReader(b)
 
-	return unsignedMsg
+		req, err := http.NewRequest(http.MethodPost, requestURL, bodyReader)
+		Expect(err).Should(BeNil())
+		req.Header.Set("Content-Type", "application/json")
+
+		res, err := client.Do(req)
+		Expect(err).Should(BeNil())
+		Expect(res.Status).Should(Equal("200 OK"))
+
+		// Wait for all nodes to see new transaction
+		time.Sleep(1 * time.Second)
+
+		newVersion, err := cChainInfo.TeleporterRegistry.LatestVersion(&bind.CallOpts{})
+		Expect(err).Should(BeNil())
+		Expect(newVersion.Uint64()).Should(Equal(expectedNewVersion.Uint64()))
+	}
 }

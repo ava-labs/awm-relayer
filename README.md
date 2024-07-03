@@ -316,6 +316,54 @@ The relayer consists of the following components:
   <img src="resources/relayer-diagram.png?raw=true"></img>
 </div>
 
+### API
+
+#### `/relay`
+- Used to manually relay a Warp message. The body of the request must contain the following JSON:
+```json
+{
+ "blockchain-id": "<cb58-encoding of blockchain ID>",
+ "message-id": "<cb58-encoding of Warp message ID>",
+ "block-num": "<Block number that the message was sent in>"
+}
+```
+- If successful, the endpoint will return the following JSON:
+```json
+{
+ "transaction-hash": "<Transaction hash that includes the delivered warp message>"
+}
+```
+
+#### `/relay/message`
+- Used to manually relay a warp message. The body of the request must contain the following JSON:
+```json
+{
+ "unsigned-message-bytes": "<Hex encoded byte array containing the unsigned warp message>",
+ "source-address": "<Hex encoding of address that sent the warp message>"
+}
+```
+- If successful, the endpoint will return the following JSON:
+```json
+{
+ "transaction-hash": "<Transaction hash that includes the delivered Warp message>",
+}
+```
+
+#### `/health`
+- Takes no arguments. Returns a `200` status code if all Application Relayers are healthy. Returns a `503` status if any of the Application Relayers have experienced an unrecoverable error. Here is an example return body:
+```json
+{
+  "status": "down",
+  "details": {
+    "relayers-all": {
+      "status": "down",
+      "timestamp": "2024-06-01T05:06:07.685522Z",
+      "error": "<List of cb-58 encoded IDs for unhealthy relayers>"
+    }
+  }
+}
+```
+
 ## Testing
 
 ### Unit Tests

@@ -31,6 +31,7 @@ import (
 	coreEthMsg "github.com/ava-labs/coreth/plugin/evm/message"
 	msg "github.com/ava-labs/subnet-evm/plugin/evm/message"
 	"github.com/ava-labs/subnet-evm/rpc"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"golang.org/x/sync/errgroup"
 
@@ -158,7 +159,8 @@ func (r *ApplicationRelayer) ProcessHeight(height uint64, handlers []messages.Me
 		// Once we upgrade to Go 1.22, we can use the loop variable directly in the goroutine
 		h := handler
 		eg.Go(func() error {
-			return r.ProcessMessage(h)
+			_, err := r.ProcessMessage(h)
+			return err
 		})
 	}
 	if err := eg.Wait(); err != nil {
@@ -182,29 +184,26 @@ func (r *ApplicationRelayer) ProcessHeight(height uint64, handlers []messages.Me
 }
 
 // Relays a message to the destination chain. Does not checkpoint the height.
-func (r *ApplicationRelayer) ProcessMessage(handler messages.MessageHandler) error {
+// returns the transaction hash if the message is successfully relayed.
+func (r *ApplicationRelayer) ProcessMessage(handler messages.MessageHandler) (common.Hash, error) {
 	// Increment the request ID. Make sure we don't hold the lock while we relay the message.
 	r.lock.Lock()
 	r.currentRequestID++
 	reqID := r.currentRequestID
 	r.lock.Unlock()
 
-	err := r.relayMessage(
-		reqID,
-		handler,
-	)
-
-	return err
+	return r.relayMessage(reqID, handler)
 }
 
 func (r *ApplicationRelayer) RelayerID() database.RelayerID {
 	return r.relayerID
 }
 
+// returns the transaction hash if the message is successfully relayed.
 func (r *ApplicationRelayer) relayMessage(
 	requestID uint32,
 	handler messages.MessageHandler,
-) error {
+) (common.Hash, error) {
 	r.logger.Debug(
 		"Relaying message",
 		zap.Uint32("requestID", requestID),
@@ -218,11 +217,11 @@ func (r *ApplicationRelayer) relayMessage(
 			zap.Error(err),
 		)
 		r.incFailedRelayMessageCount("failed to check if message should be sent")
-		return err
+		return common.Hash{}, err
 	}
 	if !shouldSend {
 		r.logger.Info("Message should not be sent")
-		return nil
+		return common.Hash{}, nil
 	}
 	unsignedMessage := handler.GetUnsignedMessage()
 
@@ -240,7 +239,7 @@ func (r *ApplicationRelayer) relayMessage(
 				zap.Error(err),
 			)
 			r.incFailedRelayMessageCount("failed to create signed warp message via AppRequest network")
-			return err
+			return common.Hash{}, err
 		}
 	} else {
 		r.incFetchSignatureRPCCount()
@@ -251,29 +250,30 @@ func (r *ApplicationRelayer) relayMessage(
 				zap.Error(err),
 			)
 			r.incFailedRelayMessageCount("failed to create signed warp message via RPC")
-			return err
+			return common.Hash{}, err
 		}
 	}
 
 	// create signed message latency (ms)
 	r.setCreateSignedMessageLatencyMS(float64(time.Since(startCreateSignedMessageTime).Milliseconds()))
 
-	err = handler.SendMessage(signedMessage, r.destinationClient)
+	txHash, err := handler.SendMessage(signedMessage, r.destinationClient)
 	if err != nil {
 		r.logger.Error(
 			"Failed to send warp message",
 			zap.Error(err),
 		)
 		r.incFailedRelayMessageCount("failed to send warp message")
-		return err
+		return common.Hash{}, err
 	}
 	r.logger.Info(
 		"Finished relaying message to destination chain",
 		zap.String("destinationBlockchainID", r.relayerID.DestinationBlockchainID.String()),
+		zap.String("txHash", txHash.Hex()),
 	)
 	r.incSuccessfulRelayMessageCount()
 
-	return nil
+	return txHash, nil
 }
 
 // createSignedMessage fetches the signed Warp message from the source chain via RPC.

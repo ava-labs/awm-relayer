@@ -27,7 +27,8 @@ type MessageHandler interface {
 
 	// SendMessage sends the signed message to the destination chain. The payload parsed according to
 	// the VM rules is also passed in, since MessageManager does not assume any particular VM
-	SendMessage(signedMessage *warp.Message, destinationClient vms.DestinationClient) error
+	// returns the transaction hash if the transaction is successful.
+	SendMessage(signedMessage *warp.Message, destinationClient vms.DestinationClient) (common.Hash, error)
 
 	// GetMessageRoutingInfo returns the source chain ID, origin sender address, destination chain ID, and destination address
 	GetMessageRoutingInfo() (

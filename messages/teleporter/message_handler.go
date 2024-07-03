@@ -172,7 +172,7 @@ func (m *messageHandler) ShouldSendMessage(destinationClient vms.DestinationClie
 
 // SendMessage extracts the gasLimit and packs the call data to call the receiveCrossChainMessage method of the Teleporter contract,
 // and dispatches transaction construction and broadcast to the destination client
-func (m *messageHandler) SendMessage(signedMessage *warp.Message, destinationClient vms.DestinationClient) error {
+func (m *messageHandler) SendMessage(signedMessage *warp.Message, destinationClient vms.DestinationClient) (common.Hash, error) {
 	destinationBlockchainID := destinationClient.DestinationBlockchainID()
 	teleporterMessageID, err := teleporterUtils.CalculateMessageID(
 		m.factory.protocolAddress,
@@ -181,7 +181,7 @@ func (m *messageHandler) SendMessage(signedMessage *warp.Message, destinationCli
 		m.teleporterMessage.MessageNonce,
 	)
 	if err != nil {
-		return fmt.Errorf("failed to calculate Teleporter message ID: %w", err)
+		return common.Hash{}, fmt.Errorf("failed to calculate Teleporter message ID: %w", err)
 	}
 
 	m.logger.Info(
@@ -198,7 +198,7 @@ func (m *messageHandler) SendMessage(signedMessage *warp.Message, destinationCli
 			zap.String("warpMessageID", signedMessage.ID().String()),
 			zap.String("teleporterMessageID", teleporterMessageID.String()),
 		)
-		return err
+		return common.Hash{}, err
 	}
 
 	gasLimit, err := gasUtils.CalculateReceiveMessageGasLimit(
@@ -215,7 +215,7 @@ func (m *messageHandler) SendMessage(signedMessage *warp.Message, destinationCli
 			zap.String("warpMessageID", signedMessage.ID().String()),
 			zap.String("teleporterMessageID", teleporterMessageID.String()),
 		)
-		return err
+		return common.Hash{}, err
 	}
 	// Construct the transaction call data to call the receive cross chain message method of the receiver precompile.
 	callData, err := teleportermessenger.PackReceiveCrossChainMessage(0, common.HexToAddress(m.factory.messageConfig.RewardAddress))
@@ -226,7 +226,7 @@ func (m *messageHandler) SendMessage(signedMessage *warp.Message, destinationCli
 			zap.String("warpMessageID", signedMessage.ID().String()),
 			zap.String("teleporterMessageID", teleporterMessageID.String()),
 		)
-		return err
+		return common.Hash{}, err
 	}
 
 	txHash, err := destinationClient.SendTx(signedMessage, m.factory.protocolAddress.Hex(), gasLimit, callData)
@@ -238,13 +238,13 @@ func (m *messageHandler) SendMessage(signedMessage *warp.Message, destinationCli
 			zap.String("teleporterMessageID", teleporterMessageID.String()),
 			zap.Error(err),
 		)
-		return err
+		return common.Hash{}, err
 	}
 
 	// Wait for the message to be included in a block before returning
 	err = m.waitForReceipt(signedMessage, destinationClient, txHash, teleporterMessageID)
 	if err != nil {
-		return err
+		return common.Hash{}, err
 	}
 
 	m.logger.Info(
@@ -254,7 +254,7 @@ func (m *messageHandler) SendMessage(signedMessage *warp.Message, destinationCli
 		zap.String("teleporterMessageID", teleporterMessageID.String()),
 		zap.String("txHash", txHash.String()),
 	)
-	return nil
+	return txHash, nil
 }
 
 func (m *messageHandler) waitForReceipt(signedMessage *warp.Message, destinationClient vms.DestinationClient, txHash common.Hash, teleporterMessageID ids.ID) error {

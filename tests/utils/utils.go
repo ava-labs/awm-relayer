@@ -204,6 +204,7 @@ func CreateDefaultRelayerConfig(
 		MetricsPort:            9090,
 		SourceBlockchains:      sources,
 		DestinationBlockchains: destinations,
+		APIPort:                8080,
 	}
 }
 

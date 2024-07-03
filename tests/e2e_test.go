@@ -21,9 +21,7 @@ const (
 	warpGenesisFile = "./tests/utils/warp-genesis.json"
 )
 
-var (
-	localNetworkInstance *local.LocalNetwork
-)
+var localNetworkInstance *local.LocalNetwork
 
 func TestE2E(t *testing.T) {
 	if os.Getenv("RUN_E2E") == "" {
@@ -68,9 +66,6 @@ var _ = ginkgo.Describe("[AWM Relayer Integration Tests", func() {
 	ginkgo.It("Basic Relay", func() {
 		BasicRelay(localNetworkInstance)
 	})
-	ginkgo.It("Teleporter Registry", func() {
-		TeleporterRegistry(localNetworkInstance)
-	})
 	ginkgo.It("Shared Database", func() {
 		SharedDatabaseAccess(localNetworkInstance)
 	})
@@ -79,6 +74,9 @@ var _ = ginkgo.Describe("[AWM Relayer Integration Tests", func() {
 	})
 	ginkgo.It("Batch Message", func() {
 		BatchRelay(localNetworkInstance)
+	})
+	ginkgo.It("Relay Message API", func() {
+		RelayMessageAPI(localNetworkInstance)
 	})
 	ginkgo.It("Warp API", func() {
 		WarpAPIRelay(localNetworkInstance)
