@@ -170,9 +170,13 @@ func (m *messageHandler) ShouldSendMessage(destinationClient vms.DestinationClie
 	return true, nil
 }
 
-// SendMessage extracts the gasLimit and packs the call data to call the receiveCrossChainMessage method of the Teleporter contract,
-// and dispatches transaction construction and broadcast to the destination client
-func (m *messageHandler) SendMessage(signedMessage *warp.Message, destinationClient vms.DestinationClient) (common.Hash, error) {
+// SendMessage extracts the gasLimit and packs the call data to call the receiveCrossChainMessage
+// method of the Teleporter contract, and dispatches transaction construction and broadcast to the
+// destination client.
+func (m *messageHandler) SendMessage(
+	signedMessage *warp.Message,
+	destinationClient vms.DestinationClient,
+) (common.Hash, error) {
 	destinationBlockchainID := destinationClient.DestinationBlockchainID()
 	teleporterMessageID, err := teleporterUtils.CalculateMessageID(
 		m.factory.protocolAddress,
@@ -218,7 +222,10 @@ func (m *messageHandler) SendMessage(signedMessage *warp.Message, destinationCli
 		return common.Hash{}, err
 	}
 	// Construct the transaction call data to call the receive cross chain message method of the receiver precompile.
-	callData, err := teleportermessenger.PackReceiveCrossChainMessage(0, common.HexToAddress(m.factory.messageConfig.RewardAddress))
+	callData, err := teleportermessenger.PackReceiveCrossChainMessage(
+		0,
+		common.HexToAddress(m.factory.messageConfig.RewardAddress),
+	)
 	if err != nil {
 		m.logger.Error(
 			"Failed packing receiveCrossChainMessage call data",
@@ -229,7 +236,12 @@ func (m *messageHandler) SendMessage(signedMessage *warp.Message, destinationCli
 		return common.Hash{}, err
 	}
 
-	txHash, err := destinationClient.SendTx(signedMessage, m.factory.protocolAddress.Hex(), gasLimit, callData)
+	txHash, err := destinationClient.SendTx(
+		signedMessage,
+		m.factory.protocolAddress.Hex(),
+		gasLimit,
+		callData,
+	)
 	if err != nil {
 		m.logger.Error(
 			"Failed to send tx.",
@@ -257,7 +269,12 @@ func (m *messageHandler) SendMessage(signedMessage *warp.Message, destinationCli
 	return txHash, nil
 }
 
-func (m *messageHandler) waitForReceipt(signedMessage *warp.Message, destinationClient vms.DestinationClient, txHash common.Hash, teleporterMessageID ids.ID) error {
+func (m *messageHandler) waitForReceipt(
+	signedMessage *warp.Message,
+	destinationClient vms.DestinationClient,
+	txHash common.Hash,
+	teleporterMessageID ids.ID,
+) error {
 	destinationBlockchainID := destinationClient.DestinationBlockchainID()
 	callCtx, callCtxCancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer callCtxCancel()
@@ -292,7 +309,9 @@ func (m *messageHandler) waitForReceipt(signedMessage *warp.Message, destination
 
 // parseTeleporterMessage returns the Warp message's corresponding Teleporter message from the cache if it exists.
 // Otherwise parses the Warp message payload.
-func (f *factory) parseTeleporterMessage(unsignedMessage *warp.UnsignedMessage) (*teleportermessenger.TeleporterMessage, error) {
+func (f *factory) parseTeleporterMessage(
+	unsignedMessage *warp.UnsignedMessage,
+) (*teleportermessenger.TeleporterMessage, error) {
 	addressedPayload, err := warpPayload.ParseAddressedCall(unsignedMessage.Payload)
 	if err != nil {
 		f.logger.Error(
@@ -316,10 +335,15 @@ func (f *factory) parseTeleporterMessage(unsignedMessage *warp.UnsignedMessage) 
 // getTeleporterMessenger returns the Teleporter messenger instance for the destination chain.
 // Panic instead of returning errors because this should never happen, and if it does, we do not
 // want to log and swallow the error, since operations after this will fail too.
-func (f *factory) getTeleporterMessenger(destinationClient vms.DestinationClient) *teleportermessenger.TeleporterMessenger {
+func (f *factory) getTeleporterMessenger(
+	destinationClient vms.DestinationClient,
+) *teleportermessenger.TeleporterMessenger {
 	client, ok := destinationClient.Client().(ethclient.Client)
 	if !ok {
-		panic(fmt.Sprintf("Destination client for chain %s is not an Ethereum client", destinationClient.DestinationBlockchainID().String()))
+		panic(fmt.Sprintf(
+			"Destination client for chain %s is not an Ethereum client",
+			destinationClient.DestinationBlockchainID().String()),
+		)
 	}
 
 	// Get the teleporter messenger contract

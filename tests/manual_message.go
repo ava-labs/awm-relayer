@@ -64,9 +64,24 @@ func ManualMessage(network interfaces.LocalNetwork) {
 	// Set up the nodes to accept the off-chain message
 	//
 	// Create chain config file with off chain message for each chain
-	unsignedMessage, warpEnabledChainConfigC := teleporterTestUtils.InitOffChainMessageChainConfig(networkID, cChainInfo, newProtocolAddress, 2)
-	_, warpEnabledChainConfigA := teleporterTestUtils.InitOffChainMessageChainConfig(networkID, subnetAInfo, newProtocolAddress, 2)
-	_, warpEnabledChainConfigB := teleporterTestUtils.InitOffChainMessageChainConfig(networkID, subnetBInfo, newProtocolAddress, 2)
+	unsignedMessage, warpEnabledChainConfigC := teleporterTestUtils.InitOffChainMessageChainConfig(
+		networkID,
+		cChainInfo,
+		newProtocolAddress,
+		2,
+	)
+	_, warpEnabledChainConfigA := teleporterTestUtils.InitOffChainMessageChainConfig(
+		networkID,
+		subnetAInfo,
+		newProtocolAddress,
+		2,
+	)
+	_, warpEnabledChainConfigB := teleporterTestUtils.InitOffChainMessageChainConfig(
+		networkID,
+		subnetBInfo,
+		newProtocolAddress,
+		2,
+	)
 
 	// Create chain config with off chain messages
 	chainConfigs := make(map[string]string)

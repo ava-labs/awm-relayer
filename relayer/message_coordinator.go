@@ -47,10 +47,10 @@ func NewMessageCoordinator(
 	}
 }
 
-// getAppRelayerMessageHandler returns the ApplicationRelayer that is configured to handle this message, as well as a
-// one-time MessageHandler instance that the ApplicationRelayer uses to relay this specific message.
-// The MessageHandler and ApplicationRelayer are decoupled to support batch workflows in which a single ApplicationRelayer
-// processes multiple messages (using their corresponding MessageHandlers) in a single shot.
+// getAppRelayerMessageHandler returns the ApplicationRelayer that is configured to handle this message,
+// as well as a one-time MessageHandler instance that the ApplicationRelayer uses to relay this specific message.
+// The MessageHandler and ApplicationRelayer are decoupled to support batch workflows in which a single
+// ApplicationRelayer processes multiple messages (using their corresponding MessageHandlers) in a single shot.
 func (mc *MessageCoordinator) getAppRelayerMessageHandler(
 	warpMessageInfo *relayerTypes.WarpMessageInfo,
 ) (
@@ -59,6 +59,7 @@ func (mc *MessageCoordinator) getAppRelayerMessageHandler(
 	error,
 ) {
 	// Check that the warp message is from a supported message protocol contract address.
+	//nolint:lll
 	messageHandlerFactory, supportedMessageProtocol := mc.messageHandlerFactories[warpMessageInfo.UnsignedMessage.SourceChainID][warpMessageInfo.SourceAddress]
 	if !supportedMessageProtocol {
 		// Do not return an error here because it is expected for there to be messages from other contracts
@@ -76,6 +77,7 @@ func (mc *MessageCoordinator) getAppRelayerMessageHandler(
 	}
 
 	// Fetch the message delivery data
+	//nolint:lll
 	sourceBlockchainID, originSenderAddress, destinationBlockchainID, destinationAddress, err := messageHandler.GetMessageRoutingInfo()
 	if err != nil {
 		mc.logger.Error("Failed to get message routing information", zap.Error(err))
@@ -106,9 +108,12 @@ func (mc *MessageCoordinator) getAppRelayerMessageHandler(
 // Unpacks the Warp message and fetches the appropriate application relayer
 // Checks for the following registered keys. At most one of these keys should be registered.
 // 1. An exact match on sourceBlockchainID, destinationBlockchainID, originSenderAddress, and destinationAddress
-// 2. A match on sourceBlockchainID and destinationBlockchainID, with a specific originSenderAddress and any destinationAddress
-// 3. A match on sourceBlockchainID and destinationBlockchainID, with any originSenderAddress and a specific destinationAddress
-// 4. A match on sourceBlockchainID and destinationBlockchainID, with any originSenderAddress and any destinationAddress
+// 2. A match on sourceBlockchainID and destinationBlockchainID, with a specific originSenderAddress and
+// any destinationAddress
+// 3. A match on sourceBlockchainID and destinationBlockchainID, with any originSenderAddress and a
+// specific destinationAddress
+// 4. A match on sourceBlockchainID and destinationBlockchainID, with any originSenderAddress and any
+// destinationAddress
 func (mc *MessageCoordinator) getApplicationRelayer(
 	sourceBlockchainID ids.ID,
 	originSenderAddress common.Address,
@@ -126,7 +131,8 @@ func (mc *MessageCoordinator) getApplicationRelayer(
 		return applicationRelayer
 	}
 
-	// Check for a match on sourceBlockchainID and destinationBlockchainID, with a specific originSenderAddress and any destinationAddress
+	// Check for a match on sourceBlockchainID and destinationBlockchainID, with a specific
+	// originSenderAddress and any destinationAddress.
 	applicationRelayerID = database.CalculateRelayerID(
 		sourceBlockchainID,
 		destinationBlockchainID,
@@ -137,7 +143,8 @@ func (mc *MessageCoordinator) getApplicationRelayer(
 		return applicationRelayer
 	}
 
-	// Check for a match on sourceBlockchainID and destinationBlockchainID, with any originSenderAddress and a specific destinationAddress
+	// Check for a match on sourceBlockchainID and destinationBlockchainID, with any originSenderAddress
+	// and a specific destinationAddress.
 	applicationRelayerID = database.CalculateRelayerID(
 		sourceBlockchainID,
 		destinationBlockchainID,
@@ -148,7 +155,8 @@ func (mc *MessageCoordinator) getApplicationRelayer(
 		return applicationRelayer
 	}
 
-	// Check for a match on sourceBlockchainID and destinationBlockchainID, with any originSenderAddress and any destinationAddress
+	// Check for a match on sourceBlockchainID and destinationBlockchainID, with any originSenderAddress
+	// and any destinationAddress.
 	applicationRelayerID = database.CalculateRelayerID(
 		sourceBlockchainID,
 		destinationBlockchainID,
@@ -186,16 +194,27 @@ func (mc *MessageCoordinator) ProcessWarpMessage(warpMessage *relayerTypes.WarpM
 	return appRelayer.ProcessMessage(handler)
 }
 
-func (mc *MessageCoordinator) ProcessMessageID(blockchainID ids.ID, messageID ids.ID, blockNum *big.Int) (common.Hash, error) {
+func (mc *MessageCoordinator) ProcessMessageID(
+	blockchainID ids.ID,
+	messageID ids.ID,
+	blockNum *big.Int,
+) (common.Hash, error) {
 	ethClient, ok := mc.sourceClients[blockchainID]
 	if !ok {
-		mc.logger.Error("Source client not found", zap.String("blockchainID", blockchainID.String()))
+		mc.logger.Error(
+			"Source client not found",
+			zap.String("blockchainID", blockchainID.String()),
+		)
 		return common.Hash{}, fmt.Errorf("source client not set for blockchain: %s", blockchainID.String())
 	}
 
 	warpMessage, err := FetchWarpMessage(ethClient, messageID, blockNum)
 	if err != nil {
-		mc.logger.Error("Failed to fetch warp from blockchain", zap.String("blockchainID", blockchainID.String()), zap.Error(err))
+		mc.logger.Error(
+			"Failed to fetch warp from blockchain",
+			zap.String("blockchainID", blockchainID.String()),
+			zap.Error(err),
+		)
 		return common.Hash{}, fmt.Errorf("could not fetch warp message from ID: %w", err)
 	}
 
@@ -203,7 +222,11 @@ func (mc *MessageCoordinator) ProcessMessageID(blockchainID ids.ID, messageID id
 }
 
 // Meant to be ran asynchronously. Errors should be sent to errChan.
-func (mc *MessageCoordinator) ProcessBlock(blockHeader *types.Header, ethClient ethclient.Client, errChan chan error) {
+func (mc *MessageCoordinator) ProcessBlock(
+	blockHeader *types.Header,
+	ethClient ethclient.Client,
+	errChan chan error,
+) {
 	// Parse the logs in the block, and group by application relayer
 	block, err := relayerTypes.NewWarpBlockInfo(blockHeader, ethClient)
 	if err != nil {
@@ -241,7 +264,11 @@ func (mc *MessageCoordinator) ProcessBlock(blockHeader *types.Header, ethClient 
 	}
 }
 
-func FetchWarpMessage(ethClient ethclient.Client, warpID ids.ID, blockNum *big.Int) (*relayerTypes.WarpMessageInfo, error) {
+func FetchWarpMessage(
+	ethClient ethclient.Client,
+	warpID ids.ID,
+	blockNum *big.Int,
+) (*relayerTypes.WarpMessageInfo, error) {
 	logs, err := ethClient.FilterLogs(context.Background(), interfaces.FilterQuery{
 		Topics:    [][]common.Hash{{relayerTypes.WarpPrecompileLogFilter}, nil, {common.Hash(warpID)}},
 		Addresses: []common.Address{warp.ContractAddress},

@@ -109,12 +109,26 @@ func BasicRelay(network interfaces.LocalNetwork) {
 			logging.JSON.ConsoleEncoder(),
 		),
 	)
-	jsonDB, err := database.NewJSONFileStorage(logger, relayerConfig.StorageLocation, database.GetConfigRelayerIDs(&relayerConfig))
+	jsonDB, err := database.NewJSONFileStorage(
+		logger,
+		relayerConfig.StorageLocation,
+		database.GetConfigRelayerIDs(&relayerConfig),
+	)
 	Expect(err).Should(BeNil())
 
 	// Create relayer keys that allow all source and destination addresses
-	relayerIDA := database.CalculateRelayerID(subnetAInfo.BlockchainID, subnetBInfo.BlockchainID, database.AllAllowedAddress, database.AllAllowedAddress)
-	relayerIDB := database.CalculateRelayerID(subnetBInfo.BlockchainID, subnetAInfo.BlockchainID, database.AllAllowedAddress, database.AllAllowedAddress)
+	relayerIDA := database.CalculateRelayerID(
+		subnetAInfo.BlockchainID,
+		subnetBInfo.BlockchainID,
+		database.AllAllowedAddress,
+		database.AllAllowedAddress,
+	)
+	relayerIDB := database.CalculateRelayerID(
+		subnetBInfo.BlockchainID,
+		subnetAInfo.BlockchainID,
+		database.AllAllowedAddress,
+		database.AllAllowedAddress,
+	)
 	// Modify the JSON database to force the relayer to re-process old blocks
 	err = jsonDB.Put(relayerIDA, database.LatestProcessedBlockKey, []byte("0"))
 	Expect(err).Should(BeNil())
@@ -132,7 +146,8 @@ func BasicRelay(network interfaces.LocalNetwork) {
 	relayerCleanup = testUtils.BuildAndRunRelayerExecutable(ctx, relayerConfigPath)
 	defer relayerCleanup()
 
-	// We should not receive a new block on subnet B, since the relayer should have seen the Teleporter message was already delivered
+	// We should not receive a new block on subnet B, since the relayer should have
+	// seen the Teleporter message was already delivered.
 	log.Info("Waiting for 10s to ensure no new block confirmations on destination chain")
 	Consistently(newHeadsB, 10*time.Second, 500*time.Millisecond).ShouldNot(Receive())
 

@@ -10,7 +10,8 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 )
 
-// Destination blockchain configuration. Specifies how to connect to and issue transactions on the desination blockchain.
+// Destination blockchain configuration. Specifies how to connect to and issue
+// transactions on the desination blockchain.
 type DestinationBlockchain struct {
 	SubnetID          string    `mapstructure:"subnet-id" json:"subnet-id"`
 	BlockchainID      string    `mapstructure:"blockchain-id" json:"blockchain-id"`
@@ -34,7 +35,10 @@ func (s *DestinationBlockchain) Validate() error {
 		return fmt.Errorf("invalid subnetID in destination subnet configuration. Provided ID: %s", s.SubnetID)
 	}
 	if _, err := ids.FromString(s.BlockchainID); err != nil {
-		return fmt.Errorf("invalid blockchainID in destination subnet configuration. Provided ID: %s", s.BlockchainID)
+		return fmt.Errorf(
+			"invalid blockchainID in destination subnet configuration. Provided ID: %s",
+			s.BlockchainID,
+		)
 	}
 	if err := s.RPCEndpoint.Validate(); err != nil {
 		return fmt.Errorf("invalid rpc-endpoint in destination subnet configuration: %w", err)
@@ -91,7 +95,12 @@ func (s *DestinationBlockchain) initializeWarpQuorum() error {
 		return fmt.Errorf("invalid subnetID in configuration. error: %w", err)
 	}
 
-	client, err := utils.NewEthClientWithConfig(context.Background(), s.RPCEndpoint.BaseURL, s.RPCEndpoint.HTTPHeaders, s.RPCEndpoint.QueryParams)
+	client, err := utils.NewEthClientWithConfig(
+		context.Background(),
+		s.RPCEndpoint.BaseURL,
+		s.RPCEndpoint.HTTPHeaders,
+		s.RPCEndpoint.QueryParams,
+	)
 	if err != nil {
 		return fmt.Errorf("failed to dial destination blockchain %s: %w", blockchainID, err)
 	}

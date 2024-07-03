@@ -73,14 +73,26 @@ func TestShouldSendMessage(t *testing.T) {
 	validMessageBytes, err := teleportermessenger.PackTeleporterMessage(validTeleporterMessage)
 	require.NoError(t, err)
 
-	validAddressedCall, err := warpPayload.NewAddressedCall(messageProtocolAddress.Bytes(), validMessageBytes)
+	validAddressedCall, err := warpPayload.NewAddressedCall(
+		messageProtocolAddress.Bytes(),
+		validMessageBytes,
+	)
 	require.NoError(t, err)
 
 	sourceBlockchainID := ids.Empty
-	warpUnsignedMessage, err := warp.NewUnsignedMessage(0, sourceBlockchainID, validAddressedCall.Bytes())
+	warpUnsignedMessage, err := warp.NewUnsignedMessage(
+		0,
+		sourceBlockchainID,
+		validAddressedCall.Bytes(),
+	)
 	require.NoError(t, err)
 
-	messageID, err := teleporterUtils.CalculateMessageID(messageProtocolAddress, sourceBlockchainID, destinationBlockchainID, validTeleporterMessage.MessageNonce)
+	messageID, err := teleporterUtils.CalculateMessageID(
+		messageProtocolAddress,
+		sourceBlockchainID,
+		destinationBlockchainID,
+		validTeleporterMessage.MessageNonce,
+	)
 	require.NoError(t, err)
 
 	messageReceivedInput, err := teleportermessenger.PackMessageReceived(messageID)
@@ -92,9 +104,16 @@ func TestShouldSendMessage(t *testing.T) {
 	messageDelivered, err := teleportermessenger.PackMessageReceivedOutput(true)
 	require.NoError(t, err)
 
-	invalidAddressedCall, err := warpPayload.NewAddressedCall(messageProtocolAddress.Bytes(), validMessageBytes)
+	invalidAddressedCall, err := warpPayload.NewAddressedCall(
+		messageProtocolAddress.Bytes(),
+		validMessageBytes,
+	)
 	require.NoError(t, err)
-	invalidWarpUnsignedMessage, err := warp.NewUnsignedMessage(0, sourceBlockchainID, append(invalidAddressedCall.Bytes(), []byte{1, 2, 3, 4}...))
+	invalidWarpUnsignedMessage, err := warp.NewUnsignedMessage(
+		0,
+		sourceBlockchainID,
+		append(invalidAddressedCall.Bytes(), []byte{1, 2, 3, 4}...),
+	)
 	require.NoError(t, err)
 
 	testCases := []struct {

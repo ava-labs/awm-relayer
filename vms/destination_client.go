@@ -17,8 +17,9 @@ import (
 	"go.uber.org/zap"
 )
 
-// DestinationClient is the interface for the destination chain client. Methods that interact with the destination chain
-// should generally be implemented in a thread safe way, as they will be called concurrently by the application relayers.
+// DestinationClient is the interface for the destination chain client. Methods that interact with
+// the destination chain should generally be implemented in a thread safe way, as they will be called
+// concurrently by the application relayers.
 type DestinationClient interface {
 	// SendTx constructs the transaction from warp primitives, and sends to the configured destination chain endpoint.
 	// Returns the hash of the sent transaction.
@@ -45,7 +46,10 @@ func NewDestinationClient(logger logging.Logger, subnetInfo *config.DestinationB
 }
 
 // CreateDestinationClients creates destination clients for all subnets configured as destinations
-func CreateDestinationClients(logger logging.Logger, relayerConfig config.Config) (map[ids.ID]DestinationClient, error) {
+func CreateDestinationClients(
+	logger logging.Logger,
+	relayerConfig config.Config,
+) (map[ids.ID]DestinationClient, error) {
 	destinationClients := make(map[ids.ID]DestinationClient)
 	for _, subnetInfo := range relayerConfig.DestinationBlockchains {
 		blockchainID, err := ids.FromString(subnetInfo.BlockchainID)

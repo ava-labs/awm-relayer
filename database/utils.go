@@ -18,7 +18,8 @@ func IsKeyNotFoundError(err error) bool {
 
 // Determines the height to process from. There are three cases:
 // 1) The database contains the latest processed block data for the chain
-//   - In this case, we return the maximum of the latest processed block and the configured processHistoricalBlocksFromHeight
+//   - In this case, we return the maximum of the latest processed block and the
+//     configured processHistoricalBlocksFromHeight
 //
 // 2) The database has been configured for the chain, but does not contain the latest processed block data
 //   - In this case, we return the configured processHistoricalBlocksFromHeight

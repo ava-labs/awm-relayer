@@ -43,7 +43,13 @@ func RelayMessageAPI(network interfaces.LocalNetwork) {
 	testUtils.FundRelayers(ctx, []interfaces.SubnetTestInfo{subnetAInfo, subnetBInfo}, fundedKey, relayerKey)
 
 	log.Info("Sending teleporter message")
-	receipt, _, teleporterMessageID := testUtils.SendBasicTeleporterMessage(ctx, subnetAInfo, subnetBInfo, fundedKey, fundedAddress)
+	receipt, _, teleporterMessageID := testUtils.SendBasicTeleporterMessage(
+		ctx,
+		subnetAInfo,
+		subnetBInfo,
+		fundedKey,
+		fundedAddress,
+	)
 	warpMessage := getWarpMessageFromLog(ctx, receipt, subnetAInfo)
 
 	// Set up relayer config
@@ -103,7 +109,10 @@ func RelayMessageAPI(network interfaces.LocalNetwork) {
 
 		receipt, err := subnetBInfo.RPCClient.TransactionReceipt(ctx, common.HexToHash(response.TransactionHash))
 		Expect(err).Should(BeNil())
-		receiveEvent, err := teleporterTestUtils.GetEventFromLogs(receipt.Logs, subnetBInfo.TeleporterMessenger.ParseReceiveCrossChainMessage)
+		receiveEvent, err := teleporterTestUtils.GetEventFromLogs(
+			receipt.Logs,
+			subnetBInfo.TeleporterMessenger.ParseReceiveCrossChainMessage,
+		)
 		Expect(err).Should(BeNil())
 		Expect(ids.ID(receiveEvent.MessageID)).Should(Equal(teleporterMessageID))
 	}
@@ -129,14 +138,20 @@ func RelayMessageAPI(network interfaces.LocalNetwork) {
 		var response api.RelayMessageResponse
 		err = json.Unmarshal(body, &response)
 		Expect(err).Should(BeNil())
-		Expect(response.TransactionHash).Should(Equal("0x0000000000000000000000000000000000000000000000000000000000000000"))
+		Expect(response.TransactionHash).Should(Equal(
+			"0x0000000000000000000000000000000000000000000000000000000000000000",
+		))
 	}
 
 	// Cancel the command and stop the relayer
 	relayerCleanup()
 }
 
-func getWarpMessageFromLog(ctx context.Context, receipt *types.Receipt, source interfaces.SubnetTestInfo) *avalancheWarp.UnsignedMessage {
+func getWarpMessageFromLog(
+	ctx context.Context,
+	receipt *types.Receipt,
+	source interfaces.SubnetTestInfo,
+) *avalancheWarp.UnsignedMessage {
 	log.Info("Fetching relevant warp logs from the newly produced block")
 	logs, err := source.RPCClient.FilterLogs(ctx, subnetEvmInterfaces.FilterQuery{
 		BlockHash: &receipt.BlockHash,

@@ -16,15 +16,15 @@ import (
 // Specifies the height from which to start processing historical blocks.
 type SourceBlockchain struct {
 	SubnetID                          string                           `mapstructure:"subnet-id" json:"subnet-id"`
-	BlockchainID                      string                           `mapstructure:"blockchain-id" json:"blockchain-id"`
+	BlockchainID                      string                           `mapstructure:"blockchain-id" json:"blockchain-id"` //nolint:lll
 	VM                                string                           `mapstructure:"vm" json:"vm"`
-	RPCEndpoint                       APIConfig                        `mapstructure:"rpc-endpoint" json:"rpc-endpoint"`
-	WSEndpoint                        APIConfig                        `mapstructure:"ws-endpoint" json:"ws-endpoint"`
-	MessageContracts                  map[string]MessageProtocolConfig `mapstructure:"message-contracts" json:"message-contracts"`
-	SupportedDestinations             []*SupportedDestination          `mapstructure:"supported-destinations" json:"supported-destinations"`
-	ProcessHistoricalBlocksFromHeight uint64                           `mapstructure:"process-historical-blocks-from-height" json:"process-historical-blocks-from-height"`
-	AllowedOriginSenderAddresses      []string                         `mapstructure:"allowed-origin-sender-addresses" json:"allowed-origin-sender-addresses"`
-	WarpAPIEndpoint                   APIConfig                        `mapstructure:"warp-api-endpoint" json:"warp-api-endpoint"`
+	RPCEndpoint                       APIConfig                        `mapstructure:"rpc-endpoint" json:"rpc-endpoint"`                                                   //nolint:lll
+	WSEndpoint                        APIConfig                        `mapstructure:"ws-endpoint" json:"ws-endpoint"`                                                     //nolint:lll
+	MessageContracts                  map[string]MessageProtocolConfig `mapstructure:"message-contracts" json:"message-contracts"`                                         //nolint:lll
+	SupportedDestinations             []*SupportedDestination          `mapstructure:"supported-destinations" json:"supported-destinations"`                               //nolint:lll
+	ProcessHistoricalBlocksFromHeight uint64                           `mapstructure:"process-historical-blocks-from-height" json:"process-historical-blocks-from-height"` //nolint:lll
+	AllowedOriginSenderAddresses      []string                         `mapstructure:"allowed-origin-sender-addresses" json:"allowed-origin-sender-addresses"`             //nolint:lll
+	WarpAPIEndpoint                   APIConfig                        `mapstructure:"warp-api-endpoint" json:"warp-api-endpoint"`                                         //nolint:lll
 
 	// convenience fields to access parsed data after initialization
 	subnetID                     ids.ID
@@ -33,9 +33,9 @@ type SourceBlockchain struct {
 	useAppRequestNetwork         bool
 }
 
-// Validates the source subnet configuration, including verifying that the supported destinations are present in destinationBlockchainIDs
-// Does not modify the public fields as derived from the configuration passed to the application,
-// but does initialize private fields available through getters
+// Validates the source subnet configuration, including verifying that the supported destinations are present in
+// destinationBlockchainIDs. Does not modify the public fields as derived from the configuration passed to the
+// application, but does initialize private fields available through getters.
 func (s *SourceBlockchain) Validate(destinationBlockchainIDs *set.Set[string]) error {
 	if _, err := ids.FromString(s.SubnetID); err != nil {
 		return fmt.Errorf("invalid subnetID in source subnet configuration. Provided ID: %s", s.SubnetID)
@@ -104,18 +104,25 @@ func (s *SourceBlockchain) Validate(destinationBlockchainIDs *set.Set[string]) e
 			return fmt.Errorf("invalid blockchainID in configuration. error: %w", err)
 		}
 		if !destinationBlockchainIDs.Contains(dest.BlockchainID) {
-			return fmt.Errorf("configured source subnet %s has a supported destination blockchain ID %s that is not configured as a destination blockchain",
+			return fmt.Errorf(
+				"configured source subnet %s has a supported destination blockchain ID %s that is not configured as a destination blockchain", //nolint:lll
 				s.SubnetID,
 				blockchainID)
 		}
 		dest.blockchainID = blockchainID
 		for _, addressStr := range dest.Addresses {
 			if !common.IsHexAddress(addressStr) {
-				return fmt.Errorf("invalid allowed destination address in source blockchain configuration: %s", addressStr)
+				return fmt.Errorf(
+					"invalid allowed destination address in source blockchain configuration: %s",
+					addressStr,
+				)
 			}
 			address := common.HexToAddress(addressStr)
 			if address == utils.ZeroAddress {
-				return fmt.Errorf("invalid allowed destination address in source blockchain configuration: %s", addressStr)
+				return fmt.Errorf(
+					"invalid allowed destination address in source blockchain configuration: %s",
+					addressStr,
+				)
 			}
 			dest.addresses = append(dest.addresses, address)
 		}
@@ -125,11 +132,17 @@ func (s *SourceBlockchain) Validate(destinationBlockchainIDs *set.Set[string]) e
 	allowedOriginSenderAddresses := make([]common.Address, len(s.AllowedOriginSenderAddresses))
 	for i, addressStr := range s.AllowedOriginSenderAddresses {
 		if !common.IsHexAddress(addressStr) {
-			return fmt.Errorf("invalid allowed origin sender address in source blockchain configuration: %s", addressStr)
+			return fmt.Errorf(
+				"invalid allowed origin sender address in source blockchain configuration: %s",
+				addressStr,
+			)
 		}
 		address := common.HexToAddress(addressStr)
 		if address == utils.ZeroAddress {
-			return fmt.Errorf("invalid allowed origin sender address in source blockchain configuration: %s", addressStr)
+			return fmt.Errorf(
+				"invalid allowed origin sender address in source blockchain configuration: %s",
+				addressStr,
+			)
 		}
 		allowedOriginSenderAddresses[i] = address
 	}

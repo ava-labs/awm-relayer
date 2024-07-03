@@ -89,12 +89,22 @@ func BuildConfig(v *viper.Viper) (Config, error) {
 		privateKey := subnet.AccountPrivateKey
 		if accountPrivateKey != "" {
 			privateKey = accountPrivateKey
-			cfg.overwrittenOptions = append(cfg.overwrittenOptions, fmt.Sprintf("destination-blockchain(%s).account-private-key", subnet.blockchainID))
+			cfg.overwrittenOptions = append(
+				cfg.overwrittenOptions,
+				fmt.Sprintf("destination-blockchain(%s).account-private-key", subnet.blockchainID),
+			)
 			// Otherwise, check for private keys suffixed with the chain ID and set it for that subnet
 			// Since the key is dynamic, this is only possible through environment variables
-		} else if privateKeyFromEnv := os.Getenv(fmt.Sprintf("%s_%s", accountPrivateKeyEnvVarName, subnet.BlockchainID)); privateKeyFromEnv != "" {
+		} else if privateKeyFromEnv := os.Getenv(fmt.Sprintf(
+			"%s_%s",
+			accountPrivateKeyEnvVarName,
+			subnet.BlockchainID,
+		)); privateKeyFromEnv != "" {
 			privateKey = privateKeyFromEnv
-			cfg.overwrittenOptions = append(cfg.overwrittenOptions, fmt.Sprintf("destination-blockchain(%s).account-private-key", subnet.blockchainID))
+			cfg.overwrittenOptions = append(cfg.overwrittenOptions, fmt.Sprintf(
+				"destination-blockchain(%s).account-private-key",
+				subnet.blockchainID),
+			)
 		}
 		cfg.DestinationBlockchains[i].AccountPrivateKey = utils.SanitizeHexString(privateKey)
 	}

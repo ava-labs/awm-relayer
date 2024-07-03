@@ -37,7 +37,8 @@ type expectedResponses struct {
 	expected, received int
 }
 
-// Create a new RelayerExternalHandler to forward relevant inbound app messages to the respective Teleporter application relayer, as well as handle timeouts.
+// Create a new RelayerExternalHandler to forward relevant inbound app messages to the respective
+// Teleporter application relayer, as well as handle timeouts.
 func NewRelayerExternalHandler(
 	logger logging.Logger,
 	registerer prometheus.Registerer,
@@ -76,9 +77,10 @@ func NewRelayerExternalHandler(
 // For each inboundMessage, OnFinishedHandling must be called exactly once. However, since we handle relayer messages
 // async, we must call OnFinishedHandling manually across all code paths.
 //
-// This diagram illustrates how HandleInbound forwards relevant AppResponses to the corresponding Teleporter application relayer.
-// On startup, one Relayer goroutine is created per source subnet, which listens to the subscriber for cross-chain messages
-// When a cross-chain message is picked up by a Relayer, HandleInbound routes AppResponses traffic to the appropriate Relayer
+// This diagram illustrates how HandleInbound forwards relevant AppResponses to the corresponding
+// Teleporter application relayer. On startup, one Relayer goroutine is created per source subnet,
+// which listens to the subscriber for cross-chain messages. When a cross-chain message is picked
+// up by a Relayer, HandleInbound routes AppResponses traffic to the appropriate Relayer.
 func (h *RelayerExternalHandler) HandleInbound(_ context.Context, inboundMessage message.InboundMessage) {
 	h.log.Debug(
 		"Handling app response",
@@ -109,9 +111,13 @@ func (h *RelayerExternalHandler) Disconnected(nodeID ids.NodeID) {
 	)
 }
 
-// RegisterRequestID registers an AppRequest by requestID, and marks the number of expected responses, equivalent to the number of nodes requested.
-// requestID should be globally unique for the lifetime of the AppRequest. This is upper bounded by the timeout duration.
-func (h *RelayerExternalHandler) RegisterRequestID(requestID uint32, numExpectedResponses int) chan message.InboundMessage {
+// RegisterRequestID registers an AppRequest by requestID, and marks the number of
+// expected responses, equivalent to the number of nodes requested. requestID should
+// be globally unique for the lifetime of the AppRequest. This is upper bounded by the timeout duration.
+func (h *RelayerExternalHandler) RegisterRequestID(
+	requestID uint32,
+	numExpectedResponses int,
+) chan message.InboundMessage {
 	// Create a channel to receive the response
 	h.lock.Lock()
 	defer h.lock.Unlock()

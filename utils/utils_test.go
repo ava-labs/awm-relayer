@@ -87,7 +87,12 @@ func TestCheckStakeWeightExceedsThreshold(t *testing.T) {
 	}
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
-			actualResult := CheckStakeWeightExceedsThreshold(new(big.Int).SetUint64(testCase.accumulatedSignatureWeight), testCase.totalWeight, testCase.quorumNumerator, testCase.quorumDenominator)
+			actualResult := CheckStakeWeightExceedsThreshold(
+				new(big.Int).SetUint64(testCase.accumulatedSignatureWeight),
+				testCase.totalWeight,
+				testCase.quorumNumerator,
+				testCase.quorumDenominator,
+			)
 			require.Equal(t, testCase.expectedResult, actualResult)
 		})
 	}

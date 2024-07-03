@@ -152,9 +152,19 @@ func TestShouldSendMessage(t *testing.T) {
 			// construct the signed message
 			var unsignedMessage *warp.UnsignedMessage
 			if test.isMessageInvalid {
-				unsignedMessage = createInvalidRegistryUnsignedWarpMessage(t, test.entry, teleporterRegistryAddress, test.destinationBlockchainID)
+				unsignedMessage = createInvalidRegistryUnsignedWarpMessage(
+					t,
+					test.entry,
+					teleporterRegistryAddress,
+					test.destinationBlockchainID,
+				)
 			} else {
-				unsignedMessage = createRegistryUnsignedWarpMessage(t, test.entry, teleporterRegistryAddress, test.destinationBlockchainID)
+				unsignedMessage = createRegistryUnsignedWarpMessage(
+					t,
+					test.entry,
+					teleporterRegistryAddress,
+					test.destinationBlockchainID,
+				)
 			}
 			messageHandler, err := factory.NewMessageHandler(unsignedMessage)
 			require.NoError(t, err)
@@ -199,7 +209,10 @@ func createInvalidRegistryUnsignedWarpMessage(
 	payloadBytes, err := teleporterregistry.PackTeleporterRegistryWarpPayload(entry, teleporterRegistryAddress)
 	require.NoError(t, err)
 
-	invalidAddressedPayload, err := payload.NewAddressedCall(messageProtocolAddress[:], append(payloadBytes, []byte{1, 2, 3, 4}...))
+	invalidAddressedPayload, err := payload.NewAddressedCall(
+		messageProtocolAddress[:],
+		append(payloadBytes, []byte{1, 2, 3, 4}...),
+	)
 	require.NoError(t, err)
 
 	invalidUnsignedMessage, err := warp.NewUnsignedMessage(
