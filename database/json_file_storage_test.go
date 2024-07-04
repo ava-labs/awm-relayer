@@ -70,10 +70,16 @@ func TestConcurrentWriteReadSingleChain(t *testing.T) {
 	if !success {
 		t.Fatalf("failed to convert latest block to big.Int. err: %v", err)
 	}
-	assert.Equal(t, finalTargetValue, latestProcessedBlock.Uint64(), "latest processed block height is not correct.")
+	assert.Equal(
+		t,
+		finalTargetValue,
+		latestProcessedBlock.Uint64(),
+		"latest processed block height is not correct.",
+	)
 }
 
-// Test that the JSON database can write and read from multiple chains concurrently. Write to any given chain are not concurrent.
+// Test that the JSON database can write and read from multiple chains concurrently.
+// Writes to any given chain are not concurrent.
 func TestConcurrentWriteReadMultipleChains(t *testing.T) {
 	relayerIDs := createRelayerIDs(
 		[]ids.ID{
@@ -111,7 +117,12 @@ func TestConcurrentWriteReadMultipleChains(t *testing.T) {
 		if !success {
 			t.Fatalf("failed to convert latest block to big.Int. err: %v", err)
 		}
-		assert.Equal(t, finalTargetValue, latestProcessedBlock.Uint64(), fmt.Sprintf("latest processed block height is not correct. networkID: %d", i))
+		assert.Equal(
+			t,
+			finalTargetValue,
+			latestProcessedBlock.Uint64(),
+			fmt.Sprintf("latest processed block height is not correct. networkID: %d", i),
+		)
 	}
 }
 

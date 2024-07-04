@@ -81,8 +81,9 @@ func (m *messageHandler) GetUnsignedMessage() *warp.UnsignedMessage {
 	return m.unsignedMessage
 }
 
-// ShouldSendMessage returns false if any contract is already registered as the specified version in the TeleporterRegistry contract.
-// This is because a single contract address can be registered to multiple versions, but each version may only map to a single contract address.
+// ShouldSendMessage returns false if any contract is already registered as the specified version
+// in the TeleporterRegistry contract. This is because a single contract address can be registered
+// to multiple versions, but each version may only map to a single contract address.
 func (m *messageHandler) ShouldSendMessage(destinationClient vms.DestinationClient) (bool, error) {
 	addressedPayload, err := warpPayload.ParseAddressedCall(m.unsignedMessage.Payload)
 	if err != nil {
@@ -92,7 +93,9 @@ func (m *messageHandler) ShouldSendMessage(destinationClient vms.DestinationClie
 		)
 		return false, err
 	}
-	entry, destination, err := teleporterregistry.UnpackTeleporterRegistryWarpPayload(addressedPayload.Payload)
+	entry, destination, err := teleporterregistry.UnpackTeleporterRegistryWarpPayload(
+		addressedPayload.Payload,
+	)
 	if err != nil {
 		m.logger.Error(
 			"Failed unpacking teleporter registry warp payload",
@@ -112,7 +115,10 @@ func (m *messageHandler) ShouldSendMessage(destinationClient vms.DestinationClie
 	// Get the correct destination client from the global map
 	client, ok := destinationClient.Client().(ethclient.Client)
 	if !ok {
-		panic(fmt.Sprintf("Destination client for chain %s is not an Ethereum client", destinationClient.DestinationBlockchainID().String()))
+		panic(fmt.Sprintf(
+			"Destination client for chain %s is not an Ethereum client",
+			destinationClient.DestinationBlockchainID().String()),
+		)
 	}
 
 	// Check if the version is already registered in the TeleporterRegistry contract.
@@ -144,24 +150,38 @@ func (m *messageHandler) ShouldSendMessage(destinationClient vms.DestinationClie
 	return false, nil
 }
 
-func (m *messageHandler) SendMessage(signedMessage *warp.Message, destinationClient vms.DestinationClient) (common.Hash, error) {
+func (m *messageHandler) SendMessage(
+	signedMessage *warp.Message,
+	destinationClient vms.DestinationClient,
+) (common.Hash, error) {
 	// Construct the transaction call data to call the TeleporterRegistry contract.
 	// Only one off-chain registry Warp message is sent at a time, so we hardcode the index to 0 in the call.
 	callData, err := teleporterregistry.PackAddProtocolVersion(0)
 	if err != nil {
 		m.logger.Error(
 			"Failed packing receiveCrossChainMessage call data",
-			zap.String("destinationBlockchainID", destinationClient.DestinationBlockchainID().String()),
+			zap.String(
+				"destinationBlockchainID",
+				destinationClient.DestinationBlockchainID().String(),
+			),
 			zap.String("warpMessageID", signedMessage.ID().String()),
 		)
 		return common.Hash{}, err
 	}
 
-	txHash, err := destinationClient.SendTx(signedMessage, m.factory.registryAddress.Hex(), addProtocolVersionGasLimit, callData)
+	txHash, err := destinationClient.SendTx(
+		signedMessage,
+		m.factory.registryAddress.Hex(),
+		addProtocolVersionGasLimit,
+		callData,
+	)
 	if err != nil {
 		m.logger.Error(
 			"Failed to send tx.",
-			zap.String("destinationBlockchainID", destinationClient.DestinationBlockchainID().String()),
+			zap.String(
+				"destinationBlockchainID",
+				destinationClient.DestinationBlockchainID().String(),
+			),
 			zap.String("warpMessageID", signedMessage.ID().String()),
 			zap.Error(err),
 		)

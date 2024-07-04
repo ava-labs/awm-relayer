@@ -138,8 +138,8 @@ func newListener(
 		messageCoordinator: messageCoordinator,
 	}
 
-	// Open the subscription. We must do this before processing any missed messages, otherwise we may miss an incoming message
-	// in between fetching the latest block and subscribing.
+	// Open the subscription. We must do this before processing any missed messages, otherwise we may
+	// miss an incoming message in between fetching the latest block and subscribing.
 	err = lstnr.Subscriber.Subscribe(maxSubscribeAttempts)
 	if err != nil {
 		logger.Error(

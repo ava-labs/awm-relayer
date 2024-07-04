@@ -76,6 +76,7 @@ func (s *subscriber) ProcessFromHeight(height *big.Int, done chan bool) {
 
 	bigLatestBlockHeight := big.NewInt(0).SetUint64(latestBlockHeight)
 
+	//nolint:lll
 	for fromBlock := big.NewInt(0).Set(height); fromBlock.Cmp(bigLatestBlockHeight) <= 0; fromBlock.Add(fromBlock, big.NewInt(MaxBlocksPerRequest)) {
 		toBlock := big.NewInt(0).Add(fromBlock, big.NewInt(MaxBlocksPerRequest-1))
 

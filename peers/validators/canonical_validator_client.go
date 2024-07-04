@@ -36,7 +36,9 @@ func NewCanonicalValidatorClient(logger logging.Logger, apiConfig *config.APICon
 	}
 }
 
-func (v *CanonicalValidatorClient) GetCurrentCanonicalValidatorSet(subnetID ids.ID) ([]*avalancheWarp.Validator, uint64, error) {
+func (v *CanonicalValidatorClient) GetCurrentCanonicalValidatorSet(
+	subnetID ids.ID,
+) ([]*avalancheWarp.Validator, uint64, error) {
 	height, err := v.GetCurrentHeight(context.Background())
 	if err != nil {
 		v.logger.Error(
@@ -109,7 +111,8 @@ func (v *CanonicalValidatorClient) GetValidatorSet(
 // as well as their BLS public keys.
 func (v *CanonicalValidatorClient) getCurrentValidatorSet(
 	ctx context.Context,
-	subnetID ids.ID) (map[ids.NodeID]*validators.GetValidatorOutput, error) {
+	subnetID ids.ID,
+) (map[ids.NodeID]*validators.GetValidatorOutput, error) {
 	// Get the current subnet validators. These validators are not expected to include
 	// BLS signing information given that addPermissionlessValidatorTx is only used to
 	// add primary network validators.

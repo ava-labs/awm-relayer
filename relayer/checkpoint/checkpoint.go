@@ -81,7 +81,11 @@ func (cm *CheckpointManager) writeToDatabase() {
 		zap.Uint64("height", cm.committedHeight),
 		zap.String("relayerID", cm.relayerID.ID.String()),
 	)
-	err = cm.database.Put(cm.relayerID.ID, database.LatestProcessedBlockKey, []byte(strconv.FormatUint(cm.committedHeight, 10)))
+	err = cm.database.Put(
+		cm.relayerID.ID,
+		database.LatestProcessedBlockKey,
+		[]byte(strconv.FormatUint(cm.committedHeight, 10)),
+	)
 	if err != nil {
 		cm.logger.Error(
 			"Failed to write latest processed block height",

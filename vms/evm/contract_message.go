@@ -24,8 +24,8 @@ func NewContractMessage(logger logging.Logger, subnetInfo config.SourceBlockchai
 }
 
 func (m *contractMessage) UnpackWarpMessage(unsignedMsgBytes []byte) (*avalancheWarp.UnsignedMessage, error) {
-	// This function may be called with raw UnsignedMessage bytes or with ABI encoded bytes as emitted by the Warp precompile
-	// The latter case is the steady state behavior, so check that first. The former only occurs on startup.
+	// This function may be called with raw UnsignedMessage bytes or with ABI encoded bytes as emitted by the Warp
+	// precompile. The latter case is the steady state behavior, so check that first. The former only occurs on startup.
 	unsignedMsg, err := warp.UnpackSendWarpEventDataToMessage(unsignedMsgBytes)
 	if err != nil {
 		m.logger.Debug(

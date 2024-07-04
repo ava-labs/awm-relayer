@@ -43,7 +43,8 @@ type blsSignatureBuf [bls.SignatureLen]byte
 const (
 	// Number of retries to collect signatures from validators
 	maxRelayerQueryAttempts = 5
-	// Maximum amount of time to spend waiting (in addition to network round trip time per attempt) during relayer signature query routine
+	// Maximum amount of time to spend waiting (in addition to network round trip time per attempt)
+	// during relayer signature query routine
 	signatureRequestRetryWaitPeriodMs = 10_000
 )
 
@@ -99,7 +100,8 @@ func NewApplicationRelayer(
 	}
 	var signingSubnet ids.ID
 	if sourceBlockchain.GetSubnetID() == constants.PrimaryNetworkID {
-		// If the message originates from the primary subnet, then we instead "self sign" the message using the validators of the destination subnet.
+		// If the message originates from the primary subnet, then we instead "self sign"
+		// the message using the validators of the destination subnet.
 		signingSubnet = cfg.GetSubnetID(relayerID.DestinationBlockchainID)
 	} else {
 		// Otherwise, the source subnet signs the message.
@@ -108,12 +110,19 @@ func NewApplicationRelayer(
 
 	sub := ticker.Subscribe()
 
-	checkpointManager := checkpoint.NewCheckpointManager(logger, db, sub, relayerID, startingHeight)
+	checkpointManager := checkpoint.NewCheckpointManager(
+		logger,
+		db,
+		sub,
+		relayerID,
+		startingHeight,
+	)
 	checkpointManager.Run()
 
 	var warpClient *rpc.Client
 	if !sourceBlockchain.UseAppRequestNetwork() {
-		// The subnet-evm Warp API client does not support query parameters or HTTP headers, and expects the URI to be in a specific form.
+		// The subnet-evm Warp API client does not support query parameters or HTTP headers
+		// and expects the URI to be in a specific form.
 		// Instead, we invoke the Warp API directly via the RPC client.
 		warpClient, err = utils.DialWithConfig(
 			context.Background(),
@@ -151,12 +160,17 @@ func NewApplicationRelayer(
 
 // Process [msgs] at height [height] by relaying each message to the destination chain.
 // Checkpoints the height with the checkpoint manager when all messages are relayed.
-// ProcessHeight is expected to be called for every block greater than or equal to the [startingHeight] provided in the constructor
-func (r *ApplicationRelayer) ProcessHeight(height uint64, handlers []messages.MessageHandler, errChan chan error) {
+// ProcessHeight is expected to be called for every block greater than or equal to the
+// [startingHeight] provided in the constructor.
+func (r *ApplicationRelayer) ProcessHeight(
+	height uint64,
+	handlers []messages.MessageHandler,
+	errChan chan error,
+) {
 	var eg errgroup.Group
 	for _, handler := range handlers {
-		// Copy the loop variable to a local variable to avoid the loop variable being captured by the goroutine
-		// Once we upgrade to Go 1.22, we can use the loop variable directly in the goroutine
+		// Copy the loop variable to a local variable to avoid the loop variable being captured by the
+		// goroutine. Once we upgrade to Go 1.22, we can use the loop variable directly in the goroutine.
 		h := handler
 		eg.Go(func() error {
 			_, err := r.ProcessMessage(h)
@@ -279,7 +293,9 @@ func (r *ApplicationRelayer) relayMessage(
 // createSignedMessage fetches the signed Warp message from the source chain via RPC.
 // Each VM may implement their own RPC method to construct the aggregate signature, which
 // will need to be accounted for here.
-func (r *ApplicationRelayer) createSignedMessage(unsignedMessage *avalancheWarp.UnsignedMessage) (*avalancheWarp.Message, error) {
+func (r *ApplicationRelayer) createSignedMessage(
+	unsignedMessage *avalancheWarp.UnsignedMessage,
+) (*avalancheWarp.Message, error) {
 	r.logger.Info("Fetching aggregate signature from the source chain validators via API")
 
 	var (
@@ -335,8 +351,12 @@ func (r *ApplicationRelayer) createSignedMessage(unsignedMessage *avalancheWarp.
 	return nil, errFailedToGetAggSig
 }
 
-// createSignedMessageAppRequest collects signatures from nodes by directly querying them via AppRequest, then aggregates the signatures, and constructs the signed warp message.
-func (r *ApplicationRelayer) createSignedMessageAppRequest(unsignedMessage *avalancheWarp.UnsignedMessage, requestID uint32) (*avalancheWarp.Message, error) {
+// createSignedMessageAppRequest collects signatures from nodes by directly querying them
+// via AppRequest, then aggregates the signatures, and constructs the signed warp message.
+func (r *ApplicationRelayer) createSignedMessageAppRequest(
+	unsignedMessage *avalancheWarp.UnsignedMessage,
+	requestID uint32,
+) (*avalancheWarp.Message, error) {
 	r.logger.Info(
 		"Fetching aggregate signature from the source chain validators via AppRequest",
 		zap.String("warpMessageID", unsignedMessage.ID().String()),
@@ -390,7 +410,12 @@ func (r *ApplicationRelayer) createSignedMessageAppRequest(unsignedMessage *aval
 	}
 
 	// Construct the AppRequest
-	outMsg, err := r.messageCreator.AppRequest(unsignedMessage.SourceChainID, requestID, peers.DefaultAppRequestTimeout, reqBytes)
+	outMsg, err := r.messageCreator.AppRequest(
+		unsignedMessage.SourceChainID,
+		requestID,
+		peers.DefaultAppRequestTimeout,
+		reqBytes,
+	)
 	if err != nil {
 		r.logger.Error(
 			"Failed to create app request message",
@@ -529,8 +554,9 @@ func (r *ApplicationRelayer) createSignedMessageAppRequest(unsignedMessage *aval
 
 // Attempts to create a signed warp message from the accumulated responses.
 // Returns a non-nil Warp message if [accumulatedSignatureWeight] exceeds the signature verification threshold.
-// Returns false in the second return parameter if the app response is not relevant to the current signature aggregation request.
-// Returns an error only if a non-recoverable error occurs, otherwise returns a nil error to continue processing responses.
+// Returns false in the second return parameter if the app response is not relevant to the current signature
+// aggregation request. Returns an error only if a non-recoverable error occurs, otherwise returns a nil error
+// to continue processing responses.
 func (r *ApplicationRelayer) handleResponse(
 	response message.InboundMessage,
 	sentTo set.Set[ids.NodeID],
@@ -608,10 +634,13 @@ func (r *ApplicationRelayer) handleResponse(
 			return nil, true, err
 		}
 
-		signedMsg, err := avalancheWarp.NewMessage(unsignedMessage, &avalancheWarp.BitSetSignature{
-			Signers:   vdrBitSet.Bytes(),
-			Signature: *(*[bls.SignatureLen]byte)(bls.SignatureToBytes(aggSig)),
-		})
+		signedMsg, err := avalancheWarp.NewMessage(
+			unsignedMessage,
+			&avalancheWarp.BitSetSignature{
+				Signers:   vdrBitSet.Bytes(),
+				Signature: *(*[bls.SignatureLen]byte)(bls.SignatureToBytes(aggSig)),
+			},
+		)
 		if err != nil {
 			r.logger.Error(
 				"Failed to create new signed message",
@@ -628,8 +657,9 @@ func (r *ApplicationRelayer) handleResponse(
 	return nil, true, nil
 }
 
-// isValidSignatureResponse tries to generate a signature from the peer.AsyncResponse, then verifies the signature against the node's public key.
-// If we are unable to generate the signature or verify correctly, false will be returned to indicate no valid signature was found in response.
+// isValidSignatureResponse tries to generate a signature from the peer.AsyncResponse, then verifies
+// the signature against the node's public key. If we are unable to generate the signature or verify
+// correctly, false will be returned to indicate no valid signature was found in response.
 func (r *ApplicationRelayer) isValidSignatureResponse(
 	unsignedMessage *avalancheWarp.UnsignedMessage,
 	response message.InboundMessage,
@@ -693,9 +723,12 @@ func (r *ApplicationRelayer) isValidSignatureResponse(
 	return signature, true
 }
 
-// aggregateSignatures constructs a BLS aggregate signature from the collected validator signatures. Also returns a bit set representing the
-// validators that are represented in the aggregate signature. The bit set is in canonical validator order.
-func (r *ApplicationRelayer) aggregateSignatures(signatureMap map[int]blsSignatureBuf) (*bls.Signature, set.Bits, error) {
+// aggregateSignatures constructs a BLS aggregate signature from the collected validator signatures. Also
+// returns a bit set representing the validators that are represented in the aggregate signature. The bit
+// set is in canonical validator order.
+func (r *ApplicationRelayer) aggregateSignatures(
+	signatureMap map[int]blsSignatureBuf,
+) (*bls.Signature, set.Bits, error) {
 	// Aggregate the signatures
 	signatures := make([]*bls.Signature, 0, len(signatureMap))
 	vdrBitSet := set.NewBits()

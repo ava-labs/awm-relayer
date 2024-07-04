@@ -197,7 +197,12 @@ func main() {
 		logger.Fatal("Failed to create application relayers", zap.Error(err))
 		panic(err)
 	}
-	messageCoordinator := relayer.NewMessageCoordinator(logger, messageHandlerFactories, applicationRelayers, sourceClients)
+	messageCoordinator := relayer.NewMessageCoordinator(
+		logger,
+		messageHandlerFactories,
+		applicationRelayers,
+		sourceClients,
+	)
 
 	// Each Listener goroutine will have an atomic bool that it can set to false to indicate an unrecoverable error
 	api.HandleHealthCheck(logger, relayerHealth)

@@ -119,7 +119,13 @@ func BatchRelay(network interfaces.LocalNetwork) {
 		}
 		currWait++
 		if currWait == maxWait {
-			Expect(false).Should(BeTrue(), fmt.Sprintf("did not receive all sent messages in time. received %d/%d", numMessages-sentMessages.Len(), numMessages))
+			Expect(false).Should(BeTrue(),
+				fmt.Sprintf(
+					"did not receive all sent messages in time. received %d/%d",
+					numMessages-sentMessages.Len(),
+					numMessages,
+				),
+			)
 		}
 		time.Sleep(1 * time.Second)
 	}

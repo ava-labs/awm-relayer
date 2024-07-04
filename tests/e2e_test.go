@@ -36,10 +36,18 @@ func TestE2E(t *testing.T) {
 var _ = ginkgo.BeforeSuite(func() {
 	localNetworkInstance = local.NewLocalNetwork(warpGenesisFile)
 	// Generate the Teleporter deployment values
-	teleporterContractAddress := common.HexToAddress(testUtils.ReadHexTextFile("./tests/utils/UniversalTeleporterMessengerContractAddress.txt"))
-	teleporterDeployerAddress := common.HexToAddress(testUtils.ReadHexTextFile("./tests/utils/UniversalTeleporterDeployerAddress.txt"))
-	teleporterDeployerTransactionStr := testUtils.ReadHexTextFile("./tests/utils/UniversalTeleporterDeployerTransaction.txt")
-	teleporterDeployerTransaction, err := hex.DecodeString(utils.SanitizeHexString(teleporterDeployerTransactionStr))
+	teleporterContractAddress := common.HexToAddress(
+		testUtils.ReadHexTextFile("./tests/utils/UniversalTeleporterMessengerContractAddress.txt"),
+	)
+	teleporterDeployerAddress := common.HexToAddress(
+		testUtils.ReadHexTextFile("./tests/utils/UniversalTeleporterDeployerAddress.txt"),
+	)
+	teleporterDeployerTransactionStr := testUtils.ReadHexTextFile(
+		"./tests/utils/UniversalTeleporterDeployerTransaction.txt",
+	)
+	teleporterDeployerTransaction, err := hex.DecodeString(
+		utils.SanitizeHexString(teleporterDeployerTransactionStr),
+	)
 	Expect(err).Should(BeNil())
 
 	_, fundedKey := localNetworkInstance.GetFundedAccountInfo()
@@ -51,7 +59,10 @@ var _ = ginkgo.BeforeSuite(func() {
 		true,
 	)
 	log.Info("Deployed Teleporter contracts")
-	localNetworkInstance.DeployTeleporterRegistryContracts(teleporterContractAddress, fundedKey)
+	localNetworkInstance.DeployTeleporterRegistryContracts(
+		teleporterContractAddress,
+		fundedKey,
+	)
 	log.Info("Set up ginkgo before suite")
 })
 

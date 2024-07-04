@@ -33,8 +33,14 @@ const (
 // AWM Utils
 //
 
-// CheckStakeWeightExceedsThreshold returns true if the accumulated signature weight is at least [quorumNum]/[quorumDen] of [totalWeight].
-func CheckStakeWeightExceedsThreshold(accumulatedSignatureWeight *big.Int, totalWeight uint64, quorumNumerator uint64, quorumDenominator uint64) bool {
+// CheckStakeWeightExceedsThreshold returns true if the accumulated signature weight is at
+// least [quorumNum]/[quorumDen] of [totalWeight].
+func CheckStakeWeightExceedsThreshold(
+	accumulatedSignatureWeight *big.Int,
+	totalWeight uint64,
+	quorumNumerator uint64,
+	quorumDenominator uint64,
+) bool {
 	if accumulatedSignatureWeight == nil {
 		return false
 	}

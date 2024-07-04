@@ -23,6 +23,7 @@ linters:
     - unconvert
     - unused
     - whitespace
+    - lll
 
 linters-settings:
   gofmt:

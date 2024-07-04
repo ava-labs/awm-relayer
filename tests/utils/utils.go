@@ -297,7 +297,10 @@ func SendBasicTeleporterMessage(
 		input,
 		fundedKey,
 	)
-	sendEvent, err := teleporterTestUtils.GetEventFromLogs(receipt.Logs, source.TeleporterMessenger.ParseSendCrossChainMessage)
+	sendEvent, err := teleporterTestUtils.GetEventFromLogs(
+		receipt.Logs,
+		source.TeleporterMessenger.ParseSendCrossChainMessage,
+	)
 	Expect(err).Should(BeNil())
 
 	return receipt, sendEvent.Message, teleporterMessageID
@@ -361,7 +364,10 @@ func RelayBasicMessage(
 	Expect(receipt.Status).Should(Equal(types.ReceiptStatusSuccessful))
 
 	// Check that the transaction emits ReceiveCrossChainMessage
-	receiveEvent, err := teleporterTestUtils.GetEventFromLogs(receipt.Logs, destination.TeleporterMessenger.ParseReceiveCrossChainMessage)
+	receiveEvent, err := teleporterTestUtils.GetEventFromLogs(
+		receipt.Logs,
+		destination.TeleporterMessenger.ParseReceiveCrossChainMessage,
+	)
 	Expect(err).Should(BeNil())
 	Expect(receiveEvent.SourceBlockchainID[:]).Should(Equal(source.BlockchainID[:]))
 	Expect(receiveEvent.MessageID[:]).Should(Equal(teleporterMessageID[:]))
@@ -380,7 +386,12 @@ func RelayBasicMessage(
 	receivedTeleporterMessage, err := teleportermessenger.UnpackTeleporterMessage(addressedPayload.Payload)
 	Expect(err).Should(BeNil())
 
-	receivedMessageID, err := teleporterUtils.CalculateMessageID(teleporterContractAddress, source.BlockchainID, destination.BlockchainID, teleporterMessage.MessageNonce)
+	receivedMessageID, err := teleporterUtils.CalculateMessageID(
+		teleporterContractAddress,
+		source.BlockchainID,
+		destination.BlockchainID,
+		teleporterMessage.MessageNonce,
+	)
 	Expect(err).Should(BeNil())
 	Expect(receivedMessageID).Should(Equal(teleporterMessageID))
 	Expect(receivedTeleporterMessage.OriginSenderAddress).Should(Equal(teleporterMessage.OriginSenderAddress))

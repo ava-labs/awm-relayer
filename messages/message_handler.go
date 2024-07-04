@@ -30,7 +30,8 @@ type MessageHandler interface {
 	// returns the transaction hash if the transaction is successful.
 	SendMessage(signedMessage *warp.Message, destinationClient vms.DestinationClient) (common.Hash, error)
 
-	// GetMessageRoutingInfo returns the source chain ID, origin sender address, destination chain ID, and destination address
+	// GetMessageRoutingInfo returns the source chain ID, origin sender address,
+	// destination chain ID, and destination address.
 	GetMessageRoutingInfo() (
 		ids.ID,
 		common.Address,

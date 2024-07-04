@@ -52,7 +52,7 @@ type Config struct {
 	RedisURL               string                   `mapstructure:"redis-url" json:"redis-url"`
 	APIPort                uint16                   `mapstructure:"api-port" json:"api-port"`
 	MetricsPort            uint16                   `mapstructure:"metrics-port" json:"metrics-port"`
-	DBWriteIntervalSeconds uint64                   `mapstructure:"db-write-interval-seconds" json:"db-write-interval-seconds"`
+	DBWriteIntervalSeconds uint64                   `mapstructure:"db-write-interval-seconds" json:"db-write-interval-seconds"` //nolint:lll
 	PChainAPI              *APIConfig               `mapstructure:"p-chain-api" json:"p-chain-api"`
 	InfoAPI                *APIConfig               `mapstructure:"info-api" json:"info-api"`
 	SourceBlockchains      []*SourceBlockchain      `mapstructure:"source-blockchains" json:"source-blockchains"`
@@ -73,10 +73,10 @@ func DisplayUsageText() {
 // but does initialize private fields available through getters.
 func (c *Config) Validate() error {
 	if len(c.SourceBlockchains) == 0 {
-		return errors.New("relayer not configured to relay from any subnets. A list of source subnets must be provided in the configuration file")
+		return errors.New("relayer not configured to relay from any subnets. A list of source subnets must be provided in the configuration file") //nolint:lll
 	}
 	if len(c.DestinationBlockchains) == 0 {
-		return errors.New("relayer not configured to relay to any subnets. A list of destination subnets must be provided in the configuration file")
+		return errors.New("relayer not configured to relay to any subnets. A list of destination subnets must be provided in the configuration file") //nolint:lll
 	}
 	if err := c.PChainAPI.Validate(); err != nil {
 		return err
@@ -195,7 +195,11 @@ func (c *Config) InitializeWarpQuorums() error {
 	for _, destinationSubnet := range c.DestinationBlockchains {
 		err := destinationSubnet.initializeWarpQuorum()
 		if err != nil {
-			return fmt.Errorf("failed to initialize Warp quorum for destination subnet %s: %w", destinationSubnet.SubnetID, err)
+			return fmt.Errorf(
+				"failed to initialize Warp quorum for destination subnet %s: %w",
+				destinationSubnet.SubnetID,
+				err,
+			)
 		}
 	}
 

@@ -263,8 +263,12 @@ func (n *AppRequestNetwork) ConnectToCanonicalValidators(subnetID ids.ID) (*Conn
 
 // Private helpers
 
-// Connect to the validators of the source blockchain. For each destination blockchain, verify that we have connected to a threshold of stake.
-func (n *AppRequestNetwork) connectToNonPrimaryNetworkPeers(cfg *config.Config, sourceBlockchain *config.SourceBlockchain) error {
+// Connect to the validators of the source blockchain. For each destination blockchain,
+// verify that we have connected to a threshold of stake.
+func (n *AppRequestNetwork) connectToNonPrimaryNetworkPeers(
+	cfg *config.Config,
+	sourceBlockchain *config.SourceBlockchain,
+) error {
 	subnetID := sourceBlockchain.GetSubnetID()
 	connectedValidators, err := n.ConnectToCanonicalValidators(subnetID)
 	if err != nil {
@@ -291,8 +295,12 @@ func (n *AppRequestNetwork) connectToNonPrimaryNetworkPeers(cfg *config.Config, 
 	return nil
 }
 
-// Connect to the validators of the destination blockchains. Verify that we have connected to a threshold of stake for each blockchain.
-func (n *AppRequestNetwork) connectToPrimaryNetworkPeers(cfg *config.Config, sourceBlockchain *config.SourceBlockchain) error {
+// Connect to the validators of the destination blockchains. Verify that we have connected
+// to a threshold of stake for each blockchain.
+func (n *AppRequestNetwork) connectToPrimaryNetworkPeers(
+	cfg *config.Config,
+	sourceBlockchain *config.SourceBlockchain,
+) error {
 	for _, destination := range sourceBlockchain.SupportedDestinations {
 		blockchainID := destination.GetBlockchainID()
 		subnetID := cfg.GetSubnetID(blockchainID)

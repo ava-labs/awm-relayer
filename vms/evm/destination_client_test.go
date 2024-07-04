@@ -91,9 +91,17 @@ func TestSendTx(t *testing.T) {
 			toAddress := "0x27aE10273D17Cd7e80de8580A51f476960626e5f"
 
 			gomock.InOrder(
-				mockClient.EXPECT().EstimateBaseFee(gomock.Any()).Return(new(big.Int), test.estimateBaseFeeErr).Times(test.estimateBaseFeeTimes),
-				mockClient.EXPECT().SuggestGasTipCap(gomock.Any()).Return(new(big.Int), test.suggestGasTipCapErr).Times(test.suggestGasTipCapTimes),
-				mockClient.EXPECT().SendTransaction(gomock.Any(), gomock.Any()).Return(test.sendTransactionErr).Times(test.sendTransactionTimes),
+				mockClient.EXPECT().EstimateBaseFee(gomock.Any()).Return(
+					new(big.Int),
+					test.estimateBaseFeeErr,
+				).Times(test.estimateBaseFeeTimes),
+				mockClient.EXPECT().SuggestGasTipCap(gomock.Any()).Return(
+					new(big.Int),
+					test.suggestGasTipCapErr,
+				).Times(test.suggestGasTipCapTimes),
+				mockClient.EXPECT().SendTransaction(gomock.Any(), gomock.Any()).Return(
+					test.sendTransactionErr,
+				).Times(test.sendTransactionTimes),
 			)
 
 			_, err := destinationClient.SendTx(warpMsg, toAddress, 0, []byte{})
