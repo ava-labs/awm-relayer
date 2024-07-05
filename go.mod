@@ -1,6 +1,6 @@
 module github.com/ava-labs/awm-relayer
 
-go 1.21.11
+go 1.21.12
 
 require (
 	github.com/ava-labs/avalanche-network-runner v1.7.6
