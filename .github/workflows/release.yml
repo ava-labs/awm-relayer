@@ -15,14 +15,12 @@ jobs:
       - name: Git checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
-          path: awm-relayer
           submodules: recursive
 
-      # The GO_VERSION must be set explicitly to be used by GoReleaser and in the Dockerfile.
+      # The GO_VERSION must be set explicitly to be used in the Dockerfile.
       - name: Set Go version
         run: |
-          source ./awm-relayer/scripts/versions.sh
+          source ./scripts/versions.sh
           echo GO_VERSION=$GO_VERSION >> $GITHUB_ENV
 
       - name: Set up Go
@@ -71,8 +69,6 @@ jobs:
           distribution: goreleaser
           version: latest
           args: release --clean
-          workdir: ./awm-relayer/
         env:
           # https://docs.github.com/en/actions/security-guides/automatic-token-authentication#about-the-github_token-secret
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GO_VERSION: ${{ env.GO_VERSION }}
