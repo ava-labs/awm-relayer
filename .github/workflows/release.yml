@@ -19,10 +19,6 @@ jobs:
           path: awm-relayer
           submodules: recursive
 
-      - name: Set Go version
-        run: |
-          source ./awm-relayer/scripts/versions.sh
-
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
