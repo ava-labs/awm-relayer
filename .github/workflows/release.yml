@@ -19,6 +19,12 @@ jobs:
           path: awm-relayer
           submodules: recursive
 
+      # The GO_VERSION must be set explicitly to be used by GoReleaser and in the Dockerfile.
+      - name: Set Go version
+        run: |
+          source ./awm-relayer/scripts/versions.sh
+          echo GO_VERSION=$GO_VERSION >> $GITHUB_ENV
+
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
