@@ -5,11 +5,10 @@ import (
 	"math/big"
 	"net/http"
 
-	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/awm-relayer/relayer"
 	"github.com/ava-labs/awm-relayer/types"
-	relayerTypes "github.com/ava-labs/awm-relayer/types"
+	"github.com/ava-labs/awm-relayer/utils"
 	"github.com/ethereum/go-ethereum/common"
 	"go.uber.org/zap"
 )
@@ -20,9 +19,9 @@ const (
 )
 
 type RelayMessageRequest struct {
-	// Required. cb58 encoding of the source blockchain ID for the message
+	// Required. Hex or cb58 encoding of the source blockchain ID for the message
 	BlockchainID string `json:"blockchain-id"`
-	// Required. cb58 encoding of the warp message ID
+	// Required. Hex or cb58 encoding of the warp message ID
 	MessageID string `json:"message-id"`
 	// Required. Block number that the message was sent in
 	BlockNum uint64 `json:"block-num"`
@@ -64,7 +63,7 @@ func relayMessageAPIHandler(logger logging.Logger, messageCoordinator *relayer.M
 			return
 		}
 
-		warpMessageInfo := &relayerTypes.WarpMessageInfo{
+		warpMessageInfo := &types.WarpMessageInfo{
 			SourceAddress:   common.HexToAddress(req.SourceAddress),
 			UnsignedMessage: unsignedMessage,
 		}
@@ -104,13 +103,13 @@ func relayAPIHandler(logger logging.Logger, messageCoordinator *relayer.MessageC
 			return
 		}
 
-		blockchainID, err := ids.FromString(req.BlockchainID)
+		blockchainID, err := utils.HexOrCB58ToID(req.BlockchainID)
 		if err != nil {
 			logger.Warn("Invalid blockchainID", zap.String("blockchainID", req.BlockchainID))
 			http.Error(w, "invalid blockchainID: "+err.Error(), http.StatusBadRequest)
 			return
 		}
-		messageID, err := ids.FromString(req.MessageID)
+		messageID, err := utils.HexOrCB58ToID(req.MessageID)
 		if err != nil {
 			logger.Warn("Invalid messageID", zap.String("messageID", req.MessageID))
 			http.Error(w, "invalid messageID: "+err.Error(), http.StatusBadRequest)

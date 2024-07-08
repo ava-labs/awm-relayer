@@ -199,11 +199,11 @@ The relayer is configured via a JSON file, the path to which is passed in via th
 
   `"source-blockchain-id": string`
 
-  - cb58-encoded blockchain ID of the source blockchain.
+  - Hex or cb58-encoded blockchain ID of the source blockchain.
 
   `"destination-blockchain-id": string`
 
-  - cb58-encoded blockchain ID of the destination blockchain.
+  - Hex or cb58-encoded blockchain ID of the destination blockchain.
 
   `"source-address": string`
 
