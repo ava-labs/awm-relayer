@@ -13,3 +13,6 @@ server.log
 # Foundry outputs
 cache/
 out/
+
+# Release build outputs
+osxcross/
