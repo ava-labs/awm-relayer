@@ -29,8 +29,8 @@ type DestinationBlockchain struct {
 	blockchainID ids.ID
 }
 
-// Validatees the destination subnet configuration
-func (s *DestinationBlockchain) Validate() error { 
+// Validates the destination subnet configuration
+func (s *DestinationBlockchain) Validate() error {
 	if err := s.RPCEndpoint.Validate(); err != nil {
 		return fmt.Errorf("invalid rpc-endpoint in destination subnet configuration: %w", err)
 	}
