@@ -126,6 +126,7 @@ func StripFromString(input, substring string) string {
 }
 
 // Converts a '0x'-prefixed hex string or cb58-encoded string to an ID.
+// Input length validation is handled by the ids package.
 func HexOrCB58ToID(s string) (ids.ID, error) {
 	if strings.HasPrefix(s, "0x") {
 		bytes, err := hex.DecodeString(SanitizeHexString(s))
