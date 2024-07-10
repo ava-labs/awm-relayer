@@ -10,6 +10,44 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestHexOrCB58ToID(t *testing.T) {
+	testCases := []struct {
+		name           string
+		encoding       string
+		expectedResult string
+		errorExpected  bool
+	}{
+		{
+			name:           "hex conversion",
+			encoding:       "0x7fc93d85c6d62c5b2ac0b519c87010ea5294012d1e407030d6acd0021cac10d5",
+			expectedResult: "yH8D7ThNJkxmtkuv2jgBa4P1Rn3Qpr4pPr7QYNfcdoS6k6HWp",
+			errorExpected:  false,
+		},
+		{
+			name:           "cb58 conversion",
+			encoding:       "yH8D7ThNJkxmtkuv2jgBa4P1Rn3Qpr4pPr7QYNfcdoS6k6HWp",
+			expectedResult: "yH8D7ThNJkxmtkuv2jgBa4P1Rn3Qpr4pPr7QYNfcdoS6k6HWp",
+			errorExpected:  false,
+		},
+		{
+			name:          "non-prefixed hex",
+			encoding:      "7fc93d85c6d62c5b2ac0b519c87010ea5294012d1e407030d6acd0021cac10d5",
+			errorExpected: true,
+		},
+	}
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			actualResult, err := HexOrCB58ToID(testCase.encoding)
+			if testCase.errorExpected {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+				require.Equal(t, testCase.expectedResult, actualResult.String())
+			}
+		})
+	}
+}
+
 func TestSanitizeHexString(t *testing.T) {
 	testCases := []struct {
 		name           string

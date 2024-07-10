@@ -199,11 +199,11 @@ The relayer is configured via a JSON file, the path to which is passed in via th
 
   `"source-blockchain-id": string`
 
-  - cb58-encoded blockchain ID of the source blockchain.
+  - cb58-encoded or "0x" prefixed hex-encoded blockchain ID of the source blockchain.
 
   `"destination-blockchain-id": string`
 
-  - cb58-encoded blockchain ID of the destination blockchain.
+  - cb58-encoded or "0x" prefixed hex-encoded blockchain ID of the destination blockchain.
 
   `"source-address": string`
 
@@ -219,11 +219,11 @@ The relayer is configured via a JSON file, the path to which is passed in via th
 
   `"subnet-id": string`
 
-  - cb58-encoded Subnet ID.
+  - cb58-encoded or "0x" prefixed hex-encoded Subnet ID.
 
   `"blockchain-id": string`
 
-  - cb58-encoded blockchain ID.
+  - cb58-encoded or "0x" prefixed hex-encoded blockchain ID.
 
   `"vm": string`
 
@@ -263,11 +263,11 @@ The relayer is configured via a JSON file, the path to which is passed in via th
 
   `"subnet-id": string`
 
-  - cb58-encoded Subnet ID.
+  - cb58-encoded or "0x" prefixed hex-encoded Subnet ID.
 
   `"blockchain-id": string`
 
-  - cb58-encoded blockchain ID.
+  - cb58-encoded or "0x" prefixed hex-encoded blockchain ID.
 
   `"vm": string`
 
@@ -322,8 +322,8 @@ The relayer consists of the following components:
 - Used to manually relay a Warp message. The body of the request must contain the following JSON:
 ```json
 {
- "blockchain-id": "<cb58-encoding of blockchain ID>",
- "message-id": "<cb58-encoding of Warp message ID>",
+ "blockchain-id": "<cb58-encoded or '0x' prefixed hex-encoded of blockchain ID>",
+ "message-id": "<cb58-encoded or '0x' prefixed hex-encoded of Warp message ID>",
  "block-num": "<Block number that the message was sent in>"
 }
 ```

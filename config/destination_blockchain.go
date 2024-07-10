@@ -29,17 +29,8 @@ type DestinationBlockchain struct {
 	blockchainID ids.ID
 }
 
-// Validatees the destination subnet configuration
+// Validates the destination subnet configuration
 func (s *DestinationBlockchain) Validate() error {
-	if _, err := ids.FromString(s.SubnetID); err != nil {
-		return fmt.Errorf("invalid subnetID in destination subnet configuration. Provided ID: %s", s.SubnetID)
-	}
-	if _, err := ids.FromString(s.BlockchainID); err != nil {
-		return fmt.Errorf(
-			"invalid blockchainID in destination subnet configuration. Provided ID: %s",
-			s.BlockchainID,
-		)
-	}
 	if err := s.RPCEndpoint.Validate(); err != nil {
 		return fmt.Errorf("invalid rpc-endpoint in destination subnet configuration: %w", err)
 	}
@@ -63,14 +54,14 @@ func (s *DestinationBlockchain) Validate() error {
 	}
 
 	// Validate and store the subnet and blockchain IDs for future use
-	blockchainID, err := ids.FromString(s.BlockchainID)
+	blockchainID, err := utils.HexOrCB58ToID(s.BlockchainID)
 	if err != nil {
-		return fmt.Errorf("invalid blockchainID in configuration. error: %w", err)
+		return fmt.Errorf("invalid blockchainID '%s' in configuration. error: %w", s.BlockchainID, err)
 	}
 	s.blockchainID = blockchainID
-	subnetID, err := ids.FromString(s.SubnetID)
+	subnetID, err := utils.HexOrCB58ToID(s.SubnetID)
 	if err != nil {
-		return fmt.Errorf("invalid subnetID in configuration. error: %w", err)
+		return fmt.Errorf("invalid subnetID '%s' in configuration. error: %w", s.SubnetID, err)
 	}
 	s.subnetID = subnetID
 

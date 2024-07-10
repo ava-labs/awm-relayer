@@ -37,12 +37,6 @@ type SourceBlockchain struct {
 // destinationBlockchainIDs. Does not modify the public fields as derived from the configuration passed to the
 // application, but does initialize private fields available through getters.
 func (s *SourceBlockchain) Validate(destinationBlockchainIDs *set.Set[string]) error {
-	if _, err := ids.FromString(s.SubnetID); err != nil {
-		return fmt.Errorf("invalid subnetID in source subnet configuration. Provided ID: %s", s.SubnetID)
-	}
-	if _, err := ids.FromString(s.BlockchainID); err != nil {
-		return fmt.Errorf("invalid blockchainID in source subnet configuration. Provided ID: %s", s.BlockchainID)
-	}
 	if err := s.RPCEndpoint.Validate(); err != nil {
 		return fmt.Errorf("invalid rpc-endpoint in source subnet configuration: %w", err)
 	}
@@ -79,14 +73,14 @@ func (s *SourceBlockchain) Validate(destinationBlockchainIDs *set.Set[string]) e
 	}
 
 	// Validate and store the subnet and blockchain IDs for future use
-	blockchainID, err := ids.FromString(s.BlockchainID)
+	blockchainID, err := utils.HexOrCB58ToID(s.BlockchainID)
 	if err != nil {
-		return fmt.Errorf("invalid blockchainID in configuration. error: %w", err)
+		return fmt.Errorf("invalid blockchainID '%s' in configuration. error: %w", s.BlockchainID, err)
 	}
 	s.blockchainID = blockchainID
-	subnetID, err := ids.FromString(s.SubnetID)
+	subnetID, err := utils.HexOrCB58ToID(s.SubnetID)
 	if err != nil {
-		return fmt.Errorf("invalid subnetID in configuration. error: %w", err)
+		return fmt.Errorf("invalid subnetID '%s' in configuration. error: %w", s.SubnetID, err)
 	}
 	s.subnetID = subnetID
 
@@ -99,7 +93,7 @@ func (s *SourceBlockchain) Validate(destinationBlockchainIDs *set.Set[string]) e
 		}
 	}
 	for _, dest := range s.SupportedDestinations {
-		blockchainID, err := ids.FromString(dest.BlockchainID)
+		blockchainID, err := utils.HexOrCB58ToID(dest.BlockchainID)
 		if err != nil {
 			return fmt.Errorf("invalid blockchainID in configuration. error: %w", err)
 		}
@@ -107,7 +101,8 @@ func (s *SourceBlockchain) Validate(destinationBlockchainIDs *set.Set[string]) e
 			return fmt.Errorf(
 				"configured source subnet %s has a supported destination blockchain ID %s that is not configured as a destination blockchain", //nolint:lll
 				s.SubnetID,
-				blockchainID)
+				blockchainID,
+			)
 		}
 		dest.blockchainID = blockchainID
 		for _, addressStr := range dest.Addresses {
