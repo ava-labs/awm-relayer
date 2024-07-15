@@ -23,6 +23,7 @@ import (
 	avalancheWarp "github.com/ava-labs/avalanchego/vms/platformvm/warp"
 	"github.com/ava-labs/awm-relayer/config"
 	"github.com/ava-labs/awm-relayer/database"
+	libPeers "github.com/ava-labs/awm-relayer/lib/peers"
 	"github.com/ava-labs/awm-relayer/messages"
 	"github.com/ava-labs/awm-relayer/peers"
 	"github.com/ava-labs/awm-relayer/relayer/checkpoint"
@@ -467,11 +468,11 @@ func (r *ApplicationRelayer) createSignedMessageAppRequest(
 				RequestID:          requestID,
 				Op:                 byte(message.AppResponseOp),
 			}
-			r.network.Handler.RegisterAppRequest(reqID)
+			r.network.RegisterAppRequest(reqID)
 		}
-		responseChan := r.network.Handler.RegisterRequestID(requestID, vdrSet.Len())
+		responseChan := r.network.RegisterRequestID(requestID, vdrSet.Len())
 
-		sentTo := r.network.Network.Send(outMsg, vdrSet, r.sourceBlockchain.GetSubnetID(), subnets.NoOpAllower)
+		sentTo := r.network.Send(outMsg, vdrSet, r.sourceBlockchain.GetSubnetID(), subnets.NoOpAllower)
 		r.logger.Debug(
 			"Sent signature request to network",
 			zap.String("warpMessageID", unsignedMessage.ID().String()),
@@ -561,7 +562,7 @@ func (r *ApplicationRelayer) handleResponse(
 	response message.InboundMessage,
 	sentTo set.Set[ids.NodeID],
 	requestID uint32,
-	connectedValidators *peers.ConnectedCanonicalValidators,
+	connectedValidators *libPeers.ConnectedCanonicalValidators,
 	unsignedMessage *avalancheWarp.UnsignedMessage,
 	signatureMap map[int]blsSignatureBuf,
 	accumulatedSignatureWeight *big.Int,

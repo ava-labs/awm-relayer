@@ -1,11 +1,10 @@
-// Copyright (C) 2023, Ava Labs, Inc. All rights reserved.
+// Copyright (C) 2024, Ava Labs, Inc. All rights reserved.
 // See the file LICENSE for licensing terms.
 
 package peers
 
 import (
 	"context"
-	"math/big"
 	"os"
 	"sync"
 	"time"
@@ -15,14 +14,12 @@ import (
 	"github.com/ava-labs/avalanchego/network"
 	snowVdrs "github.com/ava-labs/avalanchego/snow/validators"
 	"github.com/ava-labs/avalanchego/subnets"
-	"github.com/ava-labs/avalanchego/utils/constants"
 	"github.com/ava-labs/avalanchego/utils/ips"
 	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/avalanchego/utils/set"
-	"github.com/ava-labs/awm-relayer/config"
 	libPeers "github.com/ava-labs/awm-relayer/lib/peers"
 	"github.com/ava-labs/awm-relayer/peers/validators"
-	"github.com/ava-labs/awm-relayer/utils"
+	"github.com/ava-labs/awm-relayer/signature-aggregator/config"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 )
@@ -48,7 +45,7 @@ func NewNetwork(
 	cfg *config.Config,
 ) (*AppRequestNetwork, error) {
 	logger := logging.NewLogger(
-		"awm-relayer-p2p",
+		"signature-aggregator-p2p",
 		logging.NewWrappedCore(
 			logLevel,
 			os.Stdout,
@@ -113,14 +110,8 @@ func NewNetwork(
 	// Sufficient stake is determined by the Warp quora of the configured supported destinations,
 	// or if the subnet supports all destinations, by the quora of all configured destinations.
 	for _, sourceBlockchain := range cfg.SourceBlockchains {
-		if sourceBlockchain.GetSubnetID() == constants.PrimaryNetworkID {
-			if err := arNetwork.connectToPrimaryNetworkPeers(cfg, sourceBlockchain); err != nil {
-				return nil, err
-			}
-		} else {
-			if err := arNetwork.connectToNonPrimaryNetworkPeers(cfg, sourceBlockchain); err != nil {
-				return nil, err
-			}
+		if err := arNetwork.connectToNonPrimaryNetworkPeers(cfg, sourceBlockchain); err != nil {
+			return nil, err
 		}
 	}
 
@@ -181,28 +172,28 @@ func (n *AppRequestNetwork) ConnectPeers(nodeIDs set.Set[ids.NodeID]) set.Set[id
 
 	// If the Info API node is in nodeIDs, it will not be reflected in the call to info.Peers.
 	// In this case, we need to manually track the API node.
-	if apiNodeID, _, err := n.infoAPI.GetNodeID(context.Background()); err != nil {
-		n.logger.Error(
-			"Failed to get API Node ID",
-			zap.Error(err),
-		)
-	} else if nodeIDs.Contains(apiNodeID) {
-		if apiNodeIP, err := n.infoAPI.GetNodeIP(context.Background()); err != nil {
-			n.logger.Error(
-				"Failed to get API Node IP",
-				zap.Error(err),
-			)
-		} else if ipPort, err := ips.ToIPPort(apiNodeIP); err != nil {
-			n.logger.Error(
-				"Failed to parse API Node IP",
-				zap.String("nodeIP", apiNodeIP),
-				zap.Error(err),
-			)
-		} else {
-			trackedNodes.Add(apiNodeID)
-			n.network.ManuallyTrack(apiNodeID, ipPort)
-		}
-	}
+	// if apiNodeID, _, err := n.infoAPI.GetNodeID(context.Background()); err != nil {
+	// 	n.logger.Error(
+	// 		"Failed to get API Node ID",
+	// 		zap.Error(err),
+	// 	)
+	// } else if nodeIDs.Contains(apiNodeID) {
+	// 	if apiNodeIP, err := n.infoAPI.GetNodeIP(context.Background()); err != nil {
+	// 		n.logger.Error(
+	// 			"Failed to get API Node IP",
+	// 			zap.Error(err),
+	// 		)
+	// 	} else if ipPort, err := ips.ToIPPort(apiNodeIP); err != nil {
+	// 		n.logger.Error(
+	// 			"Failed to parse API Node IP",
+	// 			zap.String("nodeIP", apiNodeIP),
+	// 			zap.Error(err),
+	// 		)
+	// 	} else {
+	// 		trackedNodes.Add(apiNodeID)
+	// 		n.network.ManuallyTrack(apiNodeID, ipPort)
+	// 	}
+	// }
 
 	return trackedNodes
 }
@@ -268,7 +259,7 @@ func (n *AppRequestNetwork) connectToNonPrimaryNetworkPeers(
 	sourceBlockchain *config.SourceBlockchain,
 ) error {
 	subnetID := sourceBlockchain.GetSubnetID()
-	connectedValidators, err := n.ConnectToCanonicalValidators(subnetID)
+	_, err := n.ConnectToCanonicalValidators(subnetID)
 	if err != nil {
 		n.logger.Error(
 			"Failed to connect to canonical validators",
@@ -277,74 +268,5 @@ func (n *AppRequestNetwork) connectToNonPrimaryNetworkPeers(
 		)
 		return err
 	}
-	for _, destination := range sourceBlockchain.SupportedDestinations {
-		blockchainID := destination.GetBlockchainID()
-		if ok, quorum, err := n.checkForSufficientConnectedStake(cfg, connectedValidators, blockchainID); !ok {
-			n.logger.Error(
-				"Failed to connect to a threshold of stake",
-				zap.String("destinationBlockchainID", blockchainID.String()),
-				zap.Uint64("connectedWeight", connectedValidators.ConnectedWeight),
-				zap.Uint64("totalValidatorWeight", connectedValidators.TotalValidatorWeight),
-				zap.Any("warpQuorum", quorum),
-			)
-			return err
-		}
-	}
 	return nil
-}
-
-// Connect to the validators of the destination blockchains. Verify that we have connected
-// to a threshold of stake for each blockchain.
-func (n *AppRequestNetwork) connectToPrimaryNetworkPeers(
-	cfg *config.Config,
-	sourceBlockchain *config.SourceBlockchain,
-) error {
-	for _, destination := range sourceBlockchain.SupportedDestinations {
-		blockchainID := destination.GetBlockchainID()
-		subnetID := cfg.GetSubnetID(blockchainID)
-		connectedValidators, err := n.ConnectToCanonicalValidators(subnetID)
-		if err != nil {
-			n.logger.Error(
-				"Failed to connect to canonical validators",
-				zap.String("subnetID", subnetID.String()),
-				zap.Error(err),
-			)
-			return err
-		}
-
-		if ok, quorum, err := n.checkForSufficientConnectedStake(cfg, connectedValidators, blockchainID); !ok {
-			n.logger.Error(
-				"Failed to connect to a threshold of stake",
-				zap.String("destinationBlockchainID", blockchainID.String()),
-				zap.Uint64("connectedWeight", connectedValidators.ConnectedWeight),
-				zap.Uint64("totalValidatorWeight", connectedValidators.TotalValidatorWeight),
-				zap.Any("warpQuorum", quorum),
-			)
-			return err
-		}
-	}
-	return nil
-}
-
-// Fetch the warp quorum from the config and check if the connected stake exceeds the threshold
-func (n *AppRequestNetwork) checkForSufficientConnectedStake(
-	cfg *config.Config,
-	connectedValidators *libPeers.ConnectedCanonicalValidators,
-	destinationBlockchainID ids.ID,
-) (bool, *config.WarpQuorum, error) {
-	quorum, err := cfg.GetWarpQuorum(destinationBlockchainID)
-	if err != nil {
-		n.logger.Error(
-			"Failed to get warp quorum from config",
-			zap.String("destinationBlockchainID", destinationBlockchainID.String()),
-			zap.Error(err),
-		)
-		return false, nil, err
-	}
-	return utils.CheckStakeWeightExceedsThreshold(
-		big.NewInt(0).SetUint64(connectedValidators.ConnectedWeight),
-		connectedValidators.TotalValidatorWeight,
-		quorum.QuorumNumerator,
-		quorum.QuorumDenominator,
-	), &quorum, nil
 }
