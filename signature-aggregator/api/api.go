@@ -7,9 +7,11 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/utils/logging"
 	aggregator "github.com/ava-labs/awm-relayer/lib"
 	"github.com/ava-labs/awm-relayer/types"
+	"github.com/ava-labs/awm-relayer/utils"
 	"go.uber.org/zap"
 )
 
@@ -34,8 +36,8 @@ type SignatureAggregationByIDRequest struct {
 type SignatureAggregationRawRequest struct {
 	// Required. Unsigned base64 encoded message bytes.
 	UnsignedMessageBytes []byte `json:"unsigned-message-bytes"`
-	// Required. "0x" prefixed hex-encoded source address for the message.
-	SourceAddress string `json:"source-address"`
+	// Optional hex or cb58 encoded signing subnet ID. If omitted will default to the subnetID of the source BlockChain
+	SigningSubnetID string `json:"signing-subnet-id"`
 	// Optional. Integer from 0 to 100 representing the percentage of the quorum that is required to sign the message
 	// defaults to 67 if omitted.
 	QuorumNum *uint64 `json:"quorum-num"`
@@ -75,8 +77,16 @@ func signatureAggregationAPIHandler(logger logging.Logger, signatureAggregator *
 		} else {
 			quorumNum = *req.QuorumNum
 		}
+		var signingSubnetID *ids.ID
+		if req.SigningSubnetID != "" {
+			*signingSubnetID, err = utils.HexOrCB58ToID(req.SigningSubnetID)
+			if err != nil {
+				logger.Warn("Error parsing signing subnet ID", zap.Error(err))
+				http.Error(w, "error parsing signing subnet ID: "+err.Error(), http.StatusBadRequest)
+			}
+		}
 
-		signedMessage, err := signatureAggregator.AggregateSignaturesAppRequest(unsignedMessage, quorumNum)
+		signedMessage, err := signatureAggregator.AggregateSignaturesAppRequest(unsignedMessage, signingSubnetID, quorumNum)
 
 		if err != nil {
 			logger.Warn("Failed to aggregate signatures", zap.Error(err))

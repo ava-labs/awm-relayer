@@ -90,6 +90,10 @@ func main() {
 		prometheus.DefaultRegisterer,
 		&cfg,
 	)
+	if err != nil {
+		logger.Fatal("Failed to create app request network", zap.Error(err))
+		panic(err)
+	}
 
 	sourceBlockchainsById := make(map[ids.ID]*config.SourceBlockchain)
 	for _, sourceBlockchain := range cfg.SourceBlockchains {

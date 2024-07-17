@@ -75,13 +75,18 @@ func NewSignatureAggregator(
 	return &sa
 }
 
-func (s *SignatureAggregator) AggregateSignaturesAppRequest(unsignedMessage *avalancheWarp.UnsignedMessage, quorumPercentage uint64) (*avalancheWarp.Message, error) {
+func (s *SignatureAggregator) AggregateSignaturesAppRequest(unsignedMessage *avalancheWarp.UnsignedMessage, signingSubnet *ids.ID, quorumPercentage uint64) (*avalancheWarp.Message, error) {
 	requestID := s.currentRequestID.Add(1)
+
 	sourceBlockchain, ok := s.sourceBlockchains[unsignedMessage.SourceChainID]
-	if !ok {
-		return nil, fmt.Errorf("source blockchain not found for chain ID %s", unsignedMessage.SourceChainID)
+	// If signingSubnet is not set  we default to the subnet of the source blockchain
+	if signingSubnet == nil {
+		if !ok {
+			return nil, fmt.Errorf("source blockchain not found for chain ID %s", unsignedMessage.SourceChainID)
+		}
+		*signingSubnet = sourceBlockchain.GetSubnetID()
 	}
-	connectedValidators, err := s.network.ConnectToCanonicalValidators(sourceBlockchain.GetSubnetID())
+	connectedValidators, err := s.network.ConnectToCanonicalValidators(*signingSubnet)
 
 	if err != nil {
 		s.logger.Error(
@@ -91,7 +96,6 @@ func (s *SignatureAggregator) AggregateSignaturesAppRequest(unsignedMessage *ava
 		)
 		return nil, err
 	}
-	// TODO Check if we have enough stake here maybe?
 	if !utils.CheckStakeWeightPercentageExceedsThreshold(
 		big.NewInt(0).SetUint64(connectedValidators.ConnectedWeight),
 		connectedValidators.TotalValidatorWeight,
@@ -108,7 +112,7 @@ func (s *SignatureAggregator) AggregateSignaturesAppRequest(unsignedMessage *ava
 
 	// Make sure to use the correct codec
 	var reqBytes []byte
-	if sourceBlockchain.GetSubnetID() == constants.PrimaryNetworkID {
+	if *signingSubnet == constants.PrimaryNetworkID {
 		req := coreEthMsg.MessageSignatureRequest{
 			MessageID: unsignedMessage.ID(),
 		}
@@ -188,7 +192,7 @@ func (s *SignatureAggregator) AggregateSignaturesAppRequest(unsignedMessage *ava
 		}
 		responseChan := s.network.RegisterRequestID(requestID, vdrSet.Len())
 
-		sentTo := s.network.Send(outMsg, vdrSet, sourceBlockchain.GetSubnetID(), subnets.NoOpAllower)
+		sentTo := s.network.Send(outMsg, vdrSet, *signingSubnet, subnets.NoOpAllower)
 		s.logger.Debug(
 			"Sent signature request to network",
 			zap.String("warpMessageID", unsignedMessage.ID().String()),
