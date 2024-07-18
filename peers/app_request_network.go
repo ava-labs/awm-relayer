@@ -185,7 +185,9 @@ func (n *AppRequestNetwork) ConnectPeers(nodeIDs set.Set[ids.NodeID]) set.Set[id
 			"Failed to get API Node ID",
 			zap.Error(err),
 		)
+		n.setInfoAPICallLatencyMS(float64(time.Since(startInfoAPICall).Milliseconds()))
 	} else if nodeIDs.Contains(apiNodeID) {
+		startInfoAPICall = time.Now()
 		if apiNodeIPPort, err := n.infoAPI.GetNodeIP(context.Background()); err != nil {
 			n.logger.Error(
 				"Failed to get API Node IP",
@@ -195,8 +197,8 @@ func (n *AppRequestNetwork) ConnectPeers(nodeIDs set.Set[ids.NodeID]) set.Set[id
 			trackedNodes.Add(apiNodeID)
 			n.Network.ManuallyTrack(apiNodeID, apiNodeIPPort)
 		}
+		n.setInfoAPICallLatencyMS(float64(time.Since(startInfoAPICall).Milliseconds()))
 	}
-	n.setInfoAPICallLatencyMS(float64(time.Since(startInfoAPICall).Milliseconds()))
 
 	return trackedNodes
 }
@@ -353,9 +355,9 @@ func (n *AppRequestNetwork) checkForSufficientConnectedStake(
 //
 
 func (n *AppRequestNetwork) setInfoAPICallLatencyMS(latency float64) {
-	n.metrics.infoAPICallLatencyMS.WithLabelValues(n.metrics.infoAPIBaseURL).Set(latency)
+	n.metrics.infoAPICallLatencyMS.WithLabelValues(n.metrics.infoAPIBaseURL).Observe(latency)
 }
 
 func (n *AppRequestNetwork) setPChainAPICallLatencyMS(latency float64) {
-	n.metrics.pChainAPICallLatencyMS.WithLabelValues(n.metrics.pChainAPIBaseURL).Set(latency)
+	n.metrics.pChainAPICallLatencyMS.WithLabelValues(n.metrics.pChainAPIBaseURL).Observe(latency)
 }

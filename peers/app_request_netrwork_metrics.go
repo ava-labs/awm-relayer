@@ -14,15 +14,16 @@ type AppRequestNetworkMetrics struct {
 	infoAPIBaseURL   string
 	pChainAPIBaseURL string
 
-	infoAPICallLatencyMS   *prometheus.GaugeVec
-	pChainAPICallLatencyMS *prometheus.GaugeVec
+	infoAPICallLatencyMS   *prometheus.HistogramVec
+	pChainAPICallLatencyMS *prometheus.HistogramVec
 }
 
 func NewAppRequestNetworkMetrics(cfg *config.Config, registerer prometheus.Registerer) (*AppRequestNetworkMetrics, error) {
-	infoAPICallLatencyMS := prometheus.NewGaugeVec(
-		prometheus.GaugeOpts{
-			Name: "info_api_call_latency_ms",
-			Help: "Latency of calling info api in milliseconds",
+	infoAPICallLatencyMS := prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name:    "info_api_call_latency_ms",
+			Help:    "Latency of calling info api in milliseconds",
+			Buckets: prometheus.LinearBuckets(10, 10, 10),
 		},
 		[]string{"info_api_base_url"},
 	)
@@ -31,10 +32,11 @@ func NewAppRequestNetworkMetrics(cfg *config.Config, registerer prometheus.Regis
 	}
 	registerer.MustRegister(infoAPICallLatencyMS)
 
-	pChainAPICallLatencyMS := prometheus.NewGaugeVec(
-		prometheus.GaugeOpts{
-			Name: "p_chain_api_call_latency_ms",
-			Help: "Latency of calling p-chain rpc in milliseconds",
+	pChainAPICallLatencyMS := prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name:    "p_chain_api_call_latency_ms",
+			Help:    "Latency of calling p-chain rpc in milliseconds",
+			Buckets: prometheus.LinearBuckets(10, 10, 10),
 		},
 		[]string{"p_chain_api_base_url"},
 	)
