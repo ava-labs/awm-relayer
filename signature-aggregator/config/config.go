@@ -71,3 +71,26 @@ func (c *Config) Validate() error {
 
 	return nil
 }
+
+func (c *Config) FromBaseConfig(cfg baseCfg.Config) (Config, error) {
+	sourceBlockchains := make([]*SourceBlockchain, len(cfg.SourceBlockchains))
+	for i, s := range cfg.SourceBlockchains {
+		sourceBlockchain, err := FromBaseSourceBlockChain(s)
+		if err != nil {
+			return Config{}, err
+		}
+		sourceBlockchains[i] = sourceBlockchain
+	}
+	config := Config{
+		LogLevel:          cfg.LogLevel,
+		SourceBlockchains: sourceBlockchains,
+		PChainAPI:         cfg.PChainAPI,
+		InfoAPI:           cfg.InfoAPI,
+		APIPort:           cfg.APIPort,
+	}
+	err := config.Validate()
+	if err != nil {
+		return Config{}, err
+	}
+	return config, nil
+}

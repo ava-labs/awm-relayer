@@ -52,3 +52,17 @@ func (s *SourceBlockchain) GetSubnetID() ids.ID {
 func (s *SourceBlockchain) GetBlockchainID() ids.ID {
 	return s.blockchainID
 }
+
+func FromBaseSourceBlockChain(baseSourceBlockchain *baseCfg.SourceBlockchain) (*SourceBlockchain, error) {
+	sourceBlockchain := SourceBlockchain{
+		SubnetID:     baseSourceBlockchain.SubnetID,
+		BlockchainID: baseSourceBlockchain.BlockchainID,
+		VM:           baseSourceBlockchain.VM,
+		RPCEndpoint:  baseSourceBlockchain.RPCEndpoint,
+		WSEndpoint:   baseSourceBlockchain.WSEndpoint,
+	}
+	if err := sourceBlockchain.Validate(); err != nil {
+		return nil, err
+	}
+	return &sourceBlockchain, nil
+}
