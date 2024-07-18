@@ -42,7 +42,7 @@ fi
 if [[ $# -eq 1 ]]; then
     binary_path=$1
 elif [[ $# -eq 0 ]]; then
-    binary_path="build/awm-relayer"
+    binary_path=$relayer_path
 else
     echo "Invalid arguments to build awm-relayer. Requires zero (default location) or one argument to specify binary location."
     exit 1

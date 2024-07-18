@@ -47,7 +47,7 @@ func DisplayUsageText() {
 // but does initialize private fields available through getters.
 func (c *Config) Validate() error {
 	if len(c.SourceBlockchains) == 0 {
-		return errors.New("relayer not configured to relay from any subnets. A list of source subnets must be provided in the configuration file") //nolint:lll
+		return errors.New("signature-aggregator not configured to sign messages from any subnets. A list of source subnets must be provided in the configuration file") //nolint:lll
 	}
 	if err := c.PChainAPI.Validate(); err != nil {
 		return err

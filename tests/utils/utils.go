@@ -21,6 +21,7 @@ import (
 	warpPayload "github.com/ava-labs/avalanchego/vms/platformvm/warp/payload"
 	"github.com/ava-labs/awm-relayer/config"
 	offchainregistry "github.com/ava-labs/awm-relayer/messages/off-chain-registry"
+	signatureaggregatorcfg "github.com/ava-labs/awm-relayer/signature-aggregator/config"
 	batchcrosschainmessenger "github.com/ava-labs/awm-relayer/tests/abi-bindings/go/BatchCrossChainMessenger"
 	relayerUtils "github.com/ava-labs/awm-relayer/utils"
 	"github.com/ava-labs/subnet-evm/accounts/abi/bind"
@@ -43,8 +44,9 @@ import (
 var StorageLocation = fmt.Sprintf("%s/.awm-relayer-storage", os.TempDir())
 
 const (
-	DefaultRelayerCfgFname = "relayer-config.json"
-	DBUpdateSeconds        = 1
+	DefaultRelayerCfgFname             = "relayer-config.json"
+	DefaultSignatureAggregatorCfgFname = "signature-aggregator-config.json"
+	DBUpdateSeconds                    = 1
 )
 
 func BuildAndRunRelayerExecutable(ctx context.Context, relayerConfigPath string) context.CancelFunc {
@@ -98,6 +100,62 @@ func BuildAndRunRelayerExecutable(ctx context.Context, relayerConfigPath string)
 	return func() {
 		relayerCancel()
 		<-relayerContext.Done()
+	}
+}
+
+func BuildAndRunSignatureAggregatorExecutable(ctx context.Context, signatureAggregatorConfigPath string) context.CancelFunc {
+	// Build the signature-aggregator binary
+	cmd := exec.Command("./signature-aggregator/scripts/build.sh")
+	out, err := cmd.CombinedOutput()
+	fmt.Println(string(out))
+	Expect(err).Should(BeNil())
+
+	cmdOutput := make(chan string)
+
+	// Run signature-aggregator binary with config path
+	var signatureAggregatorCtx context.Context
+	signatureAggregatorCtx, signatureAggregatorCancelFunc := context.WithCancel(ctx)
+	log.Info("Starting the signature-aggregator executable")
+	log.Info(fmt.Sprintf("./signature-aggregator/build/signature-aggregator --config-file %s ", signatureAggregatorConfigPath))
+	signatureAggregatorCmd := exec.CommandContext(signatureAggregatorCtx, "./signature-aggregator/build/signature-aggregator", "--config-file", signatureAggregatorConfigPath)
+
+	// Set up a pipe to capture the command's output
+	cmdStdOutReader, err := signatureAggregatorCmd.StdoutPipe()
+	Expect(err).Should(BeNil())
+	cmdStdErrReader, err := signatureAggregatorCmd.StderrPipe()
+	Expect(err).Should(BeNil())
+
+	// Start the command
+	log.Info("Starting the signature-aggregator executable")
+	err = signatureAggregatorCmd.Start()
+	Expect(err).Should(BeNil())
+
+	// Start goroutines to read and output the command's stdout and stderr
+	go func() {
+		scanner := bufio.NewScanner(cmdStdOutReader)
+		for scanner.Scan() {
+			log.Info(scanner.Text())
+		}
+		cmdOutput <- "Command execution finished"
+	}()
+	go func() {
+		scanner := bufio.NewScanner(cmdStdErrReader)
+		for scanner.Scan() {
+			log.Error(scanner.Text())
+		}
+		cmdOutput <- "Command execution finished"
+	}()
+	// Spawn a goroutine that will panic if the relayer exits abnormally.
+	go func() {
+		err := signatureAggregatorCmd.Wait()
+		// Context cancellation is the only expected way for the process to exit, otherwise panic
+		if !errors.Is(signatureAggregatorCtx.Err(), context.Canceled) {
+			panic(fmt.Errorf("signature-aggregator exited abnormally: %w", err))
+		}
+	}()
+	return func() {
+		signatureAggregatorCancelFunc()
+		<-signatureAggregatorCtx.Done()
 	}
 }
 
@@ -205,6 +263,58 @@ func CreateDefaultRelayerConfig(
 		SourceBlockchains:      sources,
 		DestinationBlockchains: destinations,
 		APIPort:                8080,
+	}
+}
+
+func CreateDefaultSignatureAggregatorConfig(
+	sourceSubnetsInfo []interfaces.SubnetTestInfo,
+) signatureaggregatorcfg.Config {
+	logLevel, err := logging.ToLevel(os.Getenv("LOG_LEVEL"))
+	if err != nil {
+		logLevel = logging.Info
+	}
+
+	log.Info(
+		"Setting up signature aggregator config",
+		"logLevel", logLevel.LowerString(),
+	)
+	// Construct the config values for each subnet
+	sources := make([]*signatureaggregatorcfg.SourceBlockchain, len(sourceSubnetsInfo))
+	for i, subnetInfo := range sourceSubnetsInfo {
+		host, port, err := teleporterTestUtils.GetURIHostAndPort(subnetInfo.NodeURIs[0])
+		Expect(err).Should(BeNil())
+
+		sources[i] = &signatureaggregatorcfg.SourceBlockchain{
+			SubnetID:     subnetInfo.SubnetID.String(),
+			BlockchainID: subnetInfo.BlockchainID.String(),
+			VM:           config.EVM.String(),
+			RPCEndpoint: config.APIConfig{
+				BaseURL: fmt.Sprintf("http://%s:%d/ext/bc/%s/rpc", host, port, subnetInfo.BlockchainID.String()),
+			},
+			WSEndpoint: config.APIConfig{
+				BaseURL: fmt.Sprintf("ws://%s:%d/ext/bc/%s/ws", host, port, subnetInfo.BlockchainID.String()),
+			},
+		}
+
+		log.Info(
+			"Creating relayer config for source subnet",
+			"subnetID", subnetInfo.SubnetID.String(),
+			"blockchainID", subnetInfo.BlockchainID.String(),
+			"host", host,
+			"port", port,
+		)
+	}
+
+	return signatureaggregatorcfg.Config{
+		LogLevel: logging.Info.LowerString(),
+		PChainAPI: &config.APIConfig{
+			BaseURL: sourceSubnetsInfo[0].NodeURIs[0],
+		},
+		InfoAPI: &config.APIConfig{
+			BaseURL: sourceSubnetsInfo[0].NodeURIs[0],
+		},
+		SourceBlockchains: sources,
+		APIPort:           8080,
 	}
 }
 
@@ -416,6 +526,22 @@ func WriteRelayerConfig(relayerConfig config.Config, fname string) string {
 
 	log.Info("Created awm-relayer config", "configPath", relayerConfigPath, "config", string(data))
 	return relayerConfigPath
+}
+
+// TODO define interface over Config and write a generic function to write either config
+func WriteSignatureAggregatorConfig(signatureAggregatorConfig signatureaggregatorcfg.Config, fname string) string {
+	data, err := json.MarshalIndent(signatureAggregatorConfig, "", "\t")
+	Expect(err).Should(BeNil())
+
+	f, err := os.CreateTemp(os.TempDir(), fname)
+	Expect(err).Should(BeNil())
+
+	_, err = f.Write(data)
+	Expect(err).Should(BeNil())
+	signatureAggregatorConfigPath := f.Name()
+
+	log.Info("Created signature-aggregator config", "configPath", signatureAggregatorConfigPath, "config", string(data))
+	return signatureAggregatorConfigPath
 }
 
 func TriggerProcessMissedBlocks(

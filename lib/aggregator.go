@@ -78,12 +78,13 @@ func NewSignatureAggregator(
 func (s *SignatureAggregator) AggregateSignaturesAppRequest(unsignedMessage *avalancheWarp.UnsignedMessage, signingSubnet *ids.ID, quorumPercentage uint64) (*avalancheWarp.Message, error) {
 	requestID := s.currentRequestID.Add(1)
 
+	s.logger.Error(fmt.Sprintf("%v", s.sourceBlockchains))
 	sourceBlockchain, ok := s.sourceBlockchains[unsignedMessage.SourceChainID]
+	if !ok {
+		return nil, fmt.Errorf("source blockchain not found for chain ID %s", unsignedMessage.SourceChainID)
+	}
 	// If signingSubnet is not set  we default to the subnet of the source blockchain
 	if signingSubnet == nil {
-		if !ok {
-			return nil, fmt.Errorf("source blockchain not found for chain ID %s", unsignedMessage.SourceChainID)
-		}
 		*signingSubnet = sourceBlockchain.GetSubnetID()
 	}
 	connectedValidators, err := s.network.ConnectToCanonicalValidators(*signingSubnet)
