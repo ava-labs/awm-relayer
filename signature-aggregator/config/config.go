@@ -59,6 +59,9 @@ func (c *Config) Validate() error {
 	// Validate the source chains and store the source subnet and chain IDs for future use
 	sourceBlockchains := set.NewSet[string](len(c.SourceBlockchains))
 	for _, s := range c.SourceBlockchains {
+		if err := s.Validate(); err != nil {
+			return err
+		}
 		// Verify uniqueness
 		if sourceBlockchains.Contains(s.BlockchainID) {
 			return errors.New("configured source subnets must have unique chain IDs")

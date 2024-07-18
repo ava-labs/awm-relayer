@@ -4,8 +4,11 @@
 package config
 
 import (
+	"fmt"
+
 	"github.com/ava-labs/avalanchego/ids"
 	baseCfg "github.com/ava-labs/awm-relayer/config"
+	"github.com/ava-labs/awm-relayer/utils"
 )
 
 type SourceBlockchain struct {
@@ -18,6 +21,28 @@ type SourceBlockchain struct {
 	// convenience fields to access parsed data after initialization
 	subnetID     ids.ID
 	blockchainID ids.ID
+}
+
+func (s *SourceBlockchain) Validate() error {
+	if err := s.RPCEndpoint.Validate(); err != nil {
+		return fmt.Errorf("invalid rpc-endpoint in source subnet configuration: %w", err)
+	}
+	if err := s.WSEndpoint.Validate(); err != nil {
+		return fmt.Errorf("invalid ws-endpoint in source subnet configuration: %w", err)
+	}
+	blockchainID, err := utils.HexOrCB58ToID(s.BlockchainID)
+	if err != nil {
+		return fmt.Errorf("invalid blockchainID '%s' in configuration. error: %w", s.BlockchainID, err)
+	}
+	s.blockchainID = blockchainID
+
+	subnetID, err := utils.HexOrCB58ToID(s.SubnetID)
+	if err != nil {
+		return fmt.Errorf("invalid subnetID '%s' in configuration. error: %w", s.SubnetID, err)
+	}
+	s.subnetID = subnetID
+
+	return nil
 }
 
 func (s *SourceBlockchain) GetSubnetID() ids.ID {

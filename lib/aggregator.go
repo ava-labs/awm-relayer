@@ -75,19 +75,21 @@ func NewSignatureAggregator(
 	return &sa
 }
 
-func (s *SignatureAggregator) AggregateSignaturesAppRequest(unsignedMessage *avalancheWarp.UnsignedMessage, signingSubnet *ids.ID, quorumPercentage uint64) (*avalancheWarp.Message, error) {
+func (s *SignatureAggregator) AggregateSignaturesAppRequest(unsignedMessage *avalancheWarp.UnsignedMessage, inputSigningSubnet *ids.ID, quorumPercentage uint64) (*avalancheWarp.Message, error) {
 	requestID := s.currentRequestID.Add(1)
 
-	s.logger.Error(fmt.Sprintf("%v", s.sourceBlockchains))
 	sourceBlockchain, ok := s.sourceBlockchains[unsignedMessage.SourceChainID]
 	if !ok {
 		return nil, fmt.Errorf("source blockchain not found for chain ID %s", unsignedMessage.SourceChainID)
 	}
 	// If signingSubnet is not set  we default to the subnet of the source blockchain
-	if signingSubnet == nil {
-		*signingSubnet = sourceBlockchain.GetSubnetID()
+	var signingSubnet ids.ID
+	if inputSigningSubnet == nil {
+		signingSubnet = sourceBlockchain.GetSubnetID()
+	} else {
+		signingSubnet = *inputSigningSubnet
 	}
-	connectedValidators, err := s.network.ConnectToCanonicalValidators(*signingSubnet)
+	connectedValidators, err := s.network.ConnectToCanonicalValidators(signingSubnet)
 
 	if err != nil {
 		s.logger.Error(
@@ -113,7 +115,7 @@ func (s *SignatureAggregator) AggregateSignaturesAppRequest(unsignedMessage *ava
 
 	// Make sure to use the correct codec
 	var reqBytes []byte
-	if *signingSubnet == constants.PrimaryNetworkID {
+	if signingSubnet == constants.PrimaryNetworkID {
 		req := coreEthMsg.MessageSignatureRequest{
 			MessageID: unsignedMessage.ID(),
 		}
@@ -193,7 +195,7 @@ func (s *SignatureAggregator) AggregateSignaturesAppRequest(unsignedMessage *ava
 		}
 		responseChan := s.network.RegisterRequestID(requestID, vdrSet.Len())
 
-		sentTo := s.network.Send(outMsg, vdrSet, *signingSubnet, subnets.NoOpAllower)
+		sentTo := s.network.Send(outMsg, vdrSet, signingSubnet, subnets.NoOpAllower)
 		s.logger.Debug(
 			"Sent signature request to network",
 			zap.String("warpMessageID", unsignedMessage.ID().String()),

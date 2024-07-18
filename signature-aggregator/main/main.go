@@ -99,7 +99,6 @@ func main() {
 	for _, sourceBlockchain := range cfg.SourceBlockchains {
 		sourceBlockchainsById[sourceBlockchain.GetBlockchainID()] = sourceBlockchain
 	}
-	logger.Error(fmt.Sprintf("%v", sourceBlockchainsById))
 
 	// Initialize message creator passed down to relayers for creating app requests.
 	// We do not collect metrics for the message creator.
