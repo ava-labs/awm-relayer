@@ -183,47 +183,62 @@ func (m *messageHandler) ShouldSendMessage(destinationClient vms.DestinationClie
 		return false, nil
 	}
 
-	var decision bool = true
-	deciderClientValue := reflect.ValueOf(m.deciderClient)
-	if deciderClientValue.IsValid() && !deciderClientValue.IsNil() {
-		warpMsgIDStr := m.unsignedMessage.ID().Hex()
-
-		warpMsgID, err := hex.DecodeString(warpMsgIDStr)
-		if err != nil {
-			m.logger.Error(
-				"Error decoding message ID",
-				zap.String("warpMsgIDStr", warpMsgIDStr),
-				zap.Error(err),
-			)
-			return decision, err
-		}
-
-		// TODO: add a timeout to the context
-		response, err := m.deciderClient.ShouldSendMessage(
-			context.Background(),
-			&pbDecider.ShouldSendMessageRequest{
-				NetworkId:           m.unsignedMessage.NetworkID,
-				SourceChainId:       m.unsignedMessage.SourceChainID[:],
-				Payload:             m.unsignedMessage.Payload,
-				BytesRepresentation: m.unsignedMessage.Bytes(),
-				Id:                  warpMsgID,
-			},
+	deciderRejectedMsg, err := m.deciderRejectedMessage()
+	if err != nil {
+		m.logger.Warn(
+			"Error delegating to decider",
+			zap.String("warpMessageID", m.unsignedMessage.ID().String()),
+			zap.String("teleporterMessageID", teleporterMessageID.String()),
 		)
-		if err != nil {
-			m.logger.Error(
-				"Error response from decider.",
-				zap.String("destinationBlockchainID", destinationBlockchainID.String()),
-				zap.String("teleporterMessageID", teleporterMessageID.String()),
-				zap.Any("warpMessageID", warpMsgIDStr),
-				zap.Error(err),
-			)
-			return decision, err
-		}
-
-		decision = response.ShouldSendMessage
+	}
+	if deciderRejectedMsg {
+		m.logger.Info(
+			"Decider rejected message",
+			zap.String("warpMessageID", m.unsignedMessage.ID().String()),
+			zap.String("teleporterMessageID", teleporterMessageID.String()),
+			zap.String("destinationBlockchainID", destinationBlockchainID.String()),
+		)
 	}
 
-	return decision, nil
+	return true, nil
+}
+
+func (m *messageHandler) deciderRejectedMessage() (bool, error) {
+	deciderClientValue := reflect.ValueOf(m.deciderClient)
+
+	if !deciderClientValue.IsValid() || deciderClientValue.IsNil() {
+		return false, nil
+	}
+
+	warpMsgIDStr := m.unsignedMessage.ID().Hex()
+
+	warpMsgID, err := hex.DecodeString(warpMsgIDStr)
+	if err != nil {
+		m.logger.Error(
+			"Error decoding message ID",
+			zap.String("warpMsgIDStr", warpMsgIDStr),
+			zap.Error(err),
+		)
+		return false, err
+	}
+
+	// TODO: add a timeout to the context
+	response, err := m.deciderClient.ShouldSendMessage(
+		context.Background(),
+		&pbDecider.ShouldSendMessageRequest{
+			NetworkId:           m.unsignedMessage.NetworkID,
+			SourceChainId:       m.unsignedMessage.SourceChainID[:],
+			Payload:             m.unsignedMessage.Payload,
+			BytesRepresentation: m.unsignedMessage.Bytes(),
+			Id:                  warpMsgID,
+		},
+	)
+	if err != nil {
+		m.logger.Error("Error response from decider.", zap.Error(err))
+		return false, err
+	}
+
+	return !response.ShouldSendMessage, nil
 }
 
 // SendMessage extracts the gasLimit and packs the call data to call the receiveCrossChainMessage

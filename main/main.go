@@ -36,7 +36,6 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/credentials/insecure"
 )
 
@@ -247,7 +246,6 @@ func main() {
 			panic(err)
 		}
 		runtime.SetFinalizer(grpcClient, func(c *grpc.ClientConn) { c.Close() })
-		grpcClient.WaitForStateChange(ctx, connectivity.Ready)
 	}
 
 	// Create listeners for each of the subnets configured as a source
