@@ -222,33 +222,20 @@ func main() {
 		log.Fatalln(http.ListenAndServe(fmt.Sprintf(":%d", cfg.APIPort), nil))
 	}()
 
-	errGroup, ctx := errgroup.WithContext(context.Background())
-
-	if cfg.DeciderPort != nil {
-		port := strconv.FormatUint(uint64(*cfg.DeciderPort), 10)
-
-		host := cfg.DeciderHost
-		if len(host) == 0 {
-			host = "localhost"
-		}
-
-		grpcClient, err = grpc.NewClient(
-			strings.Join([]string{host, port}, ":"),
-			grpc.WithTransportCredentials(
-				insecure.NewCredentials(),
-			),
+	grpcClient, err = initializeDeciderClient(
+		cfg.DeciderHost,
+		cfg.DeciderPort,
+	)
+	if err != nil {
+		logger.Fatal(
+			"Failed to instantiate decider client",
+			zap.Error(err),
 		)
-		if err != nil {
-			logger.Fatal(
-				"Failed to instantiate decider client",
-				zap.Error(err),
-			)
-			panic(err)
-		}
-		runtime.SetFinalizer(grpcClient, func(c *grpc.ClientConn) { c.Close() })
+		panic(err)
 	}
 
 	// Create listeners for each of the subnets configured as a source
+	errGroup, ctx := errgroup.WithContext(context.Background())
 	for _, s := range cfg.SourceBlockchains {
 		sourceBlockchain := s
 
@@ -483,6 +470,39 @@ func startMetricsServer(logger logging.Logger, gatherer prometheus.Gatherer, por
 			zap.Uint16("port", port))
 		log.Fatalln(http.ListenAndServe(fmt.Sprintf(":%d", port), nil))
 	}()
+}
+
+func initializeDeciderClient(host string, port *uint16) (*grpc.ClientConn, error) {
+	if port == nil {
+		return nil, nil
+	}
+
+	if len(host) == 0 {
+		host = "localhost"
+	}
+
+	client, err := grpc.NewClient(
+		strings.Join(
+			[]string{host, strconv.FormatUint(uint64(*port), 10)},
+			":",
+		),
+		grpc.WithTransportCredentials(
+			insecure.NewCredentials(),
+		),
+	)
+	if err != nil {
+		return nil, fmt.Errorf(
+			"Failed to instantiate grpc client: %w",
+			err,
+		)
+	}
+
+	runtime.SetFinalizer(
+		client,
+		func(c *grpc.ClientConn) { c.Close() },
+	)
+
+	return client, nil
 }
 
 func initializeMetrics() (prometheus.Gatherer, prometheus.Registerer, error) {
