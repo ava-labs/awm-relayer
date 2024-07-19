@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"math/big"
 	"math/rand"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -22,7 +23,6 @@ import (
 	"github.com/ava-labs/avalanchego/utils/set"
 	avalancheWarp "github.com/ava-labs/avalanchego/vms/platformvm/warp"
 	"github.com/ava-labs/awm-relayer/lib/peers"
-	"github.com/ava-labs/awm-relayer/signature-aggregator/config"
 	"github.com/ava-labs/awm-relayer/utils"
 	coreEthMsg "github.com/ava-labs/coreth/plugin/evm/message"
 	msg "github.com/ava-labs/subnet-evm/plugin/evm/message"
@@ -50,26 +50,27 @@ var (
 )
 
 type SignatureAggregator struct {
-	network           peers.AppRequestNetwork
-	sourceBlockchains map[ids.ID]*config.SourceBlockchain
-	logger            logging.Logger
-	messageCreator    message.Creator
-	currentRequestID  atomic.Uint32
+	network                 peers.AppRequestNetwork
+	subnetIDsByBlockchainID map[ids.ID]ids.ID
+	logger                  logging.Logger
+	messageCreator          message.Creator
+	currentRequestID        atomic.Uint32
+	mu                      sync.RWMutex
 }
 
 func NewSignatureAggregator(
 	network peers.AppRequestNetwork,
-	sourceBlockchains map[ids.ID]*config.SourceBlockchain,
+	subnetIDsByBlockchainID map[ids.ID]ids.ID,
 	logger logging.Logger,
 	messageCreator message.Creator,
 ) *SignatureAggregator {
 	// TODO Handle the self-signing case if the source-chain is the PChain
 	sa := SignatureAggregator{
-		network:           network,
-		sourceBlockchains: sourceBlockchains,
-		logger:            logger,
-		messageCreator:    messageCreator,
-		currentRequestID:  atomic.Uint32{},
+		network:                 network,
+		subnetIDsByBlockchainID: subnetIDsByBlockchainID,
+		logger:                  logger,
+		messageCreator:          messageCreator,
+		currentRequestID:        atomic.Uint32{},
 	}
 	sa.currentRequestID.Store(rand.Uint32())
 	return &sa
@@ -78,14 +79,14 @@ func NewSignatureAggregator(
 func (s *SignatureAggregator) AggregateSignaturesAppRequest(unsignedMessage *avalancheWarp.UnsignedMessage, inputSigningSubnet *ids.ID, quorumPercentage uint64) (*avalancheWarp.Message, error) {
 	requestID := s.currentRequestID.Add(1)
 
-	sourceBlockchain, ok := s.sourceBlockchains[unsignedMessage.SourceChainID]
-	if !ok {
-		return nil, fmt.Errorf("source blockchain not found for chain ID %s", unsignedMessage.SourceChainID)
-	}
-	// If signingSubnet is not set  we default to the subnet of the source blockchain
 	var signingSubnet ids.ID
+	// If signingSubnet is not set  we default to the subnet of the source blockchain
 	if inputSigningSubnet == nil {
-		signingSubnet = sourceBlockchain.GetSubnetID()
+		resSubnetID, err := s.GetSubnetID(unsignedMessage.SourceChainID)
+		if err != nil {
+			return nil, fmt.Errorf("subnet not found for chainID %s", unsignedMessage.SourceChainID)
+		}
+		signingSubnet = resSubnetID
 	} else {
 		signingSubnet = *inputSigningSubnet
 	}
@@ -160,7 +161,7 @@ func (s *SignatureAggregator) AggregateSignaturesAppRequest(unsignedMessage *ava
 		s.logger.Debug(
 			"Relayer collecting signatures from peers.",
 			zap.Int("attempt", attempt),
-			zap.String("sourceBlockchainID", sourceBlockchain.GetBlockchainID().String()),
+			zap.String("sourceBlockchainID", unsignedMessage.SourceChainID.String()),
 			zap.Int("validatorSetSize", len(connectedValidators.ValidatorSet)),
 			zap.Int("signatureMapSize", len(signatureMap)),
 			zap.Int("responsesExpected", responsesExpected),
@@ -180,7 +181,7 @@ func (s *SignatureAggregator) AggregateSignaturesAppRequest(unsignedMessage *ava
 				"Added node ID to query.",
 				zap.String("nodeID", nodeID.String()),
 				zap.String("warpMessageID", unsignedMessage.ID().String()),
-				zap.String("sourceBlockchainID", sourceBlockchain.GetBlockchainID().String()),
+				zap.String("sourceBlockchainID", unsignedMessage.SourceChainID.String()),
 			)
 
 			// Register a timeout response for each queried node
@@ -200,7 +201,7 @@ func (s *SignatureAggregator) AggregateSignaturesAppRequest(unsignedMessage *ava
 			"Sent signature request to network",
 			zap.String("warpMessageID", unsignedMessage.ID().String()),
 			zap.Any("sentTo", sentTo),
-			zap.String("sourceBlockchainID", sourceBlockchain.GetBlockchainID().String()),
+			zap.String("sourceBlockchainID", unsignedMessage.SourceChainID.String()),
 		)
 		for nodeID := range vdrSet {
 			if !sentTo.Contains(nodeID) {
@@ -222,7 +223,7 @@ func (s *SignatureAggregator) AggregateSignaturesAppRequest(unsignedMessage *ava
 					"Processing response from node",
 					zap.String("nodeID", response.NodeID().String()),
 					zap.String("warpMessageID", unsignedMessage.ID().String()),
-					zap.String("sourceBlockchainID", sourceBlockchain.GetBlockchainID().String()),
+					zap.String("sourceBlockchainID", unsignedMessage.SourceChainID.String()),
 				)
 				signedMsg, relevant, err := s.handleResponse(
 					response,
@@ -246,7 +247,7 @@ func (s *SignatureAggregator) AggregateSignaturesAppRequest(unsignedMessage *ava
 						"Created signed message.",
 						zap.String("warpMessageID", unsignedMessage.ID().String()),
 						zap.Uint64("signatureWeight", accumulatedSignatureWeight.Uint64()),
-						zap.String("sourceBlockchainID", sourceBlockchain.GetBlockchainID().String()),
+						zap.String("sourceBlockchainID", unsignedMessage.SourceChainID.String()),
 					)
 					return signedMsg, nil
 				}
@@ -267,9 +268,31 @@ func (s *SignatureAggregator) AggregateSignaturesAppRequest(unsignedMessage *ava
 		zap.Int("attempts", maxRelayerQueryAttempts),
 		zap.String("warpMessageID", unsignedMessage.ID().String()),
 		zap.Uint64("accumulatedWeight", accumulatedSignatureWeight.Uint64()),
-		zap.String("sourceBlockchainID", sourceBlockchain.GetBlockchainID().String()),
+		zap.String("sourceBlockchainID", unsignedMessage.SourceChainID.String()),
 	)
 	return nil, errNotEnoughSignatures
+}
+
+func (s *SignatureAggregator) GetSubnetID(blockchainID ids.ID) (ids.ID, error) {
+	s.mu.RLock()
+	subnetID, ok := s.subnetIDsByBlockchainID[blockchainID]
+	s.mu.RUnlock()
+	if ok {
+		return subnetID, nil
+	}
+	s.logger.Info("Signing subnet not found, requesting from PChain", zap.String("chainID", blockchainID.String()))
+	subnetID, err := s.network.GetSubnetID(blockchainID)
+	if err != nil {
+		return ids.ID{}, fmt.Errorf("source blockchain not found for chain ID %s", blockchainID)
+	}
+	s.SetSubnetID(blockchainID, subnetID)
+	return subnetID, nil
+}
+
+func (s *SignatureAggregator) SetSubnetID(blockchainID ids.ID, subnetID ids.ID) {
+	s.mu.Lock()
+	s.subnetIDsByBlockchainID[blockchainID] = subnetID
+	s.mu.Unlock()
 }
 
 // Attempts to create a signed warp message from the accumulated responses.
@@ -290,7 +313,6 @@ func (s *SignatureAggregator) handleResponse(
 	// Regardless of the response's relevance, call it's finished handler once this function returns
 	defer response.OnFinishedHandling()
 
-	sourceBlockchain := s.sourceBlockchains[unsignedMessage.SourceChainID]
 	// Check if this is an expected response.
 	m := response.Message()
 	rcvReqID, ok := message.GetRequestID(m)
@@ -320,7 +342,7 @@ func (s *SignatureAggregator) handleResponse(
 			zap.String("nodeID", nodeID.String()),
 			zap.Uint64("stakeWeight", validator.Weight),
 			zap.String("warpMessageID", unsignedMessage.ID().String()),
-			zap.String("sourceBlockchainID", sourceBlockchain.GetBlockchainID().String()),
+			zap.String("sourceBlockchainID", unsignedMessage.SourceChainID.String()),
 		)
 		signatureMap[vdrIndex] = signature
 		accumulatedSignatureWeight.Add(accumulatedSignatureWeight, new(big.Int).SetUint64(validator.Weight))
@@ -330,7 +352,7 @@ func (s *SignatureAggregator) handleResponse(
 			zap.String("nodeID", nodeID.String()),
 			zap.Uint64("stakeWeight", validator.Weight),
 			zap.String("warpMessageID", unsignedMessage.ID().String()),
-			zap.String("sourceBlockchainID", sourceBlockchain.GetBlockchainID().String()),
+			zap.String("sourceBlockchainID", unsignedMessage.SourceChainID.String()),
 		)
 		return nil, true, nil
 	}
@@ -345,7 +367,7 @@ func (s *SignatureAggregator) handleResponse(
 		if err != nil {
 			s.logger.Error(
 				"Failed to aggregate signature.",
-				zap.String("sourceBlockchainID", sourceBlockchain.GetBlockchainID().String()),
+				zap.String("sourceBlockchainID", unsignedMessage.SourceChainID.String()),
 				zap.String("warpMessageID", unsignedMessage.ID().String()),
 				zap.Error(err),
 			)
@@ -362,7 +384,7 @@ func (s *SignatureAggregator) handleResponse(
 		if err != nil {
 			s.logger.Error(
 				"Failed to create new signed message",
-				zap.String("sourceBlockchainID", sourceBlockchain.GetBlockchainID().String()),
+				zap.String("sourceBlockchainID", unsignedMessage.SourceChainID.String()),
 				zap.String("warpMessageID", unsignedMessage.ID().String()),
 				zap.Error(err),
 			)

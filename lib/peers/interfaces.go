@@ -18,4 +18,6 @@ type AppRequestNetwork interface {
 	// Handler methods
 	RegisterAppRequest(ids.RequestID)
 	RegisterRequestID(uint32, int) chan message.InboundMessage
+
+	GetSubnetID(blockchainID ids.ID) (ids.ID, error)
 }

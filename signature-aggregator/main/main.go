@@ -95,9 +95,9 @@ func main() {
 		panic(err)
 	}
 
-	sourceBlockchainsById := make(map[ids.ID]*config.SourceBlockchain)
+	subnetsByBlockchainID := make(map[ids.ID]ids.ID)
 	for _, sourceBlockchain := range cfg.SourceBlockchains {
-		sourceBlockchainsById[sourceBlockchain.GetBlockchainID()] = sourceBlockchain
+		subnetsByBlockchainID[sourceBlockchain.GetBlockchainID()] = sourceBlockchain.GetSubnetID()
 	}
 
 	// Initialize message creator passed down to relayers for creating app requests.
@@ -113,7 +113,7 @@ func main() {
 		logger.Fatal("Failed to create message creator", zap.Error(err))
 		panic(err)
 	}
-	signatureAggregator := aggregator.NewSignatureAggregator(network, sourceBlockchainsById, logger, messageCreator)
+	signatureAggregator := aggregator.NewSignatureAggregator(network, subnetsByBlockchainID, logger, messageCreator)
 
 	api.HandleSignatureAggregationRawRequest(logger, signatureAggregator)
 
