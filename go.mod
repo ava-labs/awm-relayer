@@ -3,7 +3,6 @@ module github.com/ava-labs/awm-relayer
 go 1.21.12
 
 require (
-	github.com/ava-labs/avalanche-network-runner v1.7.6
 	github.com/ava-labs/avalanchego v1.11.10-0.20240718133512-d9ddf0a774e1
 	github.com/ava-labs/coreth v0.13.6-rc.1.0.20240718130554-0110293d1f4b
 	github.com/ava-labs/subnet-evm v0.6.8-status-removal.0.20240718155830-1d577b6a5e0b
