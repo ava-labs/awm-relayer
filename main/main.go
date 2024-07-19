@@ -39,11 +39,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
-var (
-	version = "v0.0.0-dev"
-
-	grpcClient *grpc.ClientConn // for connecting to the decider service
-)
+var version = "v0.0.0-dev"
 
 func main() {
 	fs := config.BuildFlagSet()
@@ -183,7 +179,23 @@ func main() {
 
 	relayerHealth := createHealthTrackers(&cfg)
 
-	messageHandlerFactories, err := createMessageHandlerFactories(logger, &cfg)
+	deciderClient, err := createDeciderClient(
+		cfg.DeciderHost,
+		cfg.DeciderPort,
+	)
+	if err != nil {
+		logger.Fatal(
+			"Failed to instantiate decider client",
+			zap.Error(err),
+		)
+		panic(err)
+	}
+
+	messageHandlerFactories, err := createMessageHandlerFactories(
+		logger,
+		&cfg,
+		deciderClient,
+	)
 	if err != nil {
 		logger.Fatal("Failed to create message handler factories", zap.Error(err))
 		panic(err)
@@ -222,18 +234,6 @@ func main() {
 		log.Fatalln(http.ListenAndServe(fmt.Sprintf(":%d", cfg.APIPort), nil))
 	}()
 
-	grpcClient, err = initializeDeciderClient(
-		cfg.DeciderHost,
-		cfg.DeciderPort,
-	)
-	if err != nil {
-		logger.Fatal(
-			"Failed to instantiate decider client",
-			zap.Error(err),
-		)
-		panic(err)
-	}
-
 	// Create listeners for each of the subnets configured as a source
 	errGroup, ctx := errgroup.WithContext(context.Background())
 	for _, s := range cfg.SourceBlockchains {
@@ -261,6 +261,7 @@ func main() {
 func createMessageHandlerFactories(
 	logger logging.Logger,
 	globalConfig *config.Config,
+	deciderClient *grpc.ClientConn,
 ) (map[ids.ID]map[common.Address]messages.MessageHandlerFactory, error) {
 	messageHandlerFactories := make(map[ids.ID]map[common.Address]messages.MessageHandlerFactory)
 	for _, sourceBlockchain := range globalConfig.SourceBlockchains {
@@ -279,7 +280,7 @@ func createMessageHandlerFactories(
 					logger,
 					address,
 					cfg,
-					grpcClient,
+					deciderClient,
 				)
 			case config.OFF_CHAIN_REGISTRY:
 				m, err = offchainregistry.NewMessageHandlerFactory(
@@ -454,25 +455,7 @@ func createApplicationRelayersForSourceChain(
 	return applicationRelayers, minHeight, nil
 }
 
-func createHealthTrackers(cfg *config.Config) map[ids.ID]*atomic.Bool {
-	healthTrackers := make(map[ids.ID]*atomic.Bool, len(cfg.SourceBlockchains))
-	for _, sourceBlockchain := range cfg.SourceBlockchains {
-		healthTrackers[sourceBlockchain.GetBlockchainID()] = atomic.NewBool(true)
-	}
-	return healthTrackers
-}
-
-func startMetricsServer(logger logging.Logger, gatherer prometheus.Gatherer, port uint16) {
-	http.Handle("/metrics", promhttp.HandlerFor(gatherer, promhttp.HandlerOpts{}))
-
-	go func() {
-		logger.Info("starting metrics server...",
-			zap.Uint16("port", port))
-		log.Fatalln(http.ListenAndServe(fmt.Sprintf(":%d", port), nil))
-	}()
-}
-
-func initializeDeciderClient(host string, port *uint16) (*grpc.ClientConn, error) {
+func createDeciderClient(host string, port *uint16) (*grpc.ClientConn, error) {
 	if port == nil {
 		return nil, nil
 	}
@@ -503,6 +486,24 @@ func initializeDeciderClient(host string, port *uint16) (*grpc.ClientConn, error
 	)
 
 	return client, nil
+}
+
+func createHealthTrackers(cfg *config.Config) map[ids.ID]*atomic.Bool {
+	healthTrackers := make(map[ids.ID]*atomic.Bool, len(cfg.SourceBlockchains))
+	for _, sourceBlockchain := range cfg.SourceBlockchains {
+		healthTrackers[sourceBlockchain.GetBlockchainID()] = atomic.NewBool(true)
+	}
+	return healthTrackers
+}
+
+func startMetricsServer(logger logging.Logger, gatherer prometheus.Gatherer, port uint16) {
+	http.Handle("/metrics", promhttp.HandlerFor(gatherer, promhttp.HandlerOpts{}))
+
+	go func() {
+		logger.Info("starting metrics server...",
+			zap.Uint16("port", port))
+		log.Fatalln(http.ListenAndServe(fmt.Sprintf(":%d", port), nil))
+	}()
 }
 
 func initializeMetrics() (prometheus.Gatherer, prometheus.Registerer, error) {
