@@ -81,17 +81,11 @@ var _ = ginkgo.BeforeSuite(func() {
 	)
 	log.Info("Set up ginkgo before suite")
 
-	/* TODO: this was copied from teleporter, but it's not working because
-	 * tmpnet is a private field in the network instance, and that worked
-	 * in the teleporter package but it doesn't work here. get this working
-	 * by adding a Dir() method to the local network interface and
-	 * implementing it in teleporter to return tmpnet.Dir.
 	ginkgo.AddReportEntry(
-		"network directory with has node logs & configs; useful in the case of failures",
-		localNetworkInstance.tmpnet.Dir,
+		"network directory with node logs & configs; useful in the case of failures",
+		localNetworkInstance.Dir(),
 		ginkgo.ReportEntryVisibilityFailureOrVerbose,
 	)
-	*/
 })
 
 var _ = ginkgo.AfterSuite(func() {
