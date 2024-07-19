@@ -5,6 +5,7 @@ package peers
 
 import (
 	"context"
+	"net/netip"
 
 	"github.com/ava-labs/avalanchego/api/info"
 	"github.com/ava-labs/avalanchego/ids"
@@ -47,9 +48,8 @@ func (i *InfoAPI) GetNodeID(ctx context.Context) (ids.NodeID, *signer.ProofOfPos
 	return i.client.GetNodeID(ctx, i.options...)
 }
 
-func (i *InfoAPI) GetNodeIP(ctx context.Context) (string, error) {
-	addrPort, err := i.client.GetNodeIP(ctx, i.options...)
-	return addrPort.Addr().String(), err
+func (i *InfoAPI) GetNodeIP(ctx context.Context) (netip.AddrPort, error) {
+	return i.client.GetNodeIP(ctx, i.options...)
 }
 
 func (i *InfoAPI) GetNodeVersion(ctx context.Context) (*info.GetNodeVersionReply, error) {
