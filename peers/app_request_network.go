@@ -54,7 +54,7 @@ func NewNetwork(
 		),
 	)
 
-	metrics, err := NewAppRequestNetworkMetrics(cfg, registerer)
+	metrics, err := newAppRequestNetworkMetrics(registerer)
 	if err != nil {
 		logger.Fatal("Failed to create app request network metrics", zap.Error(err))
 		panic(err)
@@ -156,6 +156,7 @@ func (n *AppRequestNetwork) ConnectPeers(nodeIDs set.Set[ids.NodeID]) set.Set[id
 	startInfoAPICall := time.Now()
 	// Get the list of peers
 	peers, err := n.infoAPI.Peers(context.Background())
+	n.setInfoAPICallLatencyMS(float64(time.Since(startInfoAPICall).Milliseconds()))
 	if err != nil {
 		n.logger.Error(
 			"Failed to get peers",
@@ -163,7 +164,6 @@ func (n *AppRequestNetwork) ConnectPeers(nodeIDs set.Set[ids.NodeID]) set.Set[id
 		)
 		return nil
 	}
-	n.setInfoAPICallLatencyMS(float64(time.Since(startInfoAPICall).Milliseconds()))
 
 	// Attempt to connect to each peer
 	var trackedNodes set.Set[ids.NodeID]
@@ -181,12 +181,15 @@ func (n *AppRequestNetwork) ConnectPeers(nodeIDs set.Set[ids.NodeID]) set.Set[id
 	// In this case, we need to manually track the API node.
 	startInfoAPICall = time.Now()
 	if apiNodeID, _, err := n.infoAPI.GetNodeID(context.Background()); err != nil {
+		n.setInfoAPICallLatencyMS(float64(time.Since(startInfoAPICall).Milliseconds()))
+
 		n.logger.Error(
 			"Failed to get API Node ID",
 			zap.Error(err),
 		)
-		n.setInfoAPICallLatencyMS(float64(time.Since(startInfoAPICall).Milliseconds()))
 	} else if nodeIDs.Contains(apiNodeID) {
+		n.setInfoAPICallLatencyMS(float64(time.Since(startInfoAPICall).Milliseconds()))
+
 		startInfoAPICall = time.Now()
 		if apiNodeIPPort, err := n.infoAPI.GetNodeIP(context.Background()); err != nil {
 			n.logger.Error(
@@ -224,10 +227,10 @@ func (n *AppRequestNetwork) ConnectToCanonicalValidators(subnetID ids.ID) (*Conn
 	// Get the subnet's current canonical validator set
 	startPChainAPICall := time.Now()
 	validatorSet, totalValidatorWeight, err := n.validatorClient.GetCurrentCanonicalValidatorSet(subnetID)
+	n.setPChainAPICallLatencyMS(float64(time.Since(startPChainAPICall).Milliseconds()))
 	if err != nil {
 		return nil, err
 	}
-	n.setPChainAPICallLatencyMS(float64(time.Since(startPChainAPICall).Milliseconds()))
 	// We make queries to node IDs, not unique validators as represented by a BLS pubkey, so we need this map to track
 	// responses from nodes and populate the signatureMap with the corresponding validator signature
 	// This maps node IDs to the index in the canonical validator set
@@ -355,9 +358,9 @@ func (n *AppRequestNetwork) checkForSufficientConnectedStake(
 //
 
 func (n *AppRequestNetwork) setInfoAPICallLatencyMS(latency float64) {
-	n.metrics.infoAPICallLatencyMS.WithLabelValues(n.metrics.infoAPIBaseURL).Observe(latency)
+	n.metrics.infoAPICallLatencyMS.Observe(latency)
 }
 
 func (n *AppRequestNetwork) setPChainAPICallLatencyMS(latency float64) {
-	n.metrics.pChainAPICallLatencyMS.WithLabelValues(n.metrics.pChainAPIBaseURL).Observe(latency)
+	n.metrics.pChainAPICallLatencyMS.Observe(latency)
 }
