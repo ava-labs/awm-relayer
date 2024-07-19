@@ -14,7 +14,6 @@ import (
 	"github.com/ava-labs/avalanchego/network"
 	snowVdrs "github.com/ava-labs/avalanchego/snow/validators"
 	"github.com/ava-labs/avalanchego/utils/constants"
-	"github.com/ava-labs/avalanchego/utils/ips"
 	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/avalanchego/utils/set"
 	"github.com/ava-labs/avalanchego/vms/platformvm/warp"
@@ -160,17 +159,8 @@ func (n *AppRequestNetwork) ConnectPeers(nodeIDs set.Set[ids.NodeID]) set.Set[id
 	var trackedNodes set.Set[ids.NodeID]
 	for _, peer := range peers {
 		if nodeIDs.Contains(peer.ID) {
-			ipPort, err := ips.ToIPPort(peer.PublicIP)
-			if err != nil {
-				n.logger.Error(
-					"Failed to parse peer IP",
-					zap.String("beaconIP", peer.PublicIP),
-					zap.Error(err),
-				)
-				continue
-			}
 			trackedNodes.Add(peer.ID)
-			n.Network.ManuallyTrack(peer.ID, ipPort)
+			n.Network.ManuallyTrack(peer.ID, peer.PublicIP)
 			if len(trackedNodes) == nodeIDs.Len() {
 				return trackedNodes
 			}
@@ -185,20 +175,14 @@ func (n *AppRequestNetwork) ConnectPeers(nodeIDs set.Set[ids.NodeID]) set.Set[id
 			zap.Error(err),
 		)
 	} else if nodeIDs.Contains(apiNodeID) {
-		if apiNodeIP, err := n.infoAPI.GetNodeIP(context.Background()); err != nil {
+		if apiNodeIPPort, err := n.infoAPI.GetNodeIP(context.Background()); err != nil {
 			n.logger.Error(
 				"Failed to get API Node IP",
 				zap.Error(err),
 			)
-		} else if ipPort, err := ips.ToIPPort(apiNodeIP); err != nil {
-			n.logger.Error(
-				"Failed to parse API Node IP",
-				zap.String("nodeIP", apiNodeIP),
-				zap.Error(err),
-			)
 		} else {
 			trackedNodes.Add(apiNodeID)
-			n.Network.ManuallyTrack(apiNodeID, ipPort)
+			n.Network.ManuallyTrack(apiNodeID, apiNodeIPPort)
 		}
 	}
 

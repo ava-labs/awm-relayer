@@ -12,7 +12,6 @@ import (
 	"net/http"
 	"time"
 
-	runner_sdk "github.com/ava-labs/avalanche-network-runner/client"
 	"github.com/ava-labs/awm-relayer/api"
 	offchainregistry "github.com/ava-labs/awm-relayer/messages/off-chain-registry"
 	testUtils "github.com/ava-labs/awm-relayer/tests/utils"
@@ -84,15 +83,16 @@ func ManualMessage(network interfaces.LocalNetwork) {
 	)
 
 	// Create chain config with off chain messages
-	chainConfigs := make(map[string]string)
-	teleporterTestUtils.SetChainConfig(chainConfigs, cChainInfo, warpEnabledChainConfigC)
-	teleporterTestUtils.SetChainConfig(chainConfigs, subnetBInfo, warpEnabledChainConfigB)
-	teleporterTestUtils.SetChainConfig(chainConfigs, subnetAInfo, warpEnabledChainConfigA)
+	chainConfigs := make(teleporterTestUtils.ChainConfigMap)
+	chainConfigs.Add(cChainInfo, warpEnabledChainConfigC)
+	chainConfigs.Add(subnetBInfo, warpEnabledChainConfigB)
+	chainConfigs.Add(subnetAInfo, warpEnabledChainConfigA)
 
 	// Restart nodes with new chain config
-	nodeNames := network.GetAllNodeNames()
+	nodeIDs := network.GetAllNodeIDs()
 	log.Info("Restarting nodes with new chain config")
-	network.RestartNodes(ctx, nodeNames, runner_sdk.WithChainConfigs(chainConfigs))
+	network.SetChainConfigs(chainConfigs)
+	network.RestartNodes(ctx, nodeIDs)
 	// Refresh the subnet info to get the new clients
 	cChainInfo = network.GetPrimaryNetworkInfo()
 

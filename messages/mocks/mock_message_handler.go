@@ -15,6 +15,7 @@ import (
 	ids "github.com/ava-labs/avalanchego/ids"
 	warp "github.com/ava-labs/avalanchego/vms/platformvm/warp"
 	messages "github.com/ava-labs/awm-relayer/messages"
+	vms "github.com/ava-labs/awm-relayer/vms"
 	common "github.com/ethereum/go-ethereum/common"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -113,30 +114,31 @@ func (mr *MockMessageHandlerMockRecorder) GetUnsignedMessage() *gomock.Call {
 }
 
 // SendMessage mocks base method.
-func (m *MockMessageHandler) SendMessage(signedMessage *warp.Message, destinationBlockchainID ids.ID) error {
+func (m *MockMessageHandler) SendMessage(signedMessage *warp.Message, destinationClient vms.DestinationClient) (common.Hash, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SendMessage", signedMessage, destinationBlockchainID)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret := m.ctrl.Call(m, "SendMessage", signedMessage, destinationClient)
+	ret0, _ := ret[0].(common.Hash)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // SendMessage indicates an expected call of SendMessage.
-func (mr *MockMessageHandlerMockRecorder) SendMessage(signedMessage, destinationBlockchainID any) *gomock.Call {
+func (mr *MockMessageHandlerMockRecorder) SendMessage(signedMessage, destinationClient any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendMessage", reflect.TypeOf((*MockMessageHandler)(nil).SendMessage), signedMessage, destinationBlockchainID)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendMessage", reflect.TypeOf((*MockMessageHandler)(nil).SendMessage), signedMessage, destinationClient)
 }
 
 // ShouldSendMessage mocks base method.
-func (m *MockMessageHandler) ShouldSendMessage(destinationBlockchainID ids.ID) (bool, error) {
+func (m *MockMessageHandler) ShouldSendMessage(destinationClient vms.DestinationClient) (bool, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ShouldSendMessage", destinationBlockchainID)
+	ret := m.ctrl.Call(m, "ShouldSendMessage", destinationClient)
 	ret0, _ := ret[0].(bool)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ShouldSendMessage indicates an expected call of ShouldSendMessage.
-func (mr *MockMessageHandlerMockRecorder) ShouldSendMessage(destinationBlockchainID any) *gomock.Call {
+func (mr *MockMessageHandlerMockRecorder) ShouldSendMessage(destinationClient any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ShouldSendMessage", reflect.TypeOf((*MockMessageHandler)(nil).ShouldSendMessage), destinationBlockchainID)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ShouldSendMessage", reflect.TypeOf((*MockMessageHandler)(nil).ShouldSendMessage), destinationClient)
 }
