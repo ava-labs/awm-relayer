@@ -19,6 +19,7 @@ import (
 	"github.com/ava-labs/awm-relayer/api"
 	"github.com/ava-labs/awm-relayer/config"
 	"github.com/ava-labs/awm-relayer/database"
+	"github.com/ava-labs/awm-relayer/lib/aggregator"
 	"github.com/ava-labs/awm-relayer/messages"
 	offchainregistry "github.com/ava-labs/awm-relayer/messages/off-chain-registry"
 	"github.com/ava-labs/awm-relayer/messages/teleporter"
@@ -181,6 +182,8 @@ func main() {
 		panic(err)
 	}
 
+	signatureAggregator := aggregator.NewSignatureAggregator(network, logger, messageCreator)
+
 	applicationRelayers, minHeights, err := createApplicationRelayers(
 		context.Background(),
 		logger,
@@ -192,6 +195,7 @@ func main() {
 		&cfg,
 		sourceClients,
 		destinationClients,
+		signatureAggregator,
 	)
 	if err != nil {
 		logger.Fatal("Failed to create application relayers", zap.Error(err))
@@ -318,6 +322,7 @@ func createApplicationRelayers(
 	cfg *config.Config,
 	sourceClients map[ids.ID]ethclient.Client,
 	destinationClients map[ids.ID]vms.DestinationClient,
+	signatureAggregator *aggregator.SignatureAggregator,
 ) (map[common.Hash]*relayer.ApplicationRelayer, map[ids.ID]uint64, error) {
 	applicationRelayers := make(map[common.Hash]*relayer.ApplicationRelayer)
 	minHeights := make(map[ids.ID]uint64)
@@ -341,6 +346,7 @@ func createApplicationRelayers(
 			cfg,
 			currentHeight,
 			destinationClients,
+			signatureAggregator,
 		)
 		if err != nil {
 			logger.Error(
@@ -377,6 +383,7 @@ func createApplicationRelayersForSourceChain(
 	cfg *config.Config,
 	currentHeight uint64,
 	destinationClients map[ids.ID]vms.DestinationClient,
+	signatureAggregator *aggregator.SignatureAggregator,
 ) (map[common.Hash]*relayer.ApplicationRelayer, uint64, error) {
 	// Create the ApplicationRelayers
 	logger.Info(
@@ -419,6 +426,7 @@ func createApplicationRelayersForSourceChain(
 			sourceBlockchain,
 			height,
 			cfg,
+			signatureAggregator,
 		)
 		if err != nil {
 			logger.Error(

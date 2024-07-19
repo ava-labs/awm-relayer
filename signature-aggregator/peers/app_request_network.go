@@ -122,8 +122,8 @@ func NewNetwork(
 	return arNetwork, nil
 }
 
-func (n *AppRequestNetwork) GetSubnetID(blockchainID ids.ID) (ids.ID, error) {
-	return n.validatorClient.GetSubnetID(context.Background(), blockchainID)
+func (n *AppRequestNetwork) GetSubnetID(ctx context.Context, blockchainID ids.ID) (ids.ID, error) {
+	return n.validatorClient.GetSubnetID(ctx, blockchainID)
 }
 
 // ConnectPeers connects the network to peers with the given nodeIDs.

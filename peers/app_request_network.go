@@ -258,6 +258,9 @@ func (n *AppRequestNetwork) RegisterAppRequest(requestID ids.RequestID) {
 func (n *AppRequestNetwork) RegisterRequestID(requestID uint32, numExpectedResponse int) chan message.InboundMessage {
 	return n.handler.RegisterRequestID(requestID, numExpectedResponse)
 }
+func (n *AppRequestNetwork) GetSubnetID(blockchainID ids.ID) (ids.ID, error) {
+	return n.validatorClient.GetSubnetID(context.Background(), blockchainID)
+}
 
 // Private helpers
 

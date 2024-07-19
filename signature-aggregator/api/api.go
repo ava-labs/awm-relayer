@@ -9,7 +9,7 @@ import (
 
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/utils/logging"
-	aggregator "github.com/ava-labs/awm-relayer/lib"
+	"github.com/ava-labs/awm-relayer/lib/aggregator"
 	"github.com/ava-labs/awm-relayer/types"
 	"github.com/ava-labs/awm-relayer/utils"
 	"go.uber.org/zap"

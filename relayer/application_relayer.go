@@ -23,6 +23,7 @@ import (
 	avalancheWarp "github.com/ava-labs/avalanchego/vms/platformvm/warp"
 	"github.com/ava-labs/awm-relayer/config"
 	"github.com/ava-labs/awm-relayer/database"
+	"github.com/ava-labs/awm-relayer/lib/aggregator"
 	libPeers "github.com/ava-labs/awm-relayer/lib/peers"
 	"github.com/ava-labs/awm-relayer/messages"
 	"github.com/ava-labs/awm-relayer/peers"
@@ -75,6 +76,7 @@ type ApplicationRelayer struct {
 	currentRequestID          uint32
 	lock                      *sync.RWMutex
 	sourceWarpSignatureClient *rpc.Client // nil if configured to fetch signatures via AppRequest for the source blockchain
+	signatureAggregator       *aggregator.SignatureAggregator
 }
 
 func NewApplicationRelayer(
@@ -89,6 +91,7 @@ func NewApplicationRelayer(
 	sourceBlockchain config.SourceBlockchain,
 	startingHeight uint64,
 	cfg *config.Config,
+	signatureAggregator *aggregator.SignatureAggregator,
 ) (*ApplicationRelayer, error) {
 	quorum, err := cfg.GetWarpQuorum(relayerID.DestinationBlockchainID)
 	if err != nil {
@@ -154,6 +157,7 @@ func NewApplicationRelayer(
 		currentRequestID:          rand.Uint32(), // TODONOW: pass via ctor
 		lock:                      &sync.RWMutex{},
 		sourceWarpSignatureClient: warpClient,
+		signatureAggregator:       signatureAggregator,
 	}
 
 	return &ar, nil
@@ -246,8 +250,9 @@ func (r *ApplicationRelayer) relayMessage(
 
 	// sourceWarpSignatureClient is nil iff the source blockchain is configured to fetch signatures via AppRequest
 	if r.sourceWarpSignatureClient == nil {
+		// TODO: do we actually want to pass the pointer here or adapt the interface?
+		signedMessage, err = r.signatureAggregator.AggregateSignaturesAppRequest(unsignedMessage, &r.signingSubnetID, r.warpQuorum.QuorumNumerator)
 		r.incFetchSignatureAppRequestCount()
-		signedMessage, err = r.createSignedMessageAppRequest(unsignedMessage, requestID)
 		if err != nil {
 			r.logger.Error(
 				"Failed to create signed warp message via AppRequest network",
