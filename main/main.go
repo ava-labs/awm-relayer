@@ -223,7 +223,6 @@ func main() {
 		log.Fatalln(http.ListenAndServe(fmt.Sprintf(":%d", cfg.APIPort), nil))
 	}()
 
-	// Create listeners for each of the subnets configured as a source
 	errGroup, ctx := errgroup.WithContext(context.Background())
 
 	if cfg.DeciderPort != nil {
