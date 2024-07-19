@@ -15,6 +15,7 @@ import (
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/message"
 	"github.com/ava-labs/avalanchego/proto/pb/p2p"
+	avagoCommon "github.com/ava-labs/avalanchego/snow/engine/common"
 	"github.com/ava-labs/avalanchego/subnets"
 	"github.com/ava-labs/avalanchego/utils/constants"
 	"github.com/ava-labs/avalanchego/utils/crypto/bls"
@@ -471,7 +472,14 @@ func (r *ApplicationRelayer) createSignedMessageAppRequest(
 		}
 		responseChan := r.network.Handler.RegisterRequestID(requestID, vdrSet.Len())
 
-		sentTo := r.network.Network.Send(outMsg, vdrSet, r.sourceBlockchain.GetSubnetID(), subnets.NoOpAllower)
+		sentTo := r.network.Network.Send(
+			outMsg,
+			// TODO: consider whether we need to specify the other
+			// fields in this new SendConfig struct
+			avagoCommon.SendConfig{NodeIDs: vdrSet},
+			r.sourceBlockchain.GetSubnetID(),
+			subnets.NoOpAllower,
+		)
 		r.logger.Debug(
 			"Sent signature request to network",
 			zap.String("warpMessageID", unsignedMessage.ID().String()),

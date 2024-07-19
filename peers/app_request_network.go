@@ -160,17 +160,8 @@ func (n *AppRequestNetwork) ConnectPeers(nodeIDs set.Set[ids.NodeID]) set.Set[id
 	var trackedNodes set.Set[ids.NodeID]
 	for _, peer := range peers {
 		if nodeIDs.Contains(peer.ID) {
-			ipPort, err := ips.ToIPPort(peer.PublicIP)
-			if err != nil {
-				n.logger.Error(
-					"Failed to parse peer IP",
-					zap.String("beaconIP", peer.PublicIP),
-					zap.Error(err),
-				)
-				continue
-			}
 			trackedNodes.Add(peer.ID)
-			n.Network.ManuallyTrack(peer.ID, ipPort)
+			n.Network.ManuallyTrack(peer.ID, peer.PublicIP)
 			if len(trackedNodes) == nodeIDs.Len() {
 				return trackedNodes
 			}
@@ -190,7 +181,7 @@ func (n *AppRequestNetwork) ConnectPeers(nodeIDs set.Set[ids.NodeID]) set.Set[id
 				"Failed to get API Node IP",
 				zap.Error(err),
 			)
-		} else if ipPort, err := ips.ToIPPort(apiNodeIP); err != nil {
+		} else if ipPort, err := ips.ParseAddrPort(apiNodeIP); err != nil {
 			n.logger.Error(
 				"Failed to parse API Node IP",
 				zap.String("nodeIP", apiNodeIP),

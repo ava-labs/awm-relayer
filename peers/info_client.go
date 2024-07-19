@@ -48,7 +48,8 @@ func (i *InfoAPI) GetNodeID(ctx context.Context) (ids.NodeID, *signer.ProofOfPos
 }
 
 func (i *InfoAPI) GetNodeIP(ctx context.Context) (string, error) {
-	return i.client.GetNodeIP(ctx, i.options...)
+	addrPort, err := i.client.GetNodeIP(ctx, i.options...)
+	return addrPort.Addr().String(), err
 }
 
 func (i *InfoAPI) GetNodeVersion(ctx context.Context) (*info.GetNodeVersionReply, error) {
