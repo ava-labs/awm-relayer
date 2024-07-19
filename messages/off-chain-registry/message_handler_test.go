@@ -15,7 +15,7 @@ import (
 	"github.com/ava-labs/awm-relayer/config"
 	mock_evm "github.com/ava-labs/awm-relayer/vms/evm/mocks"
 	mock_vms "github.com/ava-labs/awm-relayer/vms/mocks"
-	teleporterregistry "github.com/ava-labs/teleporter/abi-bindings/go/Teleporter/upgrades/TeleporterRegistry"
+	teleporterregistry "github.com/ava-labs/teleporter/abi-bindings/go/teleporter/registry/TeleporterRegistry"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"

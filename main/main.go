@@ -157,7 +157,6 @@ func main() {
 	messageCreator, err := message.NewCreator(
 		logger,
 		prometheus.DefaultRegisterer,
-		"message_creator",
 		constants.DefaultNetworkCompressionType,
 		constants.DefaultNetworkMaximumInboundTimeout,
 	)

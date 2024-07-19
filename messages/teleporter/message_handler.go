@@ -23,7 +23,7 @@ import (
 	"github.com/ava-labs/subnet-evm/accounts/abi/bind"
 	"github.com/ava-labs/subnet-evm/core/types"
 	"github.com/ava-labs/subnet-evm/ethclient"
-	teleportermessenger "github.com/ava-labs/teleporter/abi-bindings/go/Teleporter/TeleporterMessenger"
+	teleportermessenger "github.com/ava-labs/teleporter/abi-bindings/go/teleporter/TeleporterMessenger"
 	gasUtils "github.com/ava-labs/teleporter/utils/gas-utils"
 	teleporterUtils "github.com/ava-labs/teleporter/utils/teleporter-utils"
 	"github.com/ethereum/go-ethereum/common"

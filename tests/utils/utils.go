@@ -28,7 +28,7 @@ import (
 	"github.com/ava-labs/subnet-evm/precompile/contracts/warp"
 	predicateutils "github.com/ava-labs/subnet-evm/predicate"
 	subnetevmutils "github.com/ava-labs/subnet-evm/utils"
-	teleportermessenger "github.com/ava-labs/teleporter/abi-bindings/go/Teleporter/TeleporterMessenger"
+	teleportermessenger "github.com/ava-labs/teleporter/abi-bindings/go/teleporter/TeleporterMessenger"
 	"github.com/ava-labs/teleporter/tests/interfaces"
 	"github.com/ava-labs/teleporter/tests/utils"
 	teleporterTestUtils "github.com/ava-labs/teleporter/tests/utils"
