@@ -474,8 +474,6 @@ func (r *ApplicationRelayer) createSignedMessageAppRequest(
 
 		sentTo := r.network.Network.Send(
 			outMsg,
-			// TODO: consider whether we need to specify the other
-			// fields in this new SendConfig struct
 			avagoCommon.SendConfig{NodeIDs: vdrSet},
 			r.sourceBlockchain.GetSubnetID(),
 			subnets.NoOpAllower,
