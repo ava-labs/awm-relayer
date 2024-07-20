@@ -1,7 +1,11 @@
+// Copyright (C) 2023, Ava Labs, Inc. All rights reserved.
+// See the file LICENSE for licensing terms.
+
 package peers
 
 import (
 	"errors"
+
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -43,4 +47,12 @@ func newAppRequestNetworkMetrics(registerer prometheus.Registerer) (*AppRequestN
 		infoAPICallLatencyMS:   infoAPICallLatencyMS,
 		pChainAPICallLatencyMS: pChainAPICallLatencyMS,
 	}, nil
+}
+
+func (m *AppRequestNetworkMetrics) setInfoAPICallLatencyMS(latency float64) {
+	m.infoAPICallLatencyMS.Observe(latency)
+}
+
+func (m *AppRequestNetworkMetrics) setPChainAPICallLatencyMS(latency float64) {
+	m.pChainAPICallLatencyMS.Observe(latency)
 }

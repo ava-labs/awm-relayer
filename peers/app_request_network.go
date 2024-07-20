@@ -78,6 +78,8 @@ func NewNetwork(
 		)
 		return nil, err
 	}
+
+	startInfoAPICall := time.Now()
 	networkID, err := infoAPI.GetNetworkID(context.Background())
 	if err != nil {
 		logger.Error(
@@ -86,6 +88,7 @@ func NewNetwork(
 		)
 		return nil, err
 	}
+	metrics.setInfoAPICallLatencyMS(float64(time.Since(startInfoAPICall).Milliseconds()))
 
 	var trackedSubnets set.Set[ids.ID]
 	for _, sourceBlockchain := range cfg.SourceBlockchains {
@@ -156,7 +159,7 @@ func (n *AppRequestNetwork) ConnectPeers(nodeIDs set.Set[ids.NodeID]) set.Set[id
 	startInfoAPICall := time.Now()
 	// Get the list of peers
 	peers, err := n.infoAPI.Peers(context.Background())
-	n.setInfoAPICallLatencyMS(float64(time.Since(startInfoAPICall).Milliseconds()))
+	n.metrics.setInfoAPICallLatencyMS(float64(time.Since(startInfoAPICall).Milliseconds()))
 	if err != nil {
 		n.logger.Error(
 			"Failed to get peers",
@@ -181,14 +184,14 @@ func (n *AppRequestNetwork) ConnectPeers(nodeIDs set.Set[ids.NodeID]) set.Set[id
 	// In this case, we need to manually track the API node.
 	startInfoAPICall = time.Now()
 	if apiNodeID, _, err := n.infoAPI.GetNodeID(context.Background()); err != nil {
-		n.setInfoAPICallLatencyMS(float64(time.Since(startInfoAPICall).Milliseconds()))
+		n.metrics.setInfoAPICallLatencyMS(float64(time.Since(startInfoAPICall).Milliseconds()))
 
 		n.logger.Error(
 			"Failed to get API Node ID",
 			zap.Error(err),
 		)
 	} else if nodeIDs.Contains(apiNodeID) {
-		n.setInfoAPICallLatencyMS(float64(time.Since(startInfoAPICall).Milliseconds()))
+		n.metrics.setInfoAPICallLatencyMS(float64(time.Since(startInfoAPICall).Milliseconds()))
 
 		startInfoAPICall = time.Now()
 		if apiNodeIPPort, err := n.infoAPI.GetNodeIP(context.Background()); err != nil {
@@ -200,7 +203,7 @@ func (n *AppRequestNetwork) ConnectPeers(nodeIDs set.Set[ids.NodeID]) set.Set[id
 			trackedNodes.Add(apiNodeID)
 			n.Network.ManuallyTrack(apiNodeID, apiNodeIPPort)
 		}
-		n.setInfoAPICallLatencyMS(float64(time.Since(startInfoAPICall).Milliseconds()))
+		n.metrics.setInfoAPICallLatencyMS(float64(time.Since(startInfoAPICall).Milliseconds()))
 	}
 
 	return trackedNodes
@@ -227,7 +230,7 @@ func (n *AppRequestNetwork) ConnectToCanonicalValidators(subnetID ids.ID) (*Conn
 	// Get the subnet's current canonical validator set
 	startPChainAPICall := time.Now()
 	validatorSet, totalValidatorWeight, err := n.validatorClient.GetCurrentCanonicalValidatorSet(subnetID)
-	n.setPChainAPICallLatencyMS(float64(time.Since(startPChainAPICall).Milliseconds()))
+	n.metrics.setPChainAPICallLatencyMS(float64(time.Since(startPChainAPICall).Milliseconds()))
 	if err != nil {
 		return nil, err
 	}
@@ -351,16 +354,4 @@ func (n *AppRequestNetwork) checkForSufficientConnectedStake(
 		quorum.QuorumNumerator,
 		quorum.QuorumDenominator,
 	), &quorum, nil
-}
-
-//
-// Metrics
-//
-
-func (n *AppRequestNetwork) setInfoAPICallLatencyMS(latency float64) {
-	n.metrics.infoAPICallLatencyMS.Observe(latency)
-}
-
-func (n *AppRequestNetwork) setPChainAPICallLatencyMS(latency float64) {
-	n.metrics.pChainAPICallLatencyMS.Observe(latency)
 }
