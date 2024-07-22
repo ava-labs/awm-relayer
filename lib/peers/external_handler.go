@@ -52,7 +52,7 @@ func NewRelayerExternalHandler(
 		TimeoutHalflife:    constants.DefaultNetworkTimeoutHalflife,
 	}
 
-	timeoutManager, err := timer.NewAdaptiveTimeoutManager(&cfg, "external_handler", registerer)
+	timeoutManager, err := timer.NewAdaptiveTimeoutManager(&cfg, registerer)
 	if err != nil {
 		logger.Error(
 			"Failed to create timeout manager",

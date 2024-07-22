@@ -477,7 +477,12 @@ func (r *ApplicationRelayer) createSignedMessageAppRequest(
 		}
 		responseChan := r.network.RegisterRequestID(requestID, vdrSet.Len())
 
-		sentTo := r.network.Send(outMsg, vdrSet, r.sourceBlockchain.GetSubnetID(), subnets.NoOpAllower)
+		sentTo := r.network.Send(
+			outMsg,
+			vdrSet,
+			r.sourceBlockchain.GetSubnetID(),
+			subnets.NoOpAllower,
+		)
 		r.logger.Debug(
 			"Sent signature request to network",
 			zap.String("warpMessageID", unsignedMessage.ID().String()),

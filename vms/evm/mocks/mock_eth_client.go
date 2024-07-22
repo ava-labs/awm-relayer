@@ -121,6 +121,21 @@ func (mr *MockClientMockRecorder) BalanceAt(arg0, arg1, arg2 any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BalanceAt", reflect.TypeOf((*MockClient)(nil).BalanceAt), arg0, arg1, arg2)
 }
 
+// BalanceAtHash mocks base method.
+func (m *MockClient) BalanceAtHash(ctx context.Context, account common.Address, blockHash common.Hash) (*big.Int, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BalanceAtHash", ctx, account, blockHash)
+	ret0, _ := ret[0].(*big.Int)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// BalanceAtHash indicates an expected call of BalanceAtHash.
+func (mr *MockClientMockRecorder) BalanceAtHash(ctx, account, blockHash any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BalanceAtHash", reflect.TypeOf((*MockClient)(nil).BalanceAtHash), ctx, account, blockHash)
+}
+
 // BlockByHash mocks base method.
 func (m *MockClient) BlockByHash(arg0 context.Context, arg1 common.Hash) (*types.Block, error) {
 	m.ctrl.T.Helper()
@@ -282,6 +297,21 @@ func (mr *MockClientMockRecorder) CodeAt(arg0, arg1, arg2 any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CodeAt", reflect.TypeOf((*MockClient)(nil).CodeAt), arg0, arg1, arg2)
 }
 
+// CodeAtHash mocks base method.
+func (m *MockClient) CodeAtHash(ctx context.Context, account common.Address, blockHash common.Hash) ([]byte, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CodeAtHash", ctx, account, blockHash)
+	ret0, _ := ret[0].([]byte)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CodeAtHash indicates an expected call of CodeAtHash.
+func (mr *MockClientMockRecorder) CodeAtHash(ctx, account, blockHash any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CodeAtHash", reflect.TypeOf((*MockClient)(nil).CodeAtHash), ctx, account, blockHash)
+}
+
 // EstimateBaseFee mocks base method.
 func (m *MockClient) EstimateBaseFee(arg0 context.Context) (*big.Int, error) {
 	m.ctrl.T.Helper()
@@ -402,6 +432,21 @@ func (mr *MockClientMockRecorder) NonceAt(arg0, arg1, arg2 any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NonceAt", reflect.TypeOf((*MockClient)(nil).NonceAt), arg0, arg1, arg2)
 }
 
+// NonceAtHash mocks base method.
+func (m *MockClient) NonceAtHash(ctx context.Context, account common.Address, blockHash common.Hash) (uint64, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "NonceAtHash", ctx, account, blockHash)
+	ret0, _ := ret[0].(uint64)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// NonceAtHash indicates an expected call of NonceAtHash.
+func (mr *MockClientMockRecorder) NonceAtHash(ctx, account, blockHash any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NonceAtHash", reflect.TypeOf((*MockClient)(nil).NonceAtHash), ctx, account, blockHash)
+}
+
 // SendTransaction mocks base method.
 func (m *MockClient) SendTransaction(arg0 context.Context, arg1 *types.Transaction) error {
 	m.ctrl.T.Helper()
@@ -429,6 +474,21 @@ func (m *MockClient) StorageAt(arg0 context.Context, arg1 common.Address, arg2 c
 func (mr *MockClientMockRecorder) StorageAt(arg0, arg1, arg2, arg3 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StorageAt", reflect.TypeOf((*MockClient)(nil).StorageAt), arg0, arg1, arg2, arg3)
+}
+
+// StorageAtHash mocks base method.
+func (m *MockClient) StorageAtHash(ctx context.Context, account common.Address, key, blockHash common.Hash) ([]byte, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "StorageAtHash", ctx, account, key, blockHash)
+	ret0, _ := ret[0].([]byte)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// StorageAtHash indicates an expected call of StorageAtHash.
+func (mr *MockClientMockRecorder) StorageAtHash(ctx, account, key, blockHash any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StorageAtHash", reflect.TypeOf((*MockClient)(nil).StorageAtHash), ctx, account, key, blockHash)
 }
 
 // SubscribeFilterLogs mocks base method.

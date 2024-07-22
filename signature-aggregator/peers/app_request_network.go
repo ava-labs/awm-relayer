@@ -12,9 +12,9 @@ import (
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/message"
 	"github.com/ava-labs/avalanchego/network"
+	avagoCommon "github.com/ava-labs/avalanchego/snow/engine/common"
 	snowVdrs "github.com/ava-labs/avalanchego/snow/validators"
 	"github.com/ava-labs/avalanchego/subnets"
-	"github.com/ava-labs/avalanchego/utils/ips"
 	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/avalanchego/utils/set"
 	libPeers "github.com/ava-labs/awm-relayer/lib/peers"
@@ -122,8 +122,8 @@ func NewNetwork(
 	return arNetwork, nil
 }
 
-func (n *AppRequestNetwork) GetSubnetID(ctx context.Context, blockchainID ids.ID) (ids.ID, error) {
-	return n.validatorClient.GetSubnetID(ctx, blockchainID)
+func (n *AppRequestNetwork) GetSubnetID(blockchainID ids.ID) (ids.ID, error) {
+	return n.validatorClient.GetSubnetID(context.Background(), blockchainID)
 }
 
 // ConnectPeers connects the network to peers with the given nodeIDs.
@@ -157,17 +157,8 @@ func (n *AppRequestNetwork) ConnectPeers(nodeIDs set.Set[ids.NodeID]) set.Set[id
 	var trackedNodes set.Set[ids.NodeID]
 	for _, peer := range peers {
 		if nodeIDs.Contains(peer.ID) {
-			ipPort, err := ips.ToIPPort(peer.PublicIP)
-			if err != nil {
-				n.logger.Error(
-					"Failed to parse peer IP",
-					zap.String("beaconIP", peer.PublicIP),
-					zap.Error(err),
-				)
-				continue
-			}
 			trackedNodes.Add(peer.ID)
-			n.network.ManuallyTrack(peer.ID, ipPort)
+			n.network.ManuallyTrack(peer.ID, peer.PublicIP)
 			if len(trackedNodes) == nodeIDs.Len() {
 				return trackedNodes
 			}
@@ -244,7 +235,7 @@ func (n *AppRequestNetwork) ConnectToCanonicalValidators(subnetID ids.ID) (*libP
 }
 
 func (n *AppRequestNetwork) Send(msg message.OutboundMessage, nodeIDs set.Set[ids.NodeID], subnetID ids.ID, allower subnets.Allower) set.Set[ids.NodeID] {
-	return n.network.Send(msg, nodeIDs, subnetID, allower)
+	return n.network.Send(msg, avagoCommon.SendConfig{NodeIDs: nodeIDs}, subnetID, allower)
 }
 
 func (n *AppRequestNetwork) RegisterAppRequest(requestID ids.RequestID) {
