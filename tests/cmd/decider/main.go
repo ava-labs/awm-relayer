@@ -9,7 +9,7 @@ import (
 	"log"
 	"net"
 
-	pb "github.com/ava-labs/awm-relayer/proto/pb/decider/v1"
+	pb "github.com/ava-labs/awm-relayer/proto/pb/decider"
 	"google.golang.org/grpc"
 )
 

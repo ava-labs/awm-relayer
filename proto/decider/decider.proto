@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package decider.v1;
+package decider;
 
 option go_package = "github.com/ava-labs/awm-relayer/proto/pb/decider";
 

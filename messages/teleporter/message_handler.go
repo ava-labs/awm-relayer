@@ -17,7 +17,7 @@ import (
 	warpPayload "github.com/ava-labs/avalanchego/vms/platformvm/warp/payload"
 	"github.com/ava-labs/awm-relayer/config"
 	"github.com/ava-labs/awm-relayer/messages"
-	pbDecider "github.com/ava-labs/awm-relayer/proto/pb/decider/v1"
+	pbDecider "github.com/ava-labs/awm-relayer/proto/pb/decider"
 	"github.com/ava-labs/awm-relayer/utils"
 	"github.com/ava-labs/awm-relayer/vms"
 	"github.com/ava-labs/subnet-evm/accounts/abi/bind"

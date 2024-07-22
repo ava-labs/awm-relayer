@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.3.0
 // - protoc             (unknown)
-// source: decider/v1/decider.proto
+// source: decider/decider.proto
 
 package decider
 
@@ -19,7 +19,7 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-	DeciderService_ShouldSendMessage_FullMethodName = "/decider.v1.DeciderService/ShouldSendMessage"
+	DeciderService_ShouldSendMessage_FullMethodName = "/decider.DeciderService/ShouldSendMessage"
 )
 
 // DeciderServiceClient is the client API for DeciderService service.
@@ -96,7 +96,7 @@ func _DeciderService_ShouldSendMessage_Handler(srv interface{}, ctx context.Cont
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var DeciderService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "decider.v1.DeciderService",
+	ServiceName: "decider.DeciderService",
 	HandlerType: (*DeciderServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
@@ -105,5 +105,5 @@ var DeciderService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "decider/v1/decider.proto",
+	Metadata: "decider/decider.proto",
 }
