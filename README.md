@@ -291,6 +291,12 @@ The relayer is configured via a JSON file, the path to which is passed in via th
 
   - The AWS region in which the KMS key is located. Required if `kms-key-id` is provided.
 
+`"decider-host": string`
+
+`"decider-port": unsigned integer`
+
+- The network location of a service implementing the gRPC service defined by `proto/decider`, which will be queried for each message to determine whether that message should be relayed. If a port is specified but a host is not, the host is assumed to be `localhost`.
+
 ## Architecture
 
 ### Components
