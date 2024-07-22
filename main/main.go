@@ -240,7 +240,7 @@ func main() {
 
 		// errgroup will cancel the context when the first goroutine returns an error
 		errGroup.Go(func() error {
-			// runListener runs until it errors or the context is cancelled by another goroutine
+			// runListener runs until it errors or the context is canceled by another goroutine
 			return relayer.RunListener(
 				ctx,
 				logger,
