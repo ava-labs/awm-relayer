@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"runtime"
 	"strconv"
@@ -463,14 +464,19 @@ func createDeciderClient(host string, port *uint16) (*grpc.ClientConn, error) {
 		host = "localhost"
 	}
 
+	uri := strings.Join(
+		[]string{host, strconv.FormatUint(uint64(*port), 10)},
+		":",
+	)
+
+	_, err := url.ParseRequestURI(uri)
+	if err != nil {
+		return nil, fmt.Errorf("Invalid URI: %w", err)
+	}
+
 	client, err := grpc.NewClient(
-		strings.Join(
-			[]string{host, strconv.FormatUint(uint64(*port), 10)},
-			":",
-		),
-		grpc.WithTransportCredentials(
-			insecure.NewCredentials(),
-		),
+		uri,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	)
 	if err != nil {
 		return nil, fmt.Errorf(
