@@ -13,11 +13,6 @@ import (
 )
 
 const (
-	cChainIdentifierString = "C"
-	warpConfigKey          = "warpConfig"
-)
-
-const (
 	defaultAPIPort = uint16(8080)
 )
 
