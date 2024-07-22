@@ -222,9 +222,10 @@ func (m *messageHandler) deciderRejectedMessage() (bool, error) {
 		return false, err
 	}
 
-	// TODO: add a timeout to the context
+	ctx, cancelCtx := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancelCtx()
 	response, err := m.deciderClient.ShouldSendMessage(
-		context.Background(),
+		ctx,
 		&pbDecider.ShouldSendMessageRequest{
 			NetworkId:           m.unsignedMessage.NetworkID,
 			SourceChainId:       m.unsignedMessage.SourceChainID[:],
