@@ -81,9 +81,6 @@ func NewNetwork(
 	}
 
 	var trackedSubnets set.Set[ids.ID]
-	for _, sourceBlockchain := range cfg.SourceBlockchains {
-		trackedSubnets.Add(sourceBlockchain.GetSubnetID())
-	}
 
 	testNetwork, err := network.NewTestNetwork(logger, networkID, snowVdrs.NewManager(), trackedSubnets, handler)
 	if err != nil {
@@ -103,16 +100,6 @@ func NewNetwork(
 		logger:          logger,
 		lock:            new(sync.Mutex),
 		validatorClient: validatorClient,
-	}
-
-	// Manually connect to the validators of each of the source subnets.
-	// We return an error if we are unable to connect to sufficient stake on any of the subnets.
-	// Sufficient stake is determined by the Warp quora of the configured supported destinations,
-	// or if the subnet supports all destinations, by the quora of all configured destinations.
-	for _, sourceBlockchain := range cfg.SourceBlockchains {
-		if err := arNetwork.connectToNonPrimaryNetworkPeers(cfg, sourceBlockchain); err != nil {
-			return nil, err
-		}
 	}
 
 	go logger.RecoverAndPanic(func() {
@@ -243,25 +230,4 @@ func (n *AppRequestNetwork) RegisterAppRequest(requestID ids.RequestID) {
 }
 func (n *AppRequestNetwork) RegisterRequestID(requestID uint32, numExpectedResponse int) chan message.InboundMessage {
 	return n.handler.RegisterRequestID(requestID, numExpectedResponse)
-}
-
-// Private helpers
-
-// Connect to the validators of the source blockchain. For each destination blockchain,
-// verify that we have connected to a threshold of stake.
-func (n *AppRequestNetwork) connectToNonPrimaryNetworkPeers(
-	cfg *config.Config,
-	sourceBlockchain *config.SourceBlockchain,
-) error {
-	subnetID := sourceBlockchain.GetSubnetID()
-	_, err := n.ConnectToCanonicalValidators(subnetID)
-	if err != nil {
-		n.logger.Error(
-			"Failed to connect to canonical validators",
-			zap.String("subnetID", subnetID.String()),
-			zap.Error(err),
-		)
-		return err
-	}
-	return nil
 }

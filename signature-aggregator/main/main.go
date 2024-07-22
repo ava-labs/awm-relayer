@@ -10,7 +10,6 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/message"
 	"github.com/ava-labs/avalanchego/utils/constants"
 	"github.com/ava-labs/avalanchego/utils/logging"
@@ -93,11 +92,6 @@ func main() {
 	if err != nil {
 		logger.Fatal("Failed to create app request network", zap.Error(err))
 		panic(err)
-	}
-
-	subnetsByBlockchainID := make(map[ids.ID]ids.ID)
-	for _, sourceBlockchain := range cfg.SourceBlockchains {
-		subnetsByBlockchainID[sourceBlockchain.GetBlockchainID()] = sourceBlockchain.GetSubnetID()
 	}
 
 	// Initialize message creator passed down to relayers for creating app requests.

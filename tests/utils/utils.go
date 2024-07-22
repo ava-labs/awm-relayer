@@ -279,32 +279,6 @@ func CreateDefaultSignatureAggregatorConfig(
 		"logLevel", logLevel.LowerString(),
 	)
 	// Construct the config values for each subnet
-	sources := make([]*signatureaggregatorcfg.SourceBlockchain, len(sourceSubnetsInfo))
-	for i, subnetInfo := range sourceSubnetsInfo {
-		host, port, err := teleporterTestUtils.GetURIHostAndPort(subnetInfo.NodeURIs[0])
-		Expect(err).Should(BeNil())
-
-		sources[i] = &signatureaggregatorcfg.SourceBlockchain{
-			SubnetID:     subnetInfo.SubnetID.String(),
-			BlockchainID: subnetInfo.BlockchainID.String(),
-			VM:           config.EVM.String(),
-			RPCEndpoint: config.APIConfig{
-				BaseURL: fmt.Sprintf("http://%s:%d/ext/bc/%s/rpc", host, port, subnetInfo.BlockchainID.String()),
-			},
-			WSEndpoint: config.APIConfig{
-				BaseURL: fmt.Sprintf("ws://%s:%d/ext/bc/%s/ws", host, port, subnetInfo.BlockchainID.String()),
-			},
-		}
-
-		log.Info(
-			"Creating relayer config for source subnet",
-			"subnetID", subnetInfo.SubnetID.String(),
-			"blockchainID", subnetInfo.BlockchainID.String(),
-			"host", host,
-			"port", port,
-		)
-	}
-
 	return signatureaggregatorcfg.Config{
 		LogLevel: logging.Info.LowerString(),
 		PChainAPI: &config.APIConfig{
@@ -313,8 +287,7 @@ func CreateDefaultSignatureAggregatorConfig(
 		InfoAPI: &config.APIConfig{
 			BaseURL: sourceSubnetsInfo[0].NodeURIs[0],
 		},
-		SourceBlockchains: sources,
-		APIPort:           8080,
+		APIPort: 8080,
 	}
 }
 
