@@ -7,6 +7,13 @@ if ! [[ "$0" =~ scripts/protobuf_codegen.sh ]]; then
   exit 255
 fi
 
+RELAYER_PATH=$(
+    cd "$(dirname "${BASH_SOURCE[0]}")"
+    cd .. && pwd
+)
+
+source $RELAYER_PATH/scripts/versions.sh
+
 ## ensure the correct version of "buf" is installed
 BUF_VERSION='1.31.0'
 if [[ $(buf --version | cut -f2 -d' ') != "${BUF_VERSION}" ]]; then
@@ -15,7 +22,7 @@ if [[ $(buf --version | cut -f2 -d' ') != "${BUF_VERSION}" ]]; then
 fi
 
 ## install "protoc-gen-go"
-PROTOC_GEN_GO_VERSION='v1.33.0'
+PROTOC_GEN_GO_VERSION=$(getDepVersion google.golang.org/protobuf)
 go install -v google.golang.org/protobuf/cmd/protoc-gen-go@${PROTOC_GEN_GO_VERSION}
 if [[ $(protoc-gen-go --version | cut -f2 -d' ') != "${PROTOC_GEN_GO_VERSION}" ]]; then
   # e.g., protoc-gen-go v1.28.1
