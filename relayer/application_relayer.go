@@ -251,8 +251,8 @@ func (r *ApplicationRelayer) relayMessage(
 	// sourceWarpSignatureClient is nil iff the source blockchain is configured to fetch signatures via AppRequest
 	if r.sourceWarpSignatureClient == nil {
 		// TODO: do we actually want to pass the pointer here or adapt the interface?
-		// signedMessage, err = r.signatureAggregator.AggregateSignaturesAppRequest(unsignedMessage, &r.signingSubnetID, r.warpQuorum.QuorumNumerator)
-		signedMessage, err = r.createSignedMessageAppRequest(unsignedMessage, requestID)
+		signedMessage, err = r.signatureAggregator.AggregateSignaturesAppRequest(unsignedMessage, &r.signingSubnetID, r.warpQuorum.QuorumNumerator)
+		// signedMessage, err = r.createSignedMessageAppRequest(unsignedMessage, requestID)
 		r.incFetchSignatureAppRequestCount()
 		if err != nil {
 			r.logger.Error(

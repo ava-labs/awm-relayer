@@ -80,14 +80,16 @@ func (s *SignatureAggregator) AggregateSignaturesAppRequest(unsignedMessage *ava
 	var signingSubnet ids.ID
 	var err error
 	// If signingSubnet is not set  we default to the subnet of the source blockchain
+	sourceSubnet, err := s.GetSubnetID(unsignedMessage.SourceChainID)
+	if err != nil {
+		return nil, fmt.Errorf("Source message subnet not found for chainID %s", unsignedMessage.SourceChainID)
+	}
 	if inputSigningSubnet == nil {
-		signingSubnet, err = s.GetSubnetID(unsignedMessage.SourceChainID)
-		if err != nil {
-			return nil, fmt.Errorf("subnet not found for chainID %s", unsignedMessage.SourceChainID)
-		}
+		signingSubnet = sourceSubnet
 	} else {
 		signingSubnet = *inputSigningSubnet
 	}
+
 	connectedValidators, err := s.network.ConnectToCanonicalValidators(signingSubnet)
 
 	if err != nil {
@@ -114,7 +116,7 @@ func (s *SignatureAggregator) AggregateSignaturesAppRequest(unsignedMessage *ava
 
 	// TODO: remove this special handling and replace with ACP-118 interface once available
 	var reqBytes []byte
-	if signingSubnet == constants.PrimaryNetworkID {
+	if sourceSubnet == constants.PrimaryNetworkID {
 		req := coreEthMsg.MessageSignatureRequest{
 			MessageID: unsignedMessage.ID(),
 		}
@@ -157,9 +159,10 @@ func (s *SignatureAggregator) AggregateSignaturesAppRequest(unsignedMessage *ava
 	for attempt := 1; attempt <= maxRelayerQueryAttempts; attempt++ {
 		responsesExpected := len(connectedValidators.ValidatorSet) - len(signatureMap)
 		s.logger.Debug(
-			"Relayer collecting signatures from peers.",
+			"Aggregator collecting signatures from peers.",
 			zap.Int("attempt", attempt),
 			zap.String("sourceBlockchainID", unsignedMessage.SourceChainID.String()),
+			zap.String("signingSubnetID", signingSubnet.String()),
 			zap.Int("validatorSetSize", len(connectedValidators.ValidatorSet)),
 			zap.Int("signatureMapSize", len(signatureMap)),
 			zap.Int("responsesExpected", responsesExpected),
@@ -194,12 +197,14 @@ func (s *SignatureAggregator) AggregateSignaturesAppRequest(unsignedMessage *ava
 		}
 		responseChan := s.network.RegisterRequestID(requestID, vdrSet.Len())
 
-		sentTo := s.network.Send(outMsg, vdrSet, signingSubnet, subnets.NoOpAllower)
+		sentTo := s.network.Send(outMsg, vdrSet, sourceSubnet, subnets.NoOpAllower)
 		s.logger.Debug(
 			"Sent signature request to network",
 			zap.String("warpMessageID", unsignedMessage.ID().String()),
 			zap.Any("sentTo", sentTo),
 			zap.String("sourceBlockchainID", unsignedMessage.SourceChainID.String()),
+			zap.String("sourceSubnetID", sourceSubnet.String()),
+			zap.String("signingSubnetID", signingSubnet.String()),
 		)
 		for nodeID := range vdrSet {
 			if !sentTo.Contains(nodeID) {

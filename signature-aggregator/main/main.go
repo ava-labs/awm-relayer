@@ -57,8 +57,6 @@ func main() {
 		panic(fmt.Errorf("couldn't build config: %w", err))
 	}
 
-	// TODO: Do we want to fetch the Quorum values here?
-
 	logLevel, err := logging.ToLevel(cfg.LogLevel)
 	if err != nil {
 		panic(fmt.Errorf("error with log level: %w", err))
