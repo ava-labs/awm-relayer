@@ -6,8 +6,6 @@ package relayer
 import (
 	"context"
 	"errors"
-	"math/rand"
-	"sync"
 	"time"
 
 	"github.com/ava-labs/avalanchego/ids"
@@ -65,8 +63,6 @@ type ApplicationRelayer struct {
 	relayerID                 database.RelayerID
 	warpQuorum                config.WarpQuorum
 	checkpointManager         *checkpoint.CheckpointManager
-	currentRequestID          uint32
-	lock                      *sync.RWMutex
 	sourceWarpSignatureClient *rpc.Client // nil if configured to fetch signatures via AppRequest for the source blockchain
 	signatureAggregator       *aggregator.SignatureAggregator
 }
@@ -144,8 +140,6 @@ func NewApplicationRelayer(
 		signingSubnetID:           signingSubnet,
 		warpQuorum:                quorum,
 		checkpointManager:         checkpointManager,
-		currentRequestID:          rand.Uint32(), // TODONOW: pass via ctor
-		lock:                      &sync.RWMutex{},
 		sourceWarpSignatureClient: warpClient,
 		signatureAggregator:       signatureAggregator,
 	}
@@ -195,27 +189,8 @@ func (r *ApplicationRelayer) ProcessHeight(
 // Relays a message to the destination chain. Does not checkpoint the height.
 // returns the transaction hash if the message is successfully relayed.
 func (r *ApplicationRelayer) ProcessMessage(handler messages.MessageHandler) (common.Hash, error) {
-	// Increment the request ID. Make sure we don't hold the lock while we relay the message.
-	r.lock.Lock()
-	r.currentRequestID++
-	reqID := r.currentRequestID
-	r.lock.Unlock()
-
-	return r.relayMessage(reqID, handler)
-}
-
-func (r *ApplicationRelayer) RelayerID() database.RelayerID {
-	return r.relayerID
-}
-
-// returns the transaction hash if the message is successfully relayed.
-func (r *ApplicationRelayer) relayMessage(
-	requestID uint32,
-	handler messages.MessageHandler,
-) (common.Hash, error) {
 	r.logger.Debug(
 		"Relaying message",
-		zap.Uint32("requestID", requestID),
 		zap.String("sourceBlockchainID", r.sourceBlockchain.BlockchainID),
 		zap.String("relayerID", r.relayerID.ID.String()),
 	)
@@ -284,6 +259,10 @@ func (r *ApplicationRelayer) relayMessage(
 	r.incSuccessfulRelayMessageCount()
 
 	return txHash, nil
+}
+
+func (r *ApplicationRelayer) RelayerID() database.RelayerID {
+	return r.relayerID
 }
 
 // createSignedMessage fetches the signed Warp message from the source chain via RPC.
