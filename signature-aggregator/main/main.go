@@ -13,7 +13,7 @@ import (
 	"github.com/ava-labs/avalanchego/message"
 	"github.com/ava-labs/avalanchego/utils/constants"
 	"github.com/ava-labs/avalanchego/utils/logging"
-	"github.com/ava-labs/awm-relayer/lib/aggregator"
+	"github.com/ava-labs/awm-relayer/signature-aggregator/aggregator"
 	"github.com/ava-labs/awm-relayer/signature-aggregator/api"
 	"github.com/ava-labs/awm-relayer/signature-aggregator/config"
 	"github.com/ava-labs/awm-relayer/signature-aggregator/peers"
