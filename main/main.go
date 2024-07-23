@@ -417,7 +417,6 @@ func createApplicationRelayersForSourceChain(
 			logger,
 			metrics,
 			network,
-			messageCreator,
 			relayerID,
 			db,
 			ticker,
