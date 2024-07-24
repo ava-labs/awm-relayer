@@ -22,7 +22,7 @@ import (
 	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/avalanchego/utils/set"
 	avalancheWarp "github.com/ava-labs/avalanchego/vms/platformvm/warp"
-	"github.com/ava-labs/awm-relayer/lib/peers"
+	"github.com/ava-labs/awm-relayer/peers"
 	"github.com/ava-labs/awm-relayer/utils"
 	coreEthMsg "github.com/ava-labs/coreth/plugin/evm/message"
 	msg "github.com/ava-labs/subnet-evm/plugin/evm/message"
@@ -50,7 +50,7 @@ var (
 )
 
 type SignatureAggregator struct {
-	network                 peers.AppRequestNetwork
+	network                 *peers.AppRequestNetwork
 	subnetIDsByBlockchainID map[ids.ID]ids.ID
 	logger                  logging.Logger
 	messageCreator          message.Creator
@@ -59,7 +59,7 @@ type SignatureAggregator struct {
 }
 
 func NewSignatureAggregator(
-	network peers.AppRequestNetwork,
+	network *peers.AppRequestNetwork,
 	logger logging.Logger,
 	messageCreator message.Creator,
 ) *SignatureAggregator {

@@ -16,11 +16,10 @@ import (
 	avagoCommon "github.com/ava-labs/avalanchego/snow/engine/common"
 	snowVdrs "github.com/ava-labs/avalanchego/snow/validators"
 	"github.com/ava-labs/avalanchego/subnets"
-	"github.com/ava-labs/avalanchego/utils/constants"
 	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/avalanchego/utils/set"
+	"github.com/ava-labs/avalanchego/vms/platformvm/warp"
 	"github.com/ava-labs/awm-relayer/config"
-	libPeers "github.com/ava-labs/awm-relayer/lib/peers"
 	"github.com/ava-labs/awm-relayer/peers/validators"
 	"github.com/ava-labs/awm-relayer/utils"
 	"github.com/prometheus/client_golang/prometheus"
@@ -34,8 +33,8 @@ const (
 
 type AppRequestNetwork struct {
 	network         network.Network
-	handler         *libPeers.RelayerExternalHandler
-	infoAPI         *libPeers.InfoAPI
+	handler         *RelayerExternalHandler
+	infoAPI         *InfoAPI
 	logger          logging.Logger
 	lock            *sync.Mutex
 	validatorClient *validators.CanonicalValidatorClient
@@ -45,7 +44,7 @@ type AppRequestNetwork struct {
 func NewNetwork(
 	logLevel logging.Level,
 	registerer prometheus.Registerer,
-	cfg *config.Config,
+	cfg Config,
 ) (*AppRequestNetwork, error) {
 	logger := logging.NewLogger(
 		"awm-relayer-p2p",
@@ -57,7 +56,7 @@ func NewNetwork(
 	)
 
 	// Create the handler for handling inbound app responses
-	handler, err := libPeers.NewRelayerExternalHandler(logger, registerer)
+	handler, err := NewRelayerExternalHandler(logger, registerer)
 	if err != nil {
 		logger.Error(
 			"Failed to create p2p network handler",
@@ -66,7 +65,7 @@ func NewNetwork(
 		return nil, err
 	}
 
-	infoAPI, err := libPeers.NewInfoAPI(cfg.InfoAPI)
+	infoAPI, err := NewInfoAPI(cfg.GetInfoAPI())
 	if err != nil {
 		logger.Error(
 			"Failed to create info API",
@@ -84,10 +83,8 @@ func NewNetwork(
 	}
 
 	var trackedSubnets set.Set[ids.ID]
-	for _, sourceBlockchain := range cfg.SourceBlockchains {
-		trackedSubnets.Add(sourceBlockchain.GetSubnetID())
-	}
 
+	// TODO: pass trackedSubnets in again for the relayer (not the sig-aggregator since not available there)
 	testNetwork, err := network.NewTestNetwork(logger, networkID, snowVdrs.NewManager(), trackedSubnets, handler)
 	if err != nil {
 		logger.Error(
@@ -97,7 +94,7 @@ func NewNetwork(
 		return nil, err
 	}
 
-	validatorClient := validators.NewCanonicalValidatorClient(logger, cfg.PChainAPI)
+	validatorClient := validators.NewCanonicalValidatorClient(logger, cfg.GetPChainAPI())
 
 	arNetwork := &AppRequestNetwork{
 		network:         testNetwork,
@@ -107,29 +104,31 @@ func NewNetwork(
 		lock:            new(sync.Mutex),
 		validatorClient: validatorClient,
 	}
-
-	// Manually connect to the validators of each of the source subnets.
-	// We return an error if we are unable to connect to sufficient stake on any of the subnets.
-	// Sufficient stake is determined by the Warp quora of the configured supported destinations,
-	// or if the subnet supports all destinations, by the quora of all configured destinations.
-	for _, sourceBlockchain := range cfg.SourceBlockchains {
-		if sourceBlockchain.GetSubnetID() == constants.PrimaryNetworkID {
-			if err := arNetwork.connectToPrimaryNetworkPeers(cfg, sourceBlockchain); err != nil {
-				return nil, err
-			}
-		} else {
-			if err := arNetwork.connectToNonPrimaryNetworkPeers(cfg, sourceBlockchain); err != nil {
-				return nil, err
-			}
-		}
-	}
-
 	go logger.RecoverAndPanic(func() {
 		testNetwork.Dispatch()
 	})
 
 	return arNetwork, nil
 }
+
+// func (n *AppRequestNetwork) InitializeConnectionsAndCheckStake(sourceBlockchains []config.SourceBlockchain) error {
+// 	// Manually connect to the validators of each of the source subnets.
+// 	// We return an error if we are unable to connect to sufficient stake on any of the subnets.
+// 	// Sufficient stake is determined by the Warp quora of the configured supported destinations,
+// 	// or if the subnet supports all destinations, by the quora of all configured destinations.
+// 	for _, sourceBlockchain := range sourceBlockchains {
+// 		if sourceBlockchain.GetSubnetID() == constants.PrimaryNetworkID {
+// 			if err := n.connectToPrimaryNetworkPeers(cfg, sourceBlockchain); err != nil {
+// 				return err
+// 			}
+// 		} else {
+// 			if err := n.connectToNonPrimaryNetworkPeers(cfg, sourceBlockchain); err != nil {
+// 				return err
+// 			}
+// 		}
+// 	}
+// 	return nil
+// }
 
 // ConnectPeers connects the network to peers with the given nodeIDs.
 // Returns the set of nodeIDs that were successfully connected to.
@@ -192,9 +191,24 @@ func (n *AppRequestNetwork) ConnectPeers(nodeIDs set.Set[ids.NodeID]) set.Set[id
 	return trackedNodes
 }
 
+// Helper struct to hold connected validator information
+// Warp Validators sharing the same BLS key may consist of multiple nodes,
+// so we need to track the node ID to validator index mapping
+type ConnectedCanonicalValidators struct {
+	ConnectedWeight       uint64
+	TotalValidatorWeight  uint64
+	ValidatorSet          []*warp.Validator
+	nodeValidatorIndexMap map[ids.NodeID]int
+}
+
+// Returns the Warp Validator and its index in the canonical Validator ordering for a given nodeID
+func (c *ConnectedCanonicalValidators) GetValidator(nodeID ids.NodeID) (*warp.Validator, int) {
+	return c.ValidatorSet[c.nodeValidatorIndexMap[nodeID]], c.nodeValidatorIndexMap[nodeID]
+}
+
 // ConnectToCanonicalValidators connects to the canonical validators of the given subnet and returns the connected
 // validator information
-func (n *AppRequestNetwork) ConnectToCanonicalValidators(subnetID ids.ID) (*libPeers.ConnectedCanonicalValidators, error) {
+func (n *AppRequestNetwork) ConnectToCanonicalValidators(subnetID ids.ID) (*ConnectedCanonicalValidators, error) {
 	// Get the subnet's current canonical validator set
 	validatorSet, totalValidatorWeight, err := n.validatorClient.GetCurrentCanonicalValidatorSet(subnetID)
 	if err != nil {
@@ -225,11 +239,11 @@ func (n *AppRequestNetwork) ConnectToCanonicalValidators(subnetID ids.ID) (*libP
 	for node := range connectedNodes {
 		connectedWeight += validatorSet[nodeValidatorIndexMap[node]].Weight
 	}
-	return &libPeers.ConnectedCanonicalValidators{
+	return &ConnectedCanonicalValidators{
 		ConnectedWeight:       connectedWeight,
 		TotalValidatorWeight:  totalValidatorWeight,
 		ValidatorSet:          validatorSet,
-		NodeValidatorIndexMap: nodeValidatorIndexMap,
+		nodeValidatorIndexMap: nodeValidatorIndexMap,
 	}, nil
 }
 
@@ -317,7 +331,7 @@ func (n *AppRequestNetwork) connectToPrimaryNetworkPeers(
 // Fetch the warp quorum from the config and check if the connected stake exceeds the threshold
 func (n *AppRequestNetwork) checkForSufficientConnectedStake(
 	cfg *config.Config,
-	connectedValidators *libPeers.ConnectedCanonicalValidators,
+	connectedValidators *ConnectedCanonicalValidators,
 	destinationBlockchainID ids.ID,
 ) (bool, *config.WarpQuorum, error) {
 	quorum, err := cfg.GetWarpQuorum(destinationBlockchainID)
