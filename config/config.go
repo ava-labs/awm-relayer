@@ -7,6 +7,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
+	"strconv"
+	"strings"
 
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/utils/constants"
@@ -120,6 +123,22 @@ func (c *Config) Validate() error {
 		blockchainIDToSubnetID[s.blockchainID] = s.subnetID
 	}
 	c.blockchainIDToSubnetID = blockchainIDToSubnetID
+
+	if c.DeciderPort != nil {
+		portStr := strconv.FormatUint(uint64(*c.DeciderPort), 10)
+
+		host := c.DeciderHost
+		if len(host) == 0 {
+			host = "localhost"
+		}
+
+		uri := strings.Join([]string{host, portStr}, ":")
+
+		_, err := url.ParseRequestURI(uri)
+		if err != nil {
+			return fmt.Errorf("Invalid decider URI: %w", err)
+		}
+	}
 
 	return nil
 }
