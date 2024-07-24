@@ -16,6 +16,7 @@ import (
 	"github.com/ava-labs/avalanchego/message"
 	"github.com/ava-labs/avalanchego/utils/constants"
 	"github.com/ava-labs/avalanchego/utils/logging"
+	"github.com/ava-labs/avalanchego/utils/set"
 	"github.com/ava-labs/awm-relayer/api"
 	"github.com/ava-labs/awm-relayer/config"
 	"github.com/ava-labs/awm-relayer/database"
@@ -131,11 +132,19 @@ func main() {
 	if logLevel <= logging.Debug {
 		networkLogLevel = logLevel
 	}
+	var trackedSubnets set.Set[ids.ID]
+	for _, sourceBlockchain := range cfg.SourceBlockchains {
+		trackedSubnets.Add(sourceBlockchain.GetSubnetID())
+	}
+
 	network, err := peers.NewNetwork(
 		networkLogLevel,
 		prometheus.DefaultRegisterer,
+		trackedSubnets,
 		&cfg,
 	)
+	network.InitializeConnectionsAndCheckStake(&cfg)
+
 	if err != nil {
 		logger.Fatal("Failed to create app request network", zap.Error(err))
 		panic(err)

@@ -16,6 +16,7 @@ import (
 	avagoCommon "github.com/ava-labs/avalanchego/snow/engine/common"
 	snowVdrs "github.com/ava-labs/avalanchego/snow/validators"
 	"github.com/ava-labs/avalanchego/subnets"
+	"github.com/ava-labs/avalanchego/utils/constants"
 	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/avalanchego/utils/set"
 	"github.com/ava-labs/avalanchego/vms/platformvm/warp"
@@ -44,6 +45,7 @@ type AppRequestNetwork struct {
 func NewNetwork(
 	logLevel logging.Level,
 	registerer prometheus.Registerer,
+	trackedSubnets set.Set[ids.ID],
 	cfg Config,
 ) (*AppRequestNetwork, error) {
 	logger := logging.NewLogger(
@@ -82,8 +84,6 @@ func NewNetwork(
 		return nil, err
 	}
 
-	var trackedSubnets set.Set[ids.ID]
-
 	// TODO: pass trackedSubnets in again for the relayer (not the sig-aggregator since not available there)
 	testNetwork, err := network.NewTestNetwork(logger, networkID, snowVdrs.NewManager(), trackedSubnets, handler)
 	if err != nil {
@@ -111,24 +111,25 @@ func NewNetwork(
 	return arNetwork, nil
 }
 
-// func (n *AppRequestNetwork) InitializeConnectionsAndCheckStake(sourceBlockchains []config.SourceBlockchain) error {
-// 	// Manually connect to the validators of each of the source subnets.
-// 	// We return an error if we are unable to connect to sufficient stake on any of the subnets.
-// 	// Sufficient stake is determined by the Warp quora of the configured supported destinations,
-// 	// or if the subnet supports all destinations, by the quora of all configured destinations.
-// 	for _, sourceBlockchain := range sourceBlockchains {
-// 		if sourceBlockchain.GetSubnetID() == constants.PrimaryNetworkID {
-// 			if err := n.connectToPrimaryNetworkPeers(cfg, sourceBlockchain); err != nil {
-// 				return err
-// 			}
-// 		} else {
-// 			if err := n.connectToNonPrimaryNetworkPeers(cfg, sourceBlockchain); err != nil {
-// 				return err
-// 			}
-// 		}
-// 	}
-// 	return nil
-// }
+// TODO: remove dependence on Relayer specific config since this is meant to be a generic AppRequestNetwork file
+func (n *AppRequestNetwork) InitializeConnectionsAndCheckStake(cfg *config.Config) error {
+	// Manually connect to the validators of each of the source subnets.
+	// We return an error if we are unable to connect to sufficient stake on any of the subnets.
+	// Sufficient stake is determined by the Warp quora of the configured supported destinations,
+	// or if the subnet supports all destinations, by the quora of all configured destinations.
+	for _, sourceBlockchain := range cfg.SourceBlockchains {
+		if sourceBlockchain.GetSubnetID() == constants.PrimaryNetworkID {
+			if err := n.connectToPrimaryNetworkPeers(cfg, sourceBlockchain); err != nil {
+				return err
+			}
+		} else {
+			if err := n.connectToNonPrimaryNetworkPeers(cfg, sourceBlockchain); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
 
 // ConnectPeers connects the network to peers with the given nodeIDs.
 // Returns the set of nodeIDs that were successfully connected to.

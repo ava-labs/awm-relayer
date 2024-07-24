@@ -85,6 +85,7 @@ func main() {
 	network, err := peers.NewNetwork(
 		networkLogLevel,
 		prometheus.DefaultRegisterer,
+		nil,
 		&cfg,
 	)
 	if err != nil {
