@@ -191,8 +191,6 @@ func CreateDefaultRelayerConfig(
 		)
 	}
 
-	var deciderPort uint16 = 50051
-
 	return config.Config{
 		LogLevel: logging.Info.LowerString(),
 		PChainAPI: &config.APIConfig{
@@ -208,8 +206,7 @@ func CreateDefaultRelayerConfig(
 		SourceBlockchains:      sources,
 		DestinationBlockchains: destinations,
 		APIPort:                8080,
-		DeciderHost:            "localhost",
-		DeciderPort:            &deciderPort,
+		DeciderURL:             "localhost:50051",
 	}
 }
 

@@ -8,8 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
-	"strconv"
-	"strings"
 
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/utils/constants"
@@ -61,8 +59,7 @@ type Config struct {
 	SourceBlockchains      []*SourceBlockchain      `mapstructure:"source-blockchains" json:"source-blockchains"`
 	DestinationBlockchains []*DestinationBlockchain `mapstructure:"destination-blockchains" json:"destination-blockchains"`
 	ProcessMissedBlocks    bool                     `mapstructure:"process-missed-blocks" json:"process-missed-blocks"`
-	DeciderHost            string                   `mapstructure:"decider-host" json:"decider-host"`
-	DeciderPort            *uint16                  `mapstructure:"decider-port" json:"decider-port"`
+	DeciderURL             string                   `mapstructure:"decider-url" json:"decider-url"`
 
 	// convenience field to fetch a blockchain's subnet ID
 	blockchainIDToSubnetID map[ids.ID]ids.ID
@@ -124,18 +121,8 @@ func (c *Config) Validate() error {
 	}
 	c.blockchainIDToSubnetID = blockchainIDToSubnetID
 
-	if c.DeciderPort != nil {
-		portStr := strconv.FormatUint(uint64(*c.DeciderPort), 10)
-
-		host := c.DeciderHost
-		if len(host) == 0 {
-			host = "localhost"
-		}
-
-		uri := strings.Join([]string{host, portStr}, ":")
-
-		_, err := url.ParseRequestURI(uri)
-		if err != nil {
+	if len(c.DeciderURL) != 0 {
+		if _, err := url.ParseRequestURI(c.DeciderURL); err != nil {
 			return fmt.Errorf("Invalid decider URI: %w", err)
 		}
 	}

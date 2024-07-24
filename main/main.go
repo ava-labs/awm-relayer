@@ -10,7 +10,6 @@ import (
 	"net/http"
 	"os"
 	"runtime"
-	"strconv"
 	"strings"
 
 	"github.com/ava-labs/avalanchego/api/metrics"
@@ -178,10 +177,7 @@ func main() {
 
 	relayerHealth := createHealthTrackers(&cfg)
 
-	deciderClient, err := createDeciderClient(
-		cfg.DeciderHost,
-		cfg.DeciderPort,
-	)
+	deciderClient, err := createDeciderClient(cfg.DeciderURL)
 	if err != nil {
 		logger.Fatal(
 			"Failed to instantiate decider client",
@@ -454,23 +450,15 @@ func createApplicationRelayersForSourceChain(
 	return applicationRelayers, minHeight, nil
 }
 
-/* if port is nil, neither a client nor an error will be returned.
- * if is non-nil, a client will be constructed
- * if host is an empty string, a default value of "localhost" is assumed. */
-func createDeciderClient(host string, port *uint16) (*grpc.ClientConn, error) {
-	if port == nil {
+// create a client for the "should send message" decider service.
+// if url is unspecified, returns a nil client pointer
+func createDeciderClient(url string) (*grpc.ClientConn, error) {
+	if len(url) == 0 {
 		return nil, nil
 	}
 
-	if len(host) == 0 {
-		host = "localhost"
-	}
-
 	client, err := grpc.NewClient(
-		strings.Join(
-			[]string{host, strconv.FormatUint(uint64(*port), 10)},
-			":",
-		),
+		url,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	)
 	if err != nil {
