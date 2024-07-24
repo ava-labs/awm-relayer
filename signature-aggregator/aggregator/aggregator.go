@@ -45,7 +45,6 @@ var (
 
 	// Errors
 	errNotEnoughSignatures     = errors.New("failed to collect a threshold of signatures")
-	errFailedToGetAggSig       = errors.New("failed to get aggregate signature from node endpoint")
 	errNotEnoughConnectedStake = errors.New("failed to connect to a threshold of stake")
 )
 
@@ -74,7 +73,11 @@ func NewSignatureAggregator(
 	return &sa
 }
 
-func (s *SignatureAggregator) AggregateSignaturesAppRequest(unsignedMessage *avalancheWarp.UnsignedMessage, inputSigningSubnet *ids.ID, quorumPercentage uint64) (*avalancheWarp.Message, error) {
+func (s *SignatureAggregator) AggregateSignaturesAppRequest(
+	unsignedMessage *avalancheWarp.UnsignedMessage,
+	inputSigningSubnet *ids.ID,
+	quorumPercentage uint64,
+) (*avalancheWarp.Message, error) {
 	requestID := s.currentRequestID.Add(1)
 
 	var signingSubnet ids.ID

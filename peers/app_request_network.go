@@ -248,7 +248,12 @@ func (n *AppRequestNetwork) ConnectToCanonicalValidators(subnetID ids.ID) (*Conn
 	}, nil
 }
 
-func (n *AppRequestNetwork) Send(msg message.OutboundMessage, nodeIDs set.Set[ids.NodeID], subnetID ids.ID, allower subnets.Allower) set.Set[ids.NodeID] {
+func (n *AppRequestNetwork) Send(
+	msg message.OutboundMessage,
+	nodeIDs set.Set[ids.NodeID],
+	subnetID ids.ID,
+	allower subnets.Allower,
+) set.Set[ids.NodeID] {
 	return n.network.Send(msg, avagoCommon.SendConfig{NodeIDs: nodeIDs}, subnetID, allower)
 }
 

@@ -10,7 +10,6 @@ import (
 
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/utils/constants"
-	"github.com/ava-labs/avalanchego/utils/crypto/bls"
 	"github.com/ava-labs/avalanchego/utils/logging"
 	avalancheWarp "github.com/ava-labs/avalanchego/vms/platformvm/warp"
 	"github.com/ava-labs/awm-relayer/config"
@@ -21,8 +20,6 @@ import (
 	"github.com/ava-labs/awm-relayer/signature-aggregator/aggregator"
 	"github.com/ava-labs/awm-relayer/utils"
 	"github.com/ava-labs/awm-relayer/vms"
-	coreEthMsg "github.com/ava-labs/coreth/plugin/evm/message"
-	msg "github.com/ava-labs/subnet-evm/plugin/evm/message"
 	"github.com/ava-labs/subnet-evm/rpc"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -30,8 +27,6 @@ import (
 
 	"go.uber.org/zap"
 )
-
-type blsSignatureBuf [bls.SignatureLen]byte
 
 const (
 	// Number of retries to collect signatures from validators
@@ -42,12 +37,8 @@ const (
 )
 
 var (
-	codec        = msg.Codec
-	coreEthCodec = coreEthMsg.Codec
 	// Errors
-	errNotEnoughSignatures     = errors.New("failed to collect a threshold of signatures")
-	errFailedToGetAggSig       = errors.New("failed to get aggregate signature from node endpoint")
-	errNotEnoughConnectedStake = errors.New("failed to connect to a threshold of stake")
+	errFailedToGetAggSig = errors.New("failed to get aggregate signature from node endpoint")
 )
 
 // ApplicationRelayers define a Warp message route from a specific source address on a specific source blockchain
@@ -216,7 +207,11 @@ func (r *ApplicationRelayer) ProcessMessage(handler messages.MessageHandler) (co
 	// sourceWarpSignatureClient is nil iff the source blockchain is configured to fetch signatures via AppRequest
 	if r.sourceWarpSignatureClient == nil {
 		// TODO: do we actually want to pass the pointer here or adapt the interface?
-		signedMessage, err = r.signatureAggregator.AggregateSignaturesAppRequest(unsignedMessage, &r.signingSubnetID, r.warpQuorum.QuorumNumerator)
+		signedMessage, err = r.signatureAggregator.AggregateSignaturesAppRequest(
+			unsignedMessage,
+			&r.signingSubnetID,
+			r.warpQuorum.QuorumNumerator,
+		)
 		r.incFetchSignatureAppRequestCount()
 		if err != nil {
 			r.logger.Error(

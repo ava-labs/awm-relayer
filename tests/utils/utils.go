@@ -103,7 +103,7 @@ func BuildAndRunRelayerExecutable(ctx context.Context, relayerConfigPath string)
 	}
 }
 
-func BuildAndRunSignatureAggregatorExecutable(ctx context.Context, signatureAggregatorConfigPath string) context.CancelFunc {
+func BuildAndRunSignatureAggregatorExecutable(ctx context.Context, configPath string) context.CancelFunc {
 	// Build the signature-aggregator binary
 	cmd := exec.Command("./signature-aggregator/scripts/build.sh")
 	out, err := cmd.CombinedOutput()
@@ -116,8 +116,13 @@ func BuildAndRunSignatureAggregatorExecutable(ctx context.Context, signatureAggr
 	var signatureAggregatorCtx context.Context
 	signatureAggregatorCtx, signatureAggregatorCancelFunc := context.WithCancel(ctx)
 	log.Info("Starting the signature-aggregator executable")
-	log.Info(fmt.Sprintf("./signature-aggregator/build/signature-aggregator --config-file %s ", signatureAggregatorConfigPath))
-	signatureAggregatorCmd := exec.CommandContext(signatureAggregatorCtx, "./signature-aggregator/build/signature-aggregator", "--config-file", signatureAggregatorConfigPath)
+	log.Info(fmt.Sprintf("./signature-aggregator/build/signature-aggregator --config-file %s ", configPath))
+	signatureAggregatorCmd := exec.CommandContext(
+		signatureAggregatorCtx,
+		"./signature-aggregator/build/signature-aggregator",
+		"--config-file",
+		configPath,
+	)
 
 	// Set up a pipe to capture the command's output
 	cmdStdOutReader, err := signatureAggregatorCmd.StdoutPipe()

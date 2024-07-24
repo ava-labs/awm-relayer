@@ -52,7 +52,7 @@ func HandleSignatureAggregationRawRequest(logger logging.Logger, signatureAggreg
 	http.Handle(RawMessageAPIPath, signatureAggregationAPIHandler(logger, signatureAggregator))
 }
 
-func signatureAggregationAPIHandler(logger logging.Logger, signatureAggregator *aggregator.SignatureAggregator) http.Handler {
+func signatureAggregationAPIHandler(logger logging.Logger, aggregator *aggregator.SignatureAggregator) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var req SignatureAggregationRawRequest
 		err := json.NewDecoder(r.Body).Decode(&req)
@@ -86,7 +86,7 @@ func signatureAggregationAPIHandler(logger logging.Logger, signatureAggregator *
 			}
 		}
 
-		signedMessage, err := signatureAggregator.AggregateSignaturesAppRequest(unsignedMessage, signingSubnetID, quorumNum)
+		signedMessage, err := aggregator.AggregateSignaturesAppRequest(unsignedMessage, signingSubnetID, quorumNum)
 
 		if err != nil {
 			logger.Warn("Failed to aggregate signatures", zap.Error(err))

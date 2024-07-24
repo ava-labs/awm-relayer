@@ -18,9 +18,9 @@ var defaultLogLevel = logging.Info.String()
 
 const usageText = `
 Usage:
-signature-aggregator --config-file path-to-config                Specifies the config file and start the signing service.
-signature-aggregator --version                                   Display signature-aggregator version and exit.
-signature-aggregator --help                                      Display signature-aggregator usage and exit.
+signature-aggregator --config-file path-to-config            Specifies the config file and start the signing service.
+signature-aggregator --version                               Display signature-aggregator version and exit.
+signature-aggregator --help                                  Display signature-aggregator usage and exit.
 `
 
 type Config struct {
