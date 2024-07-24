@@ -454,6 +454,9 @@ func createApplicationRelayersForSourceChain(
 	return applicationRelayers, minHeight, nil
 }
 
+/* if port is nil, neither a client nor an error will be returned.
+ * if is non-nil, a client will be constructed
+ * if host is an empty string, a default value of "localhost" is assumed. */
 func createDeciderClient(host string, port *uint16) (*grpc.ClientConn, error) {
 	if port == nil {
 		return nil, nil
