@@ -49,7 +49,7 @@ func NewMessageHandlerFactory(
 	logger logging.Logger,
 	messageProtocolAddress common.Address,
 	messageProtocolConfig config.MessageProtocolConfig,
-	grpcClient *grpc.ClientConn,
+	deciderClientConn *grpc.ClientConn,
 ) (messages.MessageHandlerFactory, error) {
 	// Marshal the map and unmarshal into the Teleporter config
 	data, err := json.Marshal(messageProtocolConfig.Settings)
@@ -72,10 +72,10 @@ func NewMessageHandlerFactory(
 	}
 
 	var deciderClient pbDecider.DeciderServiceClient
-	if grpcClient == nil {
+	if deciderClientConn == nil {
 		deciderClient = nil
 	} else {
-		deciderClient = pbDecider.NewDeciderServiceClient(grpcClient)
+		deciderClient = pbDecider.NewDeciderServiceClient(deciderClientConn)
 	}
 
 	return &factory{
