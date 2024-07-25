@@ -183,7 +183,7 @@ func (m *messageHandler) ShouldSendMessage(destinationClient vms.DestinationClie
 		return false, nil
 	}
 
-	if decision, err := m.getDeciderDecision(); err != nil {
+	if decision, err := m.getShouldSendMessageFromDecider(); err != nil {
 		m.logger.Warn(
 			"Error delegating to decider",
 			zap.String("warpMessageID", m.unsignedMessage.ID().String()),
@@ -204,7 +204,9 @@ func (m *messageHandler) ShouldSendMessage(destinationClient vms.DestinationClie
 	return true, nil
 }
 
-func (m *messageHandler) getDeciderDecision() (bool, error) {
+// queries the decider service to determine whether this message should be
+// sent. if the decider client is nil, returns true.
+func (m *messageHandler) getShouldSendMessageFromDecider() (bool, error) {
 	deciderClientValue := reflect.ValueOf(m.deciderClient)
 
 	if !deciderClientValue.IsValid() || deciderClientValue.IsNil() {
