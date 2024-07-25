@@ -72,9 +72,7 @@ func NewMessageHandlerFactory(
 	}
 
 	var deciderClient pbDecider.DeciderServiceClient
-	if deciderClientConn == nil {
-		deciderClient = nil
-	} else {
+	if deciderClientConn != nil {
 		deciderClient = pbDecider.NewDeciderServiceClient(deciderClientConn)
 	}
 
