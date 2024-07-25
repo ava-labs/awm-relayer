@@ -189,8 +189,8 @@ func (m *messageHandler) ShouldSendMessage(destinationClient vms.DestinationClie
 			zap.String("warpMessageID", m.unsignedMessage.ID().String()),
 			zap.String("teleporterMessageID", teleporterMessageID.String()),
 		)
-	} else if decision != nil {
-		if !*decision {
+	} else {
+		if !decision {
 			m.logger.Info(
 				"Decider rejected message",
 				zap.String("warpMessageID", m.unsignedMessage.ID().String()),
@@ -198,17 +198,17 @@ func (m *messageHandler) ShouldSendMessage(destinationClient vms.DestinationClie
 				zap.String("destinationBlockchainID", destinationBlockchainID.String()),
 			)
 		}
-		return *decision, nil
+		return decision, nil
 	}
 
 	return true, nil
 }
 
-func (m *messageHandler) getDeciderDecision() (*bool, error) {
+func (m *messageHandler) getDeciderDecision() (bool, error) {
 	deciderClientValue := reflect.ValueOf(m.deciderClient)
 
 	if !deciderClientValue.IsValid() || deciderClientValue.IsNil() {
-		return nil, nil
+		return true, nil
 	}
 
 	warpMsgIDStr := m.unsignedMessage.ID().Hex()
@@ -220,7 +220,7 @@ func (m *messageHandler) getDeciderDecision() (*bool, error) {
 			zap.String("warpMsgIDStr", warpMsgIDStr),
 			zap.Error(err),
 		)
-		return nil, err
+		return false, err
 	}
 
 	ctx, cancelCtx := context.WithTimeout(context.Background(), 30*time.Second)
@@ -237,10 +237,10 @@ func (m *messageHandler) getDeciderDecision() (*bool, error) {
 	)
 	if err != nil {
 		m.logger.Error("Error response from decider.", zap.Error(err))
-		return nil, err
+		return false, err
 	}
 
-	return &response.ShouldSendMessage, nil
+	return response.ShouldSendMessage, nil
 }
 
 // SendMessage extracts the gasLimit and packs the call data to call the receiveCrossChainMessage
