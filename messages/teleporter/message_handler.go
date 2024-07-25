@@ -183,25 +183,24 @@ func (m *messageHandler) ShouldSendMessage(destinationClient vms.DestinationClie
 		return false, nil
 	}
 
-	if decision, err := m.getShouldSendMessageFromDecider(); err != nil {
+	decision, err := m.getShouldSendMessageFromDecider()
+	if err != nil {
 		m.logger.Warn(
 			"Error delegating to decider",
 			zap.String("warpMessageID", m.unsignedMessage.ID().String()),
 			zap.String("teleporterMessageID", teleporterMessageID.String()),
 		)
-	} else {
-		if !decision {
-			m.logger.Info(
-				"Decider rejected message",
-				zap.String("warpMessageID", m.unsignedMessage.ID().String()),
-				zap.String("teleporterMessageID", teleporterMessageID.String()),
-				zap.String("destinationBlockchainID", destinationBlockchainID.String()),
-			)
-		}
-		return decision, nil
+		return true, nil
 	}
-
-	return true, nil
+	if !decision {
+		m.logger.Info(
+			"Decider rejected message",
+			zap.String("warpMessageID", m.unsignedMessage.ID().String()),
+			zap.String("teleporterMessageID", teleporterMessageID.String()),
+			zap.String("destinationBlockchainID", destinationBlockchainID.String()),
+		)
+	}
+	return decision, nil
 }
 
 // Queries the decider service to determine whether this message should be
