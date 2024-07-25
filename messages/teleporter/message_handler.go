@@ -204,8 +204,8 @@ func (m *messageHandler) ShouldSendMessage(destinationClient vms.DestinationClie
 	return true, nil
 }
 
-// queries the decider service to determine whether this message should be
-// sent. if the decider client is nil, returns true.
+// Queries the decider service to determine whether this message should be
+// sent. If the decider client is nil, returns true.
 func (m *messageHandler) getShouldSendMessageFromDecider() (bool, error) {
 	deciderClientValue := reflect.ValueOf(m.deciderClient)
 
