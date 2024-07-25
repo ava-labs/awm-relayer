@@ -5,7 +5,6 @@ package teleporter
 
 import (
 	"context"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"reflect"
@@ -212,17 +211,7 @@ func (m *messageHandler) getShouldSendMessageFromDecider() (bool, error) {
 		return true, nil
 	}
 
-	warpMsgIDStr := m.unsignedMessage.ID().Hex()
-
-	warpMsgID, err := hex.DecodeString(warpMsgIDStr)
-	if err != nil {
-		m.logger.Error(
-			"Error decoding message ID",
-			zap.String("warpMsgIDStr", warpMsgIDStr),
-			zap.Error(err),
-		)
-		return false, err
-	}
+	warpMsgID := m.unsignedMessage.ID()
 
 	ctx, cancelCtx := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancelCtx()
@@ -233,7 +222,7 @@ func (m *messageHandler) getShouldSendMessageFromDecider() (bool, error) {
 			SourceChainId:       m.unsignedMessage.SourceChainID[:],
 			Payload:             m.unsignedMessage.Payload,
 			BytesRepresentation: m.unsignedMessage.Bytes(),
-			Id:                  warpMsgID,
+			Id:                  warpMsgID[:],
 		},
 	)
 	if err != nil {
