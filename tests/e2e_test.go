@@ -6,6 +6,8 @@ package tests
 import (
 	"context"
 	"encoding/hex"
+	"errors"
+	"fmt"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -101,6 +103,14 @@ var _ = ginkgo.BeforeSuite(func() {
 	}()
 	decider = exec.CommandContext(ctx, "./tests/cmd/decider/decider")
 	decider.Start()
+	go func() { // panic if the decider exits abnormally
+		err := decider.Wait()
+		// Context cancellation is the only expected way for the
+		// process to exit, otherwise panic
+		if !errors.Is(ctx.Err(), context.Canceled) {
+			panic(fmt.Errorf("decider exited abnormally: %w", err))
+		}
+	}()
 	log.Info("Started decider service")
 
 	log.Info("Set up ginkgo before suite")
