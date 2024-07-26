@@ -18,20 +18,9 @@ import (
 )
 
 const (
-	MessageIDAPIPath  = "/message-id"
 	RawMessageAPIPath = "/raw-message"
 	defaultQuorumNum  = 67
 )
-
-type SignatureAggregationByIDRequest struct {
-	// Required. cb58-encoded or "0x" prefixed hex-encoded source subnet ID for the message
-	SubnetID string `json:"subnet-id"`
-	// Required. cb58-encoded or "0x" prefixed hex-encoded warp message ID
-	MessageID string `json:"message-id"`
-	// Optional. Integer from 0 to 100 representing the percentage of the quorum that is required to sign the message
-	// defaults to 67 if omitted.
-	QuorumNum uint64 `json:"quorum-num"`
-}
 
 // Defines a request interface for signature aggregation for a raw unsigned message.
 // Currently a copy of the `ManualWarpMessageRequest` struct in relay_message.go
