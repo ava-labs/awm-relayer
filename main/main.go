@@ -177,10 +177,10 @@ func main() {
 
 	relayerHealth := createHealthTrackers(&cfg)
 
-	deciderClient, err := createDeciderClient(cfg.DeciderURL)
+	deciderConnection, err := createDeciderConnection(cfg.DeciderURL)
 	if err != nil {
 		logger.Fatal(
-			"Failed to instantiate decider client",
+			"Failed to instantiate decider connection",
 			zap.Error(err),
 		)
 		panic(err)
@@ -189,7 +189,7 @@ func main() {
 	messageHandlerFactories, err := createMessageHandlerFactories(
 		logger,
 		&cfg,
-		deciderClient,
+		deciderConnection,
 	)
 	if err != nil {
 		logger.Fatal("Failed to create message handler factories", zap.Error(err))
@@ -256,7 +256,7 @@ func main() {
 func createMessageHandlerFactories(
 	logger logging.Logger,
 	globalConfig *config.Config,
-	deciderClient *grpc.ClientConn,
+	deciderConnection *grpc.ClientConn,
 ) (map[ids.ID]map[common.Address]messages.MessageHandlerFactory, error) {
 	messageHandlerFactories := make(map[ids.ID]map[common.Address]messages.MessageHandlerFactory)
 	for _, sourceBlockchain := range globalConfig.SourceBlockchains {
@@ -275,7 +275,7 @@ func createMessageHandlerFactories(
 					logger,
 					address,
 					cfg,
-					deciderClient,
+					deciderConnection,
 				)
 			case config.OFF_CHAIN_REGISTRY:
 				m, err = offchainregistry.NewMessageHandlerFactory(
@@ -450,14 +450,14 @@ func createApplicationRelayersForSourceChain(
 	return applicationRelayers, minHeight, nil
 }
 
-// create a client for the "should send message" decider service.
+// create a connection to the "should send message" decider service.
 // if url is unspecified, returns a nil client pointer
-func createDeciderClient(url string) (*grpc.ClientConn, error) {
+func createDeciderConnection(url string) (*grpc.ClientConn, error) {
 	if len(url) == 0 {
 		return nil, nil
 	}
 
-	client, err := grpc.NewClient(
+	connection, err := grpc.NewClient(
 		url,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	)
@@ -469,11 +469,11 @@ func createDeciderClient(url string) (*grpc.ClientConn, error) {
 	}
 
 	runtime.SetFinalizer(
-		client,
+		connection,
 		func(c *grpc.ClientConn) { c.Close() },
 	)
 
-	return client, nil
+	return connection, nil
 }
 
 func createHealthTrackers(cfg *config.Config) map[ids.ID]*atomic.Bool {
