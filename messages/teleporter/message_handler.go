@@ -179,7 +179,8 @@ func (m *messageHandler) ShouldSendMessage(destinationClient vms.DestinationClie
 		)
 		return false, nil
 	}
-
+	// Dispatch to the external decider service. If the service is unavailable or returns
+	// an error, then use the decision that has already been made, i.e. return true
 	decision, err := m.getShouldSendMessageFromDecider()
 	if err != nil {
 		m.logger.Warn(
