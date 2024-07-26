@@ -7,7 +7,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"reflect"
 	"time"
 
 	"github.com/ava-labs/avalanchego/ids"
@@ -45,6 +44,17 @@ type messageHandler struct {
 	deciderClient     pbDecider.DeciderServiceClient
 }
 
+// define an "empty" decider client to use when a connection isn't provided:
+type emptyDeciderClient struct{}
+
+func (s *emptyDeciderClient) ShouldSendMessage(
+	_ context.Context,
+	_ *pbDecider.ShouldSendMessageRequest,
+	_ ...grpc.CallOption,
+) (*pbDecider.ShouldSendMessageResponse, error) {
+	return &pbDecider.ShouldSendMessageResponse{ShouldSendMessage: true}, nil
+}
+
 func NewMessageHandlerFactory(
 	logger logging.Logger,
 	messageProtocolAddress common.Address,
@@ -72,7 +82,9 @@ func NewMessageHandlerFactory(
 	}
 
 	var deciderClient pbDecider.DeciderServiceClient
-	if deciderClientConn != nil {
+	if deciderClientConn == nil {
+		deciderClient = &emptyDeciderClient{}
+	} else {
 		deciderClient = pbDecider.NewDeciderServiceClient(deciderClientConn)
 	}
 
@@ -204,12 +216,6 @@ func (m *messageHandler) ShouldSendMessage(destinationClient vms.DestinationClie
 // Queries the decider service to determine whether this message should be
 // sent. If the decider client is nil, returns true.
 func (m *messageHandler) getShouldSendMessageFromDecider() (bool, error) {
-	deciderClientValue := reflect.ValueOf(m.deciderClient)
-
-	if !deciderClientValue.IsValid() || deciderClientValue.IsNil() {
-		return true, nil
-	}
-
 	warpMsgID := m.unsignedMessage.ID()
 
 	ctx, cancelCtx := context.WithTimeout(context.Background(), 30*time.Second)
