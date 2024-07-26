@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"runtime"
 	"strings"
 
 	"github.com/ava-labs/avalanchego/api/metrics"
@@ -33,6 +34,8 @@ import (
 	"go.uber.org/atomic"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 var version = "v0.0.0-dev"
@@ -174,7 +177,20 @@ func main() {
 
 	relayerHealth := createHealthTrackers(&cfg)
 
-	messageHandlerFactories, err := createMessageHandlerFactories(logger, &cfg)
+	deciderConnection, err := createDeciderConnection(cfg.DeciderURL)
+	if err != nil {
+		logger.Fatal(
+			"Failed to instantiate decider connection",
+			zap.Error(err),
+		)
+		panic(err)
+	}
+
+	messageHandlerFactories, err := createMessageHandlerFactories(
+		logger,
+		&cfg,
+		deciderConnection,
+	)
 	if err != nil {
 		logger.Fatal("Failed to create message handler factories", zap.Error(err))
 		panic(err)
@@ -240,6 +256,7 @@ func main() {
 func createMessageHandlerFactories(
 	logger logging.Logger,
 	globalConfig *config.Config,
+	deciderConnection *grpc.ClientConn,
 ) (map[ids.ID]map[common.Address]messages.MessageHandlerFactory, error) {
 	messageHandlerFactories := make(map[ids.ID]map[common.Address]messages.MessageHandlerFactory)
 	for _, sourceBlockchain := range globalConfig.SourceBlockchains {
@@ -258,6 +275,7 @@ func createMessageHandlerFactories(
 					logger,
 					address,
 					cfg,
+					deciderConnection,
 				)
 			case config.OFF_CHAIN_REGISTRY:
 				m, err = offchainregistry.NewMessageHandlerFactory(
@@ -430,6 +448,32 @@ func createApplicationRelayersForSourceChain(
 		applicationRelayers[relayerID.ID] = applicationRelayer
 	}
 	return applicationRelayers, minHeight, nil
+}
+
+// create a connection to the "should send message" decider service.
+// if url is unspecified, returns a nil client pointer
+func createDeciderConnection(url string) (*grpc.ClientConn, error) {
+	if len(url) == 0 {
+		return nil, nil
+	}
+
+	connection, err := grpc.NewClient(
+		url,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+	)
+	if err != nil {
+		return nil, fmt.Errorf(
+			"Failed to instantiate grpc client: %w",
+			err,
+		)
+	}
+
+	runtime.SetFinalizer(
+		connection,
+		func(c *grpc.ClientConn) { c.Close() },
+	)
+
+	return connection, nil
 }
 
 func createHealthTrackers(cfg *config.Config) map[ids.ID]*atomic.Bool {

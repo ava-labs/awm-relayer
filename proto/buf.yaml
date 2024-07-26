@@ -1,0 +1,10 @@
+version: v1
+name: buf.build/ava-labs/awm-relayer
+breaking:
+  use:
+    - FILE
+lint:
+  use:
+    - DEFAULT
+  except:
+    - PACKAGE_VERSION_SUFFIX # versioned naming <service>.v1beta
