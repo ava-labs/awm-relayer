@@ -87,7 +87,10 @@ func SignatureAggregatorAPI(network interfaces.LocalNetwork) {
 		err = json.Unmarshal(body, &response)
 		Expect(err).Should(BeNil())
 
-		signedMessage, err := avalancheWarp.ParseMessage(response.SignedMessageBytes)
+		decodedMessage, err := hex.DecodeString(response.SignedMessage)
+		Expect(err).Should(BeNil())
+
+		signedMessage, err := avalancheWarp.ParseMessage(decodedMessage)
 		Expect(err).Should(BeNil())
 		Expect(signedMessage.ID()).Should(Equal(warpMessage.ID()))
 	}

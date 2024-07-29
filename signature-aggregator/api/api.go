@@ -36,7 +36,7 @@ type SignatureAggregationByIDRequest struct {
 // Defines a request interface for signature aggregation for a raw unsigned message.
 // Currently a copy of the `ManualWarpMessageRequest` struct in relay_message.go
 type SignatureAggregationRawRequest struct {
-	// Required. hex-encoded message bytes, optionally prefixed with "0x".
+	// Required. hex-encoded message, optionally prefixed with "0x".
 	UnsignedMessage string `json:"unsigned-message"`
 	// Optional hex or cb58 encoded signing subnet ID. If omitted will default to the subnetID of the source BlockChain
 	SigningSubnetID string `json:"signing-subnet-id"`
@@ -46,8 +46,8 @@ type SignatureAggregationRawRequest struct {
 }
 
 type SignatureAggregationResponse struct {
-	// base64 encoding of the signature
-	SignedMessageBytes []byte `json:"signed-message-bytes"`
+	// hex encoding of the signature
+	SignedMessage string `json:"signed-message"`
 }
 
 func HandleSignatureAggregationRawRequest(logger logging.Logger, signatureAggregator *aggregator.SignatureAggregator) {
@@ -98,14 +98,15 @@ func signatureAggregationAPIHandler(logger logging.Logger, aggregator *aggregato
 		}
 
 		signedMessage, err := aggregator.AggregateSignaturesAppRequest(unsignedMessage, signingSubnetID, quorumNum)
-
 		if err != nil {
 			logger.Warn("Failed to aggregate signatures", zap.Error(err))
 			http.Error(w, "error aggregating signatures: "+err.Error(), http.StatusInternalServerError)
 		}
 		resp, err := json.Marshal(
 			SignatureAggregationResponse{
-				SignedMessageBytes: signedMessage.Bytes(),
+				SignedMessage: hex.EncodeToString(
+					signedMessage.Bytes(),
+				),
 			},
 		)
 
