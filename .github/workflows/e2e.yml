@@ -51,8 +51,6 @@ jobs:
 
       - name: Install buf
         uses: bufbuild/buf-setup-action@v1.31.0
-        with:
-          github_token: ${{ github.token }}
 
       - name: Run E2E Tests
         run: AVALANCHEGO_BUILD_PATH=/tmp/e2e-test/avalanchego DATA_DIR=/tmp/e2e-test/data ./scripts/e2e_test.sh
