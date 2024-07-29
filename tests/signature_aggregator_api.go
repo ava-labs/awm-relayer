@@ -47,7 +47,7 @@ func SignatureAggregatorAPI(network interfaces.LocalNetwork) {
 		signatureAggregatorConfig,
 		testUtils.DefaultSignatureAggregatorCfgFname,
 	)
-	log.Info("Starting the signature aggregator with config at :%s", signatureAggregatorConfigPath)
+	log.Info("Starting the signature aggregator", "configPath", signatureAggregatorConfigPath)
 	signatureAggregatorCancel := testUtils.BuildAndRunSignatureAggregatorExecutable(ctx, signatureAggregatorConfigPath)
 	defer signatureAggregatorCancel()
 
