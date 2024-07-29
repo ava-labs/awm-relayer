@@ -6,6 +6,7 @@ package tests
 import (
 	"bytes"
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -55,7 +56,7 @@ func SignatureAggregatorAPI(network interfaces.LocalNetwork) {
 	time.Sleep(5 * time.Second)
 
 	reqBody := api.SignatureAggregationRawRequest{
-		UnsignedMessageBytes: warpMessage.Bytes(),
+		UnsignedMessage: "0x" + hex.EncodeToString(warpMessage.Bytes()),
 	}
 
 	client := http.Client{

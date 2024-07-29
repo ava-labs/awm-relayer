@@ -4,8 +4,10 @@
 package api
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"net/http"
+	"strings"
 
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/utils/logging"
@@ -34,8 +36,8 @@ type SignatureAggregationByIDRequest struct {
 // Defines a request interface for signature aggregation for a raw unsigned message.
 // Currently a copy of the `ManualWarpMessageRequest` struct in relay_message.go
 type SignatureAggregationRawRequest struct {
-	// Required. Unsigned base64 encoded message bytes.
-	UnsignedMessageBytes []byte `json:"unsigned-message-bytes"`
+	// Required. hex-encoded message bytes, optionally prefixed with "0x".
+	UnsignedMessage string `json:"unsigned-message"`
 	// Optional hex or cb58 encoded signing subnet ID. If omitted will default to the subnetID of the source BlockChain
 	SigningSubnetID string `json:"signing-subnet-id"`
 	// Optional. Integer from 0 to 100 representing the percentage of the quorum that is required to sign the message
@@ -61,7 +63,16 @@ func signatureAggregationAPIHandler(logger logging.Logger, aggregator *aggregato
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		unsignedMessage, err := types.UnpackWarpMessage(req.UnsignedMessageBytes)
+		var decodedMessage []byte
+		decodedMessage, err = hex.DecodeString(
+			strings.TrimPrefix(req.UnsignedMessage, "0x"),
+		)
+		if err != nil {
+			logger.Warn("Could not decode message", zap.String("msg", req.UnsignedMessage))
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		unsignedMessage, err := types.UnpackWarpMessage(decodedMessage)
 		if err != nil {
 			logger.Warn("Error unpacking warp message", zap.Error(err))
 			http.Error(w, err.Error(), http.StatusBadRequest)
