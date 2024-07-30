@@ -117,9 +117,11 @@ func signatureAggregationAPIHandler(logger logging.Logger, aggregator *aggregato
 		} else {
 			quorumNum = req.QuorumNum
 		}
-		var signingSubnetID *ids.ID
+		var signingSubnetID ids.ID
 		if req.SigningSubnetID != "" {
-			*signingSubnetID, err = utils.HexOrCB58ToID(req.SigningSubnetID)
+			signingSubnetID, err = utils.HexOrCB58ToID(
+				req.SigningSubnetID,
+			)
 			if err != nil {
 				msg := "Error parsing signing subnet ID"
 				logger.Warn(
@@ -131,7 +133,11 @@ func signatureAggregationAPIHandler(logger logging.Logger, aggregator *aggregato
 			}
 		}
 
-		signedMessage, err := aggregator.AggregateSignaturesAppRequest(unsignedMessage, signingSubnetID, quorumNum)
+		signedMessage, err := aggregator.AggregateSignaturesAppRequest(
+			unsignedMessage,
+			&signingSubnetID,
+			quorumNum,
+		)
 		if err != nil {
 			msg := "Failed to aggregate signatures"
 			logger.Warn(msg, zap.Error(err))
