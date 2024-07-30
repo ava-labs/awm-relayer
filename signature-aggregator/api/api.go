@@ -135,7 +135,7 @@ func signatureAggregationAPIHandler(logger logging.Logger, aggregator *aggregato
 
 		signedMessage, err := aggregator.AggregateSignaturesAppRequest(
 			unsignedMessage,
-			&signingSubnetID,
+			signingSubnetID,
 			quorumNum,
 		)
 		if err != nil {
