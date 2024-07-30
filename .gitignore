@@ -1,5 +1,6 @@
 build/
 __debug_bin
+tests/cmd/decider/decider
 
 .vscode*
 

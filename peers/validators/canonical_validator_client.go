@@ -105,7 +105,7 @@ func (v *CanonicalValidatorClient) GetValidatorSet(
 // keys. The implementation currently makes two RPC requests, one to get the subnet validators,
 // and another to get their BLS public keys. This is necessary in order to enable the use of
 // the public APIs (which don't support "GetValidatorsAt") because BLS keys are currently only
-// associated with primary network validation periods. If ACP-13 is implementated in the future
+// associated with primary network validation periods. If ACP-13 is implemented in the future
 // (https://github.com/avalanche-foundation/ACPs/blob/main/ACPs/13-subnet-only-validators.md), it
 // may become possible to reduce this to a single RPC request that returns both the subnet validators
 // as well as their BLS public keys.

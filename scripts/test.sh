@@ -32,4 +32,7 @@ RELAYER_PATH=$(
     cd .. && pwd
 )
 source "$RELAYER_PATH"/scripts/constants.sh
+
+go build -o tests/cmd/decider/decider ./tests/cmd/decider/
+
 go test -tags testing $VERBOSE ./...

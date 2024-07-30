@@ -66,6 +66,7 @@ source "$RELAYER_PATH"/scripts/versions.sh
 go install -v github.com/onsi/ginkgo/v2/ginkgo@${GINKGO_VERSION}
 
 ginkgo build ./tests/
+go build -v -o tests/cmd/decider/decider ./tests/cmd/decider/
 
 # Run the tests
 echo "Running e2e tests $RUN_E2E"

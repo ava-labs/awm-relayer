@@ -15,6 +15,7 @@ import (
 	warpPayload "github.com/ava-labs/avalanchego/vms/platformvm/warp/payload"
 	"github.com/ava-labs/awm-relayer/config"
 	"github.com/ava-labs/awm-relayer/messages"
+	pbDecider "github.com/ava-labs/awm-relayer/proto/pb/decider"
 	"github.com/ava-labs/awm-relayer/utils"
 	"github.com/ava-labs/awm-relayer/vms"
 	"github.com/ava-labs/subnet-evm/accounts/abi/bind"
@@ -25,12 +26,14 @@ import (
 	teleporterUtils "github.com/ava-labs/teleporter/utils/teleporter-utils"
 	"github.com/ethereum/go-ethereum/common"
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
 )
 
 type factory struct {
 	messageConfig   Config
 	protocolAddress common.Address
 	logger          logging.Logger
+	deciderClient   pbDecider.DeciderServiceClient
 }
 
 type messageHandler struct {
@@ -38,12 +41,25 @@ type messageHandler struct {
 	teleporterMessage *teleportermessenger.TeleporterMessage
 	unsignedMessage   *warp.UnsignedMessage
 	factory           *factory
+	deciderClient     pbDecider.DeciderServiceClient
+}
+
+// define an "empty" decider client to use when a connection isn't provided:
+type emptyDeciderClient struct{}
+
+func (s *emptyDeciderClient) ShouldSendMessage(
+	_ context.Context,
+	_ *pbDecider.ShouldSendMessageRequest,
+	_ ...grpc.CallOption,
+) (*pbDecider.ShouldSendMessageResponse, error) {
+	return &pbDecider.ShouldSendMessageResponse{ShouldSendMessage: true}, nil
 }
 
 func NewMessageHandlerFactory(
 	logger logging.Logger,
 	messageProtocolAddress common.Address,
 	messageProtocolConfig config.MessageProtocolConfig,
+	deciderClientConn *grpc.ClientConn,
 ) (messages.MessageHandlerFactory, error) {
 	// Marshal the map and unmarshal into the Teleporter config
 	data, err := json.Marshal(messageProtocolConfig.Settings)
@@ -65,10 +81,18 @@ func NewMessageHandlerFactory(
 		return nil, err
 	}
 
+	var deciderClient pbDecider.DeciderServiceClient
+	if deciderClientConn == nil {
+		deciderClient = &emptyDeciderClient{}
+	} else {
+		deciderClient = pbDecider.NewDeciderServiceClient(deciderClientConn)
+	}
+
 	return &factory{
 		messageConfig:   messageConfig,
 		protocolAddress: messageProtocolAddress,
 		logger:          logger,
+		deciderClient:   deciderClient,
 	}, nil
 }
 
@@ -86,6 +110,7 @@ func (f *factory) NewMessageHandler(unsignedMessage *warp.UnsignedMessage) (mess
 		teleporterMessage: teleporterMessage,
 		unsignedMessage:   unsignedMessage,
 		factory:           f,
+		deciderClient:     f.deciderClient,
 	}, nil
 }
 
@@ -166,8 +191,51 @@ func (m *messageHandler) ShouldSendMessage(destinationClient vms.DestinationClie
 		)
 		return false, nil
 	}
+	// Dispatch to the external decider service. If the service is unavailable or returns
+	// an error, then use the decision that has already been made, i.e. return true
+	decision, err := m.getShouldSendMessageFromDecider()
+	if err != nil {
+		m.logger.Warn(
+			"Error delegating to decider",
+			zap.String("warpMessageID", m.unsignedMessage.ID().String()),
+			zap.String("teleporterMessageID", teleporterMessageID.String()),
+		)
+		return true, nil
+	}
+	if !decision {
+		m.logger.Info(
+			"Decider rejected message",
+			zap.String("warpMessageID", m.unsignedMessage.ID().String()),
+			zap.String("teleporterMessageID", teleporterMessageID.String()),
+			zap.String("destinationBlockchainID", destinationBlockchainID.String()),
+		)
+	}
+	return decision, nil
+}
 
-	return true, nil
+// Queries the decider service to determine whether this message should be
+// sent. If the decider client is nil, returns true.
+func (m *messageHandler) getShouldSendMessageFromDecider() (bool, error) {
+	warpMsgID := m.unsignedMessage.ID()
+
+	ctx, cancelCtx := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancelCtx()
+	response, err := m.deciderClient.ShouldSendMessage(
+		ctx,
+		&pbDecider.ShouldSendMessageRequest{
+			NetworkId:           m.unsignedMessage.NetworkID,
+			SourceChainId:       m.unsignedMessage.SourceChainID[:],
+			Payload:             m.unsignedMessage.Payload,
+			BytesRepresentation: m.unsignedMessage.Bytes(),
+			Id:                  warpMsgID[:],
+		},
+	)
+	if err != nil {
+		m.logger.Error("Error response from decider.", zap.Error(err))
+		return false, err
+	}
+
+	return response.ShouldSendMessage, nil
 }
 
 // SendMessage extracts the gasLimit and packs the call data to call the receiveCrossChainMessage

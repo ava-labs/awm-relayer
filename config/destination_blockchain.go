@@ -11,7 +11,7 @@ import (
 )
 
 // Destination blockchain configuration. Specifies how to connect to and issue
-// transactions on the desination blockchain.
+// transactions on the destination blockchain.
 type DestinationBlockchain struct {
 	SubnetID          string    `mapstructure:"subnet-id" json:"subnet-id"`
 	BlockchainID      string    `mapstructure:"blockchain-id" json:"blockchain-id"`

@@ -4,8 +4,14 @@
 package tests
 
 import (
+	"context"
 	"encoding/hex"
+	"errors"
+	"fmt"
 	"os"
+	"os/exec"
+	"os/signal"
+	"syscall"
 	"testing"
 
 	testUtils "github.com/ava-labs/awm-relayer/tests/utils"
@@ -21,7 +27,12 @@ const (
 	warpGenesisTemplateFile = "./tests/utils/warp-genesis-template.json"
 )
 
-var localNetworkInstance *local.LocalNetwork
+var (
+	localNetworkInstance *local.LocalNetwork
+
+	decider       *exec.Cmd
+	cancelDecider context.CancelFunc
+)
 
 func TestE2E(t *testing.T) {
 	if os.Getenv("RUN_E2E") == "" {
@@ -41,12 +52,12 @@ var _ = ginkgo.BeforeSuite(func() {
 			{
 				Name:       "A",
 				EVMChainID: 12345,
-				NodeCount:  5,
+				NodeCount:  2,
 			},
 			{
 				Name:       "B",
 				EVMChainID: 54321,
-				NodeCount:  5,
+				NodeCount:  2,
 			},
 		},
 		0,
@@ -79,6 +90,29 @@ var _ = ginkgo.BeforeSuite(func() {
 		teleporterContractAddress,
 		fundedKey,
 	)
+
+	var ctx context.Context
+	ctx, cancelDecider = context.WithCancel(context.Background())
+	// we'll call cancelDecider in AfterSuite, but also call it if this
+	// process is killed, because AfterSuite won't always run then:
+	signalChan := make(chan os.Signal, 2)
+	signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-signalChan
+		cancelDecider()
+	}()
+	decider = exec.CommandContext(ctx, "./tests/cmd/decider/decider")
+	decider.Start()
+	go func() { // panic if the decider exits abnormally
+		err := decider.Wait()
+		// Context cancellation is the only expected way for the
+		// process to exit, otherwise panic
+		if !errors.Is(ctx.Err(), context.Canceled) {
+			panic(fmt.Errorf("decider exited abnormally: %w", err))
+		}
+	}()
+	log.Info("Started decider service")
+
 	log.Info("Set up ginkgo before suite")
 
 	ginkgo.AddReportEntry(
@@ -89,7 +123,12 @@ var _ = ginkgo.BeforeSuite(func() {
 })
 
 var _ = ginkgo.AfterSuite(func() {
-	localNetworkInstance.TearDownNetwork()
+	if localNetworkInstance != nil {
+		localNetworkInstance.TearDownNetwork()
+	}
+	if decider != nil {
+		cancelDecider()
+	}
 })
 
 var _ = ginkgo.Describe("[AWM Relayer Integration Tests", func() {
