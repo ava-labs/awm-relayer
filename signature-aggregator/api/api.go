@@ -42,7 +42,7 @@ type SignatureAggregationRawRequest struct {
 	SigningSubnetID string `json:"signing-subnet-id"`
 	// Optional. Integer from 0 to 100 representing the percentage of the quorum that is required to sign the message
 	// defaults to 67 if omitted.
-	QuorumNum *uint64 `json:"quorum-num"`
+	QuorumNum uint64 `json:"quorum-num"`
 }
 
 type SignatureAggregationResponse struct {
@@ -107,15 +107,15 @@ func signatureAggregationAPIHandler(logger logging.Logger, aggregator *aggregato
 			return
 		}
 		var quorumNum uint64
-		if req.QuorumNum == nil {
+		if req.QuorumNum == 0 {
 			quorumNum = defaultQuorumNum
-		} else if *req.QuorumNum >= 0 || *req.QuorumNum > 100 {
+		} else if req.QuorumNum >= 0 || req.QuorumNum > 100 {
 			msg := "Invalid quorum number"
-			logger.Warn(msg, zap.Uint64("quorum-num", *req.QuorumNum))
+			logger.Warn(msg, zap.Uint64("quorum-num", req.QuorumNum))
 			writeJsonError(logger, w, msg)
 			return
 		} else {
-			quorumNum = *req.QuorumNum
+			quorumNum = req.QuorumNum
 		}
 		var signingSubnetID *ids.ID
 		if req.SigningSubnetID != "" {
