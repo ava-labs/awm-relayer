@@ -54,13 +54,35 @@ func HandleSignatureAggregationRawRequest(logger logging.Logger, signatureAggreg
 	http.Handle(RawMessageAPIPath, signatureAggregationAPIHandler(logger, signatureAggregator))
 }
 
+func writeJsonError(
+	logger logging.Logger,
+	w http.ResponseWriter,
+	errorMsg string,
+) {
+	resp, err := json.Marshal(struct{ error string }{error: errorMsg})
+	if err != nil {
+		logger.Error(
+			"Error marshalling JSON error response",
+			zap.Error(err),
+		)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+
+	w.Write(resp)
+	if err != nil {
+		logger.Error("Error writing error response", zap.Error(err))
+	}
+}
+
 func signatureAggregationAPIHandler(logger logging.Logger, aggregator *aggregator.SignatureAggregator) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var req SignatureAggregationRawRequest
 		err := json.NewDecoder(r.Body).Decode(&req)
 		if err != nil {
-			logger.Warn("Could not decode request body")
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			msg := "Could not decode request body"
+			logger.Warn(msg, zap.Error(err))
+			writeJsonError(logger, w, msg)
 			return
 		}
 		var decodedMessage []byte
@@ -68,22 +90,29 @@ func signatureAggregationAPIHandler(logger logging.Logger, aggregator *aggregato
 			strings.TrimPrefix(req.UnsignedMessage, "0x"),
 		)
 		if err != nil {
-			logger.Warn("Could not decode message", zap.String("msg", req.UnsignedMessage))
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			msg := "Could not decode message"
+			logger.Warn(
+				msg,
+				zap.String("msg", req.UnsignedMessage),
+				zap.Error(err),
+			)
+			writeJsonError(logger, w, msg)
 			return
 		}
 		unsignedMessage, err := types.UnpackWarpMessage(decodedMessage)
 		if err != nil {
-			logger.Warn("Error unpacking warp message", zap.Error(err))
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			msg := "Error unpacking warp message"
+			logger.Warn(msg, zap.Error(err))
+			writeJsonError(logger, w, msg)
 			return
 		}
 		var quorumNum uint64
 		if req.QuorumNum == nil {
 			quorumNum = defaultQuorumNum
 		} else if *req.QuorumNum >= 0 || *req.QuorumNum > 100 {
-			logger.Warn("Invalid quorum number", zap.Uint64("quorum-num", *req.QuorumNum))
-			http.Error(w, "invalid quorum number", http.StatusBadRequest)
+			msg := "Invalid quorum number"
+			logger.Warn(msg, zap.Uint64("quorum-num", *req.QuorumNum))
+			writeJsonError(logger, w, msg)
 			return
 		} else {
 			quorumNum = *req.QuorumNum
@@ -92,15 +121,21 @@ func signatureAggregationAPIHandler(logger logging.Logger, aggregator *aggregato
 		if req.SigningSubnetID != "" {
 			*signingSubnetID, err = utils.HexOrCB58ToID(req.SigningSubnetID)
 			if err != nil {
-				logger.Warn("Error parsing signing subnet ID", zap.Error(err))
-				http.Error(w, "error parsing signing subnet ID: "+err.Error(), http.StatusBadRequest)
+				msg := "Error parsing signing subnet ID"
+				logger.Warn(
+					msg,
+					zap.Error(err),
+					zap.String("input", req.SigningSubnetID),
+				)
+				writeJsonError(logger, w, msg)
 			}
 		}
 
 		signedMessage, err := aggregator.AggregateSignaturesAppRequest(unsignedMessage, signingSubnetID, quorumNum)
 		if err != nil {
-			logger.Warn("Failed to aggregate signatures", zap.Error(err))
-			http.Error(w, "error aggregating signatures: "+err.Error(), http.StatusInternalServerError)
+			msg := "Failed to aggregate signatures"
+			logger.Warn(msg, zap.Error(err))
+			writeJsonError(logger, w, msg)
 		}
 		resp, err := json.Marshal(
 			SignatureAggregationResponse{
@@ -111,8 +146,9 @@ func signatureAggregationAPIHandler(logger logging.Logger, aggregator *aggregato
 		)
 
 		if err != nil {
-			logger.Error("Failed to marshal response", zap.Error(err))
-			http.Error(w, "error marshalling a response: "+err.Error(), http.StatusInternalServerError)
+			msg := "Failed to marshal response"
+			logger.Error(msg, zap.Error(err))
+			writeJsonError(logger, w, msg)
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
