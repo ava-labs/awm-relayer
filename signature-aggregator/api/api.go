@@ -106,16 +106,14 @@ func signatureAggregationAPIHandler(logger logging.Logger, aggregator *aggregato
 			writeJsonError(logger, w, msg)
 			return
 		}
-		var quorumNum uint64
-		if req.QuorumNum == 0 {
+		quorumNum := req.QuorumNum
+		if quorumNum == 0 {
 			quorumNum = defaultQuorumNum
-		} else if req.QuorumNum >= 0 || req.QuorumNum > 100 {
+		} else if req.QuorumNum > 100 {
 			msg := "Invalid quorum number"
 			logger.Warn(msg, zap.Uint64("quorum-num", req.QuorumNum))
 			writeJsonError(logger, w, msg)
 			return
-		} else {
-			quorumNum = req.QuorumNum
 		}
 		var signingSubnetID ids.ID
 		if req.SigningSubnetID != "" {
