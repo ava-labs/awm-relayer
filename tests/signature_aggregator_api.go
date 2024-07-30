@@ -78,6 +78,7 @@ func SignatureAggregatorAPI(network interfaces.LocalNetwork) {
 		res, err := client.Do(req)
 		Expect(err).Should(BeNil())
 		Expect(res.Status).Should(Equal("200 OK"))
+		Expect(res.Header.Get("Content-Type")).Should(Equal("application/json"))
 
 		defer res.Body.Close()
 		body, err := io.ReadAll(res.Body)

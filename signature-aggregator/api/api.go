@@ -115,6 +115,7 @@ func signatureAggregationAPIHandler(logger logging.Logger, aggregator *aggregato
 			http.Error(w, "error marshalling a response: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
+		w.Header().Set("Content-Type", "application/json")
 		_, err = w.Write(resp)
 		if err != nil {
 			logger.Error("Error writing response", zap.Error(err))
