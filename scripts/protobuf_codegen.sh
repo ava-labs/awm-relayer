@@ -15,7 +15,7 @@ RELAYER_PATH=$(
 source $RELAYER_PATH/scripts/versions.sh
 
 ## ensure the correct version of "buf" is installed
-BUF_VERSION='1.31.0'
+BUF_VERSION='1.35.1'
 if [[ $(buf --version | cut -f2 -d' ') != "${BUF_VERSION}" ]]; then
   echo "could not find buf ${BUF_VERSION}, is it installed + in PATH?"
   exit 255
