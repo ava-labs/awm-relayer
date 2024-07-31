@@ -6,6 +6,7 @@ package tests
 import (
 	"bytes"
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -46,7 +47,7 @@ func SignatureAggregatorAPI(network interfaces.LocalNetwork) {
 		signatureAggregatorConfig,
 		testUtils.DefaultSignatureAggregatorCfgFname,
 	)
-	log.Info("Starting the signature aggregator with config at :%s", signatureAggregatorConfigPath)
+	log.Info("Starting the signature aggregator", "configPath", signatureAggregatorConfigPath)
 	signatureAggregatorCancel := testUtils.BuildAndRunSignatureAggregatorExecutable(ctx, signatureAggregatorConfigPath)
 	defer signatureAggregatorCancel()
 
@@ -55,7 +56,7 @@ func SignatureAggregatorAPI(network interfaces.LocalNetwork) {
 	time.Sleep(5 * time.Second)
 
 	reqBody := api.SignatureAggregationRawRequest{
-		UnsignedMessageBytes: warpMessage.Bytes(),
+		UnsignedMessage: "0x" + hex.EncodeToString(warpMessage.Bytes()),
 	}
 
 	client := http.Client{
@@ -77,6 +78,7 @@ func SignatureAggregatorAPI(network interfaces.LocalNetwork) {
 		res, err := client.Do(req)
 		Expect(err).Should(BeNil())
 		Expect(res.Status).Should(Equal("200 OK"))
+		Expect(res.Header.Get("Content-Type")).Should(Equal("application/json"))
 
 		defer res.Body.Close()
 		body, err := io.ReadAll(res.Body)
@@ -86,7 +88,10 @@ func SignatureAggregatorAPI(network interfaces.LocalNetwork) {
 		err = json.Unmarshal(body, &response)
 		Expect(err).Should(BeNil())
 
-		signedMessage, err := avalancheWarp.ParseMessage(response.SignedMessageBytes)
+		decodedMessage, err := hex.DecodeString(response.SignedMessage)
+		Expect(err).Should(BeNil())
+
+		signedMessage, err := avalancheWarp.ParseMessage(decodedMessage)
 		Expect(err).Should(BeNil())
 		Expect(signedMessage.ID()).Should(Equal(warpMessage.ID()))
 	}

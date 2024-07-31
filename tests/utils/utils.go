@@ -115,7 +115,7 @@ func BuildAndRunSignatureAggregatorExecutable(ctx context.Context, configPath st
 	// Run signature-aggregator binary with config path
 	var signatureAggregatorCtx context.Context
 	signatureAggregatorCtx, signatureAggregatorCancelFunc := context.WithCancel(ctx)
-	log.Info("Starting the signature-aggregator executable")
+	log.Info("Instantiating the signature-aggregator executable command")
 	log.Info(fmt.Sprintf("./signature-aggregator/build/signature-aggregator --config-file %s ", configPath))
 	signatureAggregatorCmd := exec.CommandContext(
 		signatureAggregatorCtx,
