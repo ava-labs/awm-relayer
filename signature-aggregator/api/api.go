@@ -55,6 +55,7 @@ func writeJsonError(
 	if err != nil {
 		msg := "Error marshalling JSON error response"
 		logger.Error(msg, zap.Error(err))
+		resp = []byte(msg)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
