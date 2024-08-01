@@ -107,7 +107,7 @@ func main() {
 	}
 	signatureAggregator := aggregator.NewSignatureAggregator(network, logger, messageCreator)
 
-	api.HandleSignatureAggregationRawRequest(logger, signatureAggregator)
+	api.HandleAggregateSignaturesByRawMsgRequest(logger, signatureAggregator)
 
 	err = http.ListenAndServe(fmt.Sprintf(":%d", cfg.APIPort), nil)
 	if errors.Is(err, http.ErrServerClosed) {

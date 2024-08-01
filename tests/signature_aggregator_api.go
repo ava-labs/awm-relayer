@@ -55,7 +55,7 @@ func SignatureAggregatorAPI(network interfaces.LocalNetwork) {
 	log.Info("Waiting for the signature aggregator to start up")
 	time.Sleep(5 * time.Second)
 
-	reqBody := api.SignatureAggregationRawRequest{
+	reqBody := api.AggregateSignaturesByRawMsgRequest{
 		UnsignedMessage: "0x" + hex.EncodeToString(warpMessage.Bytes()),
 	}
 
@@ -84,7 +84,7 @@ func SignatureAggregatorAPI(network interfaces.LocalNetwork) {
 		body, err := io.ReadAll(res.Body)
 		Expect(err).Should(BeNil())
 
-		var response api.SignatureAggregationResponse
+		var response api.AggregateSignaturesResponse
 		err = json.Unmarshal(body, &response)
 		Expect(err).Should(BeNil())
 

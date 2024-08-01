@@ -18,13 +18,13 @@ import (
 )
 
 const (
-	RawMessageAPIPath = "/raw-message"
+	RawMessageAPIPath = "/aggregate-signatures/by-raw-message"
 	defaultQuorumNum  = 67
 )
 
 // Defines a request interface for signature aggregation for a raw unsigned message.
 // Currently a copy of the `ManualWarpMessageRequest` struct in relay_message.go
-type SignatureAggregationRawRequest struct {
+type AggregateSignaturesByRawMsgRequest struct {
 	// Required. hex-encoded message, optionally prefixed with "0x".
 	UnsignedMessage string `json:"unsigned-message"`
 	// Optional hex or cb58 encoded signing subnet ID. If omitted will default to the subnetID of the source BlockChain
@@ -34,12 +34,15 @@ type SignatureAggregationRawRequest struct {
 	QuorumNum uint64 `json:"quorum-num"`
 }
 
-type SignatureAggregationResponse struct {
+type AggregateSignaturesResponse struct {
 	// hex encoding of the signature
 	SignedMessage string `json:"signed-message"`
 }
 
-func HandleSignatureAggregationRawRequest(logger logging.Logger, signatureAggregator *aggregator.SignatureAggregator) {
+func HandleAggregateSignaturesByRawMsgRequest(
+	logger logging.Logger,
+	signatureAggregator *aggregator.SignatureAggregator,
+) {
 	http.Handle(RawMessageAPIPath, signatureAggregationAPIHandler(logger, signatureAggregator))
 }
 
@@ -66,7 +69,7 @@ func writeJsonError(
 
 func signatureAggregationAPIHandler(logger logging.Logger, aggregator *aggregator.SignatureAggregator) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var req SignatureAggregationRawRequest
+		var req AggregateSignaturesByRawMsgRequest
 		err := json.NewDecoder(r.Body).Decode(&req)
 		if err != nil {
 			msg := "Could not decode request body"
@@ -131,7 +134,7 @@ func signatureAggregationAPIHandler(logger logging.Logger, aggregator *aggregato
 			writeJsonError(logger, w, msg)
 		}
 		resp, err := json.Marshal(
-			SignatureAggregationResponse{
+			AggregateSignaturesResponse{
 				SignedMessage: hex.EncodeToString(
 					signedMessage.Bytes(),
 				),
