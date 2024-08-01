@@ -12,7 +12,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/kms v1.35.3
 	github.com/ethereum/go-ethereum v1.13.8
 	github.com/onsi/ginkgo/v2 v2.19.1
-	github.com/onsi/gomega v1.34.0
+	github.com/onsi/gomega v1.34.1
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.19.1
 	github.com/redis/go-redis/v9 v9.6.1
@@ -92,8 +92,8 @@ require (
 	github.com/urfave/cli/v2 v2.25.7 // indirect
 	github.com/xrash/smetrics v0.0.0-20201216005158-039620a65673 // indirect
 	go.opentelemetry.io/otel/metric v1.22.0 // indirect
-	golang.org/x/exp v0.0.0-20231127185646-65229373498e // indirect
-	golang.org/x/tools v0.21.0 // indirect
+	golang.org/x/exp v0.0.0-20240719175910-8a7402abbf56 // indirect
+	golang.org/x/tools v0.23.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20240528184218-531527333157 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240528184218-531527333157 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
@@ -152,12 +152,12 @@ require (
 	go.opentelemetry.io/proto/otlp v1.0.0 // indirect
 	go.uber.org/atomic v1.11.0
 	go.uber.org/multierr v1.11.0 // indirect
-	golang.org/x/crypto v0.23.0 // indirect
-	golang.org/x/net v0.25.0 // indirect
+	golang.org/x/crypto v0.25.0 // indirect
+	golang.org/x/net v0.27.0 // indirect
 	golang.org/x/sync v0.7.0
-	golang.org/x/sys v0.21.0 // indirect
-	golang.org/x/term v0.20.0 // indirect
-	golang.org/x/text v0.15.0 // indirect
+	golang.org/x/sys v0.22.0 // indirect
+	golang.org/x/term v0.22.0 // indirect
+	golang.org/x/text v0.16.0 // indirect
 	golang.org/x/time v0.3.0 // indirect
 	gonum.org/v1/gonum v0.11.0 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0 // indirect
