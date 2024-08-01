@@ -53,10 +53,8 @@ func writeJsonError(
 ) {
 	resp, err := json.Marshal(struct{ error string }{error: errorMsg})
 	if err != nil {
-		logger.Error(
-			"Error marshalling JSON error response",
-			zap.Error(err),
-		)
+		msg := "Error marshalling JSON error response"
+		logger.Error(msg, zap.Error(err))
 	}
 
 	w.Header().Set("Content-Type", "application/json")

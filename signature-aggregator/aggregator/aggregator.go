@@ -85,7 +85,10 @@ func (s *SignatureAggregator) AggregateSignaturesAppRequest(
 	// If signingSubnet is not set  we default to the subnet of the source blockchain
 	sourceSubnet, err := s.GetSubnetID(unsignedMessage.SourceChainID)
 	if err != nil {
-		return nil, fmt.Errorf("Source message subnet not found for chainID %s", unsignedMessage.SourceChainID)
+		return nil, fmt.Errorf(
+			"Source message subnet not found for chainID %s",
+			unsignedMessage.SourceChainID,
+		)
 	}
 	if inputSigningSubnet == ids.Empty {
 		signingSubnet = sourceSubnet
@@ -96,12 +99,13 @@ func (s *SignatureAggregator) AggregateSignaturesAppRequest(
 	connectedValidators, err := s.network.ConnectToCanonicalValidators(signingSubnet)
 
 	if err != nil {
+		msg := "Failed to connect to canonical validators"
 		s.logger.Error(
-			"Failed to connect to canonical validators",
+			msg,
 			zap.String("warpMessageID", unsignedMessage.ID().String()),
 			zap.Error(err),
 		)
-		return nil, err
+		return nil, fmt.Errorf("%s: %w", msg, err)
 	}
 	if !utils.CheckStakeWeightPercentageExceedsThreshold(
 		big.NewInt(0).SetUint64(connectedValidators.ConnectedWeight),
@@ -131,12 +135,13 @@ func (s *SignatureAggregator) AggregateSignaturesAppRequest(
 		reqBytes, err = msg.RequestToBytes(codec, req)
 	}
 	if err != nil {
+		msg := "Failed to marshal request bytes"
 		s.logger.Error(
-			"Failed to marshal request bytes",
+			msg,
 			zap.String("warpMessageID", unsignedMessage.ID().String()),
 			zap.Error(err),
 		)
-		return nil, err
+		return nil, fmt.Errorf("%s: %w", msg, err)
 	}
 
 	// Construct the AppRequest
@@ -147,12 +152,13 @@ func (s *SignatureAggregator) AggregateSignaturesAppRequest(
 		reqBytes,
 	)
 	if err != nil {
+		msg := "Failed to create app request message"
 		s.logger.Error(
-			"Failed to create app request message",
+			msg,
 			zap.String("warpMessageID", unsignedMessage.ID().String()),
 			zap.Error(err),
 		)
-		return nil, err
+		return nil, fmt.Errorf("%s: %w", msg, err)
 	}
 
 	// Query the validators with retries. On each retry, query one node per unique BLS pubkey
@@ -242,7 +248,10 @@ func (s *SignatureAggregator) AggregateSignaturesAppRequest(
 					quorumPercentage,
 				)
 				if err != nil {
-					return nil, err
+					return nil, fmt.Errorf(
+						"failed to handle response: %w",
+						err,
+					)
 				}
 				if relevant {
 					responseCount++
@@ -371,13 +380,14 @@ func (s *SignatureAggregator) handleResponse(
 	) {
 		aggSig, vdrBitSet, err := s.aggregateSignatures(signatureMap)
 		if err != nil {
+			msg := "Failed to aggregate signature."
 			s.logger.Error(
-				"Failed to aggregate signature.",
+				msg,
 				zap.String("sourceBlockchainID", unsignedMessage.SourceChainID.String()),
 				zap.String("warpMessageID", unsignedMessage.ID().String()),
 				zap.Error(err),
 			)
-			return nil, true, err
+			return nil, true, fmt.Errorf("%s: %w", msg, err)
 		}
 
 		signedMsg, err := avalancheWarp.NewMessage(
@@ -388,13 +398,14 @@ func (s *SignatureAggregator) handleResponse(
 			},
 		)
 		if err != nil {
+			msg := "Failed to create new signed message"
 			s.logger.Error(
-				"Failed to create new signed message",
+				msg,
 				zap.String("sourceBlockchainID", unsignedMessage.SourceChainID.String()),
 				zap.String("warpMessageID", unsignedMessage.ID().String()),
 				zap.Error(err),
 			)
-			return nil, true, err
+			return nil, true, fmt.Errorf("%s: %w", msg, err)
 		}
 		return signedMsg, true, nil
 	}
@@ -478,11 +489,9 @@ func (s *SignatureAggregator) aggregateSignatures(
 	for i, sigBytes := range signatureMap {
 		sig, err := bls.SignatureFromBytes(sigBytes[:])
 		if err != nil {
-			s.logger.Error(
-				"Failed to unmarshal signature",
-				zap.Error(err),
-			)
-			return nil, set.Bits{}, err
+			msg := "Failed to unmarshal signature"
+			s.logger.Error(msg, zap.Error(err))
+			return nil, set.Bits{}, fmt.Errorf("%s: %w", msg, err)
 		}
 		signatures = append(signatures, sig)
 		vdrBitSet.Add(i)
@@ -490,11 +499,9 @@ func (s *SignatureAggregator) aggregateSignatures(
 
 	aggSig, err := bls.AggregateSignatures(signatures)
 	if err != nil {
-		s.logger.Error(
-			"Failed to aggregate signatures",
-			zap.Error(err),
-		)
-		return nil, set.Bits{}, err
+		msg := "Failed to aggregate signatures"
+		s.logger.Error(msg, zap.Error(err))
+		return nil, set.Bits{}, fmt.Errorf("%s: %w", msg, err)
 	}
 	return aggSig, vdrBitSet, nil
 }
