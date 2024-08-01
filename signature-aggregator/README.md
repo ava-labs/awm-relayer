@@ -22,7 +22,7 @@ Sample config that can be used for local testing is `signature-aggregator/sample
 
 ## Interface
 
-The only exposed endpoint is `/raw-message`  expecting `application/json` encoded request with the following body. Note that all the fields are optional but at least one of `data` or `justification` must be non-empty:
+The only exposed endpoint is `/aggregate-signatures/by-raw-message`  expecting `application/json` encoded request with the following body. Note that all the fields are optional but at least one of `data` or `justification` must be non-empty:
 ```json
 {
     "data": "",               // (string) hex-encoded unsigned message bytes to be signed
@@ -56,7 +56,7 @@ curl --location 'https://api.avax-test.network/ext/bc/C/rpc' \
    The topic of the message will be `0x56600c567728a800c0aa927500f831cb451df66a7af570eb4df4dfbf4674887d` which is the output of`cast keccak "SendWarpMessage(address,bytes32,bytes)"`
 3. Use the data field of the log message found in step 2 and send it to the locally running service via curl.
 ```bash
-curl --location 'http://localhost:8080/raw-message' \
+curl --location 'http://localhost:8080/aggregate-signatures/by-raw-message' \
 --header 'Content-Type: application/json' \
 --data '{
     "data": "<hex encoded unsigned message bytes retrieved from the logs>",
