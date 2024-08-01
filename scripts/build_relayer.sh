@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Copyright (C) 2024, Ava Labs, Inc. All rights reserved.
+# Copyright (C) 2023, Ava Labs, Inc. All rights reserved.
 # See the file LICENSE for licensing terms.
 
 set -o errexit
@@ -22,38 +22,35 @@ version_lt() {
     fi
 }
 
-# Signature Aggregator root directory
-SIGNATURE_AGGREGATOR_PATH=$(
+# Root directory
+RELAYER_PATH=$(
     cd "$(dirname "${BASH_SOURCE[0]}")"
     cd .. && pwd
 )
 
-BASE_PATH=$(
-    cd $SIGNATURE_AGGREGATOR_PATH
-    cd .. && pwd
-)
-
-source $SIGNATURE_AGGREGATOR_PATH/scripts/constants.sh
-source $BASE_PATH/scripts/versions.sh
+# Load the versions and constants
+source "$RELAYER_PATH"/scripts/versions.sh
+source "$RELAYER_PATH"/scripts/constants.sh
 
 go_version_minimum=$GO_VERSION
 
 if version_lt "$(go_version)" "$go_version_minimum"; then
-    echo "signature-aggregator requires Go >= $go_version_minimum, Go $(go_version) found." >&2
+    echo "awm-relayer requires Go >= $go_version_minimum, Go $(go_version) found." >&2
     exit 1
 fi
+
+scripts/protobuf_codegen.sh
 
 if [[ $# -eq 1 ]]; then
     binary_path=$1
 elif [[ $# -eq 0 ]]; then
-    binary_path="$signature_aggregator_path"
+    binary_path=$relayer_path
 else
-    echo "Invalid arguments to build signature-aggregator. Requires zero (default location) or one argument to specify binary location."
+    echo "Invalid arguments to build awm-relayer. Requires zero (default location) or one argument to specify binary location."
     exit 1
 fi
 
-cd $SIGNATURE_AGGREGATOR_PATH
 # Build AWM Relayer, which is run as a standalone process
 last_git_tag=$(git describe --tags --abbrev=0 2>/dev/null) || last_git_tag="v0.0.0-dev"
-echo "Building Signature Aggregator Version: $last_git_tag at $binary_path"
+echo "Building AWM Relayer Version: $last_git_tag at $binary_path"
 go build -ldflags "-X 'main.version=$last_git_tag'" -o "$binary_path" "main/"*.go

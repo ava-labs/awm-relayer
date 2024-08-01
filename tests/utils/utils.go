@@ -51,7 +51,7 @@ const (
 
 func BuildAndRunRelayerExecutable(ctx context.Context, relayerConfigPath string) context.CancelFunc {
 	// Build the awm-relayer binary
-	cmd := exec.Command("./scripts/build.sh")
+	cmd := exec.Command("./scripts/build_relayer.sh")
 	out, err := cmd.CombinedOutput()
 	fmt.Println(string(out))
 	Expect(err).Should(BeNil())
@@ -106,7 +106,7 @@ func BuildAndRunRelayerExecutable(ctx context.Context, relayerConfigPath string)
 
 func BuildAndRunSignatureAggregatorExecutable(ctx context.Context, configPath string) context.CancelFunc {
 	// Build the signature-aggregator binary
-	cmd := exec.Command("./signature-aggregator/scripts/build.sh")
+	cmd := exec.Command("./scripts/build_signature_aggregator.sh")
 	out, err := cmd.CombinedOutput()
 	fmt.Println(string(out))
 	Expect(err).Should(BeNil())
@@ -151,7 +151,7 @@ func BuildAndRunSignatureAggregatorExecutable(ctx context.Context, configPath st
 		}
 		cmdOutput <- "Command execution finished"
 	}()
-	// Spawn a goroutine that will panic if the relayer exits abnormally.
+	// Spawn a goroutine that will panic if the aggregator exits abnormally.
 	go func() {
 		err := signatureAggregatorCmd.Wait()
 		// Context cancellation is the only expected way for the process to exit, otherwise panic
