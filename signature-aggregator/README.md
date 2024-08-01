@@ -5,7 +5,7 @@ It is also used by the relayer for gathering signatures when configured to use A
 
 ## Building
 
-To build the application run `signature-aggregator/scripts/build.sh` which will output the binary to `signature-aggregator/build/signature-aggregator` path by default.
+To build the application run `scripts/build_signature_aggregator.sh` which will output the binary to `signature-aggregator/build/signature-aggregator` path by default.
 
 ## Running
 
