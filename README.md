@@ -101,7 +101,7 @@ awm-relayer --help                                      Display awm-relayer usag
 
 ### Building
 
-Before building, be sure to install Go, which is required even if you're just building the Docker image.
+Before building, be sure to install Go, which is required even if you're just building the Docker image. You'll also need to install [buf](github.com/bufbuild/buf/).
 
 Build the relayer by running the script:
 
@@ -290,6 +290,10 @@ The relayer is configured via a JSON file, the path to which is passed in via th
   `"kms-aws-region": string`
 
   - The AWS region in which the KMS key is located. Required if `kms-key-id` is provided.
+
+`"decider-url": string`
+
+- The URL of a service implementing the gRPC service defined by `proto/decider`, which will be queried for each message to determine whether that message should be relayed.
 
 ## Architecture
 

@@ -39,6 +39,8 @@ if version_lt "$(go_version)" "$go_version_minimum"; then
     exit 1
 fi
 
+scripts/protobuf_codegen.sh
+
 if [[ $# -eq 1 ]]; then
     binary_path=$1
 elif [[ $# -eq 0 ]]; then
