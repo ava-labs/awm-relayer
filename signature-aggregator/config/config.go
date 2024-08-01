@@ -28,6 +28,8 @@ type Config struct {
 	PChainAPI *baseCfg.APIConfig `mapstructure:"p-chain-api" json:"p-chain-api"`
 	InfoAPI   *baseCfg.APIConfig `mapstructure:"info-api" json:"info-api"`
 	APIPort   uint16             `mapstructure:"api-port" json:"api-port"`
+
+	MetricsPort uint16 `mapstructure:"metrics-port" json:"metrics-port"`
 }
 
 func DisplayUsageText() {
