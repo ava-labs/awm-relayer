@@ -14,12 +14,10 @@ on:
 jobs:
   buf-lint:
     name: Protobuf Lint
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
-      - uses: bufbuild/buf-setup-action@v1.31.0
-        with:
-          github_token: ${{ github.token }}
+      - uses: bufbuild/buf-setup-action@v1.35.1
       - uses: bufbuild/buf-lint-action@v1
         with:
           input: "proto"
