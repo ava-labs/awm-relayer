@@ -11,7 +11,8 @@ import (
 )
 
 const (
-	defaultAPIPort = uint16(8080)
+	defaultAPIPort     = uint16(8080)
+	defaultMetricsPort = uint16(8081)
 )
 
 var defaultLogLevel = logging.Info.String()

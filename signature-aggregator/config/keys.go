@@ -14,5 +14,6 @@ const (
 	PChainAPIKey         = "p-chain-api"
 	InfoAPIKey           = "info-api"
 	APIPortKey           = "api-port"
+	MetricsPortKey       = "metrics-port"
 	SourceBlockchainsKey = "source-blockchains"
 )
