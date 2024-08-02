@@ -462,3 +462,20 @@ func TestValidateSourceBlockchain(t *testing.T) {
 		})
 	}
 }
+
+func TestCountSuppliedSubnets(t *testing.T) {
+	config := Config{
+		SourceBlockchains: []*SourceBlockchain{
+			{
+				SubnetID: "1",
+			},
+			{
+				SubnetID: "2",
+			},
+			{
+				SubnetID: "1",
+			},
+		},
+	}
+	require.Equal(t, 2, config.countSuppliedSubnets())
+}
