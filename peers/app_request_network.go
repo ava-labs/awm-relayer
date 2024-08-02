@@ -85,7 +85,6 @@ func NewNetwork(
 		return nil, err
 	}
 
-	// TODO: pass trackedSubnets in again for the relayer (not the sig-aggregator since not available there)
 	testNetwork, err := network.NewTestNetwork(logger, networkID, snowVdrs.NewManager(), trackedSubnets, handler)
 	if err != nil {
 		logger.Error(
