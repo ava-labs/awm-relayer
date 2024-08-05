@@ -16,17 +16,17 @@ import (
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/message"
 	"github.com/ava-labs/avalanchego/proto/pb/p2p"
+	"github.com/ava-labs/avalanchego/proto/pb/sdk"
 	"github.com/ava-labs/avalanchego/subnets"
-	"github.com/ava-labs/avalanchego/utils/constants"
 	"github.com/ava-labs/avalanchego/utils/crypto/bls"
 	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/avalanchego/utils/set"
 	avalancheWarp "github.com/ava-labs/avalanchego/vms/platformvm/warp"
 	"github.com/ava-labs/awm-relayer/peers"
 	"github.com/ava-labs/awm-relayer/utils"
-	coreEthMsg "github.com/ava-labs/coreth/plugin/evm/message"
 	msg "github.com/ava-labs/subnet-evm/plugin/evm/message"
 	"go.uber.org/zap"
+	"google.golang.org/protobuf/proto"
 )
 
 type blsSignatureBuf [bls.SignatureLen]byte
@@ -40,9 +40,6 @@ const (
 )
 
 var (
-	codec        = msg.Codec
-	coreEthCodec = coreEthMsg.Codec
-
 	// Errors
 	errNotEnoughSignatures     = errors.New("failed to collect a threshold of signatures")
 	errNotEnoughConnectedStake = errors.New("failed to connect to a threshold of stake")
@@ -121,19 +118,9 @@ func (s *SignatureAggregator) AggregateSignaturesAppRequest(
 		return nil, errNotEnoughConnectedStake
 	}
 
-	// TODO: remove this special handling and replace with ACP-118 interface once available
-	var reqBytes []byte
-	if sourceSubnet == constants.PrimaryNetworkID {
-		req := coreEthMsg.MessageSignatureRequest{
-			MessageID: unsignedMessage.ID(),
-		}
-		reqBytes, err = coreEthMsg.RequestToBytes(coreEthCodec, req)
-	} else {
-		req := msg.MessageSignatureRequest{
-			MessageID: unsignedMessage.ID(),
-		}
-		reqBytes, err = msg.RequestToBytes(codec, req)
-	}
+	reqBytes, err := proto.Marshal(
+		&sdk.SignatureRequest{Message: unsignedMessage.Bytes()},
+	)
 	if err != nil {
 		msg := "Failed to marshal request bytes"
 		s.logger.Error(
