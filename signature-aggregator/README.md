@@ -1,7 +1,7 @@
 # Signature Aggregator
 
 This directory contains a lightweight stand-alone API for requesting signatures for a Warp message from Subnet validators.
-It is also used by `awm-relayer` for gathering signatures when configured to use AppRequest instead of the WarpSignature RPC client.
+It is also used by `awm-relayer` for gathering signatures when configured to use AppRequest instead of the Warp signature RPC client.
 
 ## Building
 
@@ -22,18 +22,20 @@ Sample config that can be used for local testing is `signature-aggregator/sample
 
 ## Interface
 
-The only exposed endpoint is `/aggregate-signatures/by-raw-message`  expecting `application/json` encoded request with the following body. Note that all the fields are optional but at least one of `data` or `justification` must be non-empty:
+The only exposed endpoint is `/aggregate-signatures`  expecting `application/json` encoded request with the following body. Note that all the fields are optional but at least one of `message` or `justification` must be non-empty:
 ```json
 {
-    "data": "",               // (string) hex-encoded unsigned message bytes to be signed
+    "message": "",            // (string) hex-encoded unsigned message bytes to be signed
     "justification": "",      // (string) hex-encoded bytes to supply to the validators as justification
  .  "signing-subnet-id": "",  // (string) hex or cb58 encoded signing subnet ID. Defaults to source blockchain's subnet from data if omitted.
-    "quorum-num": 67          // (int) quorum percentage required to sign the message. Defaults to 67 if omitted
+    "quorum-percentage": 67  // (int) quorum percentage required to sign the message. Defaults to 67 if omitted
 }
 ```
 
 ## Sample workflow
 If you want to manually test a locally running service pointed to the Fuji testnet you can do so with the following steps.
+
+Note that this might fail for older messages if there has been enough validator churn, and less then threhold weight of stake of validators have seen the message when it originated. In this case try picking a more recent message.
 
 The basic request consists of sending just the `data` field containing the hex-encoded bytes of the full unsigned Warp message that the validators would be willing to sign. Here are the steps to obtain a sample valid unsigned Warp message bytes from the Fuji network.
 

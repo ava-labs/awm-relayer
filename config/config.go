@@ -252,7 +252,7 @@ func (c *Config) GetPChainAPI() *APIConfig {
 	return c.PChainAPI
 }
 
-// Config implempents the peers.Config interface
+// Config implements the peers.Config interface
 func (c *Config) GetInfoAPI() *APIConfig {
 	return c.InfoAPI
 }

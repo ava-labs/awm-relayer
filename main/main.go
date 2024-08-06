@@ -136,6 +136,10 @@ func main() {
 		networkLogLevel = logLevel
 	}
 	var trackedSubnets set.Set[ids.ID]
+	// trackedSubnets is no longer strictly required but keeping it here for now
+	// to keep full parity with existing AWM relayer for now
+	// TODO: remove this from here once trackedSubnets are no longer referenced
+	// by ping messages in avalanchego
 	for _, sourceBlockchain := range cfg.SourceBlockchains {
 		trackedSubnets.Add(sourceBlockchain.GetSubnetID())
 	}
