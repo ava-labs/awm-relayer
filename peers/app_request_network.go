@@ -5,6 +5,7 @@ package peers
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"os"
 	"sync"
@@ -84,7 +85,6 @@ func NewNetwork(
 		return nil, err
 	}
 
-	// TODO: pass trackedSubnets in again for the relayer (not the sig-aggregator since not available there)
 	testNetwork, err := network.NewTestNetwork(logger, networkID, snowVdrs.NewManager(), trackedSubnets, handler)
 	if err != nil {
 		logger.Error(
@@ -120,11 +120,17 @@ func (n *AppRequestNetwork) InitializeConnectionsAndCheckStake(cfg *config.Confi
 	for _, sourceBlockchain := range cfg.SourceBlockchains {
 		if sourceBlockchain.GetSubnetID() == constants.PrimaryNetworkID {
 			if err := n.connectToPrimaryNetworkPeers(cfg, sourceBlockchain); err != nil {
-				return err
+				return fmt.Errorf(
+					"failed to connect to primary network peers: %w",
+					err,
+				)
 			}
 		} else {
 			if err := n.connectToNonPrimaryNetworkPeers(cfg, sourceBlockchain); err != nil {
-				return err
+				return fmt.Errorf(
+					"failed to connect to non-primary network peers: %w",
+					err,
+				)
 			}
 		}
 	}

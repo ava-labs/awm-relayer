@@ -25,6 +25,7 @@ const (
 	accountPrivateKeyEnvVarName = "ACCOUNT_PRIVATE_KEY"
 	cChainIdentifierString      = "C"
 	warpConfigKey               = "warpConfig"
+	suppliedSubnetsLimit        = 16
 )
 
 const (
@@ -70,12 +71,23 @@ func DisplayUsageText() {
 	fmt.Printf("%s\n", usageText)
 }
 
+func (c *Config) countSuppliedSubnets() int {
+	foundSubnets := make(map[string]struct{})
+	for _, sourceBlockchain := range c.SourceBlockchains {
+		foundSubnets[sourceBlockchain.SubnetID] = struct{}{}
+	}
+	return len(foundSubnets)
+}
+
 // Validates the configuration
 // Does not modify the public fields as derived from the configuration passed to the application,
 // but does initialize private fields available through getters.
 func (c *Config) Validate() error {
 	if len(c.SourceBlockchains) == 0 {
 		return errors.New("relayer not configured to relay from any subnets. A list of source subnets must be provided in the configuration file") //nolint:lll
+	}
+	if suppliedSubnets := c.countSuppliedSubnets(); suppliedSubnets > suppliedSubnetsLimit {
+		return fmt.Errorf("relayer can track at most %d subnets, %d are provided", suppliedSubnetsLimit, suppliedSubnets)
 	}
 	if len(c.DestinationBlockchains) == 0 {
 		return errors.New("relayer not configured to relay to any subnets. A list of destination subnets must be provided in the configuration file") //nolint:lll
@@ -235,7 +247,7 @@ func (c *Config) GetWarpQuorum(blockchainID ids.ID) (WarpQuorum, error) {
 	return WarpQuorum{}, errFailedToGetWarpQuorum
 }
 
-// Config implempents the peers.Config interface
+// Config implements the peers.Config interface
 func (c *Config) GetPChainAPI() *APIConfig {
 	return c.PChainAPI
 }
