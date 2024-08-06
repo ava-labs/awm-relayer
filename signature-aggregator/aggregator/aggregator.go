@@ -80,7 +80,7 @@ func (s *SignatureAggregator) AggregateSignaturesAppRequest(
 
 	var signingSubnet ids.ID
 	var err error
-	// If signingSubnet is not set  we default to the subnet of the source blockchain
+	// If signingSubnet is not set we default to the subnet of the source blockchain
 	sourceSubnet, err := s.GetSubnetID(unsignedMessage.SourceChainID)
 	if err != nil {
 		return nil, fmt.Errorf(
@@ -216,8 +216,6 @@ func (s *SignatureAggregator) AggregateSignaturesAppRequest(
 
 		responseCount := 0
 		if responsesExpected > 0 {
-			// Handle the responses. For each response, we need to call response.OnFinishedHandling() exactly once.
-			// Wrap the loop body in an anonymous function so that we do so on each loop iteration
 			for response := range responseChan {
 				s.logger.Debug(
 					"Processing response from node",
@@ -283,7 +281,7 @@ func (s *SignatureAggregator) GetSubnetID(blockchainID ids.ID) (ids.ID, error) {
 	if ok {
 		return subnetID, nil
 	}
-	s.logger.Info("Signing subnet not found, requesting from PChain", zap.String("chainID", blockchainID.String()))
+	s.logger.Info("Signing subnet not found, requesting from PChain", zap.String("blockchainID", blockchainID.String()))
 	subnetID, err := s.network.GetSubnetID(blockchainID)
 	if err != nil {
 		return ids.ID{}, fmt.Errorf("source blockchain not found for chain ID %s", blockchainID)
@@ -298,7 +296,7 @@ func (s *SignatureAggregator) SetSubnetID(blockchainID ids.ID, subnetID ids.ID) 
 	s.mu.Unlock()
 }
 
-// Attempts to create a signed warp message from the accumulated responses.
+// Attempts to create a signed Warp message from the accumulated responses.
 // Returns a non-nil Warp message if [accumulatedSignatureWeight] exceeds the signature verification threshold.
 // Returns false in the second return parameter if the app response is not relevant to the current signature
 // aggregation request. Returns an error only if a non-recoverable error occurs, otherwise returns a nil error

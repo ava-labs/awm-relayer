@@ -23,7 +23,6 @@ const (
 )
 
 // Defines a request interface for signature aggregation for a raw unsigned message.
-// Currently a copy of the `ManualWarpMessageRequest` struct in relay_message.go
 type AggregateSignaturesByRawMsgRequest struct {
 	// Required: either Message or Justification must be provided
 
@@ -38,7 +37,7 @@ type AggregateSignaturesByRawMsgRequest struct {
 	QuorumNum uint64 `json:"quorum-num"`
 }
 
-type AggregateSignaturesResponse struct {
+type AggregateSignatureResponse struct {
 	// hex encoding of the signature
 	SignedMessage string `json:"signed-message"`
 }
@@ -170,7 +169,7 @@ func signatureAggregationAPIHandler(logger logging.Logger, aggregator *aggregato
 			writeJsonError(logger, w, msg)
 		}
 		resp, err := json.Marshal(
-			AggregateSignaturesResponse{
+			AggregateSignatureResponse{
 				SignedMessage: hex.EncodeToString(
 					signedMessage.Bytes(),
 				),

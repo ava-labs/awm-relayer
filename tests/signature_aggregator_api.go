@@ -84,7 +84,7 @@ func SignatureAggregatorAPI(network interfaces.LocalNetwork) {
 		body, err := io.ReadAll(res.Body)
 		Expect(err).Should(BeNil())
 
-		var response api.AggregateSignaturesResponse
+		var response api.AggregateSignatureResponse
 		err = json.Unmarshal(body, &response)
 		Expect(err).Should(BeNil())
 
