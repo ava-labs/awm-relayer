@@ -56,7 +56,7 @@ func SignatureAggregatorAPI(network interfaces.LocalNetwork) {
 	time.Sleep(5 * time.Second)
 
 	reqBody := api.AggregateSignaturesByRawMsgRequest{
-		UnsignedMessage: "0x" + hex.EncodeToString(warpMessage.Bytes()),
+		Message: "0x" + hex.EncodeToString(warpMessage.Bytes()),
 	}
 
 	client := http.Client{

@@ -72,6 +72,7 @@ func NewSignatureAggregator(
 
 func (s *SignatureAggregator) AggregateSignaturesAppRequest(
 	unsignedMessage *avalancheWarp.UnsignedMessage,
+	justification []byte,
 	inputSigningSubnet ids.ID,
 	quorumPercentage uint64,
 ) (*avalancheWarp.Message, error) {

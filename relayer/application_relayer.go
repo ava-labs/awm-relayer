@@ -209,6 +209,7 @@ func (r *ApplicationRelayer) ProcessMessage(handler messages.MessageHandler) (co
 		// TODO: do we actually want to pass the pointer here or adapt the interface?
 		signedMessage, err = r.signatureAggregator.AggregateSignaturesAppRequest(
 			unsignedMessage,
+			make([]byte, 0),
 			r.signingSubnetID,
 			r.warpQuorum.QuorumNumerator,
 		)
