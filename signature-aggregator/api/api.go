@@ -34,7 +34,7 @@ type AggregateSignaturesByRawMsgRequest struct {
 	QuorumNum uint64 `json:"quorum-num"`
 }
 
-type AggregateSignaturesResponse struct {
+type AggregateSignatureResponse struct {
 	// hex encoding of the signature
 	SignedMessage string `json:"signed-message"`
 }

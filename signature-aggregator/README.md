@@ -1,7 +1,7 @@
 # Signature Aggregator
 
 This directory contains a lightweight stand-alone API for requesting signatures for a Warp message from subnet validators.
-It is also used by the relayer for gathering signatures when configured to use AppRequest instead of the WarpSignature RPC client.
+It is also used by `awm-relayer` for gathering signatures when configured to use AppRequest instead of the WarpSignature RPC client.
 
 ## Building
 
@@ -10,7 +10,7 @@ To build the application run `scripts/build_signature_aggregator.sh` which will 
 ## Running
 
 To run the binary you must supply a config file via `./signature-aggregator --config-file`
-Currently required configurations are a small subset of the [relayer configuration](https://github.com/ava-labs/awm-relayer?tab=readme-ov-file#configuration).
+Currently required configurations are a small subset of the [`awm-relayer` configuration](https://github.com/ava-labs/awm-relayer?tab=readme-ov-file#configuration).
 
 Namely:
 - `LogLevel`: string
@@ -54,7 +54,7 @@ curl --location 'https://api.avax-test.network/ext/bc/C/rpc' \
 ```
 3. Search these logs for the `SendWarpMessage` Log event emitted from the Warp precompile address (`0x0200000000000000000000000000000000000005`)
    The topic of the message will be `0x56600c567728a800c0aa927500f831cb451df66a7af570eb4df4dfbf4674887d` which is the output of`cast keccak "SendWarpMessage(address,bytes32,bytes)"`
-3. Use the data field of the log message found in step 2 and send it to the locally running service via curl.
+4. Use the data field of the log message found in step 2 and send it to the locally running service via curl.
 ```bash
 curl --location 'http://localhost:8080/aggregate-signatures/by-raw-message' \
 --header 'Content-Type: application/json' \
