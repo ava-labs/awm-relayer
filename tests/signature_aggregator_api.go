@@ -102,15 +102,23 @@ func SignatureAggregatorAPI(network interfaces.LocalNetwork) {
 
 	// Check metrics
 	metricsSample := sampleMetrics(signatureAggregatorConfig.MetricsPort)
-	Expect(
-		metricsSample[metrics.Opts.AggregateSignaturesRequestCount.Name],
-	).Should(BeNumerically("==", 1))
-	Expect(
-		metricsSample[metrics.Opts.AggregateSignaturesLatencyMS.Name],
-	).Should(BeNumerically(">", 0))
-	Expect(
-		metricsSample[metrics.Opts.ValidatorFailures.Name],
-	).Should(BeNumerically("<", 11))
+	for _, m := range []struct {
+		name  string
+		op    string
+		value int
+	}{
+		{metrics.Opts.AggregateSignaturesRequestCount.Name, "==", 1},
+		{metrics.Opts.AggregateSignaturesLatencyMS.Name, ">", 0},
+		{metrics.Opts.FailuresToGetValidatorSet.Name, "==", 0},
+		{metrics.Opts.FailuresToConnectToSufficientValidators.Name, "==", 0},
+		{metrics.Opts.FailuresSendingToNode.Name, "<", 5},
+		{metrics.Opts.ValidatorTimeouts.Name, "==", 0},
+		{metrics.Opts.InvalidSignatureResponses.Name, "==", 0},
+	} {
+		Expect(metricsSample[m.name]).Should(
+			BeNumerically(m.op, m.value),
+		)
+	}
 }
 
 // returns a map of metric names to metric samples
@@ -131,7 +139,11 @@ func sampleMetrics(port uint16) map[string]uint64 {
 		for _, metricName := range []string{
 			metrics.Opts.AggregateSignaturesLatencyMS.Name,
 			metrics.Opts.AggregateSignaturesRequestCount.Name,
-			metrics.Opts.ValidatorFailures.Name,
+			metrics.Opts.FailuresToGetValidatorSet.Name,
+			metrics.Opts.FailuresToConnectToSufficientValidators.Name,
+			metrics.Opts.FailuresSendingToNode.Name,
+			metrics.Opts.ValidatorTimeouts.Name,
+			metrics.Opts.InvalidSignatureResponses.Name,
 		} {
 			if strings.HasPrefix(
 				line,

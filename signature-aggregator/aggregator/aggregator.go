@@ -109,7 +109,7 @@ func (s *SignatureAggregator) AggregateSignaturesAppRequest(
 			zap.String("warpMessageID", unsignedMessage.ID().String()),
 			zap.Error(err),
 		)
-		s.metrics.ValidatorFailures.Inc()
+		s.metrics.FailuresToGetValidatorSet.Inc()
 		return nil, fmt.Errorf("%s: %w", msg, err)
 	}
 	if !utils.CheckStakeWeightPercentageExceedsThreshold(
@@ -123,7 +123,7 @@ func (s *SignatureAggregator) AggregateSignaturesAppRequest(
 			zap.Uint64("totalValidatorWeight", connectedValidators.TotalValidatorWeight),
 			zap.Uint64("quorumPercentage", quorumPercentage),
 		)
-		s.metrics.ValidatorFailures.Inc()
+		s.metrics.FailuresToConnectToSufficientValidators.Inc()
 		return nil, errNotEnoughConnectedStake
 	}
 
@@ -229,7 +229,7 @@ func (s *SignatureAggregator) AggregateSignaturesAppRequest(
 					zap.Error(err),
 				)
 				responsesExpected--
-				s.metrics.ValidatorFailures.Inc()
+				s.metrics.FailuresSendingToNode.Inc()
 			}
 		}
 
@@ -353,7 +353,7 @@ func (s *SignatureAggregator) handleResponse(
 	// This is still a relevant response, since we are no longer expecting a response from that node.
 	if response.Op() == message.AppErrorOp {
 		s.logger.Debug("Request timed out")
-		s.metrics.ValidatorFailures.Inc()
+		s.metrics.ValidatorTimeouts.Inc()
 		return nil, true, nil
 	}
 
@@ -377,7 +377,7 @@ func (s *SignatureAggregator) handleResponse(
 			zap.String("warpMessageID", unsignedMessage.ID().String()),
 			zap.String("sourceBlockchainID", unsignedMessage.SourceChainID.String()),
 		)
-		s.metrics.ValidatorFailures.Inc()
+		s.metrics.InvalidSignatureResponses.Inc()
 		return nil, true, nil
 	}
 
