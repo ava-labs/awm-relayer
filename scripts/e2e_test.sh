@@ -52,14 +52,14 @@ if [ "$LOCAL" = true ]; then
     export DATA_DIR=$DATA_DIRECTORY/data
 fi
 
-RELAYER_PATH=$(
+BASE_PATH=$(
   cd "$(dirname "${BASH_SOURCE[0]}")"
   cd .. && pwd
 )
 
-source "$RELAYER_PATH"/scripts/constants.sh
+source "$BASE_PATH"/scripts/constants.sh
 
-source "$RELAYER_PATH"/scripts/versions.sh
+source "$BASE_PATH"/scripts/versions.sh
 
 # Build ginkgo
 # to install the ginkgo binary (required for test build and run)

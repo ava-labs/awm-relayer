@@ -12,8 +12,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/ava-labs/awm-relayer/api"
 	offchainregistry "github.com/ava-labs/awm-relayer/messages/off-chain-registry"
+	"github.com/ava-labs/awm-relayer/relayer/api"
 	testUtils "github.com/ava-labs/awm-relayer/tests/utils"
 	"github.com/ava-labs/subnet-evm/accounts/abi/bind"
 	"github.com/ava-labs/teleporter/tests/interfaces"

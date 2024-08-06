@@ -22,15 +22,22 @@ version_lt() {
     fi
 }
 
-# Root directory
+
+# Relayer directory
 RELAYER_PATH=$(
     cd "$(dirname "${BASH_SOURCE[0]}")"
+    cd ../relayer && pwd
+)
+
+# Base directory
+BASE_PATH=$(
+    cd $RELAYER_PATH 
     cd .. && pwd
 )
 
 # Load the versions and constants
-source "$RELAYER_PATH"/scripts/versions.sh
-source "$RELAYER_PATH"/scripts/constants.sh
+source "$BASE_PATH"/scripts/versions.sh
+source "$BASE_PATH"/scripts/constants.sh
 
 go_version_minimum=$GO_VERSION
 
@@ -50,6 +57,7 @@ else
     exit 1
 fi
 
+cd $RELAYER_PATH
 # Build AWM Relayer, which is run as a standalone process
 last_git_tag=$(git describe --tags --abbrev=0 2>/dev/null) || last_git_tag="v0.0.0-dev"
 echo "Building AWM Relayer Version: $last_git_tag at $binary_path"
