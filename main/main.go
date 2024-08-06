@@ -25,6 +25,7 @@ import (
 	"github.com/ava-labs/awm-relayer/messages/teleporter"
 	"github.com/ava-labs/awm-relayer/peers"
 	"github.com/ava-labs/awm-relayer/relayer"
+	"github.com/ava-labs/awm-relayer/relayer/checkpoint"
 	"github.com/ava-labs/awm-relayer/utils"
 	"github.com/ava-labs/awm-relayer/vms"
 	"github.com/ava-labs/subnet-evm/ethclient"
@@ -424,17 +425,24 @@ func createApplicationRelayersForSourceChain(
 		if minHeight == 0 || height < minHeight {
 			minHeight = height
 		}
+
+		checkpointManager := checkpoint.NewCheckpointManager(
+			logger,
+			db,
+			ticker.Subscribe(),
+			relayerID,
+			height,
+		)
+
 		applicationRelayer, err := relayer.NewApplicationRelayer(
 			logger,
 			metrics,
 			network,
 			messageCreator,
 			relayerID,
-			db,
-			ticker,
 			destinationClients[relayerID.DestinationBlockchainID],
 			sourceBlockchain,
-			height,
+			checkpointManager,
 			cfg,
 		)
 		if err != nil {

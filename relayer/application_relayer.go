@@ -26,7 +26,6 @@ import (
 	"github.com/ava-labs/awm-relayer/database"
 	"github.com/ava-labs/awm-relayer/messages"
 	"github.com/ava-labs/awm-relayer/peers"
-	"github.com/ava-labs/awm-relayer/relayer/checkpoint"
 	"github.com/ava-labs/awm-relayer/utils"
 	"github.com/ava-labs/awm-relayer/vms"
 	coreEthMsg "github.com/ava-labs/coreth/plugin/evm/message"
@@ -58,6 +57,17 @@ var (
 	errNotEnoughConnectedStake = errors.New("failed to connect to a threshold of stake")
 )
 
+// CheckpointManager stores committed heights in the database
+type CheckpointManager interface {
+	// Run starts a go routine that periodically stores the last committed height in the Database
+	Run()
+	// StageCommittedHeight queues a height to be written to the database.
+	// Heights are committed in sequence, so if height is not exactly one
+	// greater than the current committedHeight, it is instead cached in memory
+	// to potentially be committed later.
+	StageCommittedHeight(height uint64)
+}
+
 // ApplicationRelayers define a Warp message route from a specific source address on a specific source blockchain
 // to a specific destination address on a specific destination blockchain. This routing information is
 // encapsulated in [relayerID], which also represents the database key for an ApplicationRelayer.
@@ -71,7 +81,7 @@ type ApplicationRelayer struct {
 	destinationClient         vms.DestinationClient
 	relayerID                 database.RelayerID
 	warpQuorum                config.WarpQuorum
-	checkpointManager         *checkpoint.CheckpointManager
+	checkpointManager         CheckpointManager
 	currentRequestID          uint32
 	lock                      *sync.RWMutex
 	sourceWarpSignatureClient *rpc.Client // nil if configured to fetch signatures via AppRequest for the source blockchain
@@ -83,11 +93,9 @@ func NewApplicationRelayer(
 	network *peers.AppRequestNetwork,
 	messageCreator message.Creator,
 	relayerID database.RelayerID,
-	db database.RelayerDatabase,
-	ticker *utils.Ticker,
 	destinationClient vms.DestinationClient,
 	sourceBlockchain config.SourceBlockchain,
-	startingHeight uint64,
+	checkpointManager CheckpointManager,
 	cfg *config.Config,
 ) (*ApplicationRelayer, error) {
 	quorum, err := cfg.GetWarpQuorum(relayerID.DestinationBlockchainID)
@@ -109,15 +117,6 @@ func NewApplicationRelayer(
 		signingSubnet = sourceBlockchain.GetSubnetID()
 	}
 
-	sub := ticker.Subscribe()
-
-	checkpointManager := checkpoint.NewCheckpointManager(
-		logger,
-		db,
-		sub,
-		relayerID,
-		startingHeight,
-	)
 	checkpointManager.Run()
 
 	var warpClient *rpc.Client
