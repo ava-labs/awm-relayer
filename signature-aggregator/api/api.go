@@ -26,7 +26,7 @@ const (
 type AggregateSignaturesByRawMsgRequest struct {
 	// Required. hex-encoded message, optionally prefixed with "0x".
 	UnsignedMessage string `json:"unsigned-message"`
-	// Optional hex or cb58 encoded signing subnet ID. If omitted will default to the subnetID of the source BlockChain
+	// Optional hex or cb58 encoded signing subnet ID. If omitted will default to the subnetID of the source blockchain
 	SigningSubnetID string `json:"signing-subnet-id"`
 	// Optional. Integer from 0 to 100 representing the percentage of the quorum that is required to sign the message
 	// defaults to 67 if omitted.
