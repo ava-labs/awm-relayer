@@ -1,6 +1,6 @@
 # Signature Aggregator
 
-This directory contains a lightweight stand-alone API for requesting signatures for a Warp message from subnet validators.
+This directory contains a lightweight stand-alone API for requesting signatures for a Warp message from Subnet validators.
 It is also used by `awm-relayer` for gathering signatures when configured to use AppRequest instead of the WarpSignature RPC client.
 
 ## Building
