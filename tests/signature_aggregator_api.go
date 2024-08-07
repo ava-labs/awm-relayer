@@ -82,8 +82,7 @@ func SignatureAggregatorAPI(network interfaces.LocalNetwork) {
 
 	requestURL := fmt.Sprintf("http://localhost:%d%s", signatureAggregatorConfig.APIPort, api.APIPath)
 
-	// Send request to API
-	{
+	var sendRequestToAPI = func() {
 		b, err := json.Marshal(reqBody)
 		Expect(err).Should(BeNil())
 		bodyReader := bytes.NewReader(b)
@@ -113,6 +112,8 @@ func SignatureAggregatorAPI(network interfaces.LocalNetwork) {
 		Expect(signedMessage.ID()).Should(Equal(warpMessage.ID()))
 	}
 
+	sendRequestToAPI()
+
 	// Check metrics
 	metricsSample := sampleMetrics(signatureAggregatorConfig.MetricsPort)
 	for _, m := range []struct {
@@ -122,6 +123,7 @@ func SignatureAggregatorAPI(network interfaces.LocalNetwork) {
 	}{
 		{metrics.Opts.AggregateSignaturesRequestCount.Name, "==", 1},
 		{metrics.Opts.AggregateSignaturesLatencyMS.Name, ">", 0},
+		{metrics.Opts.AppRequestCount.Name, "<=", 5},
 		{metrics.Opts.FailuresToGetValidatorSet.Name, "==", 0},
 		{metrics.Opts.FailuresToConnectToSufficientStake.Name, "==", 0},
 		{metrics.Opts.FailuresSendingToNode.Name, "<", 5},
@@ -132,6 +134,16 @@ func SignatureAggregatorAPI(network interfaces.LocalNetwork) {
 			BeNumerically(m.op, m.value),
 		)
 	}
+
+	// make a second request, and ensure that the AppRequest counter did
+	// not increase, in order to validate that the cached value from the
+	// first request was used in response to the second request.
+	appRequestCountBeforeSecondRequest := metricsSample[metrics.Opts.AppRequestCount.Name]
+	sendRequestToAPI()
+	metricsSample = sampleMetrics(signatureAggregatorConfig.MetricsPort)
+	Expect(
+		metricsSample[metrics.Opts.AppRequestCount.Name],
+	).Should(Equal(appRequestCountBeforeSecondRequest))
 }
 
 // returns a map of metric names to metric samples
@@ -152,6 +164,7 @@ func sampleMetrics(port uint16) map[string]uint64 {
 		for _, metricName := range []string{
 			metrics.Opts.AggregateSignaturesLatencyMS.Name,
 			metrics.Opts.AggregateSignaturesRequestCount.Name,
+			metrics.Opts.AppRequestCount.Name,
 			metrics.Opts.FailuresToGetValidatorSet.Name,
 			metrics.Opts.FailuresToConnectToSufficientStake.Name,
 			metrics.Opts.FailuresSendingToNode.Name,

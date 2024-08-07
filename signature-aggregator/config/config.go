@@ -13,6 +13,8 @@ import (
 const (
 	defaultAPIPort     = uint16(8080)
 	defaultMetricsPort = uint16(8081)
+
+	DefaultSignatureCacheSize = uint(1024 * 1024)
 )
 
 var defaultLogLevel = logging.Info.String()
@@ -25,12 +27,12 @@ signature-aggregator --help                                  Display signature-a
 `
 
 type Config struct {
-	LogLevel  string             `mapstructure:"log-level" json:"log-level"`
-	PChainAPI *baseCfg.APIConfig `mapstructure:"p-chain-api" json:"p-chain-api"`
-	InfoAPI   *baseCfg.APIConfig `mapstructure:"info-api" json:"info-api"`
-	APIPort   uint16             `mapstructure:"api-port" json:"api-port"`
-
-	MetricsPort uint16 `mapstructure:"metrics-port" json:"metrics-port"`
+	LogLevel           string             `mapstructure:"log-level" json:"log-level"`
+	PChainAPI          *baseCfg.APIConfig `mapstructure:"p-chain-api" json:"p-chain-api"`
+	InfoAPI            *baseCfg.APIConfig `mapstructure:"info-api" json:"info-api"`
+	APIPort            uint16             `mapstructure:"api-port" json:"api-port"`
+	MetricsPort        uint16             `mapstructure:"metrics-port" json:"metrics-port"`
+	SignatureCacheSize uint               `mapstructure:"signature-cache-size" json:"signature-cache-size"`
 }
 
 func DisplayUsageText() {

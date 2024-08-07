@@ -23,6 +23,7 @@ import (
 	"github.com/ava-labs/avalanchego/utils/set"
 	avalancheWarp "github.com/ava-labs/avalanchego/vms/platformvm/warp"
 	"github.com/ava-labs/awm-relayer/peers"
+	"github.com/ava-labs/awm-relayer/signature-aggregator/aggregator/cache"
 	"github.com/ava-labs/awm-relayer/signature-aggregator/metrics"
 	"github.com/ava-labs/awm-relayer/utils"
 	coreEthMsg "github.com/ava-labs/coreth/plugin/evm/message"
@@ -58,14 +59,23 @@ type SignatureAggregator struct {
 	currentRequestID        atomic.Uint32
 	subnetsMapLock          sync.RWMutex
 	metrics                 *metrics.SignatureAggregatorMetrics
+	cache                   *cache.Cache
 }
 
 func NewSignatureAggregator(
 	network *peers.AppRequestNetwork,
 	logger logging.Logger,
+	signatureCacheSize uint,
 	metrics *metrics.SignatureAggregatorMetrics,
 	messageCreator message.Creator,
-) *SignatureAggregator {
+) (*SignatureAggregator, error) {
+	cache, err := cache.NewCache(signatureCacheSize, logger)
+	if err != nil {
+		return nil, fmt.Errorf(
+			"failed to create signature cache: %w",
+			err,
+		)
+	}
 	sa := SignatureAggregator{
 		network:                 network,
 		subnetIDsByBlockchainID: map[ids.ID]ids.ID{},
@@ -73,9 +83,10 @@ func NewSignatureAggregator(
 		metrics:                 metrics,
 		messageCreator:          messageCreator,
 		currentRequestID:        atomic.Uint32{},
+		cache:                   cache,
 	}
 	sa.currentRequestID.Store(rand.Uint32())
-	return &sa
+	return &sa, nil
 }
 
 func (s *SignatureAggregator) CreateSignedMessage(
@@ -83,8 +94,6 @@ func (s *SignatureAggregator) CreateSignedMessage(
 	inputSigningSubnet ids.ID,
 	quorumPercentage uint64,
 ) (*avalancheWarp.Message, error) {
-	requestID := s.currentRequestID.Add(1)
-
 	var signingSubnet ids.ID
 	var err error
 	// If signingSubnet is not set we default to the subnet of the source blockchain
@@ -102,7 +111,6 @@ func (s *SignatureAggregator) CreateSignedMessage(
 	}
 
 	connectedValidators, err := s.network.ConnectToCanonicalValidators(signingSubnet)
-
 	if err != nil {
 		msg := "Failed to connect to canonical validators"
 		s.logger.Error(
@@ -113,6 +121,7 @@ func (s *SignatureAggregator) CreateSignedMessage(
 		s.metrics.FailuresToGetValidatorSet.Inc()
 		return nil, fmt.Errorf("%s: %w", msg, err)
 	}
+
 	if !utils.CheckStakeWeightPercentageExceedsThreshold(
 		big.NewInt(0).SetUint64(connectedValidators.ConnectedWeight),
 		connectedValidators.TotalValidatorWeight,
@@ -126,6 +135,51 @@ func (s *SignatureAggregator) CreateSignedMessage(
 		)
 		s.metrics.FailuresToConnectToSufficientStake.Inc()
 		return nil, errNotEnoughConnectedStake
+	}
+
+	accumulatedSignatureWeight := big.NewInt(0)
+
+	signatureMap := make(map[int][bls.SignatureLen]byte)
+	if cachedSignatures, ok := s.cache.Get(unsignedMessage.ID()); ok {
+		for i, validator := range connectedValidators.ValidatorSet {
+			cachedSignature, found := cachedSignatures[cache.PublicKeyBytes(validator.PublicKeyBytes)]
+			if found {
+				signatureMap[i] = cachedSignature
+				s.logger.Debug(
+					"using cached signature",
+					zap.Binary("signature", cachedSignature[:]),
+				)
+				accumulatedSignatureWeight.Add(
+					accumulatedSignatureWeight,
+					new(big.Int).SetUint64(validator.Weight),
+				)
+			}
+		}
+		s.logger.Debug(
+			"Using cached signatures",
+			zap.Int("signatureCount", len(signatureMap)),
+			zap.Stringer(
+				"accumulatedWeightRatio",
+				big.NewInt(0).Div(
+					accumulatedSignatureWeight,
+					big.NewInt(0).SetUint64(
+						connectedValidators.TotalValidatorWeight,
+					),
+				),
+			),
+		)
+	}
+	if signedMsg, err := s.aggregateIfSufficientWeight(
+		unsignedMessage,
+		signatureMap,
+		accumulatedSignatureWeight,
+		connectedValidators,
+		quorumPercentage,
+	); err != nil {
+		return nil, err
+	} else if signedMsg != nil {
+		s.logger.Debug("aggregating just based on cache")
+		return signedMsg, nil
 	}
 
 	// TODO: remove this special handling and replace with ACP-118 interface once available
@@ -152,6 +206,7 @@ func (s *SignatureAggregator) CreateSignedMessage(
 	}
 
 	// Construct the AppRequest
+	requestID := s.currentRequestID.Add(1)
 	outMsg, err := s.messageCreator.AppRequest(
 		unsignedMessage.SourceChainID,
 		requestID,
@@ -169,9 +224,6 @@ func (s *SignatureAggregator) CreateSignedMessage(
 	}
 
 	// Query the validators with retries. On each retry, query one node per unique BLS pubkey
-	accumulatedSignatureWeight := big.NewInt(0)
-
-	signatureMap := make(map[int]blsSignatureBuf)
 	for attempt := 1; attempt <= maxRelayerQueryAttempts; attempt++ {
 		responsesExpected := len(connectedValidators.ValidatorSet) - len(signatureMap)
 		s.logger.Debug(
@@ -214,6 +266,7 @@ func (s *SignatureAggregator) CreateSignedMessage(
 		responseChan := s.network.RegisterRequestID(requestID, vdrSet.Len())
 
 		sentTo := s.network.Send(outMsg, vdrSet, sourceSubnet, subnets.NoOpAllower)
+		s.metrics.AppRequestCount.Inc()
 		s.logger.Debug(
 			"Sent signature request to network",
 			zap.String("warpMessageID", unsignedMessage.ID().String()),
@@ -329,7 +382,7 @@ func (s *SignatureAggregator) handleResponse(
 	requestID uint32,
 	connectedValidators *peers.ConnectedCanonicalValidators,
 	unsignedMessage *avalancheWarp.UnsignedMessage,
-	signatureMap map[int]blsSignatureBuf,
+	signatureMap map[int][bls.SignatureLen]byte,
 	accumulatedSignatureWeight *big.Int,
 	quorumPercentage uint64,
 ) (*avalancheWarp.Message, bool, error) {
@@ -369,6 +422,11 @@ func (s *SignatureAggregator) handleResponse(
 			zap.String("sourceBlockchainID", unsignedMessage.SourceChainID.String()),
 		)
 		signatureMap[vdrIndex] = signature
+		s.cache.Add(
+			unsignedMessage.ID(),
+			cache.PublicKeyBytes(validator.PublicKeyBytes),
+			cache.SignatureBytes(signature),
+		)
 		accumulatedSignatureWeight.Add(accumulatedSignatureWeight, new(big.Int).SetUint64(validator.Weight))
 	} else {
 		s.logger.Debug(
@@ -382,6 +440,29 @@ func (s *SignatureAggregator) handleResponse(
 		return nil, true, nil
 	}
 
+	if signedMsg, err := s.aggregateIfSufficientWeight(
+		unsignedMessage,
+		signatureMap,
+		accumulatedSignatureWeight,
+		connectedValidators,
+		quorumPercentage,
+	); err != nil {
+		return nil, true, err
+	} else if signedMsg != nil {
+		return signedMsg, true, nil
+	}
+
+	// Not enough signatures, continue processing messages
+	return nil, true, nil
+}
+
+func (s *SignatureAggregator) aggregateIfSufficientWeight(
+	unsignedMessage *avalancheWarp.UnsignedMessage,
+	signatureMap map[int][bls.SignatureLen]byte,
+	accumulatedSignatureWeight *big.Int,
+	connectedValidators *peers.ConnectedCanonicalValidators,
+	quorumPercentage uint64,
+) (*avalancheWarp.Message, error) {
 	// As soon as the signatures exceed the stake weight threshold we try to aggregate and send the transaction.
 	if !utils.CheckStakeWeightPercentageExceedsThreshold(
 		accumulatedSignatureWeight,
@@ -389,7 +470,7 @@ func (s *SignatureAggregator) handleResponse(
 		quorumPercentage,
 	) {
 		// Not enough signatures, continue processing messages
-		return nil, true, nil
+		return nil, nil
 	}
 	aggSig, vdrBitSet, err := s.aggregateSignatures(signatureMap)
 	if err != nil {
@@ -400,7 +481,7 @@ func (s *SignatureAggregator) handleResponse(
 			zap.String("warpMessageID", unsignedMessage.ID().String()),
 			zap.Error(err),
 		)
-		return nil, true, fmt.Errorf("%s: %w", msg, err)
+		return nil, fmt.Errorf("%s: %w", msg, err)
 	}
 
 	signedMsg, err := avalancheWarp.NewMessage(
@@ -418,9 +499,9 @@ func (s *SignatureAggregator) handleResponse(
 			zap.String("warpMessageID", unsignedMessage.ID().String()),
 			zap.Error(err),
 		)
-		return nil, true, fmt.Errorf("%s: %w", msg, err)
+		return nil, fmt.Errorf("%s: %w", msg, err)
 	}
-	return signedMsg, true, nil
+	return signedMsg, nil
 }
 
 // isValidSignatureResponse tries to generate a signature from the peer.AsyncResponse, then verifies
@@ -490,7 +571,7 @@ func (s *SignatureAggregator) isValidSignatureResponse(
 // returns a bit set representing the validators that are represented in the aggregate signature. The bit
 // set is in canonical validator order.
 func (s *SignatureAggregator) aggregateSignatures(
-	signatureMap map[int]blsSignatureBuf,
+	signatureMap map[int][bls.SignatureLen]byte,
 ) (*bls.Signature, set.Bits, error) {
 	// Aggregate the signatures
 	signatures := make([]*bls.Signature, 0, len(signatureMap))

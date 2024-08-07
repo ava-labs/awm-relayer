@@ -147,6 +147,7 @@ func signatureAggregationAPIHandler(
 			msg := "Failed to aggregate signatures"
 			logger.Warn(msg, zap.Error(err))
 			writeJSONError(logger, w, msg)
+			return
 		}
 		resp, err := json.Marshal(
 			AggregateSignatureResponse{
