@@ -21,13 +21,13 @@ var (
 )
 
 var Opts = struct {
-	AggregateSignaturesLatencyMS            prometheus.GaugeOpts
-	AggregateSignaturesRequestCount         prometheus.CounterOpts
-	FailuresToGetValidatorSet               prometheus.CounterOpts
-	FailuresToConnectToSufficientValidators prometheus.CounterOpts
-	FailuresSendingToNode                   prometheus.CounterOpts
-	ValidatorTimeouts                       prometheus.CounterOpts
-	InvalidSignatureResponses               prometheus.CounterOpts
+	AggregateSignaturesLatencyMS       prometheus.GaugeOpts
+	AggregateSignaturesRequestCount    prometheus.CounterOpts
+	FailuresToGetValidatorSet          prometheus.CounterOpts
+	FailuresToConnectToSufficientStake prometheus.CounterOpts
+	FailuresSendingToNode              prometheus.CounterOpts
+	ValidatorTimeouts                  prometheus.CounterOpts
+	InvalidSignatureResponses          prometheus.CounterOpts
 }{
 	AggregateSignaturesLatencyMS: prometheus.GaugeOpts{
 		Name: "agg_sigs_latency_ms",
@@ -41,8 +41,8 @@ var Opts = struct {
 		Name: "failures_to_get_validator_set",
 		Help: "Number of failed attempts to retrieve the validator set",
 	},
-	FailuresToConnectToSufficientValidators: prometheus.CounterOpts{
-		Name: "failures_to_connect_to_sufficient_validators",
+	FailuresToConnectToSufficientStake: prometheus.CounterOpts{
+		Name: "failures_to_connect_to_sufficient_stake",
 		Help: "Number of incidents of connecting to some validators but not enough stake weight",
 	},
 	FailuresSendingToNode: prometheus.CounterOpts{
@@ -60,13 +60,13 @@ var Opts = struct {
 }
 
 type SignatureAggregatorMetrics struct {
-	AggregateSignaturesLatencyMS            prometheus.Gauge
-	AggregateSignaturesRequestCount         prometheus.Counter
-	FailuresToGetValidatorSet               prometheus.Counter
-	FailuresToConnectToSufficientValidators prometheus.Counter
-	FailuresSendingToNode                   prometheus.Counter
-	ValidatorTimeouts                       prometheus.Counter
-	InvalidSignatureResponses               prometheus.Counter
+	AggregateSignaturesLatencyMS       prometheus.Gauge
+	AggregateSignaturesRequestCount    prometheus.Counter
+	FailuresToGetValidatorSet          prometheus.Counter
+	FailuresToConnectToSufficientStake prometheus.Counter
+	FailuresSendingToNode              prometheus.Counter
+	ValidatorTimeouts                  prometheus.Counter
+	InvalidSignatureResponses          prometheus.Counter
 
 	// TODO: consider other failures to monitor. Issue #384 requires
 	// "network failures", but we probably don't handle those directly.
@@ -90,8 +90,8 @@ func NewSignatureAggregatorMetrics(
 		FailuresToGetValidatorSet: prometheus.NewCounter(
 			Opts.FailuresToGetValidatorSet,
 		),
-		FailuresToConnectToSufficientValidators: prometheus.NewCounter(
-			Opts.FailuresToConnectToSufficientValidators,
+		FailuresToConnectToSufficientStake: prometheus.NewCounter(
+			Opts.FailuresToConnectToSufficientStake,
 		),
 		FailuresSendingToNode: prometheus.NewCounter(
 			Opts.FailuresSendingToNode,
@@ -107,7 +107,7 @@ func NewSignatureAggregatorMetrics(
 	registerer.MustRegister(m.AggregateSignaturesLatencyMS)
 	registerer.MustRegister(m.AggregateSignaturesRequestCount)
 	registerer.MustRegister(m.FailuresToGetValidatorSet)
-	registerer.MustRegister(m.FailuresToConnectToSufficientValidators)
+	registerer.MustRegister(m.FailuresToConnectToSufficientStake)
 	registerer.MustRegister(m.FailuresSendingToNode)
 	registerer.MustRegister(m.ValidatorTimeouts)
 	registerer.MustRegister(m.InvalidSignatureResponses)

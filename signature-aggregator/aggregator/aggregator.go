@@ -124,7 +124,7 @@ func (s *SignatureAggregator) AggregateSignaturesAppRequest(
 			zap.Uint64("totalValidatorWeight", connectedValidators.TotalValidatorWeight),
 			zap.Uint64("quorumPercentage", quorumPercentage),
 		)
-		s.metrics.FailuresToConnectToSufficientValidators.Inc()
+		s.metrics.FailuresToConnectToSufficientStake.Inc()
 		return nil, errNotEnoughConnectedStake
 	}
 
