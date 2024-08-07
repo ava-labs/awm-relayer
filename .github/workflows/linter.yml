@@ -28,7 +28,7 @@ jobs:
         go-version-file: 'go.mod'
 
     - name: Install buf
-      uses: bufbuild/buf-setup-action@v1.35.1
+      uses: bufbuild/buf-setup-action@v1.36.0
 
     - name: Run Lint
       run: ./scripts/lint.sh --go-lint
