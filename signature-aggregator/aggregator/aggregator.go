@@ -74,7 +74,7 @@ func NewSignatureAggregator(
 	return &sa
 }
 
-func (s *SignatureAggregator) AggregateSignaturesAppRequest(
+func (s *SignatureAggregator) CreateSignedMessage(
 	unsignedMessage *avalancheWarp.UnsignedMessage,
 	inputSigningSubnet ids.ID,
 	quorumPercentage uint64,

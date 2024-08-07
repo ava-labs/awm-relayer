@@ -206,7 +206,7 @@ func (r *ApplicationRelayer) ProcessMessage(handler messages.MessageHandler) (co
 
 	// sourceWarpSignatureClient is nil iff the source blockchain is configured to fetch signatures via AppRequest
 	if r.sourceWarpSignatureClient == nil {
-		signedMessage, err = r.signatureAggregator.AggregateSignaturesAppRequest(
+		signedMessage, err = r.signatureAggregator.CreateSignedMessage(
 			unsignedMessage,
 			r.signingSubnetID,
 			r.warpQuorum.QuorumNumerator,
