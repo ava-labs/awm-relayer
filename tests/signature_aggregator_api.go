@@ -22,22 +22,22 @@ import (
 	. "github.com/onsi/gomega"
 )
 
+// Tests basic functionality of the Signature Aggregator API
+// Setup step:
+// - Sets up a primary network and a subnet.
+// - Builds and runs a signature aggregator executable.
+// Test Case 1:
+// - Sends a teleporter message from the primary network to the subnet.
+// - Reads the warp message unsigned bytes from the log
+// - Sends the unsigned message to the signature aggregator API
+// - Confirms that the signed message is returned and matches the originally sent message
 func SignatureAggregatorAPI(network interfaces.LocalNetwork) {
+	// Begin Setup step
 	ctx := context.Background()
 
 	subnetAInfo := network.GetPrimaryNetworkInfo()
 	subnetBInfo, _ := utils.GetTwoSubnets(network)
 	fundedAddress, fundedKey := network.GetFundedAccountInfo()
-
-	log.Info("Sending teleporter message")
-	receipt, _, _ := testUtils.SendBasicTeleporterMessage(
-		ctx,
-		subnetAInfo,
-		subnetBInfo,
-		fundedKey,
-		fundedAddress,
-	)
-	warpMessage := getWarpMessageFromLog(ctx, receipt, subnetAInfo)
 
 	signatureAggregatorConfig := testUtils.CreateDefaultSignatureAggregatorConfig(
 		[]interfaces.SubnetTestInfo{subnetAInfo, subnetBInfo},
@@ -55,7 +55,20 @@ func SignatureAggregatorAPI(network interfaces.LocalNetwork) {
 	log.Info("Waiting for the signature aggregator to start up")
 	time.Sleep(5 * time.Second)
 
-	reqBody := api.AggregateSignaturesByRawMsgRequest{
+	// End setup step
+	// Begin Test Case 1
+
+	log.Info("Sending teleporter message")
+	receipt, _, _ := testUtils.SendBasicTeleporterMessage(
+		ctx,
+		subnetAInfo,
+		subnetBInfo,
+		fundedKey,
+		fundedAddress,
+	)
+	warpMessage := getWarpMessageFromLog(ctx, receipt, subnetAInfo)
+
+	reqBody := api.AggregateSignatureRequest{
 		Message: "0x" + hex.EncodeToString(warpMessage.Bytes()),
 	}
 
@@ -63,7 +76,7 @@ func SignatureAggregatorAPI(network interfaces.LocalNetwork) {
 		Timeout: 20 * time.Second,
 	}
 
-	requestURL := fmt.Sprintf("http://localhost:%d%s", signatureAggregatorConfig.APIPort, api.RawMessageAPIPath)
+	requestURL := fmt.Sprintf("http://localhost:%d%s", signatureAggregatorConfig.APIPort, api.APIPath)
 
 	// Send request to API
 	{
