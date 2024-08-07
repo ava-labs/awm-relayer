@@ -50,12 +50,13 @@ var (
 )
 
 type SignatureAggregator struct {
-	network                 *peers.AppRequestNetwork
+	network *peers.AppRequestNetwork
+	// protected by subnetsMapLock
 	subnetIDsByBlockchainID map[ids.ID]ids.ID
 	logger                  logging.Logger
 	messageCreator          message.Creator
 	currentRequestID        atomic.Uint32
-	mu                      sync.RWMutex
+	subnetsMapLock          sync.RWMutex
 	metrics                 *metrics.SignatureAggregatorMetrics
 }
 
@@ -296,9 +297,9 @@ func (s *SignatureAggregator) AggregateSignaturesAppRequest(
 }
 
 func (s *SignatureAggregator) GetSubnetID(blockchainID ids.ID) (ids.ID, error) {
-	s.mu.RLock()
+	s.subnetsMapLock.RLock()
 	subnetID, ok := s.subnetIDsByBlockchainID[blockchainID]
-	s.mu.RUnlock()
+	s.subnetsMapLock.RUnlock()
 	if ok {
 		return subnetID, nil
 	}
@@ -312,9 +313,9 @@ func (s *SignatureAggregator) GetSubnetID(blockchainID ids.ID) (ids.ID, error) {
 }
 
 func (s *SignatureAggregator) SetSubnetID(blockchainID ids.ID, subnetID ids.ID) {
-	s.mu.Lock()
+	s.subnetsMapLock.Lock()
 	s.subnetIDsByBlockchainID[blockchainID] = subnetID
-	s.mu.Unlock()
+	s.subnetsMapLock.Unlock()
 }
 
 // Attempts to create a signed Warp message from the accumulated responses.
