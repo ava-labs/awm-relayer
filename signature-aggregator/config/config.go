@@ -51,12 +51,12 @@ func (c *Config) Validate() error {
 	return nil
 }
 
-// Config implempents the peers.Config interface
+// Config implements the peers.Config interface
 func (c *Config) GetPChainAPI() *baseCfg.APIConfig {
 	return c.PChainAPI
 }
 
-// Config implempents the peers.Config interface
+// Config implements the peers.Config interface
 func (c *Config) GetInfoAPI() *baseCfg.APIConfig {
 	return c.InfoAPI
 }

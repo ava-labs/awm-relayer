@@ -138,7 +138,7 @@ func signatureAggregationAPIHandler(
 			}
 		}
 
-		signedMessage, err := aggregator.AggregateSignaturesAppRequest(
+		signedMessage, err := aggregator.CreateSignedMessage(
 			unsignedMessage,
 			signingSubnetID,
 			quorumPercentage,
