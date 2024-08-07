@@ -168,7 +168,7 @@ func signatureAggregationAPIHandler(
 			logger.Error("Error writing response", zap.Error(err))
 		}
 		metrics.AggregateSignaturesLatencyMS.Set(
-			float64(time.Since(startTime) / time.Millisecond),
+			float64(time.Since(startTime).Milliseconds()),
 		)
 	})
 }
