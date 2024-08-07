@@ -108,18 +108,18 @@ func main() {
 	}
 
 	registry := metrics.Initialize(cfg.MetricsPort)
-	metrics_ := metrics.NewSignatureAggregatorMetrics(registry)
+	metricsInstance := metrics.NewSignatureAggregatorMetrics(registry)
 
 	signatureAggregator := aggregator.NewSignatureAggregator(
 		network,
 		logger,
-		metrics_,
+		metricsInstance,
 		messageCreator,
 	)
 
 	api.HandleAggregateSignaturesByRawMsgRequest(
 		logger,
-		metrics_,
+		metricsInstance,
 		signatureAggregator,
 	)
 
