@@ -6,60 +6,51 @@
 package database
 
 import (
-	"github.com/ava-labs/avalanchego/utils/logging"
-	"github.com/ava-labs/awm-relayer/config"
-	"github.com/ethereum/go-ethereum/common"
+	"strconv"
+
+	"github.com/ava-labs/awm-relayer/relayer"
+	"github.com/ava-labs/awm-relayer/relayer/checkpoint"
 	"github.com/pkg/errors"
-	"go.uber.org/zap"
 )
 
-var (
-	ErrKeyNotFound              = errors.New("key not found")
-	ErrRelayerIDNotFound        = errors.New("no database entry for relayer id")
-	ErrDatabaseMisconfiguration = errors.New("database misconfiguration")
-)
+var _ checkpoint.RelayerDatabase = &relayerDatabase{}
 
-const (
-	LatestProcessedBlockKey DataKey = iota
-)
-
-type DataKey int
-
-func (k DataKey) String() string {
-	switch k {
-	case LatestProcessedBlockKey:
-		return "latestProcessedBlock"
+// NewRelayerDatabase instantiate and return a relayerDatabase
+func NewRelayerDatabase(db keyValueDatabase) *relayerDatabase {
+	return &relayerDatabase{
+		keyValueDatabase: db,
 	}
-	return "unknown"
 }
 
-// RelayerDatabase is a key-value store for relayer state, with each relayerID maintaining its own state.
-// Implementations should be thread-safe.
-type RelayerDatabase interface {
-	Get(relayerID common.Hash, key DataKey) ([]byte, error)
-	Put(relayerID common.Hash, key DataKey, value []byte) error
+// relayerDatabase implements the checkpoint RelayerDatabase interface
+type relayerDatabase struct {
+	keyValueDatabase
 }
 
-func NewDatabase(logger logging.Logger, cfg *config.Config) (RelayerDatabase, error) {
-	if cfg.RedisURL != "" {
-		db, err := NewRedisDatabase(logger, cfg.RedisURL, GetConfigRelayerIDs(cfg))
-		if err != nil {
-			logger.Error(
-				"Failed to create Redis database",
-				zap.Error(err),
-			)
-			return nil, err
+func (x *relayerDatabase) GetLatestProcessedBlockHeight(relayerID relayer.RelayerID) (uint64, error) {
+	latestProcessedBlockData, err := x.Get(relayerID.ID, latestProcessedBlockKey)
+	if err != nil {
+		if isKeyNotFoundError(err) {
+			return 0, checkpoint.ErrNotFound
 		}
-		return db, nil
-	} else {
-		db, err := NewJSONFileStorage(logger, cfg.StorageLocation, GetConfigRelayerIDs(cfg))
-		if err != nil {
-			logger.Error(
-				"Failed to create JSON database",
-				zap.Error(err),
-			)
-			return nil, err
-		}
-		return db, nil
+		return 0, err
 	}
+	latestProcessedBlock, err := strconv.ParseUint(string(latestProcessedBlockData), 10, 64)
+	if err != nil {
+		return 0, err
+	}
+	return latestProcessedBlock, nil
+}
+
+func (x *relayerDatabase) StoreLatestProcessedBlockHeight(relayerID relayer.RelayerID, height uint64) error {
+	return x.Put(
+		relayerID.ID,
+		latestProcessedBlockKey,
+		[]byte(strconv.FormatUint(height, 10)),
+	)
+}
+
+// Returns true if an error returned by a RelayerDatabase indicates the requested key was not found.
+func isKeyNotFoundError(err error) bool {
+	return errors.Is(err, errRelayerIDNotFound) || errors.Is(err, errKeyNotFound)
 }

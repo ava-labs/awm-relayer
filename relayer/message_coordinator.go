@@ -11,7 +11,6 @@ import (
 
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/utils/logging"
-	"github.com/ava-labs/awm-relayer/database"
 	"github.com/ava-labs/awm-relayer/messages"
 	relayerTypes "github.com/ava-labs/awm-relayer/types"
 	"github.com/ava-labs/subnet-evm/core/types"
@@ -121,7 +120,7 @@ func (mc *MessageCoordinator) getApplicationRelayer(
 	destinationAddress common.Address,
 ) *ApplicationRelayer {
 	// Check for an exact match
-	applicationRelayerID := database.CalculateRelayerID(
+	applicationRelayerID := CalculateRelayerID(
 		sourceBlockchainID,
 		destinationBlockchainID,
 		originSenderAddress,
@@ -133,11 +132,11 @@ func (mc *MessageCoordinator) getApplicationRelayer(
 
 	// Check for a match on sourceBlockchainID and destinationBlockchainID, with a specific
 	// originSenderAddress and any destinationAddress.
-	applicationRelayerID = database.CalculateRelayerID(
+	applicationRelayerID = CalculateRelayerID(
 		sourceBlockchainID,
 		destinationBlockchainID,
 		originSenderAddress,
-		database.AllAllowedAddress,
+		AllAllowedAddress,
 	)
 	if applicationRelayer, ok := mc.applicationRelayers[applicationRelayerID]; ok {
 		return applicationRelayer
@@ -145,10 +144,10 @@ func (mc *MessageCoordinator) getApplicationRelayer(
 
 	// Check for a match on sourceBlockchainID and destinationBlockchainID, with any originSenderAddress
 	// and a specific destinationAddress.
-	applicationRelayerID = database.CalculateRelayerID(
+	applicationRelayerID = CalculateRelayerID(
 		sourceBlockchainID,
 		destinationBlockchainID,
-		database.AllAllowedAddress,
+		AllAllowedAddress,
 		destinationAddress,
 	)
 	if applicationRelayer, ok := mc.applicationRelayers[applicationRelayerID]; ok {
@@ -157,11 +156,11 @@ func (mc *MessageCoordinator) getApplicationRelayer(
 
 	// Check for a match on sourceBlockchainID and destinationBlockchainID, with any originSenderAddress
 	// and any destinationAddress.
-	applicationRelayerID = database.CalculateRelayerID(
+	applicationRelayerID = CalculateRelayerID(
 		sourceBlockchainID,
 		destinationBlockchainID,
-		database.AllAllowedAddress,
-		database.AllAllowedAddress,
+		AllAllowedAddress,
+		AllAllowedAddress,
 	)
 	if applicationRelayer, ok := mc.applicationRelayers[applicationRelayerID]; ok {
 		return applicationRelayer
