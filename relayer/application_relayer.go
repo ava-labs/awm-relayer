@@ -23,7 +23,6 @@ import (
 	"github.com/ava-labs/avalanchego/utils/set"
 	avalancheWarp "github.com/ava-labs/avalanchego/vms/platformvm/warp"
 	"github.com/ava-labs/awm-relayer/config"
-	"github.com/ava-labs/awm-relayer/database"
 	"github.com/ava-labs/awm-relayer/messages"
 	"github.com/ava-labs/awm-relayer/peers"
 	"github.com/ava-labs/awm-relayer/utils"
@@ -79,7 +78,7 @@ type ApplicationRelayer struct {
 	sourceBlockchain          config.SourceBlockchain
 	signingSubnetID           ids.ID
 	destinationClient         vms.DestinationClient
-	relayerID                 database.RelayerID
+	relayerID                 RelayerID
 	warpQuorum                config.WarpQuorum
 	checkpointManager         CheckpointManager
 	currentRequestID          uint32
@@ -92,7 +91,7 @@ func NewApplicationRelayer(
 	metrics *ApplicationRelayerMetrics,
 	network *peers.AppRequestNetwork,
 	messageCreator message.Creator,
-	relayerID database.RelayerID,
+	relayerID RelayerID,
 	destinationClient vms.DestinationClient,
 	sourceBlockchain config.SourceBlockchain,
 	checkpointManager CheckpointManager,
@@ -209,7 +208,7 @@ func (r *ApplicationRelayer) ProcessMessage(handler messages.MessageHandler) (co
 	return r.relayMessage(reqID, handler)
 }
 
-func (r *ApplicationRelayer) RelayerID() database.RelayerID {
+func (r *ApplicationRelayer) RelayerID() RelayerID {
 	return r.relayerID
 }
 
