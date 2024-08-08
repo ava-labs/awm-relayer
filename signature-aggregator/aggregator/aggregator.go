@@ -372,44 +372,44 @@ func (s *SignatureAggregator) handleResponse(
 	}
 
 	// As soon as the signatures exceed the stake weight threshold we try to aggregate and send the transaction.
-	if utils.CheckStakeWeightPercentageExceedsThreshold(
+	if !utils.CheckStakeWeightPercentageExceedsThreshold(
 		accumulatedSignatureWeight,
 		connectedValidators.TotalValidatorWeight,
 		quorumPercentage,
 	) {
-		aggSig, vdrBitSet, err := s.aggregateSignatures(signatureMap)
-		if err != nil {
-			msg := "Failed to aggregate signature."
-			s.logger.Error(
-				msg,
-				zap.String("sourceBlockchainID", unsignedMessage.SourceChainID.String()),
-				zap.String("warpMessageID", unsignedMessage.ID().String()),
-				zap.Error(err),
-			)
-			return nil, true, fmt.Errorf("%s: %w", msg, err)
-		}
-
-		signedMsg, err := avalancheWarp.NewMessage(
-			unsignedMessage,
-			&avalancheWarp.BitSetSignature{
-				Signers:   vdrBitSet.Bytes(),
-				Signature: *(*[bls.SignatureLen]byte)(bls.SignatureToBytes(aggSig)),
-			},
-		)
-		if err != nil {
-			msg := "Failed to create new signed message"
-			s.logger.Error(
-				msg,
-				zap.String("sourceBlockchainID", unsignedMessage.SourceChainID.String()),
-				zap.String("warpMessageID", unsignedMessage.ID().String()),
-				zap.Error(err),
-			)
-			return nil, true, fmt.Errorf("%s: %w", msg, err)
-		}
-		return signedMsg, true, nil
+		// Not enough signatures, continue processing messages
+		return nil, true, nil
 	}
-	// Not enough signatures, continue processing messages
-	return nil, true, nil
+	aggSig, vdrBitSet, err := s.aggregateSignatures(signatureMap)
+	if err != nil {
+		msg := "Failed to aggregate signature."
+		s.logger.Error(
+			msg,
+			zap.String("sourceBlockchainID", unsignedMessage.SourceChainID.String()),
+			zap.String("warpMessageID", unsignedMessage.ID().String()),
+			zap.Error(err),
+		)
+		return nil, true, fmt.Errorf("%s: %w", msg, err)
+	}
+
+	signedMsg, err := avalancheWarp.NewMessage(
+		unsignedMessage,
+		&avalancheWarp.BitSetSignature{
+			Signers:   vdrBitSet.Bytes(),
+			Signature: *(*[bls.SignatureLen]byte)(bls.SignatureToBytes(aggSig)),
+		},
+	)
+	if err != nil {
+		msg := "Failed to create new signed message"
+		s.logger.Error(
+			msg,
+			zap.String("sourceBlockchainID", unsignedMessage.SourceChainID.String()),
+			zap.String("warpMessageID", unsignedMessage.ID().String()),
+			zap.Error(err),
+		)
+		return nil, true, fmt.Errorf("%s: %w", msg, err)
+	}
+	return signedMsg, true, nil
 }
 
 // isValidSignatureResponse tries to generate a signature from the peer.AsyncResponse, then verifies
