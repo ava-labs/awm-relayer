@@ -62,10 +62,10 @@ github.com/ava-labs/avalanchego v1.11.11-0.20240808144601-8d602b350f59 h1:Od3s9c
 github.com/ava-labs/avalanchego v1.11.11-0.20240808144601-8d602b350f59/go.mod h1:Sq26Wg2Yz0k0EzueGMamRzw4apv6wmNi7vPjxX4nNSk=
 github.com/ava-labs/coreth v0.13.8-0.20240807212152-f7acfafec094 h1:e7TvIKDGzsMsKU3Y4HreRcK7f16EcEPUO04UwSCFtng=
 github.com/ava-labs/coreth v0.13.8-0.20240807212152-f7acfafec094/go.mod h1:Ouul9dJouniUIJVX1gDqx8CrHyGvmwZkK28mrgKb/4I=
-github.com/ava-labs/subnet-evm v0.6.9-0.20240806212213-c2da67db92f8 h1:7G7ABONT72tBC/FSTfKj2sNcqTCo47GKqGeYCtMI0hM=
-github.com/ava-labs/subnet-evm v0.6.9-0.20240806212213-c2da67db92f8/go.mod h1:n5jDyKtXZsHxbb5xPOUwhVaKbMCU/oTNTnBjn8Nfau0=
-github.com/ava-labs/teleporter v1.0.5-0.20240808145337-a3092c7f50ea h1:4O1KXIpxbxQMWueo9K0ZMvYFj7znb1qbBUnFP/CuMfw=
-github.com/ava-labs/teleporter v1.0.5-0.20240808145337-a3092c7f50ea/go.mod h1:9f05xmaQ2IXn4D4jcuHQdyqyn8g+IIT+CaynQQqnI0M=
+github.com/ava-labs/subnet-evm v0.6.9-0.20240809021034-3ceec5c96a5f h1:moqjaNZ1RSXL2/yYUXvwSEpIWjmXcWxTORMBHWuwrtE=
+github.com/ava-labs/subnet-evm v0.6.9-0.20240809021034-3ceec5c96a5f/go.mod h1:DM/HccJ8PghYk7fA3Cq76OOoVprOtyITICkjwuzEPfg=
+github.com/ava-labs/teleporter v1.0.5-0.20240809021837-ae1f422baa84 h1:rZZZ1O5vDc+qSkBzA6SefJJQi8azip0KNAPv9irOW8U=
+github.com/ava-labs/teleporter v1.0.5-0.20240809021837-ae1f422baa84/go.mod h1:J9F+AiUImkNaKIqszwTp+eUhYJsMq7Pcdit10jn0IzQ=
 github.com/aws/aws-sdk-go-v2 v1.30.3 h1:jUeBtG0Ih+ZIFH0F4UkmL9w3cSpaMv9tYYDbzILP8dY=
 github.com/aws/aws-sdk-go-v2 v1.30.3/go.mod h1:nIQjQVp5sfpQcTc9mPSr1B0PaWK5ByX9MOoDadSN4lc=
 github.com/aws/aws-sdk-go-v2/config v1.27.9 h1:gRx/NwpNEFSk+yQlgmk1bmxxvQ5TyJ76CWXs9XScTqg=

@@ -5,7 +5,6 @@ package aggregator
 
 import (
 	"bytes"
-	"encoding/binary"
 	"errors"
 	"fmt"
 	"math/big"
@@ -120,9 +119,7 @@ func (s *SignatureAggregator) CreateSignedMessage(
 		)
 		return nil, errNotEnoughConnectedStake
 	}
-	numBytes := make([]byte, 8)
-	// Convert the uint64 to a byte slice using big-endian encoding
-	binary.BigEndian.PutUint64(numBytes, networkP2P.SignatureRequestHandlerID)
+
 	reqBytes := networkP2P.ProtocolPrefix(networkP2P.SignatureRequestHandlerID)
 	messageBytes, err := proto.Marshal(
 		&sdk.SignatureRequest{Message: unsignedMessage.Bytes()},

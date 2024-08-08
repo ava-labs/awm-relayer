@@ -4,8 +4,8 @@ go 1.21.12
 
 require (
 	github.com/ava-labs/avalanchego v1.11.11-0.20240808144601-8d602b350f59
-	github.com/ava-labs/subnet-evm v0.6.9-0.20240806212213-c2da67db92f8
-	github.com/ava-labs/teleporter v1.0.5-0.20240808145337-a3092c7f50ea
+	github.com/ava-labs/subnet-evm v0.6.9-0.20240809021034-3ceec5c96a5f
+	github.com/ava-labs/teleporter v1.0.5-0.20240809021837-ae1f422baa84
 	github.com/aws/aws-sdk-go-v2 v1.30.3
 	github.com/aws/aws-sdk-go-v2/config v1.27.9
 	github.com/aws/aws-sdk-go-v2/service/kms v1.35.3
