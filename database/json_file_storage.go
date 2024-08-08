@@ -11,12 +11,14 @@ import (
 	"sync"
 
 	"github.com/ava-labs/avalanchego/utils/logging"
+	"github.com/ava-labs/awm-relayer/relayer"
+	"github.com/ava-labs/awm-relayer/relayer/checkpoint"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 )
 
-var _ RelayerDatabase = &JSONFileStorage{}
+var _ keyValueDatabase = &JSONFileStorage{}
 
 type chainState map[string]string
 
@@ -34,7 +36,7 @@ type JSONFileStorage struct {
 }
 
 // NewJSONFileStorage creates a new JSONFileStorage instance
-func NewJSONFileStorage(logger logging.Logger, dir string, relayerIDs []RelayerID) (*JSONFileStorage, error) {
+func NewJSONFileStorage(logger logging.Logger, dir string, relayerIDs []relayer.RelayerID) (*JSONFileStorage, error) {
 	storage := &JSONFileStorage{
 		dir:          filepath.Clean(dir),
 		mutexes:      make(map[common.Hash]*sync.RWMutex),
@@ -68,7 +70,7 @@ func NewJSONFileStorage(logger logging.Logger, dir string, relayerIDs []RelayerI
 
 	// 0755: The owner can read, write, execute.
 	// Everyone else can read and execute but not modify the file.
-	err = os.MkdirAll(dir, 0755)
+	err = os.MkdirAll(dir, 0o755)
 	if err != nil {
 		storage.logger.Error("failed to create directory",
 			zap.String("dir", dir),
@@ -84,7 +86,7 @@ func (s *JSONFileStorage) Get(relayerID common.Hash, dataKey DataKey) ([]byte, e
 	mutex, ok := s.mutexes[relayerID]
 	if !ok {
 		return nil, errors.Wrap(
-			ErrDatabaseMisconfiguration,
+			checkpoint.ErrDatabaseMisconfiguration,
 			fmt.Sprintf("database not configured for key %s", relayerID.String()),
 		)
 	}
@@ -96,12 +98,12 @@ func (s *JSONFileStorage) Get(relayerID common.Hash, dataKey DataKey) ([]byte, e
 		return nil, err
 	}
 	if !fileExists {
-		return nil, ErrRelayerIDNotFound
+		return nil, errRelayerIDNotFound
 	}
 
 	var val string
 	if val, ok = currentState[dataKey.String()]; !ok {
-		return nil, ErrKeyNotFound
+		return nil, errKeyNotFound
 	}
 
 	return []byte(val), nil
@@ -128,7 +130,7 @@ func (s *JSONFileStorage) Put(relayerID common.Hash, dataKey DataKey, value []by
 	mutex, ok := s.mutexes[relayerID]
 	if !ok {
 		return errors.Wrap(
-			ErrDatabaseMisconfiguration,
+			checkpoint.ErrDatabaseMisconfiguration,
 			fmt.Sprintf("database not configured for key %s", relayerID.String()),
 		)
 	}
@@ -159,7 +161,7 @@ func (s *JSONFileStorage) write(relayerID common.Hash, v interface{}) error {
 	// If  the write fails, the original file is not affected.
 	// Set file permissions to 0644 so only the owner can read and write.
 	// Everyone else can only read. No one can execute the file.
-	if err := os.WriteFile(tmpPath, b, 0644); err != nil {
+	if err := os.WriteFile(tmpPath, b, 0o644); err != nil {
 		return errors.Wrap(err, "failed to write file")
 	}
 

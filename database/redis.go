@@ -8,19 +8,20 @@ import (
 	"strings"
 
 	"github.com/ava-labs/avalanchego/utils/logging"
+	"github.com/ava-labs/awm-relayer/relayer"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 )
 
-var _ RelayerDatabase = &RedisDatabase{}
+var _ keyValueDatabase = &RedisDatabase{}
 
 type RedisDatabase struct {
 	logger logging.Logger
 	client *redis.Client
 }
 
-func NewRedisDatabase(logger logging.Logger, redisURL string, relayerIDs []RelayerID) (*RedisDatabase, error) {
+func NewRedisDatabase(logger logging.Logger, redisURL string, relayerIDs []relayer.RelayerID) (*RedisDatabase, error) {
 	opts, err := redis.ParseURL(redisURL)
 	if err != nil {
 		logger.Error(
@@ -50,7 +51,7 @@ func (r *RedisDatabase) Get(relayerID common.Hash, key DataKey) ([]byte, error) 
 			zap.String("key", compositeKey),
 			zap.Error(err))
 		if err == redis.Nil {
-			return nil, ErrKeyNotFound
+			return nil, errKeyNotFound
 		}
 		return nil, err
 	}
