@@ -388,7 +388,8 @@ func (f *factory) parseTeleporterMessage(
 		)
 		return nil, err
 	}
-	teleporterMessage, err := teleportermessenger.UnpackTeleporterMessage(addressedPayload.Payload)
+	var teleporterMessage teleportermessenger.TeleporterMessage
+	err = teleporterMessage.Unpack(addressedPayload.Payload)
 	if err != nil {
 		f.logger.Error(
 			"Failed unpacking teleporter message.",
@@ -397,7 +398,7 @@ func (f *factory) parseTeleporterMessage(
 		return nil, err
 	}
 
-	return teleporterMessage, nil
+	return &teleporterMessage, nil
 }
 
 // getTeleporterMessenger returns the Teleporter messenger instance for the destination chain.
