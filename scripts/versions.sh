@@ -19,7 +19,7 @@ export GO_VERSION=${GO_VERSION:-$(getDepVersion go)}
 # Don't export them as they're used in the context of other calls
 # TODO: undo this hack once go.mod is referring to a tag rather than a commit
 #AVALANCHEGO_VERSION=${AVALANCHEGO_VERSION:-$(getDepVersion github.com/ava-labs/avalanchego)}
-AVALANCHEGO_VERSION=${AVALANCHEGO_VERSION:-a0f7e422bb8497186ebff434f12c4b957cec8d49}
+AVALANCHEGO_VERSION=${AVALANCHEGO_VERSION:-8d602b350f599fcaa67882dcbed5086feb5579a1}
 GINKGO_VERSION=${GINKGO_VERSION:-$(getDepVersion github.com/onsi/ginkgo/v2)}
 
 # TODO: undo this hack once go.mod is referring to a tag rather than a commit

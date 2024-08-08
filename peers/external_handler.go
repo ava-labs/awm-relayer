@@ -88,6 +88,9 @@ func (h *RelayerExternalHandler) HandleInbound(_ context.Context, inboundMessage
 		zap.Stringer("from", inboundMessage.NodeID()),
 	)
 	if inboundMessage.Op() == message.AppResponseOp || inboundMessage.Op() == message.AppErrorOp {
+		if inboundMessage.Op() == message.AppErrorOp {
+			h.log.Debug("Received AppError message", zap.Stringer("message", inboundMessage.Message()))
+		}
 		h.registerAppResponse(inboundMessage)
 	} else {
 		h.log.Debug("Ignoring message", zap.Stringer("op", inboundMessage.Op()))

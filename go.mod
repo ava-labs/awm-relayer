@@ -3,9 +3,9 @@ module github.com/ava-labs/awm-relayer
 go 1.21.12
 
 require (
-	github.com/ava-labs/avalanchego v1.11.11-0.20240729205337-a0f7e422bb84
-	github.com/ava-labs/subnet-evm v0.6.8-acp-118-handlers
-	github.com/ava-labs/teleporter v1.0.5-0.20240807150146-1c7df1ab5033
+	github.com/ava-labs/avalanchego v1.11.11-0.20240808144601-8d602b350f59
+	github.com/ava-labs/subnet-evm v0.6.9-0.20240806212213-c2da67db92f8
+	github.com/ava-labs/teleporter v1.0.5-0.20240808145337-a3092c7f50ea
 	github.com/aws/aws-sdk-go-v2 v1.30.3
 	github.com/aws/aws-sdk-go-v2/config v1.27.9
 	github.com/aws/aws-sdk-go-v2/service/kms v1.35.3
@@ -25,7 +25,7 @@ require (
 )
 
 require (
-	github.com/ava-labs/coreth v0.13.7 // indirect
+	github.com/ava-labs/coreth v0.13.8-0.20240807212152-f7acfafec094 // indirect
 	github.com/aws/aws-sdk-go-v2/credentials v1.17.9 // indirect
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.16.0 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/configsources v1.3.15 // indirect
