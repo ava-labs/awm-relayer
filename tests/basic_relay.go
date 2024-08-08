@@ -10,6 +10,7 @@ import (
 
 	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/awm-relayer/database"
+	"github.com/ava-labs/awm-relayer/relayer"
 	testUtils "github.com/ava-labs/awm-relayer/tests/utils"
 	"github.com/ava-labs/subnet-evm/core/types"
 	"github.com/ava-labs/teleporter/tests/interfaces"
@@ -112,27 +113,28 @@ func BasicRelay(network interfaces.LocalNetwork) {
 	jsonDB, err := database.NewJSONFileStorage(
 		logger,
 		relayerConfig.StorageLocation,
-		database.GetConfigRelayerIDs(&relayerConfig),
+		relayer.GetConfigRelayerIDs(&relayerConfig),
 	)
 	Expect(err).Should(BeNil())
 
 	// Create relayer keys that allow all source and destination addresses
-	relayerIDA := database.CalculateRelayerID(
+	relayerIDA := relayer.NewRelayerID(
 		subnetAInfo.BlockchainID,
 		subnetBInfo.BlockchainID,
-		database.AllAllowedAddress,
-		database.AllAllowedAddress,
+		relayer.AllAllowedAddress,
+		relayer.AllAllowedAddress,
 	)
-	relayerIDB := database.CalculateRelayerID(
+	relayerIDB := relayer.NewRelayerID(
 		subnetBInfo.BlockchainID,
 		subnetAInfo.BlockchainID,
-		database.AllAllowedAddress,
-		database.AllAllowedAddress,
+		relayer.AllAllowedAddress,
+		relayer.AllAllowedAddress,
 	)
-	// Modify the JSON database to force the relayer to re-process old blocks
-	err = jsonDB.Put(relayerIDA, database.LatestProcessedBlockKey, []byte("0"))
+	// Modify the JSON database relayer to force the relayer to re-process old blocks
+	db := database.NewRelayerDatabase(jsonDB)
+	err = db.StoreLatestProcessedBlockHeight(relayerIDA, 0)
 	Expect(err).Should(BeNil())
-	err = jsonDB.Put(relayerIDB, database.LatestProcessedBlockKey, []byte("0"))
+	err = db.StoreLatestProcessedBlockHeight(relayerIDB, 0)
 	Expect(err).Should(BeNil())
 
 	// Subscribe to the destination chain
