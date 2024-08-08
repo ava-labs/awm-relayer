@@ -54,6 +54,15 @@ func CheckStakeWeightExceedsThreshold(
 	return scaledTotalWeight.Cmp(scaledSigWeight) != 1
 }
 
+// Wrapper for CheckStakeWeightExceedThreshold with a quorumDen of 100.
+func CheckStakeWeightPercentageExceedsThreshold(
+	accumulatedSignatureWeight *big.Int,
+	totalWeight uint64,
+	stakeWeightPercentage uint64,
+) bool {
+	return CheckStakeWeightExceedsThreshold(accumulatedSignatureWeight, totalWeight, stakeWeightPercentage, 100)
+}
+
 //
 // Chain Utils
 //
