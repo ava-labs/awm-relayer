@@ -411,7 +411,7 @@ go generate ./...
 
 ### Generate Protobuf Files
 
-[buf](github.com/bufbuild/buf/) is used to generate protobuf definitions for communication with the decider module. If you change any of the protobuf definitions you will have to regenerate the `.go` files. To generate these files, run the following command at the root of the project:
+[buf](github.com/bufbuild/buf/) is used to generate protobuf definitions for communication with the [Decider service](https://github.com/ava-labs/awm-relayer/blob/main/proto/decider/decider.proto). If you change any of the protobuf definitions you will have to regenerate the `.go` files. To generate these files, run the following command at the root of the project:
 
 ```bash
 ./scripts/protobuf_codegen.sh
