@@ -30,10 +30,10 @@ type keyValueDatabase interface {
 func NewKeyValueDatabase(logger logging.Logger, cfg *config.Config) (keyValueDatabase, error) {
 	relayerIDs := relayer.GetConfigRelayerIDs(cfg)
 	dbConnect := func() (keyValueDatabase, error) { return NewJSONFileStorage(logger, cfg.RedisURL, relayerIDs) }
-	usedDB := "Redis"
+	usedDB := "JSON"
 	if cfg.RedisURL != "" {
 		dbConnect = func() (keyValueDatabase, error) { return NewRedisDatabase(logger, cfg.StorageLocation, relayerIDs) }
-		usedDB = "JSON"
+		usedDB = "Redis"
 	}
 	db, err := dbConnect()
 	if err != nil {
