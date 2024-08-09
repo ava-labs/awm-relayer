@@ -255,7 +255,7 @@ func CreateDefaultRelayerConfig(
 	}
 
 	return config.Config{
-		LogLevel: logging.Info.LowerString(),
+		LogLevel: logging.Debug.LowerString(),
 		PChainAPI: &config.APIConfig{
 			BaseURL: sourceSubnetsInfo[0].NodeURIs[0],
 		},
@@ -287,7 +287,7 @@ func CreateDefaultSignatureAggregatorConfig(
 	)
 	// Construct the config values for each subnet
 	return signatureaggregatorcfg.Config{
-		LogLevel: logging.Info.LowerString(),
+		LogLevel: logging.Debug.LowerString(),
 		PChainAPI: &config.APIConfig{
 			BaseURL: sourceSubnetsInfo[0].NodeURIs[0],
 		},
@@ -473,7 +473,8 @@ func RelayBasicMessage(
 	// Check that the teleporter message is correct
 	// We don't validate the entire message, since the message receipts
 	// are populated by the Teleporter contract
-	receivedTeleporterMessage, err := teleportermessenger.UnpackTeleporterMessage(addressedPayload.Payload)
+	receivedTeleporterMessage := teleportermessenger.TeleporterMessage{}
+	err = receivedTeleporterMessage.Unpack(addressedPayload.Payload)
 	Expect(err).Should(BeNil())
 
 	receivedMessageID, err := teleporterUtils.CalculateMessageID(

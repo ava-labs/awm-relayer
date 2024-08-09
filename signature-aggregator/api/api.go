@@ -24,8 +24,11 @@ const (
 
 // Defines a request interface for signature aggregation for a raw unsigned message.
 type AggregateSignatureRequest struct {
+	// Required: either Message or Justification must be provided
 	// Required. hex-encoded message, optionally prefixed with "0x".
-	UnsignedMessage string `json:"unsigned-message"`
+	Message string `json:"message"`
+	// hex-encoded justification, optionally prefixed with "0x".
+	Justification string `json:"justification"`
 	// Optional hex or cb58 encoded signing subnet ID. If omitted will default to the subnetID of the source blockchain
 	SigningSubnetID string `json:"signing-subnet-id"`
 	// Optional. Integer from 0 to 100 representing the percentage of the quorum that is required to sign the message
@@ -65,6 +68,15 @@ func writeJSONError(
 	}
 }
 
+func isEmptyOrZeroes(bytes []byte) bool {
+	for _, b := range bytes {
+		if b != 0 {
+			return false
+		}
+	}
+	return true
+}
+
 func signatureAggregationAPIHandler(logger logging.Logger, aggregator *aggregator.SignatureAggregator) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var req AggregateSignatureRequest
@@ -77,25 +89,48 @@ func signatureAggregationAPIHandler(logger logging.Logger, aggregator *aggregato
 		}
 		var decodedMessage []byte
 		decodedMessage, err = hex.DecodeString(
-			strings.TrimPrefix(req.UnsignedMessage, "0x"),
+			strings.TrimPrefix(req.Message, "0x"),
 		)
 		if err != nil {
 			msg := "Could not decode message"
 			logger.Warn(
 				msg,
-				zap.String("msg", req.UnsignedMessage),
+				zap.String("msg", req.Message),
 				zap.Error(err),
 			)
 			writeJSONError(logger, w, msg)
 			return
 		}
-		unsignedMessage, err := types.UnpackWarpMessage(decodedMessage)
+		message, err := types.UnpackWarpMessage(decodedMessage)
 		if err != nil {
 			msg := "Error unpacking warp message"
 			logger.Warn(msg, zap.Error(err))
 			writeJSONError(logger, w, msg)
 			return
 		}
+
+		justification, err := hex.DecodeString(
+			strings.TrimPrefix(req.Justification, "0x"),
+		)
+		if err != nil {
+			msg := "Could not decode justification"
+			logger.Warn(
+				msg,
+				zap.String("justification", req.Justification),
+				zap.Error(err),
+			)
+			writeJSONError(logger, w, msg)
+			return
+		}
+
+		if isEmptyOrZeroes(message.Bytes()) || isEmptyOrZeroes(justification) {
+			writeJSONError(
+				logger,
+				w,
+				"Must provide either message or justification",
+			)
+		}
+
 		quorumPercentage := req.QuorumPercentage
 		if quorumPercentage == 0 {
 			quorumPercentage = DefaultQuorumPercentage
@@ -122,7 +157,8 @@ func signatureAggregationAPIHandler(logger logging.Logger, aggregator *aggregato
 		}
 
 		signedMessage, err := aggregator.CreateSignedMessage(
-			unsignedMessage,
+			message,
+			justification,
 			signingSubnetID,
 			quorumPercentage,
 		)

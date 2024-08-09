@@ -70,7 +70,7 @@ func init() {
 }
 
 func TestShouldSendMessage(t *testing.T) {
-	validMessageBytes, err := teleportermessenger.PackTeleporterMessage(validTeleporterMessage)
+	validMessageBytes, err := validTeleporterMessage.Pack()
 	require.NoError(t, err)
 
 	validAddressedCall, err := warpPayload.NewAddressedCall(
