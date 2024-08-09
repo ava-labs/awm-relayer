@@ -1,0 +1,10 @@
+{
+  "log-level": "debug",
+  "info-api": {
+    "base-url": "https://api.avax-test.network"
+  },
+  "p-chain-api": {
+    "base-url": "https://api.avax-test.network"
+  },
+  "api-port": 8080
+}

@@ -5,14 +5,18 @@ package peers
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"os"
 	"sync"
 	"time"
 
 	"github.com/ava-labs/avalanchego/ids"
+	"github.com/ava-labs/avalanchego/message"
 	"github.com/ava-labs/avalanchego/network"
+	avagoCommon "github.com/ava-labs/avalanchego/snow/engine/common"
 	snowVdrs "github.com/ava-labs/avalanchego/snow/validators"
+	"github.com/ava-labs/avalanchego/subnets"
 	"github.com/ava-labs/avalanchego/utils/constants"
 	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/avalanchego/utils/set"
@@ -30,8 +34,8 @@ const (
 )
 
 type AppRequestNetwork struct {
-	Network         network.Network
-	Handler         *RelayerExternalHandler
+	network         network.Network
+	handler         *RelayerExternalHandler
 	infoAPI         *InfoAPI
 	logger          logging.Logger
 	lock            *sync.Mutex
@@ -42,7 +46,8 @@ type AppRequestNetwork struct {
 func NewNetwork(
 	logLevel logging.Level,
 	registerer prometheus.Registerer,
-	cfg *config.Config,
+	trackedSubnets set.Set[ids.ID],
+	cfg Config,
 ) (*AppRequestNetwork, error) {
 	logger := logging.NewLogger(
 		"awm-relayer-p2p",
@@ -63,7 +68,7 @@ func NewNetwork(
 		return nil, err
 	}
 
-	infoAPI, err := NewInfoAPI(cfg.InfoAPI)
+	infoAPI, err := NewInfoAPI(cfg.GetInfoAPI())
 	if err != nil {
 		logger.Error(
 			"Failed to create info API",
@@ -80,11 +85,6 @@ func NewNetwork(
 		return nil, err
 	}
 
-	var trackedSubnets set.Set[ids.ID]
-	for _, sourceBlockchain := range cfg.SourceBlockchains {
-		trackedSubnets.Add(sourceBlockchain.GetSubnetID())
-	}
-
 	testNetwork, err := network.NewTestNetwork(logger, networkID, snowVdrs.NewManager(), trackedSubnets, handler)
 	if err != nil {
 		logger.Error(
@@ -94,38 +94,47 @@ func NewNetwork(
 		return nil, err
 	}
 
-	validatorClient := validators.NewCanonicalValidatorClient(logger, cfg.PChainAPI)
+	validatorClient := validators.NewCanonicalValidatorClient(logger, cfg.GetPChainAPI())
 
 	arNetwork := &AppRequestNetwork{
-		Network:         testNetwork,
-		Handler:         handler,
+		network:         testNetwork,
+		handler:         handler,
 		infoAPI:         infoAPI,
 		logger:          logger,
 		lock:            new(sync.Mutex),
 		validatorClient: validatorClient,
 	}
+	go logger.RecoverAndPanic(func() {
+		testNetwork.Dispatch()
+	})
 
+	return arNetwork, nil
+}
+
+// TODO: remove dependence on Relayer specific config since this is meant to be a generic AppRequestNetwork file
+func (n *AppRequestNetwork) InitializeConnectionsAndCheckStake(cfg *config.Config) error {
 	// Manually connect to the validators of each of the source subnets.
 	// We return an error if we are unable to connect to sufficient stake on any of the subnets.
 	// Sufficient stake is determined by the Warp quora of the configured supported destinations,
 	// or if the subnet supports all destinations, by the quora of all configured destinations.
 	for _, sourceBlockchain := range cfg.SourceBlockchains {
 		if sourceBlockchain.GetSubnetID() == constants.PrimaryNetworkID {
-			if err := arNetwork.connectToPrimaryNetworkPeers(cfg, sourceBlockchain); err != nil {
-				return nil, err
+			if err := n.connectToPrimaryNetworkPeers(cfg, sourceBlockchain); err != nil {
+				return fmt.Errorf(
+					"failed to connect to primary network peers: %w",
+					err,
+				)
 			}
 		} else {
-			if err := arNetwork.connectToNonPrimaryNetworkPeers(cfg, sourceBlockchain); err != nil {
-				return nil, err
+			if err := n.connectToNonPrimaryNetworkPeers(cfg, sourceBlockchain); err != nil {
+				return fmt.Errorf(
+					"failed to connect to non-primary network peers: %w",
+					err,
+				)
 			}
 		}
 	}
-
-	go logger.RecoverAndPanic(func() {
-		testNetwork.Dispatch()
-	})
-
-	return arNetwork, nil
+	return nil
 }
 
 // ConnectPeers connects the network to peers with the given nodeIDs.
@@ -135,7 +144,7 @@ func (n *AppRequestNetwork) ConnectPeers(nodeIDs set.Set[ids.NodeID]) set.Set[id
 	defer n.lock.Unlock()
 
 	// First, check if we are already connected to all the peers
-	connectedPeers := n.Network.PeerInfo(nodeIDs.List())
+	connectedPeers := n.network.PeerInfo(nodeIDs.List())
 	if len(connectedPeers) == nodeIDs.Len() {
 		return nodeIDs
 	}
@@ -160,7 +169,7 @@ func (n *AppRequestNetwork) ConnectPeers(nodeIDs set.Set[ids.NodeID]) set.Set[id
 	for _, peer := range peers {
 		if nodeIDs.Contains(peer.ID) {
 			trackedNodes.Add(peer.ID)
-			n.Network.ManuallyTrack(peer.ID, peer.PublicIP)
+			n.network.ManuallyTrack(peer.ID, peer.PublicIP)
 			if len(trackedNodes) == nodeIDs.Len() {
 				return trackedNodes
 			}
@@ -182,7 +191,7 @@ func (n *AppRequestNetwork) ConnectPeers(nodeIDs set.Set[ids.NodeID]) set.Set[id
 			)
 		} else {
 			trackedNodes.Add(apiNodeID)
-			n.Network.ManuallyTrack(apiNodeID, apiNodeIPPort)
+			n.network.ManuallyTrack(apiNodeID, apiNodeIPPort)
 		}
 	}
 
@@ -243,6 +252,25 @@ func (n *AppRequestNetwork) ConnectToCanonicalValidators(subnetID ids.ID) (*Conn
 		ValidatorSet:          validatorSet,
 		nodeValidatorIndexMap: nodeValidatorIndexMap,
 	}, nil
+}
+
+func (n *AppRequestNetwork) Send(
+	msg message.OutboundMessage,
+	nodeIDs set.Set[ids.NodeID],
+	subnetID ids.ID,
+	allower subnets.Allower,
+) set.Set[ids.NodeID] {
+	return n.network.Send(msg, avagoCommon.SendConfig{NodeIDs: nodeIDs}, subnetID, allower)
+}
+
+func (n *AppRequestNetwork) RegisterAppRequest(requestID ids.RequestID) {
+	n.handler.RegisterAppRequest(requestID)
+}
+func (n *AppRequestNetwork) RegisterRequestID(requestID uint32, numExpectedResponse int) chan message.InboundMessage {
+	return n.handler.RegisterRequestID(requestID, numExpectedResponse)
+}
+func (n *AppRequestNetwork) GetSubnetID(blockchainID ids.ID) (ids.ID, error) {
+	return n.validatorClient.GetSubnetID(context.Background(), blockchainID)
 }
 
 // Private helpers
