@@ -23,6 +23,7 @@ var (
 var Opts = struct {
 	AggregateSignaturesLatencyMS       prometheus.GaugeOpts
 	AggregateSignaturesRequestCount    prometheus.CounterOpts
+	AppRequestCount                    prometheus.CounterOpts
 	FailuresToGetValidatorSet          prometheus.CounterOpts
 	FailuresToConnectToSufficientStake prometheus.CounterOpts
 	FailuresSendingToNode              prometheus.CounterOpts
@@ -36,6 +37,10 @@ var Opts = struct {
 	AggregateSignaturesRequestCount: prometheus.CounterOpts{
 		Name: "agg_sigs_req_count",
 		Help: "Number of requests for aggregate signatures",
+	},
+	AppRequestCount: prometheus.CounterOpts{
+		Name: "app_request_count",
+		Help: "Number of AppRequests that have been submitted to the network",
 	},
 	FailuresToGetValidatorSet: prometheus.CounterOpts{
 		Name: "failures_to_get_validator_set",
@@ -62,6 +67,7 @@ var Opts = struct {
 type SignatureAggregatorMetrics struct {
 	AggregateSignaturesLatencyMS       prometheus.Gauge
 	AggregateSignaturesRequestCount    prometheus.Counter
+	AppRequestCount                    prometheus.Counter
 	FailuresToGetValidatorSet          prometheus.Counter
 	FailuresToConnectToSufficientStake prometheus.Counter
 	FailuresSendingToNode              prometheus.Counter
@@ -87,6 +93,9 @@ func NewSignatureAggregatorMetrics(
 		AggregateSignaturesRequestCount: prometheus.NewCounter(
 			Opts.AggregateSignaturesRequestCount,
 		),
+		AppRequestCount: prometheus.NewCounter(
+			Opts.AppRequestCount,
+		),
 		FailuresToGetValidatorSet: prometheus.NewCounter(
 			Opts.FailuresToGetValidatorSet,
 		),
@@ -106,6 +115,7 @@ func NewSignatureAggregatorMetrics(
 
 	registerer.MustRegister(m.AggregateSignaturesLatencyMS)
 	registerer.MustRegister(m.AggregateSignaturesRequestCount)
+	registerer.MustRegister(m.AppRequestCount)
 	registerer.MustRegister(m.FailuresToGetValidatorSet)
 	registerer.MustRegister(m.FailuresToConnectToSufficientStake)
 	registerer.MustRegister(m.FailuresSendingToNode)

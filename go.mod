@@ -11,8 +11,10 @@ require (
 	github.com/aws/aws-sdk-go-v2/config v1.27.9
 	github.com/aws/aws-sdk-go-v2/service/kms v1.35.3
 	github.com/ethereum/go-ethereum v1.13.8
+	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/onsi/ginkgo/v2 v2.19.1
 	github.com/onsi/gomega v1.34.1
+	github.com/pingcap/errors v0.11.4
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.19.1
 	github.com/redis/go-redis/v9 v9.6.1

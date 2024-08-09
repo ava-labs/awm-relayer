@@ -34,6 +34,7 @@ const (
 	defaultAPIPort             = uint16(8080)
 	defaultMetricsPort         = uint16(9090)
 	defaultIntervalSeconds     = uint64(10)
+	defaultSignatureCacheSize  = uint(1024 * 1024)
 )
 
 var defaultLogLevel = logging.Info.String()
@@ -61,6 +62,7 @@ type Config struct {
 	DestinationBlockchains []*DestinationBlockchain `mapstructure:"destination-blockchains" json:"destination-blockchains"`
 	ProcessMissedBlocks    bool                     `mapstructure:"process-missed-blocks" json:"process-missed-blocks"`
 	DeciderURL             string                   `mapstructure:"decider-url" json:"decider-url"`
+	SignatureCacheSize     uint                     `mapstructure:"signature-cache-size" json:"signature-cache-size"`
 
 	// convenience field to fetch a blockchain's subnet ID
 	blockchainIDToSubnetID map[ids.ID]ids.ID

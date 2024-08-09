@@ -23,4 +23,5 @@ const (
 	ProcessMissedBlocksKey    = "process-missed-blocks"
 	ManualWarpMessagesKey     = "manual-warp-messages"
 	DBWriteIntervalSecondsKey = "db-write-interval-seconds"
+	SignatureCacheSizeKey     = "signature-cache-size"
 )

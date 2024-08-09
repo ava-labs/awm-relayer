@@ -110,12 +110,17 @@ func main() {
 	registry := metrics.Initialize(cfg.MetricsPort)
 	metricsInstance := metrics.NewSignatureAggregatorMetrics(registry)
 
-	signatureAggregator := aggregator.NewSignatureAggregator(
+	signatureAggregator, err := aggregator.NewSignatureAggregator(
 		network,
 		logger,
+		cfg.SignatureCacheSize,
 		metricsInstance,
 		messageCreator,
 	)
+	if err != nil {
+		logger.Fatal("Failed to create signature aggregator", zap.Error(err))
+		panic(err)
+	}
 
 	api.HandleAggregateSignaturesByRawMsgRequest(
 		logger,

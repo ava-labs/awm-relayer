@@ -53,6 +53,10 @@ func SetDefaultConfigValues(v *viper.Viper) {
 	v.SetDefault(LogLevelKey, defaultLogLevel)
 	v.SetDefault(APIPortKey, defaultAPIPort)
 	v.SetDefault(MetricsPortKey, defaultMetricsPort)
+	v.SetDefault(
+		SignatureCacheSizeKey,
+		DefaultSignatureCacheSize,
+	)
 }
 
 // BuildConfig constructs the signature aggregator config using Viper.
