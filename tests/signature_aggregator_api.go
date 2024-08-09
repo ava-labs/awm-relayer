@@ -136,8 +136,8 @@ func SignatureAggregatorAPI(network interfaces.LocalNetwork) {
 	}
 
 	// make a second request, and ensure that the AppRequest counter did
-	// not increase, in order to validate that the cached value from the
-	// first request was used in response to the second request.
+	// not increase, in order to validate that the cached signatures from
+	// the first request were used in response to the second request.
 	appRequestCountBeforeSecondRequest := metricsSample[metrics.Opts.AppRequestCount.Name]
 	sendRequestToAPI()
 	metricsSample = sampleMetrics(signatureAggregatorConfig.MetricsPort)
