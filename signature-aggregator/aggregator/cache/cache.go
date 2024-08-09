@@ -22,7 +22,7 @@ type cacheValue map[PublicKeyBytes]SignatureBytes
 type PublicKeyBytes [bls.PublicKeyLen]byte
 type SignatureBytes [bls.SignatureLen]byte
 
-func NewCache(size uint, logger logging.Logger) (*Cache, error) {
+func NewCache(size uint64, logger logging.Logger) (*Cache, error) {
 	if size > math.MaxInt {
 		return nil, errors.New("cache size too big")
 	}

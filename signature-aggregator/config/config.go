@@ -14,7 +14,7 @@ const (
 	defaultAPIPort     = uint16(8080)
 	defaultMetricsPort = uint16(8081)
 
-	DefaultSignatureCacheSize = uint(1024 * 1024)
+	DefaultSignatureCacheSize = uint64(1024 * 1024)
 )
 
 var defaultLogLevel = logging.Info.String()
@@ -32,7 +32,7 @@ type Config struct {
 	InfoAPI            *baseCfg.APIConfig `mapstructure:"info-api" json:"info-api"`
 	APIPort            uint16             `mapstructure:"api-port" json:"api-port"`
 	MetricsPort        uint16             `mapstructure:"metrics-port" json:"metrics-port"`
-	SignatureCacheSize uint               `mapstructure:"signature-cache-size" json:"signature-cache-size"`
+	SignatureCacheSize uint64             `mapstructure:"signature-cache-size" json:"signature-cache-size"`
 }
 
 func DisplayUsageText() {

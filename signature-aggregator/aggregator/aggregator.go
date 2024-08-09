@@ -65,7 +65,7 @@ type SignatureAggregator struct {
 func NewSignatureAggregator(
 	network *peers.AppRequestNetwork,
 	logger logging.Logger,
-	signatureCacheSize uint,
+	signatureCacheSize uint64,
 	metrics *metrics.SignatureAggregatorMetrics,
 	messageCreator message.Creator,
 ) (*SignatureAggregator, error) {
