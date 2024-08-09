@@ -123,12 +123,13 @@ func signatureAggregationAPIHandler(logger logging.Logger, aggregator *aggregato
 			return
 		}
 
-		if isEmptyOrZeroes(message.Bytes()) || isEmptyOrZeroes(justification) {
+		if isEmptyOrZeroes(message.Bytes()) && isEmptyOrZeroes(justification) {
 			writeJSONError(
 				logger,
 				w,
 				"Must provide either message or justification",
 			)
+			return
 		}
 
 		quorumPercentage := req.QuorumPercentage
