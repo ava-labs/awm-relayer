@@ -28,6 +28,7 @@ import (
 	"github.com/ava-labs/awm-relayer/relayer"
 	"github.com/ava-labs/awm-relayer/relayer/checkpoint"
 	"github.com/ava-labs/awm-relayer/signature-aggregator/aggregator"
+	sigAggMetrics "github.com/ava-labs/awm-relayer/signature-aggregator/metrics"
 	"github.com/ava-labs/awm-relayer/utils"
 	"github.com/ava-labs/awm-relayer/vms"
 	"github.com/ava-labs/subnet-evm/ethclient"
@@ -211,7 +212,14 @@ func main() {
 		panic(err)
 	}
 
-	signatureAggregator := aggregator.NewSignatureAggregator(network, logger, messageCreator)
+	signatureAggregator := aggregator.NewSignatureAggregator(
+		network,
+		logger,
+		sigAggMetrics.NewSignatureAggregatorMetrics(
+			prometheus.DefaultRegisterer,
+		),
+		messageCreator,
+	)
 
 	applicationRelayers, minHeights, err := createApplicationRelayers(
 		context.Background(),

@@ -10,8 +10,9 @@ const (
 	HelpKey       = "help"
 
 	// Top-level configuration keys
-	LogLevelKey  = "log-level"
-	PChainAPIKey = "p-chain-api"
-	InfoAPIKey   = "info-api"
-	APIPortKey   = "api-port"
+	LogLevelKey    = "log-level"
+	PChainAPIKey   = "p-chain-api"
+	InfoAPIKey     = "info-api"
+	APIPortKey     = "api-port"
+	MetricsPortKey = "metrics-port"
 )

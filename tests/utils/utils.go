@@ -294,7 +294,8 @@ func CreateDefaultSignatureAggregatorConfig(
 		InfoAPI: &config.APIConfig{
 			BaseURL: sourceSubnetsInfo[0].NodeURIs[0],
 		},
-		APIPort: 8080,
+		APIPort:     8080,
+		MetricsPort: 8081,
 	}
 }
 

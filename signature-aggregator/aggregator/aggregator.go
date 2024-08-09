@@ -23,6 +23,7 @@ import (
 	"github.com/ava-labs/avalanchego/utils/set"
 	avalancheWarp "github.com/ava-labs/avalanchego/vms/platformvm/warp"
 	"github.com/ava-labs/awm-relayer/peers"
+	"github.com/ava-labs/awm-relayer/signature-aggregator/metrics"
 	"github.com/ava-labs/awm-relayer/utils"
 	coreEthMsg "github.com/ava-labs/coreth/plugin/evm/message"
 	msg "github.com/ava-labs/subnet-evm/plugin/evm/message"
@@ -56,17 +57,20 @@ type SignatureAggregator struct {
 	messageCreator          message.Creator
 	currentRequestID        atomic.Uint32
 	subnetsMapLock          sync.RWMutex
+	metrics                 *metrics.SignatureAggregatorMetrics
 }
 
 func NewSignatureAggregator(
 	network *peers.AppRequestNetwork,
 	logger logging.Logger,
+	metrics *metrics.SignatureAggregatorMetrics,
 	messageCreator message.Creator,
 ) *SignatureAggregator {
 	sa := SignatureAggregator{
 		network:                 network,
 		subnetIDsByBlockchainID: map[ids.ID]ids.ID{},
 		logger:                  logger,
+		metrics:                 metrics,
 		messageCreator:          messageCreator,
 		currentRequestID:        atomic.Uint32{},
 	}
@@ -106,6 +110,7 @@ func (s *SignatureAggregator) CreateSignedMessage(
 			zap.String("warpMessageID", unsignedMessage.ID().String()),
 			zap.Error(err),
 		)
+		s.metrics.FailuresToGetValidatorSet.Inc()
 		return nil, fmt.Errorf("%s: %w", msg, err)
 	}
 	if !utils.CheckStakeWeightPercentageExceedsThreshold(
@@ -119,6 +124,7 @@ func (s *SignatureAggregator) CreateSignedMessage(
 			zap.Uint64("totalValidatorWeight", connectedValidators.TotalValidatorWeight),
 			zap.Uint64("quorumPercentage", quorumPercentage),
 		)
+		s.metrics.FailuresToConnectToSufficientStake.Inc()
 		return nil, errNotEnoughConnectedStake
 	}
 
@@ -224,6 +230,7 @@ func (s *SignatureAggregator) CreateSignedMessage(
 					zap.Error(err),
 				)
 				responsesExpected--
+				s.metrics.FailuresSendingToNode.Inc()
 			}
 		}
 
@@ -247,6 +254,8 @@ func (s *SignatureAggregator) CreateSignedMessage(
 					quorumPercentage,
 				)
 				if err != nil {
+					// don't increase node failures metric here, because we did
+					// it in handleResponse
 					return nil, fmt.Errorf(
 						"failed to handle response: %w",
 						err,
@@ -345,6 +354,7 @@ func (s *SignatureAggregator) handleResponse(
 	// This is still a relevant response, since we are no longer expecting a response from that node.
 	if response.Op() == message.AppErrorOp {
 		s.logger.Debug("Request timed out")
+		s.metrics.ValidatorTimeouts.Inc()
 		return nil, true, nil
 	}
 
@@ -368,6 +378,7 @@ func (s *SignatureAggregator) handleResponse(
 			zap.String("warpMessageID", unsignedMessage.ID().String()),
 			zap.String("sourceBlockchainID", unsignedMessage.SourceChainID.String()),
 		)
+		s.metrics.InvalidSignatureResponses.Inc()
 		return nil, true, nil
 	}
 
