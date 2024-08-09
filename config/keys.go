@@ -11,8 +11,8 @@ const (
 
 	// Top-level configuration keys
 	LogLevelKey               = "log-level"
-	PChainAPIKey              = "p-chain-api"
-	InfoAPIKey                = "info-api"
+	PChainAPIConfigKey        = "p-chain-api"
+	InfoAPIConfigKey          = "info-api"
 	APIPortKey                = "api-port"
 	MetricsPortKey            = "metrics-port"
 	SourceBlockchainsKey      = "source-blockchains"
