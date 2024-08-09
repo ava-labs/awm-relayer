@@ -55,15 +55,11 @@ func (c *Cache) Add(
 	pubKey PublicKeyBytes,
 	signature SignatureBytes,
 ) {
-	cachedValue, ok := c.Get(msgID)
-	if !ok {
-		c.signatures.Add(cacheKey(msgID), make(cacheValue))
-		cachedValue, ok = c.Get(msgID)
-		if !ok {
-			c.logger.Error(
-				"failed to create cache entry; this should never happen",
-			)
-		}
+	if signatures, ok := c.Get(msgID); ok {
+		signatures[pubKey] = signature
+	} else {
+		signatures := make(cacheValue)
+		signatures[pubKey] = signature
+		c.signatures.Add(cacheKey(msgID), signatures)
 	}
-	cachedValue[pubKey] = signature
 }
