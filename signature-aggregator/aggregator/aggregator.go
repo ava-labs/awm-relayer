@@ -145,29 +145,12 @@ func (s *SignatureAggregator) CreateSignedMessage(
 			cachedSignature, found := cachedSignatures[cache.PublicKeyBytes(validator.PublicKeyBytes)]
 			if found {
 				signatureMap[i] = cachedSignature
-				s.logger.Debug(
-					"using cached signature",
-					zap.Binary("signature", cachedSignature[:]),
-				)
 				accumulatedSignatureWeight.Add(
 					accumulatedSignatureWeight,
 					new(big.Int).SetUint64(validator.Weight),
 				)
 			}
 		}
-		s.logger.Debug(
-			"Using cached signatures",
-			zap.Int("signatureCount", len(signatureMap)),
-			zap.Stringer(
-				"accumulatedWeightRatio",
-				big.NewInt(0).Div(
-					accumulatedSignatureWeight,
-					big.NewInt(0).SetUint64(
-						connectedValidators.TotalValidatorWeight,
-					),
-				),
-			),
-		)
 	}
 	if signedMsg, err := s.aggregateIfSufficientWeight(
 		unsignedMessage,
@@ -178,7 +161,6 @@ func (s *SignatureAggregator) CreateSignedMessage(
 	); err != nil {
 		return nil, err
 	} else if signedMsg != nil {
-		s.logger.Debug("aggregating just based on cache")
 		return signedMsg, nil
 	}
 
