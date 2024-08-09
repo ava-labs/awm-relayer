@@ -135,6 +135,7 @@ func signatureAggregationAPIHandler(
 					zap.String("input", req.SigningSubnetID),
 				)
 				writeJSONError(logger, w, msg)
+				return
 			}
 		}
 
