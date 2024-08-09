@@ -20,8 +20,8 @@ import (
 )
 
 const (
-	APIPath          = "/aggregate-signatures"
-	QuorumPercentage = 67
+	APIPath                 = "/aggregate-signatures"
+	DefaultQuorumPercentage = 67
 )
 
 // Defines a request interface for signature aggregation for a raw unsigned message.
@@ -115,7 +115,7 @@ func signatureAggregationAPIHandler(
 		}
 		quorumPercentage := req.QuorumPercentage
 		if quorumPercentage == 0 {
-			quorumPercentage = QuorumPercentage
+			quorumPercentage = DefaultQuorumPercentage
 		} else if req.QuorumPercentage > 100 {
 			msg := "Invalid quorum number"
 			logger.Warn(msg, zap.Uint64("quorum-num", req.QuorumPercentage))

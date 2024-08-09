@@ -27,8 +27,8 @@ var version = "v0.0.0-dev"
 func main() {
 	fs := config.BuildFlagSet()
 	if err := fs.Parse(os.Args[1:]); err != nil {
-		fmt.Println("Failed to parse flags: %w", err)
-		os.Exit(1)
+		config.DisplayUsageText()
+		panic(fmt.Errorf("Failed to parse flags: %w", err))
 	}
 
 	displayVersion, err := fs.GetBool(config.VersionKey)
