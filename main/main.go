@@ -268,7 +268,6 @@ func main() {
 				*sourceBlockchain,
 				sourceClients[sourceBlockchain.GetBlockchainID()],
 				relayerHealth[sourceBlockchain.GetBlockchainID()],
-				cfg.ProcessMissedBlocks,
 				minHeights[sourceBlockchain.GetBlockchainID()],
 				messageCoordinator,
 			)
@@ -431,20 +430,25 @@ func createApplicationRelayersForSourceChain(
 	// The Listener begins processing messages starting from the minimum height across all the ApplicationRelayers
 	minHeight := uint64(0)
 	for _, relayerID := range database.GetSourceBlockchainRelayerIDs(&sourceBlockchain) {
-		height, err := database.CalculateStartingBlockHeight(
-			logger,
-			db,
-			relayerID,
-			sourceBlockchain.ProcessHistoricalBlocksFromHeight,
-			currentHeight,
-		)
-		if err != nil {
-			logger.Error(
-				"Failed to calculate starting block height",
-				zap.String("relayerID", relayerID.ID.String()),
-				zap.Error(err),
+		// Calculate the starting block height for the relayer only if we're processing historical blocks
+		height := currentHeight
+		if cfg.ProcessMissedBlocks {
+			var err error
+			height, err = database.CalculateStartingBlockHeight(
+				logger,
+				db,
+				relayerID,
+				sourceBlockchain.ProcessHistoricalBlocksFromHeight,
+				currentHeight,
 			)
-			return nil, 0, err
+			if err != nil {
+				logger.Error(
+					"Failed to calculate starting block height",
+					zap.String("relayerID", relayerID.ID.String()),
+					zap.Error(err),
+				)
+				return nil, 0, err
+			}
 		}
 		if minHeight == 0 || height < minHeight {
 			minHeight = height
