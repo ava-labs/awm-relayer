@@ -153,4 +153,7 @@ var _ = ginkgo.Describe("[AWM Relayer Integration Tests", func() {
 	ginkgo.It("Warp API", func() {
 		WarpAPIRelay(localNetworkInstance)
 	})
+	ginkgo.It("Signature Aggregator", func() {
+		SignatureAggregatorAPI(localNetworkInstance)
+	})
 })
