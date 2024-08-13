@@ -57,51 +57,14 @@ func BuildAndRunRelayerExecutable(ctx context.Context, relayerConfigPath string)
 	fmt.Println(string(out))
 	Expect(err).Should(BeNil())
 
-	cmdOutput := make(chan string)
-
 	// Run awm relayer binary with config path
-	var relayerContext context.Context
-	relayerContext, relayerCancel := context.WithCancel(ctx)
-	relayerCmd := exec.CommandContext(relayerContext, "./build/awm-relayer", "--config-file", relayerConfigPath)
+	relayerCtx, relayerCancel := context.WithCancel(ctx)
+	relayerCmd := exec.CommandContext(relayerCtx, "./build/awm-relayer", "--config-file", relayerConfigPath)
 
-	// Set up a pipe to capture the command's output
-	cmdStdOutReader, err := relayerCmd.StdoutPipe()
-	Expect(err).Should(BeNil())
-	cmdStdErrReader, err := relayerCmd.StderrPipe()
-	Expect(err).Should(BeNil())
-
-	// Start the command
-	log.Info("Starting the relayer executable")
-	err = relayerCmd.Start()
-	Expect(err).Should(BeNil())
-
-	// Start goroutines to read and output the command's stdout and stderr
-	go func() {
-		scanner := bufio.NewScanner(cmdStdOutReader)
-		for scanner.Scan() {
-			log.Info(scanner.Text())
-		}
-		cmdOutput <- "Command execution finished"
-	}()
-	go func() {
-		scanner := bufio.NewScanner(cmdStdErrReader)
-		for scanner.Scan() {
-			log.Error(scanner.Text())
-		}
-		cmdOutput <- "Command execution finished"
-	}()
-	// Spawn a goroutine that will panic if the relayer exits abnormally.
-	go func() {
-		err := relayerCmd.Wait()
-		// Context cancellation is the only expected way for the process to exit, otherwise panic
-		if !errors.Is(relayerContext.Err(), context.Canceled) {
-			panic(fmt.Errorf("relayer exited abnormally: %w", err))
-		}
-	}()
-
+	runExecutable(relayerCmd, relayerCtx, "awm-relayer")
 	return func() {
 		relayerCancel()
-		<-relayerContext.Done()
+		<-relayerCtx.Done()
 	}
 }
 
@@ -112,58 +75,24 @@ func BuildAndRunSignatureAggregatorExecutable(ctx context.Context, configPath st
 	fmt.Println(string(out))
 	Expect(err).Should(BeNil())
 
-	cmdOutput := make(chan string)
-
 	// Run signature-aggregator binary with config path
-	var signatureAggregatorCtx context.Context
-	signatureAggregatorCtx, signatureAggregatorCancelFunc := context.WithCancel(ctx)
 	log.Info("Instantiating the signature-aggregator executable command")
 	log.Info(fmt.Sprintf("./build/signature-aggregator --config-file %s ", configPath))
+	aggregatorCtx, aggregatorCancel := context.WithCancel(ctx)
 	signatureAggregatorCmd := exec.CommandContext(
-		signatureAggregatorCtx,
+		aggregatorCtx,
 		"./build/signature-aggregator",
 		"--config-file",
 		configPath,
 	)
 
-	// Set up a pipe to capture the command's output
-	cmdStdOutReader, err := signatureAggregatorCmd.StdoutPipe()
-	Expect(err).Should(BeNil())
-	cmdStdErrReader, err := signatureAggregatorCmd.StderrPipe()
-	Expect(err).Should(BeNil())
+	runExecutable(signatureAggregatorCmd, aggregatorCtx, "signature-aggregator")
 
-	// Start the command
-	log.Info("Starting the signature-aggregator executable")
-	err = signatureAggregatorCmd.Start()
-	Expect(err).Should(BeNil())
-
-	// Start goroutines to read and output the command's stdout and stderr
-	go func() {
-		scanner := bufio.NewScanner(cmdStdOutReader)
-		for scanner.Scan() {
-			log.Info(scanner.Text())
-		}
-		cmdOutput <- "Command execution finished"
-	}()
-	go func() {
-		scanner := bufio.NewScanner(cmdStdErrReader)
-		for scanner.Scan() {
-			log.Error(scanner.Text())
-		}
-		cmdOutput <- "Command execution finished"
-	}()
-	// Spawn a goroutine that will panic if the aggregator exits abnormally.
-	go func() {
-		err := signatureAggregatorCmd.Wait()
-		// Context cancellation is the only expected way for the process to exit, otherwise panic
-		if !errors.Is(signatureAggregatorCtx.Err(), context.Canceled) {
-			panic(fmt.Errorf("signature-aggregator exited abnormally: %w", err))
-		}
-	}()
 	return func() {
-		signatureAggregatorCancelFunc()
-		<-signatureAggregatorCtx.Done()
+		aggregatorCancel()
+		<-aggregatorCtx.Done()
 	}
+
 }
 
 func ReadHexTextFile(filename string) string {
@@ -606,4 +535,47 @@ func DeployBatchCrossChainMessenger(
 	utils.WaitForTransactionSuccess(ctx, subnet, tx.Hash())
 
 	return address, exampleMessenger
+}
+
+func runExecutable(
+	cmd *exec.Cmd,
+	ctx context.Context,
+	appName string,
+) {
+	cmdOutput := make(chan string)
+
+	// Set up a pipe to capture the command's output
+	cmdStdOutReader, err := cmd.StdoutPipe()
+	Expect(err).Should(BeNil())
+	cmdStdErrReader, err := cmd.StderrPipe()
+	Expect(err).Should(BeNil())
+
+	// Start the command
+	log.Info("Starting executable", "appName", appName)
+	err = cmd.Start()
+	Expect(err).Should(BeNil())
+
+	// Start goroutines to read and output the command's stdout and stderr
+	go func() {
+		scanner := bufio.NewScanner(cmdStdOutReader)
+		for scanner.Scan() {
+			log.Info(scanner.Text())
+		}
+		cmdOutput <- "Command execution finished"
+	}()
+	go func() {
+		scanner := bufio.NewScanner(cmdStdErrReader)
+		for scanner.Scan() {
+			log.Error(scanner.Text())
+		}
+		cmdOutput <- "Command execution finished"
+	}()
+	// Spawn a goroutine that will panic if the aggregator exits abnormally.
+	go func() {
+		err := cmd.Wait()
+		// Context cancellation is the only expected way for the process to exit, otherwise panic
+		if !errors.Is(ctx.Err(), context.Canceled) {
+			panic(fmt.Errorf("%s exited abnormally: %w", appName, err))
+		}
+	}()
 }
