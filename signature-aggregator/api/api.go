@@ -8,45 +8,54 @@ import (
 	"encoding/json"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/awm-relayer/signature-aggregator/aggregator"
+	"github.com/ava-labs/awm-relayer/signature-aggregator/metrics"
 	"github.com/ava-labs/awm-relayer/types"
 	"github.com/ava-labs/awm-relayer/utils"
 	"go.uber.org/zap"
 )
 
 const (
-	RawMessageAPIPath = "/aggregate-signatures/by-raw-message"
-	defaultQuorumNum  = 67
+	APIPath                 = "/aggregate-signatures"
+	DefaultQuorumPercentage = 67
 )
 
 // Defines a request interface for signature aggregation for a raw unsigned message.
-// Currently a copy of the `ManualWarpMessageRequest` struct in relay_message.go
-type AggregateSignaturesByRawMsgRequest struct {
+type AggregateSignatureRequest struct {
 	// Required. hex-encoded message, optionally prefixed with "0x".
 	UnsignedMessage string `json:"unsigned-message"`
-	// Optional hex or cb58 encoded signing subnet ID. If omitted will default to the subnetID of the source BlockChain
+	// Optional hex or cb58 encoded signing subnet ID. If omitted will default to the subnetID of the source blockchain
 	SigningSubnetID string `json:"signing-subnet-id"`
 	// Optional. Integer from 0 to 100 representing the percentage of the quorum that is required to sign the message
 	// defaults to 67 if omitted.
-	QuorumNum uint64 `json:"quorum-num"`
+	QuorumPercentage uint64 `json:"quorum-percentage"`
 }
 
-type AggregateSignaturesResponse struct {
+type AggregateSignatureResponse struct {
 	// hex encoding of the signature
 	SignedMessage string `json:"signed-message"`
 }
 
 func HandleAggregateSignaturesByRawMsgRequest(
 	logger logging.Logger,
+	metrics *metrics.SignatureAggregatorMetrics,
 	signatureAggregator *aggregator.SignatureAggregator,
 ) {
-	http.Handle(RawMessageAPIPath, signatureAggregationAPIHandler(logger, signatureAggregator))
+	http.Handle(
+		APIPath,
+		signatureAggregationAPIHandler(
+			logger,
+			metrics,
+			signatureAggregator,
+		),
+	)
 }
 
-func writeJsonError(
+func writeJSONError(
 	logger logging.Logger,
 	w http.ResponseWriter,
 	errorMsg string,
@@ -66,14 +75,21 @@ func writeJsonError(
 	}
 }
 
-func signatureAggregationAPIHandler(logger logging.Logger, aggregator *aggregator.SignatureAggregator) http.Handler {
+func signatureAggregationAPIHandler(
+	logger logging.Logger,
+	metrics *metrics.SignatureAggregatorMetrics,
+	aggregator *aggregator.SignatureAggregator,
+) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var req AggregateSignaturesByRawMsgRequest
+		metrics.AggregateSignaturesRequestCount.Inc()
+		startTime := time.Now()
+
+		var req AggregateSignatureRequest
 		err := json.NewDecoder(r.Body).Decode(&req)
 		if err != nil {
 			msg := "Could not decode request body"
 			logger.Warn(msg, zap.Error(err))
-			writeJsonError(logger, w, msg)
+			writeJSONError(logger, w, msg)
 			return
 		}
 		var decodedMessage []byte
@@ -87,23 +103,23 @@ func signatureAggregationAPIHandler(logger logging.Logger, aggregator *aggregato
 				zap.String("msg", req.UnsignedMessage),
 				zap.Error(err),
 			)
-			writeJsonError(logger, w, msg)
+			writeJSONError(logger, w, msg)
 			return
 		}
 		unsignedMessage, err := types.UnpackWarpMessage(decodedMessage)
 		if err != nil {
 			msg := "Error unpacking warp message"
 			logger.Warn(msg, zap.Error(err))
-			writeJsonError(logger, w, msg)
+			writeJSONError(logger, w, msg)
 			return
 		}
-		quorumNum := req.QuorumNum
-		if quorumNum == 0 {
-			quorumNum = defaultQuorumNum
-		} else if req.QuorumNum > 100 {
+		quorumPercentage := req.QuorumPercentage
+		if quorumPercentage == 0 {
+			quorumPercentage = DefaultQuorumPercentage
+		} else if req.QuorumPercentage > 100 {
 			msg := "Invalid quorum number"
-			logger.Warn(msg, zap.Uint64("quorum-num", req.QuorumNum))
-			writeJsonError(logger, w, msg)
+			logger.Warn(msg, zap.Uint64("quorum-num", req.QuorumPercentage))
+			writeJSONError(logger, w, msg)
 			return
 		}
 		var signingSubnetID ids.ID
@@ -118,22 +134,22 @@ func signatureAggregationAPIHandler(logger logging.Logger, aggregator *aggregato
 					zap.Error(err),
 					zap.String("input", req.SigningSubnetID),
 				)
-				writeJsonError(logger, w, msg)
+				writeJSONError(logger, w, msg)
 			}
 		}
 
-		signedMessage, err := aggregator.AggregateSignaturesAppRequest(
+		signedMessage, err := aggregator.CreateSignedMessage(
 			unsignedMessage,
 			signingSubnetID,
-			quorumNum,
+			quorumPercentage,
 		)
 		if err != nil {
 			msg := "Failed to aggregate signatures"
 			logger.Warn(msg, zap.Error(err))
-			writeJsonError(logger, w, msg)
+			writeJSONError(logger, w, msg)
 		}
 		resp, err := json.Marshal(
-			AggregateSignaturesResponse{
+			AggregateSignatureResponse{
 				SignedMessage: hex.EncodeToString(
 					signedMessage.Bytes(),
 				),
@@ -143,7 +159,7 @@ func signatureAggregationAPIHandler(logger logging.Logger, aggregator *aggregato
 		if err != nil {
 			msg := "Failed to marshal response"
 			logger.Error(msg, zap.Error(err))
-			writeJsonError(logger, w, msg)
+			writeJSONError(logger, w, msg)
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
@@ -151,5 +167,8 @@ func signatureAggregationAPIHandler(logger logging.Logger, aggregator *aggregato
 		if err != nil {
 			logger.Error("Error writing response", zap.Error(err))
 		}
+		metrics.AggregateSignaturesLatencyMS.Set(
+			float64(time.Since(startTime).Milliseconds()),
+		)
 	})
 }

@@ -11,7 +11,8 @@ import (
 )
 
 const (
-	defaultAPIPort = uint16(8080)
+	defaultAPIPort     = uint16(8080)
+	defaultMetricsPort = uint16(8081)
 )
 
 var defaultLogLevel = logging.Info.String()
@@ -28,6 +29,8 @@ type Config struct {
 	PChainAPI *baseCfg.APIConfig `mapstructure:"p-chain-api" json:"p-chain-api"`
 	InfoAPI   *baseCfg.APIConfig `mapstructure:"info-api" json:"info-api"`
 	APIPort   uint16             `mapstructure:"api-port" json:"api-port"`
+
+	MetricsPort uint16 `mapstructure:"metrics-port" json:"metrics-port"`
 }
 
 func DisplayUsageText() {
@@ -48,12 +51,12 @@ func (c *Config) Validate() error {
 	return nil
 }
 
-// Config implempents the peers.Config interface
+// Config implements the peers.Config interface
 func (c *Config) GetPChainAPI() *baseCfg.APIConfig {
 	return c.PChainAPI
 }
 
-// Config implempents the peers.Config interface
+// Config implements the peers.Config interface
 func (c *Config) GetInfoAPI() *baseCfg.APIConfig {
 	return c.InfoAPI
 }

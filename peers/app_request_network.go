@@ -121,14 +121,14 @@ func (n *AppRequestNetwork) InitializeConnectionsAndCheckStake(cfg *config.Confi
 		if sourceBlockchain.GetSubnetID() == constants.PrimaryNetworkID {
 			if err := n.connectToPrimaryNetworkPeers(cfg, sourceBlockchain); err != nil {
 				return fmt.Errorf(
-					"Failed to connect to primary network peers: %w",
+					"failed to connect to primary network peers: %w",
 					err,
 				)
 			}
 		} else {
 			if err := n.connectToNonPrimaryNetworkPeers(cfg, sourceBlockchain); err != nil {
 				return fmt.Errorf(
-					"Failed to connect to non-primary network peers: %w",
+					"failed to connect to non-primary network peers: %w",
 					err,
 				)
 			}

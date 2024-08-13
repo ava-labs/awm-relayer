@@ -16,7 +16,6 @@ import (
 	"github.com/ava-labs/awm-relayer/database"
 	"github.com/ava-labs/awm-relayer/messages"
 	"github.com/ava-labs/awm-relayer/peers"
-	"github.com/ava-labs/awm-relayer/relayer/checkpoint"
 	"github.com/ava-labs/awm-relayer/signature-aggregator/aggregator"
 	"github.com/ava-labs/awm-relayer/utils"
 	"github.com/ava-labs/awm-relayer/vms"
@@ -41,6 +40,17 @@ var (
 	errFailedToGetAggSig = errors.New("failed to get aggregate signature from node endpoint")
 )
 
+// CheckpointManager stores committed heights in the database
+type CheckpointManager interface {
+	// Run starts a go routine that periodically stores the last committed height in the Database
+	Run()
+	// StageCommittedHeight queues a height to be written to the database.
+	// Heights are committed in sequence, so if height is not exactly one
+	// greater than the current committedHeight, it is instead cached in memory
+	// to potentially be committed later.
+	StageCommittedHeight(height uint64)
+}
+
 // ApplicationRelayers define a Warp message route from a specific source address on a specific source blockchain
 // to a specific destination address on a specific destination blockchain. This routing information is
 // encapsulated in [relayerID], which also represents the database key for an ApplicationRelayer.
@@ -53,7 +63,7 @@ type ApplicationRelayer struct {
 	destinationClient         vms.DestinationClient
 	relayerID                 database.RelayerID
 	warpQuorum                config.WarpQuorum
-	checkpointManager         *checkpoint.CheckpointManager
+	checkpointManager         CheckpointManager
 	sourceWarpSignatureClient *rpc.Client // nil if configured to fetch signatures via AppRequest for the source blockchain
 	signatureAggregator       *aggregator.SignatureAggregator
 }
@@ -63,11 +73,9 @@ func NewApplicationRelayer(
 	metrics *ApplicationRelayerMetrics,
 	network *peers.AppRequestNetwork,
 	relayerID database.RelayerID,
-	db database.RelayerDatabase,
-	ticker *utils.Ticker,
 	destinationClient vms.DestinationClient,
 	sourceBlockchain config.SourceBlockchain,
-	startingHeight uint64,
+	checkpointManager CheckpointManager,
 	cfg *config.Config,
 	signatureAggregator *aggregator.SignatureAggregator,
 ) (*ApplicationRelayer, error) {
@@ -90,15 +98,6 @@ func NewApplicationRelayer(
 		signingSubnet = sourceBlockchain.GetSubnetID()
 	}
 
-	sub := ticker.Subscribe()
-
-	checkpointManager := checkpoint.NewCheckpointManager(
-		logger,
-		db,
-		sub,
-		relayerID,
-		startingHeight,
-	)
 	checkpointManager.Run()
 
 	var warpClient *rpc.Client
@@ -206,8 +205,7 @@ func (r *ApplicationRelayer) ProcessMessage(handler messages.MessageHandler) (co
 
 	// sourceWarpSignatureClient is nil iff the source blockchain is configured to fetch signatures via AppRequest
 	if r.sourceWarpSignatureClient == nil {
-		// TODO: do we actually want to pass the pointer here or adapt the interface?
-		signedMessage, err = r.signatureAggregator.AggregateSignaturesAppRequest(
+		signedMessage, err = r.signatureAggregator.CreateSignedMessage(
 			unsignedMessage,
 			r.signingSubnetID,
 			r.warpQuorum.QuorumNumerator,

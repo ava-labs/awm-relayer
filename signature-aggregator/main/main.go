@@ -17,6 +17,7 @@ import (
 	"github.com/ava-labs/awm-relayer/signature-aggregator/aggregator"
 	"github.com/ava-labs/awm-relayer/signature-aggregator/api"
 	"github.com/ava-labs/awm-relayer/signature-aggregator/config"
+	"github.com/ava-labs/awm-relayer/signature-aggregator/metrics"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 )
@@ -26,8 +27,8 @@ var version = "v0.0.0-dev"
 func main() {
 	fs := config.BuildFlagSet()
 	if err := fs.Parse(os.Args[1:]); err != nil {
-		fmt.Println("Failed to parse flags: %w", err)
-		os.Exit(1)
+		config.DisplayUsageText()
+		panic(fmt.Errorf("Failed to parse flags: %w", err))
 	}
 
 	displayVersion, err := fs.GetBool(config.VersionKey)
@@ -105,9 +106,22 @@ func main() {
 		logger.Fatal("Failed to create message creator", zap.Error(err))
 		panic(err)
 	}
-	signatureAggregator := aggregator.NewSignatureAggregator(network, logger, messageCreator)
 
-	api.HandleAggregateSignaturesByRawMsgRequest(logger, signatureAggregator)
+	registry := metrics.Initialize(cfg.MetricsPort)
+	metricsInstance := metrics.NewSignatureAggregatorMetrics(registry)
+
+	signatureAggregator := aggregator.NewSignatureAggregator(
+		network,
+		logger,
+		metricsInstance,
+		messageCreator,
+	)
+
+	api.HandleAggregateSignaturesByRawMsgRequest(
+		logger,
+		metricsInstance,
+		signatureAggregator,
+	)
 
 	err = http.ListenAndServe(fmt.Sprintf(":%d", cfg.APIPort), nil)
 	if errors.Is(err, http.ErrServerClosed) {

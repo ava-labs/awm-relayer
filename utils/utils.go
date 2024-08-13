@@ -58,9 +58,9 @@ func CheckStakeWeightExceedsThreshold(
 func CheckStakeWeightPercentageExceedsThreshold(
 	accumulatedSignatureWeight *big.Int,
 	totalWeight uint64,
-	quorumNumerator uint64,
+	stakeWeightPercentage uint64,
 ) bool {
-	return CheckStakeWeightExceedsThreshold(accumulatedSignatureWeight, totalWeight, quorumNumerator, 100)
+	return CheckStakeWeightExceedsThreshold(accumulatedSignatureWeight, totalWeight, stakeWeightPercentage, 100)
 }
 
 //

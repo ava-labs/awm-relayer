@@ -26,7 +26,9 @@ import (
 	"github.com/ava-labs/awm-relayer/peers"
 	"github.com/ava-labs/awm-relayer/relayer"
 	"github.com/ava-labs/awm-relayer/relayer/api"
+	"github.com/ava-labs/awm-relayer/relayer/checkpoint"
 	"github.com/ava-labs/awm-relayer/signature-aggregator/aggregator"
+	sigAggMetrics "github.com/ava-labs/awm-relayer/signature-aggregator/metrics"
 	"github.com/ava-labs/awm-relayer/utils"
 	"github.com/ava-labs/awm-relayer/vms"
 	"github.com/ava-labs/subnet-evm/ethclient"
@@ -136,6 +138,10 @@ func main() {
 		networkLogLevel = logLevel
 	}
 	var trackedSubnets set.Set[ids.ID]
+	// trackedSubnets is no longer strictly required but keeping it here for now
+	// to keep full parity with existing AWM relayer for now
+	// TODO: remove this from here once trackedSubnets are no longer referenced
+	// by ping messages in avalanchego
 	for _, sourceBlockchain := range cfg.SourceBlockchains {
 		trackedSubnets.Add(sourceBlockchain.GetSubnetID())
 	}
@@ -206,7 +212,14 @@ func main() {
 		panic(err)
 	}
 
-	signatureAggregator := aggregator.NewSignatureAggregator(network, logger, messageCreator)
+	signatureAggregator := aggregator.NewSignatureAggregator(
+		network,
+		logger,
+		sigAggMetrics.NewSignatureAggregatorMetrics(
+			prometheus.DefaultRegisterer,
+		),
+		messageCreator,
+	)
 
 	applicationRelayers, minHeights, err := createApplicationRelayers(
 		context.Background(),
@@ -215,7 +228,6 @@ func main() {
 		db,
 		ticker,
 		network,
-		messageCreator,
 		&cfg,
 		sourceClients,
 		destinationClients,
@@ -344,7 +356,6 @@ func createApplicationRelayers(
 	db database.RelayerDatabase,
 	ticker *utils.Ticker,
 	network *peers.AppRequestNetwork,
-	messageCreator message.Creator,
 	cfg *config.Config,
 	sourceClients map[ids.ID]ethclient.Client,
 	destinationClients map[ids.ID]vms.DestinationClient,
@@ -368,7 +379,6 @@ func createApplicationRelayers(
 			ticker,
 			*sourceBlockchain,
 			network,
-			messageCreator,
 			cfg,
 			currentHeight,
 			destinationClients,
@@ -405,7 +415,6 @@ func createApplicationRelayersForSourceChain(
 	ticker *utils.Ticker,
 	sourceBlockchain config.SourceBlockchain,
 	network *peers.AppRequestNetwork,
-	messageCreator message.Creator,
 	cfg *config.Config,
 	currentHeight uint64,
 	destinationClients map[ids.ID]vms.DestinationClient,
@@ -440,16 +449,23 @@ func createApplicationRelayersForSourceChain(
 		if minHeight == 0 || height < minHeight {
 			minHeight = height
 		}
+
+		checkpointManager := checkpoint.NewCheckpointManager(
+			logger,
+			db,
+			ticker.Subscribe(),
+			relayerID,
+			height,
+		)
+
 		applicationRelayer, err := relayer.NewApplicationRelayer(
 			logger,
 			metrics,
 			network,
 			relayerID,
-			db,
-			ticker,
 			destinationClients[relayerID.DestinationBlockchainID],
 			sourceBlockchain,
-			height,
+			checkpointManager,
 			cfg,
 			signatureAggregator,
 		)

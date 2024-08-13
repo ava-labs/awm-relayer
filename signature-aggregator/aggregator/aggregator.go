@@ -23,6 +23,7 @@ import (
 	"github.com/ava-labs/avalanchego/utils/set"
 	avalancheWarp "github.com/ava-labs/avalanchego/vms/platformvm/warp"
 	"github.com/ava-labs/awm-relayer/peers"
+	"github.com/ava-labs/awm-relayer/signature-aggregator/metrics"
 	"github.com/ava-labs/awm-relayer/utils"
 	coreEthMsg "github.com/ava-labs/coreth/plugin/evm/message"
 	msg "github.com/ava-labs/subnet-evm/plugin/evm/message"
@@ -49,23 +50,27 @@ var (
 )
 
 type SignatureAggregator struct {
-	network                 *peers.AppRequestNetwork
+	network *peers.AppRequestNetwork
+	// protected by subnetsMapLock
 	subnetIDsByBlockchainID map[ids.ID]ids.ID
 	logger                  logging.Logger
 	messageCreator          message.Creator
 	currentRequestID        atomic.Uint32
-	mu                      sync.RWMutex
+	subnetsMapLock          sync.RWMutex
+	metrics                 *metrics.SignatureAggregatorMetrics
 }
 
 func NewSignatureAggregator(
 	network *peers.AppRequestNetwork,
 	logger logging.Logger,
+	metrics *metrics.SignatureAggregatorMetrics,
 	messageCreator message.Creator,
 ) *SignatureAggregator {
 	sa := SignatureAggregator{
 		network:                 network,
 		subnetIDsByBlockchainID: map[ids.ID]ids.ID{},
 		logger:                  logger,
+		metrics:                 metrics,
 		messageCreator:          messageCreator,
 		currentRequestID:        atomic.Uint32{},
 	}
@@ -73,7 +78,7 @@ func NewSignatureAggregator(
 	return &sa
 }
 
-func (s *SignatureAggregator) AggregateSignaturesAppRequest(
+func (s *SignatureAggregator) CreateSignedMessage(
 	unsignedMessage *avalancheWarp.UnsignedMessage,
 	inputSigningSubnet ids.ID,
 	quorumPercentage uint64,
@@ -82,7 +87,7 @@ func (s *SignatureAggregator) AggregateSignaturesAppRequest(
 
 	var signingSubnet ids.ID
 	var err error
-	// If signingSubnet is not set  we default to the subnet of the source blockchain
+	// If signingSubnet is not set we default to the subnet of the source blockchain
 	sourceSubnet, err := s.GetSubnetID(unsignedMessage.SourceChainID)
 	if err != nil {
 		return nil, fmt.Errorf(
@@ -105,6 +110,7 @@ func (s *SignatureAggregator) AggregateSignaturesAppRequest(
 			zap.String("warpMessageID", unsignedMessage.ID().String()),
 			zap.Error(err),
 		)
+		s.metrics.FailuresToGetValidatorSet.Inc()
 		return nil, fmt.Errorf("%s: %w", msg, err)
 	}
 	if !utils.CheckStakeWeightPercentageExceedsThreshold(
@@ -118,6 +124,7 @@ func (s *SignatureAggregator) AggregateSignaturesAppRequest(
 			zap.Uint64("totalValidatorWeight", connectedValidators.TotalValidatorWeight),
 			zap.Uint64("quorumPercentage", quorumPercentage),
 		)
+		s.metrics.FailuresToConnectToSufficientStake.Inc()
 		return nil, errNotEnoughConnectedStake
 	}
 
@@ -223,13 +230,12 @@ func (s *SignatureAggregator) AggregateSignaturesAppRequest(
 					zap.Error(err),
 				)
 				responsesExpected--
+				s.metrics.FailuresSendingToNode.Inc()
 			}
 		}
 
 		responseCount := 0
 		if responsesExpected > 0 {
-			// Handle the responses. For each response, we need to call response.OnFinishedHandling() exactly once.
-			// Wrap the loop body in an anonymous function so that we do so on each loop iteration
 			for response := range responseChan {
 				s.logger.Debug(
 					"Processing response from node",
@@ -248,6 +254,8 @@ func (s *SignatureAggregator) AggregateSignaturesAppRequest(
 					quorumPercentage,
 				)
 				if err != nil {
+					// don't increase node failures metric here, because we did
+					// it in handleResponse
 					return nil, fmt.Errorf(
 						"failed to handle response: %w",
 						err,
@@ -289,13 +297,13 @@ func (s *SignatureAggregator) AggregateSignaturesAppRequest(
 }
 
 func (s *SignatureAggregator) GetSubnetID(blockchainID ids.ID) (ids.ID, error) {
-	s.mu.RLock()
+	s.subnetsMapLock.RLock()
 	subnetID, ok := s.subnetIDsByBlockchainID[blockchainID]
-	s.mu.RUnlock()
+	s.subnetsMapLock.RUnlock()
 	if ok {
 		return subnetID, nil
 	}
-	s.logger.Info("Signing subnet not found, requesting from PChain", zap.String("chainID", blockchainID.String()))
+	s.logger.Info("Signing subnet not found, requesting from PChain", zap.String("blockchainID", blockchainID.String()))
 	subnetID, err := s.network.GetSubnetID(blockchainID)
 	if err != nil {
 		return ids.ID{}, fmt.Errorf("source blockchain not found for chain ID %s", blockchainID)
@@ -305,12 +313,12 @@ func (s *SignatureAggregator) GetSubnetID(blockchainID ids.ID) (ids.ID, error) {
 }
 
 func (s *SignatureAggregator) SetSubnetID(blockchainID ids.ID, subnetID ids.ID) {
-	s.mu.Lock()
+	s.subnetsMapLock.Lock()
 	s.subnetIDsByBlockchainID[blockchainID] = subnetID
-	s.mu.Unlock()
+	s.subnetsMapLock.Unlock()
 }
 
-// Attempts to create a signed warp message from the accumulated responses.
+// Attempts to create a signed Warp message from the accumulated responses.
 // Returns a non-nil Warp message if [accumulatedSignatureWeight] exceeds the signature verification threshold.
 // Returns false in the second return parameter if the app response is not relevant to the current signature
 // aggregation request. Returns an error only if a non-recoverable error occurs, otherwise returns a nil error
@@ -346,6 +354,7 @@ func (s *SignatureAggregator) handleResponse(
 	// This is still a relevant response, since we are no longer expecting a response from that node.
 	if response.Op() == message.AppErrorOp {
 		s.logger.Debug("Request timed out")
+		s.metrics.ValidatorTimeouts.Inc()
 		return nil, true, nil
 	}
 
@@ -369,48 +378,49 @@ func (s *SignatureAggregator) handleResponse(
 			zap.String("warpMessageID", unsignedMessage.ID().String()),
 			zap.String("sourceBlockchainID", unsignedMessage.SourceChainID.String()),
 		)
+		s.metrics.InvalidSignatureResponses.Inc()
 		return nil, true, nil
 	}
 
 	// As soon as the signatures exceed the stake weight threshold we try to aggregate and send the transaction.
-	if utils.CheckStakeWeightPercentageExceedsThreshold(
+	if !utils.CheckStakeWeightPercentageExceedsThreshold(
 		accumulatedSignatureWeight,
 		connectedValidators.TotalValidatorWeight,
 		quorumPercentage,
 	) {
-		aggSig, vdrBitSet, err := s.aggregateSignatures(signatureMap)
-		if err != nil {
-			msg := "Failed to aggregate signature."
-			s.logger.Error(
-				msg,
-				zap.String("sourceBlockchainID", unsignedMessage.SourceChainID.String()),
-				zap.String("warpMessageID", unsignedMessage.ID().String()),
-				zap.Error(err),
-			)
-			return nil, true, fmt.Errorf("%s: %w", msg, err)
-		}
-
-		signedMsg, err := avalancheWarp.NewMessage(
-			unsignedMessage,
-			&avalancheWarp.BitSetSignature{
-				Signers:   vdrBitSet.Bytes(),
-				Signature: *(*[bls.SignatureLen]byte)(bls.SignatureToBytes(aggSig)),
-			},
-		)
-		if err != nil {
-			msg := "Failed to create new signed message"
-			s.logger.Error(
-				msg,
-				zap.String("sourceBlockchainID", unsignedMessage.SourceChainID.String()),
-				zap.String("warpMessageID", unsignedMessage.ID().String()),
-				zap.Error(err),
-			)
-			return nil, true, fmt.Errorf("%s: %w", msg, err)
-		}
-		return signedMsg, true, nil
+		// Not enough signatures, continue processing messages
+		return nil, true, nil
 	}
-	// Not enough signatures, continue processing messages
-	return nil, true, nil
+	aggSig, vdrBitSet, err := s.aggregateSignatures(signatureMap)
+	if err != nil {
+		msg := "Failed to aggregate signature."
+		s.logger.Error(
+			msg,
+			zap.String("sourceBlockchainID", unsignedMessage.SourceChainID.String()),
+			zap.String("warpMessageID", unsignedMessage.ID().String()),
+			zap.Error(err),
+		)
+		return nil, true, fmt.Errorf("%s: %w", msg, err)
+	}
+
+	signedMsg, err := avalancheWarp.NewMessage(
+		unsignedMessage,
+		&avalancheWarp.BitSetSignature{
+			Signers:   vdrBitSet.Bytes(),
+			Signature: *(*[bls.SignatureLen]byte)(bls.SignatureToBytes(aggSig)),
+		},
+	)
+	if err != nil {
+		msg := "Failed to create new signed message"
+		s.logger.Error(
+			msg,
+			zap.String("sourceBlockchainID", unsignedMessage.SourceChainID.String()),
+			zap.String("warpMessageID", unsignedMessage.ID().String()),
+			zap.Error(err),
+		)
+		return nil, true, fmt.Errorf("%s: %w", msg, err)
+	}
+	return signedMsg, true, nil
 }
 
 // isValidSignatureResponse tries to generate a signature from the peer.AsyncResponse, then verifies
