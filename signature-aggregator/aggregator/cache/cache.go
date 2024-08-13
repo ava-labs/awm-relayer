@@ -55,11 +55,13 @@ func (c *Cache) Add(
 	pubKey PublicKeyBytes,
 	signature SignatureBytes,
 ) {
-	if signatures, ok := c.Get(msgID); ok {
-		signatures[pubKey] = signature
-	} else {
-		signatures := make(cacheValue)
-		signatures[pubKey] = signature
-		c.signatures.Add(cacheKey(msgID), signatures)
+	var (
+		sigs cacheValue
+		ok   bool
+	)
+	if sigs, ok = c.Get(msgID); !ok {
+		sigs = make(cacheValue)
 	}
+	sigs[pubKey] = signature
+	c.signatures.Add(cacheKey(msgID), sigs)
 }
