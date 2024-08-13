@@ -5,6 +5,7 @@ import (
 
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/utils/set"
+	baseCfg "github.com/ava-labs/awm-relayer/config"
 	"github.com/ava-labs/awm-relayer/utils"
 	"github.com/ethereum/go-ethereum/common"
 )
@@ -18,13 +19,13 @@ type SourceBlockchain struct {
 	SubnetID                          string                           `mapstructure:"subnet-id" json:"subnet-id"`
 	BlockchainID                      string                           `mapstructure:"blockchain-id" json:"blockchain-id"` //nolint:lll
 	VM                                string                           `mapstructure:"vm" json:"vm"`
-	RPCEndpoint                       APIConfig                        `mapstructure:"rpc-endpoint" json:"rpc-endpoint"`                                                   //nolint:lll
-	WSEndpoint                        APIConfig                        `mapstructure:"ws-endpoint" json:"ws-endpoint"`                                                     //nolint:lll
+	RPCEndpoint                       baseCfg.APIConfig                `mapstructure:"rpc-endpoint" json:"rpc-endpoint"`                                                   //nolint:lll
+	WSEndpoint                        baseCfg.APIConfig                `mapstructure:"ws-endpoint" json:"ws-endpoint"`                                                     //nolint:lll
 	MessageContracts                  map[string]MessageProtocolConfig `mapstructure:"message-contracts" json:"message-contracts"`                                         //nolint:lll
 	SupportedDestinations             []*SupportedDestination          `mapstructure:"supported-destinations" json:"supported-destinations"`                               //nolint:lll
 	ProcessHistoricalBlocksFromHeight uint64                           `mapstructure:"process-historical-blocks-from-height" json:"process-historical-blocks-from-height"` //nolint:lll
 	AllowedOriginSenderAddresses      []string                         `mapstructure:"allowed-origin-sender-addresses" json:"allowed-origin-sender-addresses"`             //nolint:lll
-	WarpAPIEndpoint                   APIConfig                        `mapstructure:"warp-api-endpoint" json:"warp-api-endpoint"`                                         //nolint:lll
+	WarpAPIEndpoint                   baseCfg.APIConfig                `mapstructure:"warp-api-endpoint" json:"warp-api-endpoint"`                                         //nolint:lll
 
 	// convenience fields to access parsed data after initialization
 	subnetID                     ids.ID
