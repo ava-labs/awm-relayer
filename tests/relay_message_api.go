@@ -52,15 +52,6 @@ func RelayMessageAPI(network interfaces.LocalNetwork) {
 	)
 	warpMessage := getWarpMessageFromLog(ctx, receipt, subnetAInfo)
 
-	// // Send an additional tx to make sure the relayer doesn't process the previous one on startup
-	// testUtils.SendBasicTeleporterMessage(
-	// 	ctx,
-	// 	subnetAInfo,
-	// 	subnetBInfo,
-	// 	fundedKey,
-	// 	fundedAddress,
-	// )
-
 	// Set up relayer config
 	relayerConfig := testUtils.CreateDefaultRelayerConfig(
 		[]interfaces.SubnetTestInfo{subnetAInfo, subnetBInfo},
