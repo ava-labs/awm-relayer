@@ -29,6 +29,8 @@ var Opts = struct {
 	FailuresSendingToNode              prometheus.CounterOpts
 	ValidatorTimeouts                  prometheus.CounterOpts
 	InvalidSignatureResponses          prometheus.CounterOpts
+	SignatureCacheHits                 prometheus.CounterOpts
+	SignatureCacheMisses               prometheus.CounterOpts
 }{
 	AggregateSignaturesLatencyMS: prometheus.GaugeOpts{
 		Name: "agg_sigs_latency_ms",
@@ -62,6 +64,14 @@ var Opts = struct {
 		Name: "invalid_signature_responses",
 		Help: "Number of responses from validators that were not valid signatures",
 	},
+	SignatureCacheHits: prometheus.CounterOpts{
+		Name: "signature_cache_hits",
+		Help: "Number of aggregated signatures that were found in the cache",
+	},
+	SignatureCacheMisses: prometheus.CounterOpts{
+		Name: "signature_cache_misses",
+		Help: "Number of aggregated signatures that were not found in the cache",
+	},
 }
 
 type SignatureAggregatorMetrics struct {
@@ -73,6 +83,8 @@ type SignatureAggregatorMetrics struct {
 	FailuresSendingToNode              prometheus.Counter
 	ValidatorTimeouts                  prometheus.Counter
 	InvalidSignatureResponses          prometheus.Counter
+	SignatureCacheHits                 prometheus.Counter
+	SignatureCacheMisses               prometheus.Counter
 
 	// TODO: consider other failures to monitor. Issue #384 requires
 	// "network failures", but we probably don't handle those directly.
@@ -111,6 +123,12 @@ func NewSignatureAggregatorMetrics(
 		InvalidSignatureResponses: prometheus.NewCounter(
 			Opts.InvalidSignatureResponses,
 		),
+		SignatureCacheHits: prometheus.NewCounter(
+			Opts.SignatureCacheHits,
+		),
+		SignatureCacheMisses: prometheus.NewCounter(
+			Opts.SignatureCacheMisses,
+		),
 	}
 
 	registerer.MustRegister(m.AggregateSignaturesLatencyMS)
@@ -121,6 +139,8 @@ func NewSignatureAggregatorMetrics(
 	registerer.MustRegister(m.FailuresSendingToNode)
 	registerer.MustRegister(m.ValidatorTimeouts)
 	registerer.MustRegister(m.InvalidSignatureResponses)
+	registerer.MustRegister(m.SignatureCacheHits)
+	registerer.MustRegister(m.SignatureCacheMisses)
 
 	return &m
 }

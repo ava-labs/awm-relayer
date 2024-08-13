@@ -129,21 +129,40 @@ func SignatureAggregatorAPI(network interfaces.LocalNetwork) {
 		{metrics.Opts.FailuresSendingToNode.Name, "<", 5},
 		{metrics.Opts.ValidatorTimeouts.Name, "==", 0},
 		{metrics.Opts.InvalidSignatureResponses.Name, "==", 0},
+		{metrics.Opts.SignatureCacheHits.Name, "==", 0},
+		{metrics.Opts.SignatureCacheMisses.Name, "==", 4},
 	} {
 		Expect(metricsSample[m.name]).Should(
 			BeNumerically(m.op, m.value),
+			"Expected metric %s %s %d",
+			m.name,
+			m.op,
+			m.value,
 		)
 	}
 
-	// make a second request, and ensure that the AppRequest counter did
-	// not increase, in order to validate that the cached signatures from
-	// the first request were used in response to the second request.
-	appRequestCountBeforeSecondRequest := metricsSample[metrics.Opts.AppRequestCount.Name]
+	// make a second request, and ensure that the metrics reflect that the
+	// signatures for the second request are retrieved from the cache. note
+	// that even though 4 signatures were requested in the previous
+	// request, only 3 will be cached, because that's all that was required
+	// to reach a quorum, so that's all that were handled.
 	sendRequestToAPI()
-	metricsSample = sampleMetrics(signatureAggregatorConfig.MetricsPort)
+	metricsSample2 := sampleMetrics(signatureAggregatorConfig.MetricsPort)
 	Expect(
-		metricsSample[metrics.Opts.AppRequestCount.Name],
-	).Should(Equal(appRequestCountBeforeSecondRequest))
+		metricsSample2[metrics.Opts.AppRequestCount.Name],
+	).Should(Equal(metricsSample[metrics.Opts.AppRequestCount.Name]))
+	log.Debug("sample", metricsSample2)
+	Expect(
+		metricsSample2[metrics.Opts.SignatureCacheHits.Name],
+	).Should(BeNumerically("==", 3))
+	Expect(
+		metricsSample2[metrics.Opts.SignatureCacheMisses.Name],
+	).Should(
+		BeNumerically(
+			"==",
+			1+metricsSample[metrics.Opts.SignatureCacheMisses.Name],
+		),
+	)
 }
 
 // returns a map of metric names to metric samples
@@ -170,6 +189,8 @@ func sampleMetrics(port uint16) map[string]uint64 {
 			metrics.Opts.FailuresSendingToNode.Name,
 			metrics.Opts.ValidatorTimeouts.Name,
 			metrics.Opts.InvalidSignatureResponses.Name,
+			metrics.Opts.SignatureCacheHits.Name,
+			metrics.Opts.SignatureCacheMisses.Name,
 		} {
 			if strings.HasPrefix(
 				line,
