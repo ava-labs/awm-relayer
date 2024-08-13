@@ -431,8 +431,8 @@ func createApplicationRelayersForSourceChain(
 	minHeight := uint64(0)
 	for _, relayerID := range database.GetSourceBlockchainRelayerIDs(&sourceBlockchain) {
 		// Calculate the starting block height for the relayer only if we're processing historical blocks
-		// Otherwies, the first block we process is the next block after the current height
-		height := currentHeight + 1
+		// Otherwise, the first block we process is the next block after the current height
+		var height uint64
 		if cfg.ProcessMissedBlocks {
 			var err error
 			height, err = database.CalculateStartingBlockHeight(
@@ -450,7 +450,15 @@ func createApplicationRelayersForSourceChain(
 				)
 				return nil, 0, err
 			}
+		} else {
+			logger.Info(
+				"processed-missed-blocks set to false, starting processing from chain head",
+				zap.String("blockchainID", sourceBlockchain.GetBlockchainID().String()),
+			)
+			height = currentHeight + 1
 		}
+
+		// Update the min height
 		if minHeight == 0 || height < minHeight {
 			minHeight = height
 		}
