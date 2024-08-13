@@ -46,7 +46,7 @@ func (c *Cache) Get(msgID ids.ID) (cacheValue, bool) {
 		return cachedValue, true
 	} else {
 		c.logger.Debug("cache miss", zap.Stringer("msgID", msgID))
-		return make(cacheValue), false
+		return nil, false
 	}
 }
 
