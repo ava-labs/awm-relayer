@@ -3,8 +3,8 @@ module github.com/ava-labs/awm-relayer
 go 1.21.12
 
 require (
-	github.com/ava-labs/avalanchego v1.11.11-0.20240807214427-376688b4912b
-	github.com/ava-labs/subnet-evm v0.6.9-0.20240809021034-3ceec5c96a5f
+	github.com/ava-labs/avalanchego v1.11.11-0.20240807224540-c7cf573a95ff
+	github.com/ava-labs/subnet-evm v0.6.9-0.20240813180803-86b37ac91d61
 	github.com/ava-labs/teleporter v1.0.5-0.20240809021837-ae1f422baa84
 	github.com/aws/aws-sdk-go-v2 v1.30.3
 	github.com/aws/aws-sdk-go-v2/config v1.27.9
