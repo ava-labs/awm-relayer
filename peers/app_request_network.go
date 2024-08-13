@@ -21,8 +21,8 @@ import (
 	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/avalanchego/utils/set"
 	"github.com/ava-labs/avalanchego/vms/platformvm/warp"
-	"github.com/ava-labs/awm-relayer/config"
 	"github.com/ava-labs/awm-relayer/peers/validators"
+	relayercfg "github.com/ava-labs/awm-relayer/relayer/config"
 	"github.com/ava-labs/awm-relayer/utils"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
@@ -112,7 +112,7 @@ func NewNetwork(
 }
 
 // TODO: remove dependence on Relayer specific config since this is meant to be a generic AppRequestNetwork file
-func (n *AppRequestNetwork) InitializeConnectionsAndCheckStake(cfg *config.Config) error {
+func (n *AppRequestNetwork) InitializeConnectionsAndCheckStake(cfg *relayercfg.Config) error {
 	// Manually connect to the validators of each of the source subnets.
 	// We return an error if we are unable to connect to sufficient stake on any of the subnets.
 	// Sufficient stake is determined by the Warp quora of the configured supported destinations,
@@ -278,8 +278,8 @@ func (n *AppRequestNetwork) GetSubnetID(blockchainID ids.ID) (ids.ID, error) {
 // Connect to the validators of the source blockchain. For each destination blockchain,
 // verify that we have connected to a threshold of stake.
 func (n *AppRequestNetwork) connectToNonPrimaryNetworkPeers(
-	cfg *config.Config,
-	sourceBlockchain *config.SourceBlockchain,
+	cfg *relayercfg.Config,
+	sourceBlockchain *relayercfg.SourceBlockchain,
 ) error {
 	subnetID := sourceBlockchain.GetSubnetID()
 	connectedValidators, err := n.ConnectToCanonicalValidators(subnetID)
@@ -310,8 +310,8 @@ func (n *AppRequestNetwork) connectToNonPrimaryNetworkPeers(
 // Connect to the validators of the destination blockchains. Verify that we have connected
 // to a threshold of stake for each blockchain.
 func (n *AppRequestNetwork) connectToPrimaryNetworkPeers(
-	cfg *config.Config,
-	sourceBlockchain *config.SourceBlockchain,
+	cfg *relayercfg.Config,
+	sourceBlockchain *relayercfg.SourceBlockchain,
 ) error {
 	for _, destination := range sourceBlockchain.SupportedDestinations {
 		blockchainID := destination.GetBlockchainID()
@@ -342,10 +342,10 @@ func (n *AppRequestNetwork) connectToPrimaryNetworkPeers(
 
 // Fetch the warp quorum from the config and check if the connected stake exceeds the threshold
 func (n *AppRequestNetwork) checkForSufficientConnectedStake(
-	cfg *config.Config,
+	cfg *relayercfg.Config,
 	connectedValidators *ConnectedCanonicalValidators,
 	destinationBlockchainID ids.ID,
-) (bool, *config.WarpQuorum, error) {
+) (bool, *relayercfg.WarpQuorum, error) {
 	quorum, err := cfg.GetWarpQuorum(destinationBlockchainID)
 	if err != nil {
 		n.logger.Error(
