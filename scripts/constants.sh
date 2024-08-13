@@ -10,8 +10,14 @@ RELAYER_PATH=$(
     cd .. && pwd
 )
 
-# Where AWM Relayer binary goes
+SIGNATURE_AGGREGATOR_PATH=$(
+    cd "$(dirname "${BASH_SOURCE[0]}")"
+    cd ../signature-aggregator && pwd
+)
+
+# Where binaries go
 relayer_path="$RELAYER_PATH/build/awm-relayer"
+signature_aggregator_path="$SIGNATURE_AGGREGATOR_PATH/build/signature-aggregator"
 
 # Set the PATHS
 GOPATH="$(go env GOPATH)"
