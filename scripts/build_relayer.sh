@@ -23,16 +23,13 @@ version_lt() {
 }
 
 
-# Relayer directory
-RELAYER_PATH=$(
+BASE_PATH=$(
     cd "$(dirname "${BASH_SOURCE[0]}")"
-    cd ../relayer && pwd
+    cd .. && pwd
 )
 
-# Base directory
-BASE_PATH=$(
-    cd $RELAYER_PATH 
-    cd .. && pwd
+RELAYER_PATH=$(
+    cd $BASE_PATH/relayer && pwd
 )
 
 # Load the versions and constants
