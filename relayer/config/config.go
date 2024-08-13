@@ -10,6 +10,7 @@ import (
 	"net/url"
 
 	baseCfg "github.com/ava-labs/awm-relayer/config"
+	"github.com/ava-labs/awm-relayer/peers"
 
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/utils/constants"
@@ -249,12 +250,12 @@ func (c *Config) GetWarpQuorum(blockchainID ids.ID) (WarpQuorum, error) {
 	return WarpQuorum{}, errFailedToGetWarpQuorum
 }
 
-// Config implements the peers.Config interface
+var _ peers.Config = &Config{}
+
 func (c *Config) GetPChainAPI() *baseCfg.APIConfig {
 	return c.PChainAPI
 }
 
-// Config implements the peers.Config interface
 func (c *Config) GetInfoAPI() *baseCfg.APIConfig {
 	return c.InfoAPI
 }

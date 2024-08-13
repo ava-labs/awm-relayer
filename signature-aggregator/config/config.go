@@ -8,6 +8,7 @@ import (
 
 	"github.com/ava-labs/avalanchego/utils/logging"
 	baseCfg "github.com/ava-labs/awm-relayer/config"
+	"github.com/ava-labs/awm-relayer/peers"
 )
 
 const (
@@ -51,12 +52,12 @@ func (c *Config) Validate() error {
 	return nil
 }
 
-// Config implements the peers.Config interface
+var _ peers.Config = &Config{}
+
 func (c *Config) GetPChainAPI() *baseCfg.APIConfig {
 	return c.PChainAPI
 }
 
-// Config implements the peers.Config interface
 func (c *Config) GetInfoAPI() *baseCfg.APIConfig {
 	return c.InfoAPI
 }
