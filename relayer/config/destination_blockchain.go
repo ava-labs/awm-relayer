@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	"github.com/ava-labs/avalanchego/ids"
-	baseCfg "github.com/ava-labs/awm-relayer/config"
+	basecfg "github.com/ava-labs/awm-relayer/config"
 	"github.com/ava-labs/awm-relayer/utils"
 	"github.com/ethereum/go-ethereum/crypto"
 )
@@ -17,7 +17,7 @@ type DestinationBlockchain struct {
 	SubnetID          string            `mapstructure:"subnet-id" json:"subnet-id"`
 	BlockchainID      string            `mapstructure:"blockchain-id" json:"blockchain-id"`
 	VM                string            `mapstructure:"vm" json:"vm"`
-	RPCEndpoint       baseCfg.APIConfig `mapstructure:"rpc-endpoint" json:"rpc-endpoint"`
+	RPCEndpoint       basecfg.APIConfig `mapstructure:"rpc-endpoint" json:"rpc-endpoint"`
 	KMSKeyID          string            `mapstructure:"kms-key-id" json:"kms-key-id"`
 	KMSAWSRegion      string            `mapstructure:"kms-aws-region" json:"kms-aws-region"`
 	AccountPrivateKey string            `mapstructure:"account-private-key" json:"account-private-key"`
