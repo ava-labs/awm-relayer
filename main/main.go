@@ -439,7 +439,7 @@ func createApplicationRelayersForSourceChain(
 		minHeight = height
 	}
 	for _, relayerID := range database.GetSourceBlockchainRelayerIDs(&sourceBlockchain) {
-		// Calculate the catcp-up starting block height, and update the min height if necessary
+		// Calculate the catch-up starting block height, and update the min height if necessary
 		if cfg.ProcessMissedBlocks {
 			var err error
 			height, err = database.CalculateStartingBlockHeight(
