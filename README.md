@@ -314,9 +314,29 @@ The relayer consists of the following components:
 
 ### Data Flow
 
-<div align="center">
+<figure>
   <img src="resources/relayer-diagram.png?raw=true"></img>
-</div>
+  <figcaption>Figure 1: Relayer Data Flow</figcaption>
+</figure>
+
+### Processing Missed Blocks
+
+On startup, the relayer will process any blocks that it missed while offline if `process-missed-blocks` is set to `true` in the configuration. For each configured `source-blockchain`, the starting block height is set as the _minimum_ block height that is stored in the relayer's database across keys that pertain to that blockchain. These keys correspond to distinct sending addresses (as specified in `source-blockchain.allowed-origin-sender-addresses`), meaning that on startup, the relayer will begin processing from the _minimum_ block height across all configured sending addresses for each `source-blockchain`. Note that an empty `source-blockchain.allowed-origin-sender-addresses` list is treated as its own distinct key. If no keys are found, then the relayer begins processing from the current chain tip.
+
+Once the starting block height is calculated, all blocks between it and the current tip of the `source-blockchain` are processed according to the _current_ configuration rules. 
+
+_Note:_ Given these semantics for computing the starting block height, it's possible for blocks that have previously been ignored under different configuration options to be relayed on a subsequent run. For example, consider the following scenario consisting of three subsequent runs (see Figure 2 below):
+
+- **Run 1**: Suppose that on Blockchain A we set `allowed-origin-sender-addresses=[0x1234]`, meaning that the relayer should _ignore_ messages sent by any other address. The relayer processes through block `100`, and that height is marked as processed for `0x1234`'s key.
+
+- **Run 2**: The relayer is then restarted with `allowed-origin-sender-addresses=[0xabcd]`, replacing `0x1234`. A message is sent from address `0x1234` at block height `200`. The relayer will decide to ignore this message, and will mark block `200` as processed for `0xabcd`'s key.
+
+- **Run 3**: The relayer is then restarted again with the original configuration of `allowed-origin-sender-addresses=[0x1234]`. The relayer will calculate the starting block height as `100`, and process blocks `100` through the current chain tip, reprocessing block `200` along the way. Instead of ignoring the message in this block, however, the relayer will relay it to the destination.
+
+<figure>
+  <img src="resources/catch-up-example.png?raw=true"></img>
+  <figcaption>Figure 2: Processing Missed Blocks Example</figcaption>
+</figure>
 
 ### API
 
