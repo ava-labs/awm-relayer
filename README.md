@@ -1,6 +1,6 @@
 # Avalanche ICM Off-chain Services
 
-This repository contains services related to Avalanche ICM (Interchain Messaging) systems along with shared code to support them. 
+This repository contains off-chain services that help support Avalanche Interchain Messaging (ICM).
 
 Currently implemented applications are 
 
