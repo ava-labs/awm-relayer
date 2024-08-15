@@ -172,7 +172,7 @@ func AllowedAddresses(network interfaces.LocalNetwork) {
 
 	// Test Relayer 1
 	log.Info("Testing Relayer 1: All sources -> All destinations")
-	relayerCleanup := testUtils.BuildAndRunRelayerExecutable(ctx, relayerConfigPath1)
+	relayerCleanup := testUtils.RunRelayerExecutable(ctx, relayerConfigPath1)
 	defer relayerCleanup()
 
 	// Sleep for some time to make sure relayer has started up and subscribed.
@@ -196,7 +196,7 @@ func AllowedAddresses(network interfaces.LocalNetwork) {
 
 	// Test Relayer 2
 	log.Info("Testing Relayer 2: Specific source -> All destinations")
-	relayerCleanup = testUtils.BuildAndRunRelayerExecutable(ctx, relayerConfigPath2)
+	relayerCleanup = testUtils.RunRelayerExecutable(ctx, relayerConfigPath2)
 	defer relayerCleanup()
 
 	// Sleep for some time to make sure relayer has started up and subscribed.
@@ -236,7 +236,7 @@ func AllowedAddresses(network interfaces.LocalNetwork) {
 
 	// Test Relayer 3
 	log.Info("Testing Relayer 3: All sources -> Specific destination")
-	relayerCleanup = testUtils.BuildAndRunRelayerExecutable(ctx, relayerConfigPath3)
+	relayerCleanup = testUtils.RunRelayerExecutable(ctx, relayerConfigPath3)
 	defer relayerCleanup()
 
 	// Sleep for some time to make sure relayer has started up and subscribed.
@@ -276,7 +276,7 @@ func AllowedAddresses(network interfaces.LocalNetwork) {
 
 	// Test Relayer 4
 	log.Info("Testing Relayer 4: Specific source -> Specific destination")
-	relayerCleanup = testUtils.BuildAndRunRelayerExecutable(ctx, relayerConfigPath4)
+	relayerCleanup = testUtils.RunRelayerExecutable(ctx, relayerConfigPath4)
 	defer relayerCleanup()
 
 	// Sleep for some time to make sure relayer has started up and subscribed.

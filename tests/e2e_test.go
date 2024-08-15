@@ -45,8 +45,15 @@ func TestE2E(t *testing.T) {
 
 // Define the Relayer before and after suite functions.
 var _ = ginkgo.BeforeSuite(func() {
+	var ctx context.Context
+	ctx, cancelDecider = context.WithCancel(context.Background())
+
+	log.Info("Building all ICM off-chain services executables")
+	testUtils.BuildAllExecutables(ctx)
+
+	log.Info("Setting up local network")
 	localNetworkInstance = local.NewLocalNetwork(
-		"awm-relayer-e2e-test",
+		"icm-off-chain-services-e2e-test",
 		warpGenesisTemplateFile,
 		[]local.SubnetSpec{
 			{
@@ -91,8 +98,6 @@ var _ = ginkgo.BeforeSuite(func() {
 		fundedKey,
 	)
 
-	var ctx context.Context
-	ctx, cancelDecider = context.WithCancel(context.Background())
 	decider = exec.CommandContext(ctx, "./tests/cmd/decider/decider")
 	decider.Start()
 	go func() { // panic if the decider exits abnormally

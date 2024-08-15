@@ -50,14 +50,14 @@ const (
 	DBUpdateSeconds                    = 1
 )
 
-func BuildAndRunRelayerExecutable(ctx context.Context, relayerConfigPath string) context.CancelFunc {
-	// Build the awm-relayer binary
-	cmd := exec.Command("./scripts/build_relayer.sh")
+func BuildAllExecutables(ctx context.Context) {
+	cmd := exec.Command("./scripts/build.sh")
 	out, err := cmd.CombinedOutput()
 	fmt.Println(string(out))
 	Expect(err).Should(BeNil())
+}
 
-	// Run awm relayer binary with config path
+func RunRelayerExecutable(ctx context.Context, relayerConfigPath string) context.CancelFunc {
 	relayerCtx, relayerCancel := context.WithCancel(ctx)
 	relayerCmd := exec.CommandContext(relayerCtx, "./build/awm-relayer", "--config-file", relayerConfigPath)
 
@@ -68,16 +68,7 @@ func BuildAndRunRelayerExecutable(ctx context.Context, relayerConfigPath string)
 	}
 }
 
-func BuildAndRunSignatureAggregatorExecutable(ctx context.Context, configPath string) context.CancelFunc {
-	// Build the signature-aggregator binary
-	cmd := exec.Command("./scripts/build_signature_aggregator.sh")
-	out, err := cmd.CombinedOutput()
-	fmt.Println(string(out))
-	Expect(err).Should(BeNil())
-
-	// Run signature-aggregator binary with config path
-	log.Info("Instantiating the signature-aggregator executable command")
-	log.Info(fmt.Sprintf("./build/signature-aggregator --config-file %s ", configPath))
+func RunSignatureAggregatorExecutable(ctx context.Context, configPath string) context.CancelFunc {
 	aggregatorCtx, aggregatorCancel := context.WithCancel(ctx)
 	signatureAggregatorCmd := exec.CommandContext(
 		aggregatorCtx,
@@ -493,7 +484,7 @@ func TriggerProcessMissedBlocks(
 	relayerConfigPath := WriteRelayerConfig(modifiedRelayerConfig, DefaultRelayerCfgFname)
 
 	log.Info("Starting the relayer")
-	relayerCleanup := BuildAndRunRelayerExecutable(ctx, relayerConfigPath)
+	relayerCleanup := RunRelayerExecutable(ctx, relayerConfigPath)
 	defer relayerCleanup()
 	log.Info("Waiting for a new block confirmation on the destination")
 	<-newHeads

@@ -68,9 +68,9 @@ func SharedDatabaseAccess(network interfaces.LocalNetwork) {
 	log.Info("Test Relaying from Subnet A to Subnet B")
 
 	log.Info("Starting the relayers")
-	relayerCleanupA := testUtils.BuildAndRunRelayerExecutable(ctx, relayerConfigPathA)
+	relayerCleanupA := testUtils.RunRelayerExecutable(ctx, relayerConfigPathA)
 	defer relayerCleanupA()
-	relayerCleanupB := testUtils.BuildAndRunRelayerExecutable(ctx, relayerConfigPathB)
+	relayerCleanupB := testUtils.RunRelayerExecutable(ctx, relayerConfigPathB)
 	defer relayerCleanupB()
 
 	// Sleep for some time to make sure relayer has started up and subscribed.

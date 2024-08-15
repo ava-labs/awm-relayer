@@ -52,7 +52,7 @@ func SignatureAggregatorAPI(network interfaces.LocalNetwork) {
 		testUtils.DefaultSignatureAggregatorCfgFname,
 	)
 	log.Info("Starting the signature aggregator", "configPath", signatureAggregatorConfigPath)
-	signatureAggregatorCancel := testUtils.BuildAndRunSignatureAggregatorExecutable(ctx, signatureAggregatorConfigPath)
+	signatureAggregatorCancel := testUtils.RunSignatureAggregatorExecutable(ctx, signatureAggregatorConfigPath)
 	defer signatureAggregatorCancel()
 
 	// Sleep for some time to make sure signature aggregator has started up and subscribed.

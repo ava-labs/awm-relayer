@@ -63,7 +63,7 @@ func BasicRelay(network interfaces.LocalNetwork) {
 	log.Info("Test Relaying from Subnet A to Subnet B")
 
 	log.Info("Starting the relayer")
-	relayerCleanup := testUtils.BuildAndRunRelayerExecutable(ctx, relayerConfigPath)
+	relayerCleanup := testUtils.RunRelayerExecutable(ctx, relayerConfigPath)
 	defer relayerCleanup()
 
 	// Sleep for some time to make sure relayer has started up and subscribed.
@@ -143,7 +143,7 @@ func BasicRelay(network interfaces.LocalNetwork) {
 
 	// Run the relayer
 	log.Info("Creating new relayer instance to test already delivered message")
-	relayerCleanup = testUtils.BuildAndRunRelayerExecutable(ctx, relayerConfigPath)
+	relayerCleanup = testUtils.RunRelayerExecutable(ctx, relayerConfigPath)
 	defer relayerCleanup()
 
 	// We should not receive a new block on subnet B, since the relayer should have

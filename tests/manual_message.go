@@ -109,7 +109,7 @@ func ManualMessage(network interfaces.LocalNetwork) {
 	relayerConfigPath := testUtils.WriteRelayerConfig(relayerConfig, testUtils.DefaultRelayerCfgFname)
 
 	log.Info("Starting the relayer")
-	relayerCleanup := testUtils.BuildAndRunRelayerExecutable(ctx, relayerConfigPath)
+	relayerCleanup := testUtils.RunRelayerExecutable(ctx, relayerConfigPath)
 	defer relayerCleanup()
 
 	// Sleep for some time to make sure relayer has started up and subscribed.
