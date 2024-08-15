@@ -118,8 +118,7 @@ func TestShouldSendMessage(t *testing.T) {
 
 	gasLimitExceededTeleporterMessage := validTeleporterMessage
 	gasLimitExceededTeleporterMessage.RequiredGasLimit = big.NewInt(maxTeleporterGasLimit + 1)
-	gasLimitExceededTeleporterMessageBytes, err :=
-		teleportermessenger.PackTeleporterMessage(gasLimitExceededTeleporterMessage)
+	gasLimitExceededTeleporterMessageBytes, err := gasLimitExceededTeleporterMessage.Pack()
 	require.NoError(t, err)
 
 	gasLimitExceededAddressedCall, err := warpPayload.NewAddressedCall(
