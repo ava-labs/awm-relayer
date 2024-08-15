@@ -48,6 +48,8 @@ See the [Building](#building) section for instructions on how to build the relay
 
 ## Requirements
 
+[buf](github.com/bufbuild/buf/) is required to rebuild protobuf definitions if changes are made to any `.proto` files. See [Generate Protobuf Files](#generate-protobuf-files) for more information.
+
 ### System Requirements
 
 - Ubuntu 22.04 or later
