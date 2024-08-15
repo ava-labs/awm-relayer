@@ -151,7 +151,6 @@ func SignatureAggregatorAPI(network interfaces.LocalNetwork) {
 	Expect(
 		metricsSample2[metrics.Opts.AppRequestCount.Name],
 	).Should(Equal(metricsSample[metrics.Opts.AppRequestCount.Name]))
-	log.Debug("sample", metricsSample2)
 	Expect(
 		metricsSample2[metrics.Opts.SignatureCacheHits.Name],
 	).Should(BeNumerically("==", 3))
