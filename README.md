@@ -48,6 +48,8 @@ See the [Building](#building) section for instructions on how to build the relay
 
 ## Requirements
 
+[buf](github.com/bufbuild/buf/) is required to rebuild protobuf definitions if changes are made to any `.proto` files. See [Generate Protobuf Files](#generate-protobuf-files) for more information.
+
 ### System Requirements
 
 - Ubuntu 22.04 or later
@@ -101,7 +103,7 @@ awm-relayer --help                                      Display awm-relayer usag
 
 ### Building
 
-Before building, be sure to install Go, which is required even if you're just building the Docker image. You'll also need to install [buf](github.com/bufbuild/buf/).
+Before building, be sure to install Go, which is required even if you're just building the Docker image.
 
 Build the relayer by running the script:
 
@@ -429,4 +431,20 @@ The E2E tests use the `TeleporterMessenger` contract deployment transaction spec
 
 ```bash
 go generate ./...
+```
+
+### Generate Protobuf Files
+
+[buf](github.com/bufbuild/buf/) is used to generate protobuf definitions for communication with the [Decider service](https://github.com/ava-labs/awm-relayer/blob/main/proto/decider/decider.proto). If you change any of the protobuf definitions you will have to regenerate the `.go` files. To generate these files, run the following command at the root of the project:
+
+```bash
+./scripts/protobuf_codegen.sh
+```
+
+### Generate Abi Bindings
+
+[subnet-evm](github.com/ava-labs/subnet-evm/cmd/abigen/) is used to generate abi binding `.go` files for solidity contracts. If you change any of the smart contracts, you will have to update the abi bindings. To generate these files, run the following command at the root of the project:
+
+```bash
+./scripts/abi_bindings.sh
 ```
