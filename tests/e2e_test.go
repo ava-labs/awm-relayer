@@ -93,14 +93,6 @@ var _ = ginkgo.BeforeSuite(func() {
 
 	var ctx context.Context
 	ctx, cancelDecider = context.WithCancel(context.Background())
-	// we'll call cancelDecider in AfterSuite, but also call it if this
-	// process is killed, because AfterSuite won't always run then:
-	signalChan := make(chan os.Signal, 2)
-	signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM)
-	go func() {
-		<-signalChan
-		cancelDecider()
-	}()
 	decider = exec.CommandContext(ctx, "./tests/cmd/decider/decider")
 	decider.Start()
 	go func() { // panic if the decider exits abnormally
@@ -120,6 +112,19 @@ var _ = ginkgo.BeforeSuite(func() {
 		localNetworkInstance.Dir(),
 		ginkgo.ReportEntryVisibilityFailureOrVerbose,
 	)
+
+	// Handle SIGINT and SIGTERM to ensure the network and decider are cleaned-up
+	// in case of a manual interrupt. Because AfterSuite doesn't always run in that case
+	signalChan := make(chan os.Signal, 2)
+	signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-signalChan
+		cancelDecider()
+		if localNetworkInstance != nil {
+			localNetworkInstance.TearDownNetwork()
+			localNetworkInstance = nil
+		}
+	}()
 })
 
 var _ = ginkgo.AfterSuite(func() {
