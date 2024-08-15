@@ -148,11 +148,8 @@ func (r *ApplicationRelayer) ProcessHeight(
 ) {
 	var eg errgroup.Group
 	for _, handler := range handlers {
-		// Copy the loop variable to a local variable to avoid the loop variable being captured by the
-		// goroutine. Once we upgrade to Go 1.22, we can use the loop variable directly in the goroutine.
-		h := handler
 		eg.Go(func() error {
-			_, err := r.ProcessMessage(h)
+			_, err := r.ProcessMessage(handler)
 			return err
 		})
 	}

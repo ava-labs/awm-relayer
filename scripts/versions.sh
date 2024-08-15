@@ -25,4 +25,4 @@ GINKGO_VERSION=${GINKGO_VERSION:-$(getDepVersion github.com/onsi/ginkgo/v2)}
 SUBNET_EVM_VERSION=${SUBNET_EVM_VERSION:-update-avago-teleporter}
 
 # Set golangci-lint version
-GOLANGCI_LINT_VERSION=${GOLANGCI_LINT_VERSION:-'v1.55'}
+GOLANGCI_LINT_VERSION=${GOLANGCI_LINT_VERSION:-'v1.60'}
