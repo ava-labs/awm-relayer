@@ -29,6 +29,10 @@ import (
 	"google.golang.org/grpc"
 )
 
+// The maximum gas limit that can be specified for a Teleporter message
+// Based on the C-Chain 15_000_000 gas limit per block, with other Warp message gas overhead conservatively estimated.
+const maxTeleporterGasLimit = 12_000_000
+
 type factory struct {
 	messageConfig   Config
 	protocolAddress common.Address
@@ -159,6 +163,19 @@ func (m *messageHandler) ShouldSendMessage(destinationClient vms.DestinationClie
 		return false, fmt.Errorf("failed to calculate Teleporter message ID: %w", err)
 	}
 
+	// Check if the specified gas limit is below the maximum threshold
+	if m.teleporterMessage.RequiredGasLimit.Uint64() > maxTeleporterGasLimit {
+		m.logger.Info(
+			"Gas limit exceeds maximum threshold",
+			zap.String("destinationBlockchainID", destinationBlockchainID.String()),
+			zap.String("teleporterMessageID", teleporterMessageID.String()),
+			zap.Uint64("requiredGasLimit", m.teleporterMessage.RequiredGasLimit.Uint64()),
+			zap.Uint64("maxGasLimit", maxTeleporterGasLimit),
+		)
+		return false, nil
+	}
+
+	// Check if the relayer is allowed to deliver this message
 	senderAddress := destinationClient.SenderAddress()
 	if !isAllowedRelayer(m.teleporterMessage.AllowedRelayerAddresses, senderAddress) {
 		m.logger.Info(
@@ -191,6 +208,7 @@ func (m *messageHandler) ShouldSendMessage(destinationClient vms.DestinationClie
 		)
 		return false, nil
 	}
+
 	// Dispatch to the external decider service. If the service is unavailable or returns
 	// an error, then use the decision that has already been made, i.e. return true
 	decision, err := m.getShouldSendMessageFromDecider()

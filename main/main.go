@@ -268,7 +268,6 @@ func main() {
 				*sourceBlockchain,
 				sourceClients[sourceBlockchain.GetBlockchainID()],
 				relayerHealth[sourceBlockchain.GetBlockchainID()],
-				cfg.ProcessMissedBlocks,
 				minHeights[sourceBlockchain.GetBlockchainID()],
 				messageCoordinator,
 			)
@@ -427,27 +426,42 @@ func createApplicationRelayersForSourceChain(
 	)
 	applicationRelayers := make(map[common.Hash]*relayer.ApplicationRelayer)
 
-	// Each ApplicationRelayer determines its starting height based on the database state.
+	// Each ApplicationRelayer determines its starting height based on the configuration and database state.
 	// The Listener begins processing messages starting from the minimum height across all the ApplicationRelayers
-	minHeight := uint64(0)
-	for _, relayerID := range database.GetSourceBlockchainRelayerIDs(&sourceBlockchain) {
-		height, err := database.CalculateStartingBlockHeight(
-			logger,
-			db,
-			relayerID,
-			sourceBlockchain.ProcessHistoricalBlocksFromHeight,
-			currentHeight,
+	// If catch up is disabled, the first block the ApplicationRelayer processes is the next block after the current height
+	var height, minHeight uint64
+	if !cfg.ProcessMissedBlocks {
+		logger.Info(
+			"processed-missed-blocks set to false, starting processing from chain head",
+			zap.String("blockchainID", sourceBlockchain.GetBlockchainID().String()),
 		)
-		if err != nil {
-			logger.Error(
-				"Failed to calculate starting block height",
-				zap.String("relayerID", relayerID.ID.String()),
-				zap.Error(err),
+		height = currentHeight + 1
+		minHeight = height
+	}
+	for _, relayerID := range database.GetSourceBlockchainRelayerIDs(&sourceBlockchain) {
+		// Calculate the catch-up starting block height, and update the min height if necessary
+		if cfg.ProcessMissedBlocks {
+			var err error
+			height, err = database.CalculateStartingBlockHeight(
+				logger,
+				db,
+				relayerID,
+				sourceBlockchain.ProcessHistoricalBlocksFromHeight,
+				currentHeight,
 			)
-			return nil, 0, err
-		}
-		if minHeight == 0 || height < minHeight {
-			minHeight = height
+			if err != nil {
+				logger.Error(
+					"Failed to calculate starting block height",
+					zap.String("relayerID", relayerID.ID.String()),
+					zap.Error(err),
+				)
+				return nil, 0, err
+			}
+
+			// Update the min height. This is the height that the listener will start processing from
+			if minHeight == 0 || height < minHeight {
+				minHeight = height
+			}
 		}
 
 		checkpointManager := checkpoint.NewCheckpointManager(
