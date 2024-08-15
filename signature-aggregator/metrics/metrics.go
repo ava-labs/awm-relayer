@@ -66,11 +66,11 @@ var Opts = struct {
 	},
 	SignatureCacheHits: prometheus.CounterOpts{
 		Name: "signature_cache_hits",
-		Help: "Number of aggregated signatures that were found in the cache",
+		Help: "Number of signatures that were found in the cache",
 	},
 	SignatureCacheMisses: prometheus.CounterOpts{
 		Name: "signature_cache_misses",
-		Help: "Number of aggregated signatures that were not found in the cache",
+		Help: "Number of signatures that were not found in the cache",
 	},
 }
 
