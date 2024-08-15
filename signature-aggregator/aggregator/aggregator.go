@@ -153,11 +153,6 @@ func (s *SignatureAggregator) CreateSignedMessage(
 		}
 		s.metrics.SignatureCacheHits.Add(float64(len(signatureMap)))
 	}
-	s.metrics.SignatureCacheMisses.Add(
-		float64(
-			len(connectedValidators.ValidatorSet) - len(signatureMap),
-		),
-	)
 	if signedMsg, err := s.aggregateIfSufficientWeight(
 		unsignedMessage,
 		signatureMap,
@@ -214,6 +209,9 @@ func (s *SignatureAggregator) CreateSignedMessage(
 	// Query the validators with retries. On each retry, query one node per unique BLS pubkey
 	for attempt := 1; attempt <= maxRelayerQueryAttempts; attempt++ {
 		responsesExpected := len(connectedValidators.ValidatorSet) - len(signatureMap)
+		if len(signatureMap) > 0 {
+			s.metrics.SignatureCacheMisses.Add(float64(responsesExpected))
+		}
 		s.logger.Debug(
 			"Aggregator collecting signatures from peers.",
 			zap.Int("attempt", attempt),

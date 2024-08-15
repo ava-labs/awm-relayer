@@ -130,7 +130,7 @@ func SignatureAggregatorAPI(network interfaces.LocalNetwork) {
 		{metrics.Opts.ValidatorTimeouts.Name, "==", 0},
 		{metrics.Opts.InvalidSignatureResponses.Name, "==", 0},
 		{metrics.Opts.SignatureCacheHits.Name, "==", 0},
-		{metrics.Opts.SignatureCacheMisses.Name, "==", 4},
+		{metrics.Opts.SignatureCacheMisses.Name, "==", 0},
 	} {
 		Expect(metricsSample[m.name]).Should(
 			BeNumerically(m.op, m.value),
@@ -157,12 +157,7 @@ func SignatureAggregatorAPI(network interfaces.LocalNetwork) {
 	).Should(BeNumerically("==", 3))
 	Expect(
 		metricsSample2[metrics.Opts.SignatureCacheMisses.Name],
-	).Should(
-		BeNumerically(
-			"==",
-			1+metricsSample[metrics.Opts.SignatureCacheMisses.Name],
-		),
-	)
+	).Should(Equal(metricsSample[metrics.Opts.SignatureCacheMisses.Name]))
 }
 
 // returns a map of metric names to metric samples
