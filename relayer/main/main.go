@@ -275,6 +275,7 @@ func main() {
 			)
 		})
 	}
+	logger.Info("Initialization complete")
 	err = errGroup.Wait()
 	logger.Error("Relayer exiting.", zap.Error(err))
 }

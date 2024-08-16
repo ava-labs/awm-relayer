@@ -172,12 +172,17 @@ func AllowedAddresses(network interfaces.LocalNetwork) {
 
 	// Test Relayer 1
 	log.Info("Testing Relayer 1: All sources -> All destinations")
-	relayerCleanup := testUtils.RunRelayerExecutable(ctx, relayerConfigPath1)
+	relayerCleanup, readyChan := testUtils.RunRelayerExecutable(ctx, relayerConfigPath1)
 	defer relayerCleanup()
 
-	// Sleep for some time to make sure relayer has started up and subscribed.
-	log.Info("Waiting for the relayers to start up")
-	time.Sleep(10 * time.Second)
+	// Wait for relayer to start up
+	log.Info("Waiting for the relayer to start up")
+	select {
+	case <-readyChan:
+		close(readyChan)
+	case <-time.After(15 * time.Second):
+		Expect(false).To(BeTrue(), "Relayer did not start up in time")
+	}
 
 	// Allowed by Relayer 1
 	testUtils.RelayBasicMessage(
@@ -196,12 +201,17 @@ func AllowedAddresses(network interfaces.LocalNetwork) {
 
 	// Test Relayer 2
 	log.Info("Testing Relayer 2: Specific source -> All destinations")
-	relayerCleanup = testUtils.RunRelayerExecutable(ctx, relayerConfigPath2)
+	relayerCleanup, readyChan = testUtils.RunRelayerExecutable(ctx, relayerConfigPath2)
 	defer relayerCleanup()
 
-	// Sleep for some time to make sure relayer has started up and subscribed.
-	log.Info("Waiting for the relayers to start up")
-	time.Sleep(10 * time.Second)
+	// Wait for relayer to start up
+	log.Info("Waiting for the relayer to start up")
+	select {
+	case <-readyChan:
+		close(readyChan)
+	case <-time.After(15 * time.Second):
+		Expect(false).To(BeTrue(), "Relayer did not start up in time")
+	}
 
 	// Disallowed by Relayer 2
 	_, _, id := testUtils.SendBasicTeleporterMessage(
@@ -236,12 +246,17 @@ func AllowedAddresses(network interfaces.LocalNetwork) {
 
 	// Test Relayer 3
 	log.Info("Testing Relayer 3: All sources -> Specific destination")
-	relayerCleanup = testUtils.RunRelayerExecutable(ctx, relayerConfigPath3)
+	relayerCleanup, readyChan = testUtils.RunRelayerExecutable(ctx, relayerConfigPath3)
 	defer relayerCleanup()
 
-	// Sleep for some time to make sure relayer has started up and subscribed.
-	log.Info("Waiting for the relayers to start up")
-	time.Sleep(10 * time.Second)
+	// Wait for relayer to start up
+	log.Info("Waiting for the relayer to start up")
+	select {
+	case <-readyChan:
+		close(readyChan)
+	case <-time.After(15 * time.Second):
+		Expect(false).To(BeTrue(), "Relayer did not start up in time")
+	}
 
 	// Disallowed by Relayer 3
 	_, _, id = testUtils.SendBasicTeleporterMessage(
@@ -276,12 +291,17 @@ func AllowedAddresses(network interfaces.LocalNetwork) {
 
 	// Test Relayer 4
 	log.Info("Testing Relayer 4: Specific source -> Specific destination")
-	relayerCleanup = testUtils.RunRelayerExecutable(ctx, relayerConfigPath4)
+	relayerCleanup, readyChan = testUtils.RunRelayerExecutable(ctx, relayerConfigPath4)
 	defer relayerCleanup()
 
-	// Sleep for some time to make sure relayer has started up and subscribed.
-	log.Info("Waiting for the relayers to start up")
-	time.Sleep(10 * time.Second)
+	// Wait for relayer to start up
+	log.Info("Waiting for the relayer to start up")
+	select {
+	case <-readyChan:
+		close(readyChan)
+	case <-time.After(15 * time.Second):
+		Expect(false).To(BeTrue(), "Relayer did not start up in time")
+	}
 
 	// Disallowed by Relayer 4
 	_, _, id = testUtils.SendBasicTeleporterMessage(

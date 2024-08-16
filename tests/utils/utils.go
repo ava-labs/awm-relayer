@@ -14,6 +14,8 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/utils/logging"
@@ -57,18 +59,18 @@ func BuildAllExecutables(ctx context.Context) {
 	Expect(err).Should(BeNil())
 }
 
-func RunRelayerExecutable(ctx context.Context, relayerConfigPath string) context.CancelFunc {
+func RunRelayerExecutable(ctx context.Context, relayerConfigPath string) (context.CancelFunc, chan struct{}) {
 	relayerCtx, relayerCancel := context.WithCancel(ctx)
 	relayerCmd := exec.CommandContext(relayerCtx, "./build/awm-relayer", "--config-file", relayerConfigPath)
 
-	runExecutable(relayerCmd, relayerCtx, "awm-relayer")
+	readyChan := runExecutable(relayerCmd, relayerCtx, "awm-relayer")
 	return func() {
 		relayerCancel()
 		<-relayerCtx.Done()
-	}
+	}, readyChan
 }
 
-func RunSignatureAggregatorExecutable(ctx context.Context, configPath string) context.CancelFunc {
+func RunSignatureAggregatorExecutable(ctx context.Context, configPath string) (context.CancelFunc, chan struct{}) {
 	aggregatorCtx, aggregatorCancel := context.WithCancel(ctx)
 	signatureAggregatorCmd := exec.CommandContext(
 		aggregatorCtx,
@@ -77,12 +79,12 @@ func RunSignatureAggregatorExecutable(ctx context.Context, configPath string) co
 		configPath,
 	)
 
-	runExecutable(signatureAggregatorCmd, aggregatorCtx, "signature-aggregator")
+	readyChan := runExecutable(signatureAggregatorCmd, aggregatorCtx, "signature-aggregator")
 
 	return func() {
 		aggregatorCancel()
 		<-aggregatorCtx.Done()
-	}
+	}, readyChan
 
 }
 
@@ -484,8 +486,18 @@ func TriggerProcessMissedBlocks(
 	relayerConfigPath := WriteRelayerConfig(modifiedRelayerConfig, DefaultRelayerCfgFname)
 
 	log.Info("Starting the relayer")
-	relayerCleanup := RunRelayerExecutable(ctx, relayerConfigPath)
+	relayerCleanup, readyChan := RunRelayerExecutable(ctx, relayerConfigPath)
 	defer relayerCleanup()
+
+	// Wait for relayer to start up
+	log.Info("Waiting for the relayer to start up")
+	select {
+	case <-readyChan:
+		close(readyChan)
+	case <-time.After(15 * time.Second):
+		Expect(false).To(BeTrue(), "Relayer did not start up in time")
+	}
+
 	log.Info("Waiting for a new block confirmation on the destination")
 	<-newHeads
 	delivered1, err := destinationSubnetInfo.TeleporterMessenger.MessageReceived(
@@ -532,7 +544,7 @@ func runExecutable(
 	cmd *exec.Cmd,
 	ctx context.Context,
 	appName string,
-) {
+) chan struct{} {
 	cmdOutput := make(chan string)
 
 	// Set up a pipe to capture the command's output
@@ -546,11 +558,17 @@ func runExecutable(
 	err = cmd.Start()
 	Expect(err).Should(BeNil())
 
+	readyChan := make(chan struct{})
+
 	// Start goroutines to read and output the command's stdout and stderr
 	go func() {
 		scanner := bufio.NewScanner(cmdStdOutReader)
 		for scanner.Scan() {
-			log.Info(scanner.Text())
+			text := scanner.Text()
+			if strings.Contains(text, "Initialization complete") {
+				readyChan <- struct{}{}
+			}
+			log.Info(text)
 		}
 		cmdOutput <- "Command execution finished"
 	}()
@@ -561,12 +579,18 @@ func runExecutable(
 		}
 		cmdOutput <- "Command execution finished"
 	}()
-	// Spawn a goroutine that will panic if the aggregator exits abnormally.
 	go func() {
 		err := cmd.Wait()
-		// Context cancellation is the only expected way for the process to exit, otherwise panic
+		// Context cancellation is the only expected way for the process to exit, otherwise log an error
+		// Don't panic to allow for easier cleanup
 		if !errors.Is(ctx.Err(), context.Canceled) {
-			panic(fmt.Errorf("%s exited abnormally: %w", appName, err))
+			log.Error("Executable exited abnormally", "appName", appName, "err", err)
 		}
 	}()
+	return readyChan
+}
+
+func WaitFunc(wg *sync.WaitGroup, ch chan struct{}) {
+	defer wg.Done()
+	<-ch
 }

@@ -109,12 +109,16 @@ func ManualMessage(network interfaces.LocalNetwork) {
 	relayerConfigPath := testUtils.WriteRelayerConfig(relayerConfig, testUtils.DefaultRelayerCfgFname)
 
 	log.Info("Starting the relayer")
-	relayerCleanup := testUtils.RunRelayerExecutable(ctx, relayerConfigPath)
+	relayerCleanup, readyChan := testUtils.RunRelayerExecutable(ctx, relayerConfigPath)
 	defer relayerCleanup()
 
-	// Sleep for some time to make sure relayer has started up and subscribed.
+	// Wait for relayer to startup.
 	log.Info("Waiting for the relayer to start up")
-	time.Sleep(15 * time.Second)
+	select {
+	case <-readyChan:
+	case <-time.After(15 * time.Second):
+		Expect(false).To(BeTrue(), "Relayer did not start up in time")
+	}
 
 	reqBody := api.ManualWarpMessageRequest{
 		UnsignedMessageBytes: unsignedMessage.Bytes(),

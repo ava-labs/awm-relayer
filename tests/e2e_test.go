@@ -40,6 +40,7 @@ func TestE2E(t *testing.T) {
 		if r := recover(); r != nil {
 			fmt.Sprintf("Panic caught: %v", r)
 			cleanup()
+			os.Exit(1)
 		}
 	}()
 	// Handle SIGINT and SIGTERM signals as well.
@@ -49,6 +50,7 @@ func TestE2E(t *testing.T) {
 		sig := <-signalChan
 		fmt.Printf("Caught signal %s: Shutting down...\n", sig)
 		cleanup()
+		os.Exit(1)
 	}()
 
 	if os.Getenv("RUN_E2E") == "" {
@@ -117,12 +119,12 @@ var _ = ginkgo.BeforeSuite(func() {
 
 	decider = exec.CommandContext(ctx, "./tests/cmd/decider/decider")
 	decider.Start()
-	go func() { // panic if the decider exits abnormally
+	go func() {
 		err := decider.Wait()
 		// Context cancellation is the only expected way for the
-		// process to exit, otherwise panic
+		// otherwise log an error but don't panic to allow for easier cleanup
 		if !errors.Is(ctx.Err(), context.Canceled) {
-			panic(fmt.Errorf("decider exited abnormally: %w", err))
+			log.Error("Decider exited abnormally: ", "error", err)
 		}
 	}()
 	log.Info("Started decider service")
@@ -138,14 +140,13 @@ var _ = ginkgo.BeforeSuite(func() {
 })
 
 func cleanup() {
-	fmt.Printf("Cleaning up\n")
-	if localNetworkInstance != nil {
-		fmt.Printf("Started cleaning up\n")
-		localNetworkInstance.TearDownNetwork()
-		fmt.Printf("Finished cleaning up\n")
-	}
 	if decider != nil {
 		cancelDecider()
+		decider = nil
+	}
+	if localNetworkInstance != nil {
+		localNetworkInstance.TearDownNetwork()
+		localNetworkInstance = nil
 	}
 }
 
