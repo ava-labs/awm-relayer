@@ -54,6 +54,22 @@ func CheckStakeWeightExceedsThreshold(
 	return scaledTotalWeight.Cmp(scaledSigWeight) != 1
 }
 
+func GetStakeWeightPercentage(
+	proportionalWeight *big.Int,
+	totalWeight uint64,
+) uint64 {
+	totalWeightBI := new(big.Int).SetUint64(totalWeight)
+	scaledProportionalWeight := new(big.Int).Mul(
+		proportionalWeight,
+		new(big.Int).SetUint64(100),
+	)
+	percentage := scaledProportionalWeight.Div(
+		scaledProportionalWeight,
+		totalWeightBI,
+	)
+	return percentage.Uint64()
+}
+
 // Wrapper for CheckStakeWeightExceedThreshold with a quorumDen of 100.
 func CheckStakeWeightPercentageExceedsThreshold(
 	accumulatedSignatureWeight *big.Int,

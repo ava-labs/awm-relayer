@@ -131,6 +131,7 @@ func SignatureAggregatorAPI(network interfaces.LocalNetwork) {
 		{metrics.Opts.InvalidSignatureResponses.Name, "==", 0},
 		{metrics.Opts.SignatureCacheHits.Name, "==", 0},
 		{metrics.Opts.SignatureCacheMisses.Name, "==", 0},
+		{metrics.Opts.CachedSignatureWeightPercentage.Name, "==", 0},
 	} {
 		Expect(metricsSample[m.name]).Should(
 			BeNumerically(m.op, m.value),
@@ -157,6 +158,9 @@ func SignatureAggregatorAPI(network interfaces.LocalNetwork) {
 	Expect(
 		metricsSample2[metrics.Opts.SignatureCacheMisses.Name],
 	).Should(Equal(metricsSample[metrics.Opts.SignatureCacheMisses.Name]))
+	Expect(
+		metricsSample2[metrics.Opts.CachedSignatureWeightPercentage.Name],
+	).Should(BeNumerically("==", 75))
 }
 
 // returns a map of metric names to metric samples
@@ -185,6 +189,7 @@ func sampleMetrics(port uint16) map[string]uint64 {
 			metrics.Opts.InvalidSignatureResponses.Name,
 			metrics.Opts.SignatureCacheHits.Name,
 			metrics.Opts.SignatureCacheMisses.Name,
+			metrics.Opts.CachedSignatureWeightPercentage.Name,
 		} {
 			if strings.HasPrefix(
 				line,

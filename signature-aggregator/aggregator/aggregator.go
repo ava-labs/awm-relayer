@@ -152,6 +152,12 @@ func (s *SignatureAggregator) CreateSignedMessage(
 			}
 		}
 		s.metrics.SignatureCacheHits.Add(float64(len(signatureMap)))
+		s.metrics.CachedSignatureWeightPercentage.Set(
+			float64(utils.GetStakeWeightPercentage(
+				accumulatedSignatureWeight,
+				connectedValidators.TotalValidatorWeight,
+			)),
+		)
 	}
 	if signedMsg, err := s.aggregateIfSufficientWeight(
 		unsignedMessage,
