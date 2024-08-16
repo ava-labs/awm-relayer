@@ -12,12 +12,11 @@ import (
 )
 
 type Cache struct {
-	logger     logging.Logger
-	signatures *lru.Cache[cacheKey, cacheValue]
-}
+	logger logging.Logger
 
-type cacheKey ids.ID // warp message ID
-type cacheValue map[PublicKeyBytes]SignatureBytes
+	// map of warp message ID to a map of public keys to signatures
+	signatures *lru.Cache[ids.ID, map[PublicKeyBytes]SignatureBytes]
+}
 
 type PublicKeyBytes [bls.PublicKeyLen]byte
 type SignatureBytes [bls.SignatureLen]byte
@@ -27,7 +26,7 @@ func NewCache(size uint64, logger logging.Logger) (*Cache, error) {
 		return nil, errors.New("cache size too big")
 	}
 
-	signatureCache, err := lru.New[cacheKey, cacheValue](int(size))
+	signatureCache, err := lru.New[ids.ID, map[PublicKeyBytes]SignatureBytes](int(size))
 	if err != nil {
 		return nil, err
 	}
@@ -38,8 +37,8 @@ func NewCache(size uint64, logger logging.Logger) (*Cache, error) {
 	}, nil
 }
 
-func (c *Cache) Get(msgID ids.ID) (cacheValue, bool) {
-	cachedValue, isCached := c.signatures.Get(cacheKey(msgID))
+func (c *Cache) Get(msgID ids.ID) (map[PublicKeyBytes]SignatureBytes, bool) {
+	cachedValue, isCached := c.signatures.Get(msgID)
 
 	if isCached {
 		c.logger.Debug("cache hit", zap.Stringer("msgID", msgID))
@@ -56,12 +55,12 @@ func (c *Cache) Add(
 	signature SignatureBytes,
 ) {
 	var (
-		sigs cacheValue
+		sigs map[PublicKeyBytes]SignatureBytes
 		ok   bool
 	)
 	if sigs, ok = c.Get(msgID); !ok {
-		sigs = make(cacheValue)
+		sigs = make(map[PublicKeyBytes]SignatureBytes)
 	}
 	sigs[pubKey] = signature
-	c.signatures.Add(cacheKey(msgID), sigs)
+	c.signatures.Add(msgID, sigs)
 }
