@@ -120,7 +120,7 @@ var _ = ginkgo.BeforeSuite(func() {
 	decider.Start()
 	go func() {
 		err := decider.Wait()
-		// Context cancellation is the only expected way for the
+		// Context cancellation is the only expected way for the process to exit
 		// otherwise log an error but don't panic to allow for easier cleanup
 		if !errors.Is(ctx.Err(), context.Canceled) {
 			log.Error("Decider exited abnormally: ", "error", err)
