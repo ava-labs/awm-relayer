@@ -38,7 +38,7 @@ func TestE2E(t *testing.T) {
 	// In case of a panic we need to recover to ensure the Ginkgo cleanup is done
 	defer func() {
 		if r := recover(); r != nil {
-			fmt.Sprintf("Panic caught: %v", r)
+			log.Error("Panic caught: ", "panic", r)
 			cleanup()
 			os.Exit(1)
 		}
@@ -59,7 +59,6 @@ func TestE2E(t *testing.T) {
 
 	RegisterFailHandler(ginkgo.Fail)
 	ginkgo.RunSpecs(t, "Relayer e2e test")
-
 }
 
 // Define the Relayer before and after suite functions.

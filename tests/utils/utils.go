@@ -84,7 +84,6 @@ func RunSignatureAggregatorExecutable(ctx context.Context, configPath string) (c
 		aggregatorCancel()
 		<-aggregatorCtx.Done()
 	}, readyChan
-
 }
 
 func ReadHexTextFile(filename string) string {
