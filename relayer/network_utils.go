@@ -70,7 +70,7 @@ func connectToNonPrimaryNetworkPeers(
 	for _, destination := range sourceBlockchain.SupportedDestinations {
 		blockchainID := destination.GetBlockchainID()
 		if ok, quorum, err := checkForSufficientConnectedStake(logger, cfg, connectedValidators, blockchainID); !ok {
-			logger.Error(
+			logger.Warn(
 				"Failed to connect to a threshold of stake",
 				zap.String("destinationBlockchainID", blockchainID.String()),
 				zap.Uint64("connectedWeight", connectedValidators.ConnectedWeight),
@@ -105,7 +105,7 @@ func connectToPrimaryNetworkPeers(
 		}
 
 		if ok, quorum, err := checkForSufficientConnectedStake(logger, cfg, connectedValidators, blockchainID); !ok {
-			logger.Error(
+			logger.Warn(
 				"Failed to connect to a threshold of stake",
 				zap.String("destinationBlockchainID", blockchainID.String()),
 				zap.Uint64("connectedWeight", connectedValidators.ConnectedWeight),
