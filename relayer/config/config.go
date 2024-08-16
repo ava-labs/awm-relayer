@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"net/url"
 
-	baseCfg "github.com/ava-labs/awm-relayer/config"
+	basecfg "github.com/ava-labs/awm-relayer/config"
 	"github.com/ava-labs/awm-relayer/peers"
 
 	"github.com/ava-labs/avalanchego/ids"
@@ -37,6 +37,7 @@ const (
 	defaultAPIPort             = uint16(8080)
 	defaultMetricsPort         = uint16(9090)
 	defaultIntervalSeconds     = uint64(10)
+	defaultSignatureCacheSize  = uint64(1024 * 1024)
 )
 
 var defaultLogLevel = logging.Info.String()
@@ -58,12 +59,13 @@ type Config struct {
 	APIPort                uint16                   `mapstructure:"api-port" json:"api-port"`
 	MetricsPort            uint16                   `mapstructure:"metrics-port" json:"metrics-port"`
 	DBWriteIntervalSeconds uint64                   `mapstructure:"db-write-interval-seconds" json:"db-write-interval-seconds"` //nolint:lll
-	PChainAPI              *baseCfg.APIConfig       `mapstructure:"p-chain-api" json:"p-chain-api"`
-	InfoAPI                *baseCfg.APIConfig       `mapstructure:"info-api" json:"info-api"`
+	PChainAPI              *basecfg.APIConfig       `mapstructure:"p-chain-api" json:"p-chain-api"`
+	InfoAPI                *basecfg.APIConfig       `mapstructure:"info-api" json:"info-api"`
 	SourceBlockchains      []*SourceBlockchain      `mapstructure:"source-blockchains" json:"source-blockchains"`
 	DestinationBlockchains []*DestinationBlockchain `mapstructure:"destination-blockchains" json:"destination-blockchains"`
 	ProcessMissedBlocks    bool                     `mapstructure:"process-missed-blocks" json:"process-missed-blocks"`
 	DeciderURL             string                   `mapstructure:"decider-url" json:"decider-url"`
+	SignatureCacheSize     uint64                   `mapstructure:"signature-cache-size" json:"signature-cache-size"`
 
 	// convenience field to fetch a blockchain's subnet ID
 	blockchainIDToSubnetID map[ids.ID]ids.ID
@@ -252,10 +254,10 @@ func (c *Config) GetWarpQuorum(blockchainID ids.ID) (WarpQuorum, error) {
 
 var _ peers.Config = &Config{}
 
-func (c *Config) GetPChainAPI() *baseCfg.APIConfig {
+func (c *Config) GetPChainAPI() *basecfg.APIConfig {
 	return c.PChainAPI
 }
 
-func (c *Config) GetInfoAPI() *baseCfg.APIConfig {
+func (c *Config) GetInfoAPI() *basecfg.APIConfig {
 	return c.InfoAPI
 }

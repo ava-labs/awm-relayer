@@ -70,7 +70,7 @@ func init() {
 }
 
 func TestShouldSendMessage(t *testing.T) {
-	validMessageBytes, err := teleportermessenger.PackTeleporterMessage(validTeleporterMessage)
+	validMessageBytes, err := validTeleporterMessage.Pack()
 	require.NoError(t, err)
 
 	validAddressedCall, err := warpPayload.NewAddressedCall(
@@ -113,6 +113,24 @@ func TestShouldSendMessage(t *testing.T) {
 		0,
 		sourceBlockchainID,
 		append(invalidAddressedCall.Bytes(), []byte{1, 2, 3, 4}...),
+	)
+	require.NoError(t, err)
+
+	gasLimitExceededTeleporterMessage := validTeleporterMessage
+	gasLimitExceededTeleporterMessage.RequiredGasLimit = big.NewInt(maxTeleporterGasLimit + 1)
+	gasLimitExceededTeleporterMessageBytes, err := gasLimitExceededTeleporterMessage.Pack()
+	require.NoError(t, err)
+
+	gasLimitExceededAddressedCall, err := warpPayload.NewAddressedCall(
+		messageProtocolAddress.Bytes(),
+		gasLimitExceededTeleporterMessageBytes,
+	)
+	require.NoError(t, err)
+
+	gasLimitExceededWarpUnsignedMessage, err := warp.NewUnsignedMessage(
+		0,
+		sourceBlockchainID,
+		gasLimitExceededAddressedCall.Bytes(),
 	)
 	require.NoError(t, err)
 
@@ -176,6 +194,12 @@ func TestShouldSendMessage(t *testing.T) {
 				times:          1,
 			},
 			expectedResult: false,
+		},
+		{
+			name:                    "gas limit exceeded",
+			destinationBlockchainID: destinationBlockchainID,
+			warpUnsignedMessage:     gasLimitExceededWarpUnsignedMessage,
+			expectedResult:          false,
 		},
 	}
 	for _, test := range testCases {

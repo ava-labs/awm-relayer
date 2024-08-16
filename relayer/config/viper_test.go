@@ -5,7 +5,7 @@ import (
 	"os"
 	"testing"
 
-	baseCfg "github.com/ava-labs/awm-relayer/config"
+	basecfg "github.com/ava-labs/awm-relayer/config"
 
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/require"
@@ -26,10 +26,10 @@ func TestBuildConfig(t *testing.T) {
 	require.Equal(t, defaultAPIPort, cfg.APIPort)
 	require.Equal(t, defaultMetricsPort, cfg.MetricsPort)
 	require.Equal(t, defaultIntervalSeconds, cfg.DBWriteIntervalSeconds)
-	require.Equal(t, &baseCfg.APIConfig{
+	require.Equal(t, &basecfg.APIConfig{
 		BaseURL: "https://api.avax-test.network",
 	}, cfg.PChainAPI)
-	require.Equal(t, &baseCfg.APIConfig{
+	require.Equal(t, &basecfg.APIConfig{
 		BaseURL: "https://api.avax-test.network",
 	}, cfg.InfoAPI)
 
@@ -38,10 +38,10 @@ func TestBuildConfig(t *testing.T) {
 		SubnetID:     "11111111111111111111111111111111LpoYY",
 		BlockchainID: "yH8D7ThNJkxmtkuv2jgBa4P1Rn3Qpr4pPr7QYNfcdoS6k6HWp",
 		VM:           "evm",
-		RPCEndpoint: baseCfg.APIConfig{
+		RPCEndpoint: basecfg.APIConfig{
 			BaseURL: "https://api.avax-test.network/ext/bc/C/rpc",
 		},
-		WSEndpoint: baseCfg.APIConfig{
+		WSEndpoint: basecfg.APIConfig{
 			BaseURL: "wss://api.avax-test.network/ext/bc/C/ws",
 		},
 		MessageContracts: map[string]MessageProtocolConfig{
@@ -58,7 +58,7 @@ func TestBuildConfig(t *testing.T) {
 	require.Equal(t, &DestinationBlockchain{
 		SubnetID:     "7WtoAMPhrmh5KosDUsFL9yTcvw7YSxiKHPpdfs4JsgW47oZT5",
 		BlockchainID: "2D8RG4UpSXbPbvPCAWppNJyqTG2i2CAXSkTgmTBBvs7GKNZjsY",
-		RPCEndpoint: baseCfg.APIConfig{
+		RPCEndpoint: basecfg.APIConfig{
 			BaseURL: "https://subnets.avax.network/dispatch/testnet/rpc",
 		},
 		VM:                "evm",

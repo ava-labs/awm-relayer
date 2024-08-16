@@ -23,16 +23,13 @@ version_lt() {
 }
 
 
-# Relayer directory
-RELAYER_PATH=$(
+BASE_PATH=$(
     cd "$(dirname "${BASH_SOURCE[0]}")"
-    cd ../relayer && pwd
+    cd .. && pwd
 )
 
-# Base directory
-BASE_PATH=$(
-    cd $RELAYER_PATH 
-    cd .. && pwd
+RELAYER_PATH=$(
+    cd $BASE_PATH/relayer && pwd
 )
 
 # Load the versions and constants
@@ -45,8 +42,6 @@ if version_lt "$(go_version)" "$go_version_minimum"; then
     echo "awm-relayer requires Go >= $go_version_minimum, Go $(go_version) found." >&2
     exit 1
 fi
-
-scripts/protobuf_codegen.sh
 
 if [[ $# -eq 1 ]]; then
     binary_path=$1

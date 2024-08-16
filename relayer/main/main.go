@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"math/big"
 	"net/http"
 	"os"
 	"runtime"
@@ -153,10 +152,14 @@ func main() {
 		trackedSubnets,
 		&cfg,
 	)
-	initializeConnectionsAndCheckStake(logger, network, &cfg)
-
 	if err != nil {
 		logger.Fatal("Failed to create app request network", zap.Error(err))
+		panic(err)
+	}
+
+	err = relayer.InitializeConnectionsAndCheckStake(logger, network, &cfg)
+	if err != nil {
+		logger.Fatal("Failed to initialize connections and check stake", zap.Error(err))
 		panic(err)
 	}
 
@@ -213,14 +216,19 @@ func main() {
 		panic(err)
 	}
 
-	signatureAggregator := aggregator.NewSignatureAggregator(
+	signatureAggregator, err := aggregator.NewSignatureAggregator(
 		network,
 		logger,
+		cfg.SignatureCacheSize,
 		sigAggMetrics.NewSignatureAggregatorMetrics(
 			prometheus.DefaultRegisterer,
 		),
 		messageCreator,
 	)
+	if err != nil {
+		logger.Fatal("Failed to create signature aggregator", zap.Error(err))
+		panic(err)
+	}
 
 	applicationRelayers, minHeights, err := createApplicationRelayers(
 		context.Background(),
@@ -269,7 +277,6 @@ func main() {
 				*sourceBlockchain,
 				sourceClients[sourceBlockchain.GetBlockchainID()],
 				relayerHealth[sourceBlockchain.GetBlockchainID()],
-				cfg.ProcessMissedBlocks,
 				minHeights[sourceBlockchain.GetBlockchainID()],
 				messageCoordinator,
 			)
@@ -429,27 +436,42 @@ func createApplicationRelayersForSourceChain(
 	)
 	applicationRelayers := make(map[common.Hash]*relayer.ApplicationRelayer)
 
-	// Each ApplicationRelayer determines its starting height based on the database state.
+	// Each ApplicationRelayer determines its starting height based on the configuration and database state.
 	// The Listener begins processing messages starting from the minimum height across all the ApplicationRelayers
-	minHeight := uint64(0)
-	for _, relayerID := range database.GetSourceBlockchainRelayerIDs(&sourceBlockchain) {
-		height, err := database.CalculateStartingBlockHeight(
-			logger,
-			db,
-			relayerID,
-			sourceBlockchain.ProcessHistoricalBlocksFromHeight,
-			currentHeight,
+	// If catch up is disabled, the first block the ApplicationRelayer processes is the next block after the current height
+	var height, minHeight uint64
+	if !cfg.ProcessMissedBlocks {
+		logger.Info(
+			"processed-missed-blocks set to false, starting processing from chain head",
+			zap.String("blockchainID", sourceBlockchain.GetBlockchainID().String()),
 		)
-		if err != nil {
-			logger.Error(
-				"Failed to calculate starting block height",
-				zap.String("relayerID", relayerID.ID.String()),
-				zap.Error(err),
+		height = currentHeight + 1
+		minHeight = height
+	}
+	for _, relayerID := range database.GetSourceBlockchainRelayerIDs(&sourceBlockchain) {
+		// Calculate the catch-up starting block height, and update the min height if necessary
+		if cfg.ProcessMissedBlocks {
+			var err error
+			height, err = database.CalculateStartingBlockHeight(
+				logger,
+				db,
+				relayerID,
+				sourceBlockchain.ProcessHistoricalBlocksFromHeight,
+				currentHeight,
 			)
-			return nil, 0, err
-		}
-		if minHeight == 0 || height < minHeight {
-			minHeight = height
+			if err != nil {
+				logger.Error(
+					"Failed to calculate starting block height",
+					zap.String("relayerID", relayerID.ID.String()),
+					zap.Error(err),
+				)
+				return nil, 0, err
+			}
+
+			// Update the min height. This is the height that the listener will start processing from
+			if minHeight == 0 || height < minHeight {
+				minHeight = height
+			}
 		}
 
 		checkpointManager := checkpoint.NewCheckpointManager(
@@ -535,126 +557,4 @@ func initializeMetrics() (prometheus.Gatherer, prometheus.Registerer, error) {
 		return nil, nil, err
 	}
 	return gatherer, registry, nil
-}
-
-func initializeConnectionsAndCheckStake(
-	logger logging.Logger,
-	network *peers.AppRequestNetwork,
-	cfg *config.Config,
-) error {
-	// Manually connect to the validators of each of the source subnets.
-	// We return an error if we are unable to connect to sufficient stake on any of the subnets.
-	// Sufficient stake is determined by the Warp quora of the configured supported destinations,
-	// or if the subnet supports all destinations, by the quora of all configured destinations.
-	for _, sourceBlockchain := range cfg.SourceBlockchains {
-		if sourceBlockchain.GetSubnetID() == constants.PrimaryNetworkID {
-			if err := connectToPrimaryNetworkPeers(logger, network, cfg, sourceBlockchain); err != nil {
-				return fmt.Errorf(
-					"failed to connect to primary network peers: %w",
-					err,
-				)
-			}
-		} else {
-			if err := connectToNonPrimaryNetworkPeers(logger, network, cfg, sourceBlockchain); err != nil {
-				return fmt.Errorf(
-					"failed to connect to non-primary network peers: %w",
-					err,
-				)
-			}
-		}
-	}
-	return nil
-}
-
-// Connect to the validators of the source blockchain. For each destination blockchain,
-// verify that we have connected to a threshold of stake.
-func connectToNonPrimaryNetworkPeers(
-	logger logging.Logger,
-	network *peers.AppRequestNetwork,
-	cfg *config.Config,
-	sourceBlockchain *config.SourceBlockchain,
-) error {
-	subnetID := sourceBlockchain.GetSubnetID()
-	connectedValidators, err := network.ConnectToCanonicalValidators(subnetID)
-	if err != nil {
-		logger.Error(
-			"Failed to connect to canonical validators",
-			zap.String("subnetID", subnetID.String()),
-			zap.Error(err),
-		)
-		return err
-	}
-	for _, destination := range sourceBlockchain.SupportedDestinations {
-		blockchainID := destination.GetBlockchainID()
-		if ok, quorum, err := checkForSufficientConnectedStake(logger, cfg, connectedValidators, blockchainID); !ok {
-			logger.Error(
-				"Failed to connect to a threshold of stake",
-				zap.String("destinationBlockchainID", blockchainID.String()),
-				zap.Uint64("connectedWeight", connectedValidators.ConnectedWeight),
-				zap.Uint64("totalValidatorWeight", connectedValidators.TotalValidatorWeight),
-				zap.Any("warpQuorum", quorum),
-			)
-			return err
-		}
-	}
-	return nil
-}
-
-// Connect to the validators of the destination blockchains. Verify that we have connected
-// to a threshold of stake for each blockchain.
-func connectToPrimaryNetworkPeers(
-	logger logging.Logger,
-	network *peers.AppRequestNetwork,
-	cfg *config.Config,
-	sourceBlockchain *config.SourceBlockchain,
-) error {
-	for _, destination := range sourceBlockchain.SupportedDestinations {
-		blockchainID := destination.GetBlockchainID()
-		subnetID := cfg.GetSubnetID(blockchainID)
-		connectedValidators, err := network.ConnectToCanonicalValidators(subnetID)
-		if err != nil {
-			logger.Error(
-				"Failed to connect to canonical validators",
-				zap.String("subnetID", subnetID.String()),
-				zap.Error(err),
-			)
-			return err
-		}
-
-		if ok, quorum, err := checkForSufficientConnectedStake(logger, cfg, connectedValidators, blockchainID); !ok {
-			logger.Error(
-				"Failed to connect to a threshold of stake",
-				zap.String("destinationBlockchainID", blockchainID.String()),
-				zap.Uint64("connectedWeight", connectedValidators.ConnectedWeight),
-				zap.Uint64("totalValidatorWeight", connectedValidators.TotalValidatorWeight),
-				zap.Any("warpQuorum", quorum),
-			)
-			return err
-		}
-	}
-	return nil
-}
-
-// Fetch the warp quorum from the config and check if the connected stake exceeds the threshold
-func checkForSufficientConnectedStake(
-	logger logging.Logger,
-	cfg *config.Config,
-	connectedValidators *peers.ConnectedCanonicalValidators,
-	destinationBlockchainID ids.ID,
-) (bool, *config.WarpQuorum, error) {
-	quorum, err := cfg.GetWarpQuorum(destinationBlockchainID)
-	if err != nil {
-		logger.Error(
-			"Failed to get warp quorum from config",
-			zap.String("destinationBlockchainID", destinationBlockchainID.String()),
-			zap.Error(err),
-		)
-		return false, nil, err
-	}
-	return utils.CheckStakeWeightExceedsThreshold(
-		big.NewInt(0).SetUint64(connectedValidators.ConnectedWeight),
-		connectedValidators.TotalValidatorWeight,
-		quorum.QuorumNumerator,
-		quorum.QuorumDenominator,
-	), &quorum, nil
 }

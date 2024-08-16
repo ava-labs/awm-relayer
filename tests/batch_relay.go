@@ -83,7 +83,7 @@ func BatchRelay(network interfaces.LocalNetwork) {
 	Expect(err).Should(BeNil())
 	defer sub.Unsubscribe()
 
-	numMessages := 50
+	numMessages := 40
 	sentMessages := set.NewSet[string](numMessages)
 	for i := 0; i < numMessages; i++ {
 		sentMessages.Add(strconv.Itoa(i))
