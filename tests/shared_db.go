@@ -77,8 +77,12 @@ func SharedDatabaseAccess(network interfaces.LocalNetwork) {
 	log.Info("Waiting for the relayers to start up")
 	var wg sync.WaitGroup
 	wg.Add(2)
-	go testUtils.WaitFunc(&wg, readyChanA)
-	go testUtils.WaitFunc(&wg, readyChanB)
+	waitFunc := func(wg *sync.WaitGroup, readyChan chan struct{}) {
+		defer wg.Done()
+		<-readyChan
+	}
+	go waitFunc(&wg, readyChanA)
+	go waitFunc(&wg, readyChanB)
 	wg.Wait()
 
 	log.Info("Sending transaction from Subnet A to Subnet B")

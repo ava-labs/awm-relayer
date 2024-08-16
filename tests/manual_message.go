@@ -114,11 +114,7 @@ func ManualMessage(network interfaces.LocalNetwork) {
 
 	// Wait for relayer to startup.
 	log.Info("Waiting for the relayer to start up")
-	select {
-	case <-readyChan:
-	case <-time.After(15 * time.Second):
-		Expect(false).To(BeTrue(), "Relayer did not start up in time")
-	}
+	testUtils.WaitForChannelClose(readyChan, 15*time.Second)
 
 	reqBody := api.ManualWarpMessageRequest{
 		UnsignedMessageBytes: unsignedMessage.Bytes(),

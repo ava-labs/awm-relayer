@@ -177,12 +177,7 @@ func AllowedAddresses(network interfaces.LocalNetwork) {
 
 	// Wait for relayer to start up
 	log.Info("Waiting for the relayer to start up")
-	select {
-	case <-readyChan:
-		close(readyChan)
-	case <-time.After(15 * time.Second):
-		Expect(false).To(BeTrue(), "Relayer did not start up in time")
-	}
+	testUtils.WaitForChannelClose(readyChan, 15*time.Second)
 
 	// Allowed by Relayer 1
 	testUtils.RelayBasicMessage(
@@ -206,12 +201,7 @@ func AllowedAddresses(network interfaces.LocalNetwork) {
 
 	// Wait for relayer to start up
 	log.Info("Waiting for the relayer to start up")
-	select {
-	case <-readyChan:
-		close(readyChan)
-	case <-time.After(15 * time.Second):
-		Expect(false).To(BeTrue(), "Relayer did not start up in time")
-	}
+	testUtils.WaitForChannelClose(readyChan, 15*time.Second)
 
 	// Disallowed by Relayer 2
 	_, _, id := testUtils.SendBasicTeleporterMessage(
@@ -251,12 +241,7 @@ func AllowedAddresses(network interfaces.LocalNetwork) {
 
 	// Wait for relayer to start up
 	log.Info("Waiting for the relayer to start up")
-	select {
-	case <-readyChan:
-		close(readyChan)
-	case <-time.After(15 * time.Second):
-		Expect(false).To(BeTrue(), "Relayer did not start up in time")
-	}
+	testUtils.WaitForChannelClose(readyChan, 15*time.Second)
 
 	// Disallowed by Relayer 3
 	_, _, id = testUtils.SendBasicTeleporterMessage(
@@ -295,13 +280,7 @@ func AllowedAddresses(network interfaces.LocalNetwork) {
 	defer relayerCleanup()
 
 	// Wait for relayer to start up
-	log.Info("Waiting for the relayer to start up")
-	select {
-	case <-readyChan:
-		close(readyChan)
-	case <-time.After(15 * time.Second):
-		Expect(false).To(BeTrue(), "Relayer did not start up in time")
-	}
+	testUtils.WaitForChannelClose(readyChan, 15*time.Second)
 
 	// Disallowed by Relayer 4
 	_, _, id = testUtils.SendBasicTeleporterMessage(

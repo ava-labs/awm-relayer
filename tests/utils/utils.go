@@ -14,7 +14,6 @@ import (
 	"os"
 	"os/exec"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/ava-labs/avalanchego/ids"
@@ -490,13 +489,7 @@ func TriggerProcessMissedBlocks(
 	defer relayerCleanup()
 
 	// Wait for relayer to start up
-	log.Info("Waiting for the relayer to start up")
-	select {
-	case <-readyChan:
-		close(readyChan)
-	case <-time.After(15 * time.Second):
-		Expect(false).To(BeTrue(), "Relayer did not start up in time")
-	}
+	WaitForChannelClose(readyChan, 15*time.Second)
 
 	log.Info("Waiting for a new block confirmation on the destination")
 	<-newHeads
@@ -566,7 +559,7 @@ func runExecutable(
 		for scanner.Scan() {
 			text := scanner.Text()
 			if strings.Contains(text, "Initialization complete") {
-				readyChan <- struct{}{}
+				close(readyChan)
 			}
 			log.Info(text)
 		}
@@ -590,7 +583,12 @@ func runExecutable(
 	return readyChan
 }
 
-func WaitFunc(wg *sync.WaitGroup, ch chan struct{}) {
-	defer wg.Done()
-	<-ch
+// Helper function that waits for a signaling channel to be closed
+// or throws an error if the channel is not closed in time
+func WaitForChannelClose(ch <-chan struct{}, timeout time.Duration) {
+	select {
+	case <-ch:
+	case <-time.After(timeout):
+		Expect(false).To(BeTrue(), "Channel did not close in time")
+	}
 }

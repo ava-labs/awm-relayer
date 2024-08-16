@@ -72,12 +72,7 @@ func BatchRelay(network interfaces.LocalNetwork) {
 
 	// Wait for relayer to start up
 	log.Info("Waiting for the relayer to start up")
-	select {
-	case <-readyChan:
-		close(readyChan)
-	case <-time.After(15 * time.Second):
-		Expect(false).To(BeTrue(), "Relayer did not start up in time")
-	}
+	testUtils.WaitForChannelClose(readyChan, 15*time.Second)
 
 	//
 	// Send a batch message from subnet A -> B

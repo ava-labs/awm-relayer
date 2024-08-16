@@ -67,12 +67,7 @@ func BasicRelay(network interfaces.LocalNetwork) {
 	defer relayerCleanup()
 
 	// Wait for relayer to start up
-	log.Info("Waiting for the relayer to start up")
-	select {
-	case <-readyChan:
-	case <-time.After(15 * time.Second):
-		Expect(false).To(BeTrue(), "Relayer did not start up in time")
-	}
+	testUtils.WaitForChannelClose(readyChan, 15*time.Second)
 
 	log.Info("Sending transaction from Subnet A to Subnet B")
 	testUtils.RelayBasicMessage(
@@ -152,12 +147,7 @@ func BasicRelay(network interfaces.LocalNetwork) {
 
 	// Wait for relayer to start up
 	log.Info("Waiting for the relayer to start up")
-	select {
-	case <-readyChan:
-		close(readyChan)
-	case <-time.After(15 * time.Second):
-		Expect(false).To(BeTrue(), "Relayer did not start up in time")
-	}
+	testUtils.WaitForChannelClose(readyChan, 15*time.Second)
 
 	// We should not receive a new block on subnet B, since the relayer should have
 	// seen the Teleporter message was already delivered.

@@ -57,12 +57,7 @@ func SignatureAggregatorAPI(network interfaces.LocalNetwork) {
 
 	// Wait for signature-aggregator to start up
 	log.Info("Waiting for the relayer to start up")
-	select {
-	case <-readyChan:
-		close(readyChan)
-	case <-time.After(15 * time.Second):
-		Expect(false).To(BeTrue(), "Signature Aggregator did not start up in time")
-	}
+	testUtils.WaitForChannelClose(readyChan, 15*time.Second)
 
 	// End setup step
 	// Begin Test Case 1
