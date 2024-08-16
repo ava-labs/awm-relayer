@@ -479,7 +479,8 @@ func RelayBasicMessage(
 	// Check that the teleporter message is correct
 	// We don't validate the entire message, since the message receipts
 	// are populated by the Teleporter contract
-	receivedTeleporterMessage, err := teleportermessenger.UnpackTeleporterMessage(addressedPayload.Payload)
+	var receivedTeleporterMessage teleportermessenger.TeleporterMessage
+	err = receivedTeleporterMessage.Unpack(addressedPayload.Payload)
 	Expect(err).Should(BeNil())
 
 	receivedMessageID, err := teleporterUtils.CalculateMessageID(

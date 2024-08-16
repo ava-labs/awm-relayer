@@ -50,7 +50,7 @@ func NewNetwork(
 	cfg Config,
 ) (*AppRequestNetwork, error) {
 	logger := logging.NewLogger(
-		"awm-relayer-p2p",
+		"p2p-network",
 		logging.NewWrappedCore(
 			logLevel,
 			os.Stdout,
