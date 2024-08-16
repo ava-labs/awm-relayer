@@ -35,12 +35,29 @@ var (
 )
 
 func TestE2E(t *testing.T) {
+	// In case of a panic we need to recover to ensure the Ginkgo cleanup is done
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Sprintf("Panic caught: %v", r)
+			cleanup()
+		}
+	}()
+	// Handle SIGINT and SIGTERM signals as well.
+	signalChan := make(chan os.Signal, 2)
+	signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		sig := <-signalChan
+		fmt.Printf("Caught signal %s: Shutting down...\n", sig)
+		cleanup()
+	}()
+
 	if os.Getenv("RUN_E2E") == "" {
 		t.Skip("Environment variable RUN_E2E not set; skipping E2E tests")
 	}
 
 	RegisterFailHandler(ginkgo.Fail)
 	ginkgo.RunSpecs(t, "Relayer e2e test")
+
 }
 
 // Define the Relayer before and after suite functions.
@@ -48,7 +65,7 @@ var _ = ginkgo.BeforeSuite(func() {
 	var ctx context.Context
 	ctx, cancelDecider = context.WithCancel(context.Background())
 
-	log.Info("Building all ICM off-chain services executables")
+	log.Info("Building all ICM off-chain service executables")
 	testUtils.BuildAllExecutables(ctx)
 
 	log.Info("Setting up local network")
@@ -118,28 +135,21 @@ var _ = ginkgo.BeforeSuite(func() {
 		ginkgo.ReportEntryVisibilityFailureOrVerbose,
 	)
 
-	// Handle SIGINT and SIGTERM to ensure the network and decider are cleaned-up
-	// in case of a manual interrupt. Because AfterSuite doesn't always run in that case
-	signalChan := make(chan os.Signal, 2)
-	signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM)
-	go func() {
-		<-signalChan
-		cancelDecider()
-		if localNetworkInstance != nil {
-			localNetworkInstance.TearDownNetwork()
-			localNetworkInstance = nil
-		}
-	}()
 })
 
-var _ = ginkgo.AfterSuite(func() {
+func cleanup() {
+	fmt.Printf("Cleaning up\n")
 	if localNetworkInstance != nil {
+		fmt.Printf("Started cleaning up\n")
 		localNetworkInstance.TearDownNetwork()
+		fmt.Printf("Finished cleaning up\n")
 	}
 	if decider != nil {
 		cancelDecider()
 	}
-})
+}
+
+var _ = ginkgo.AfterSuite(cleanup)
 
 var _ = ginkgo.Describe("[AWM Relayer Integration Tests", func() {
 	ginkgo.It("Manually Provided Message", func() {
