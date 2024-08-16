@@ -16,15 +16,19 @@ import (
 	"go.uber.org/zap"
 )
 
+// Convenience function to initialize connections and check stake for all source blockchains.
+// Only returns an error if it fails to get a list of canonical validator or a valid warp config.
+//
+// Failing a sufficient stake check will only log an error but still return successfully
+// since each attempted relay will make an attempt at reconnecting to any missing validators.
+//
+// Sufficient stake is determined by the Warp quora of the configured supported destinations,
+// or if the subnet supports all destinations, by the quora of all configured destinations.
 func InitializeConnectionsAndCheckStake(
 	logger logging.Logger,
 	network *peers.AppRequestNetwork,
 	cfg *config.Config,
 ) error {
-	// Manually connect to the validators of each of the source subnets.
-	// We return an error if we are unable to connect to sufficient stake on any of the subnets.
-	// Sufficient stake is determined by the Warp quora of the configured supported destinations,
-	// or if the subnet supports all destinations, by the quora of all configured destinations.
 	for _, sourceBlockchain := range cfg.SourceBlockchains {
 		if sourceBlockchain.GetSubnetID() == constants.PrimaryNetworkID {
 			if err := connectToPrimaryNetworkPeers(logger, network, cfg, sourceBlockchain); err != nil {
