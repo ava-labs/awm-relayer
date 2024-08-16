@@ -271,9 +271,13 @@ func CreateDefaultRelayerConfig(
 		DestinationBlockchains: destinations,
 		APIPort:                8080,
 		DeciderURL:             "localhost:50051",
+		SignatureCacheSize:     (1024 * 1024),
 	}
 }
 
+// TODO: convert this function to be just "applySubnetsInfoToConfig" and have
+// callers use the defaults defined in the config package via viper, so that
+// there aren't two sets of "defaults".
 func CreateDefaultSignatureAggregatorConfig(
 	sourceSubnetsInfo []interfaces.SubnetTestInfo,
 ) signatureaggregatorcfg.Config {
@@ -295,8 +299,9 @@ func CreateDefaultSignatureAggregatorConfig(
 		InfoAPI: &config.APIConfig{
 			BaseURL: sourceSubnetsInfo[0].NodeURIs[0],
 		},
-		APIPort:     8080,
-		MetricsPort: 8081,
+		APIPort:            8080,
+		MetricsPort:        8081,
+		SignatureCacheSize: (1024 * 1024),
 	}
 }
 
@@ -475,7 +480,8 @@ func RelayBasicMessage(
 	// Check that the teleporter message is correct
 	// We don't validate the entire message, since the message receipts
 	// are populated by the Teleporter contract
-	receivedTeleporterMessage, err := teleportermessenger.UnpackTeleporterMessage(addressedPayload.Payload)
+	var receivedTeleporterMessage teleportermessenger.TeleporterMessage
+	err = receivedTeleporterMessage.Unpack(addressedPayload.Payload)
 	Expect(err).Should(BeNil())
 
 	receivedMessageID, err := teleporterUtils.CalculateMessageID(

@@ -64,8 +64,8 @@ github.com/ava-labs/coreth v0.13.7 h1:k8T9u/ROifl8f7oXjHRc1KvSISRl9txvy7gGVmHEz6
 github.com/ava-labs/coreth v0.13.7/go.mod h1:tXDujonxXFOF6oK5HS2EmgtSXJK3Gy6RpZxb5WzR9rM=
 github.com/ava-labs/subnet-evm v0.6.8 h1:IrHGajBYWs692YIYdd5J0oVWWt88Q/XAZQq/dOtkHFw=
 github.com/ava-labs/subnet-evm v0.6.8/go.mod h1:qt8DXyGm40CY9yffNOe1+4yUyL9mD3v5RPWqAuGj5u4=
-github.com/ava-labs/teleporter v1.0.3 h1:5Kwso1yk5dtuIg7356MF+cJFRFge8nvun/JK0MDAUAM=
-github.com/ava-labs/teleporter v1.0.3/go.mod h1:h8wp8x7531OLeyQUzC2M20S6AVXSuj598Hmo8QSUVOM=
+github.com/ava-labs/teleporter v1.0.4 h1:+OAS3YyPc/LijR29qu3EqU6xAnQnjOgf4EtDlCMcDsc=
+github.com/ava-labs/teleporter v1.0.4/go.mod h1:bUiOSIGjFktkYg01XDjeaZdgLEx0ZpUDfJXI6Z0rHY8=
 github.com/aws/aws-sdk-go-v2 v1.30.3 h1:jUeBtG0Ih+ZIFH0F4UkmL9w3cSpaMv9tYYDbzILP8dY=
 github.com/aws/aws-sdk-go-v2 v1.30.3/go.mod h1:nIQjQVp5sfpQcTc9mPSr1B0PaWK5ByX9MOoDadSN4lc=
 github.com/aws/aws-sdk-go-v2/config v1.27.9 h1:gRx/NwpNEFSk+yQlgmk1bmxxvQ5TyJ76CWXs9XScTqg=
@@ -367,6 +367,8 @@ github.com/hashicorp/golang-lru v0.5.0/go.mod h1:/m3WP610KZHVQ1SGc6re/UDhFvYD7pJ
 github.com/hashicorp/golang-lru v0.5.1/go.mod h1:/m3WP610KZHVQ1SGc6re/UDhFvYD7pJ4Ao+sR/qLZy8=
 github.com/hashicorp/golang-lru v0.5.5-0.20210104140557-80c98217689d h1:dg1dEPuWpEqDnvIw251EVy4zlP8gWbsGj4BsUKCRpYs=
 github.com/hashicorp/golang-lru v0.5.5-0.20210104140557-80c98217689d/go.mod h1:iADmTwqILo4mZ8BN3D2Q6+9jd8WM5uGBxy+E8yxSoD4=
+github.com/hashicorp/golang-lru/v2 v2.0.7 h1:a+bsQ5rvGLjzHuww6tVxozPZFVghXaHOwFs4luLUK2k=
+github.com/hashicorp/golang-lru/v2 v2.0.7/go.mod h1:QeFd9opnmA6QUJc5vARoKUSoFhyfM2/ZepoAG6RGpeM=
 github.com/hashicorp/hcl v1.0.0 h1:0Anlzjpi4vEasTeNFn2mLJgTSwt0+6sfsiTG8qcWGx4=
 github.com/hashicorp/hcl v1.0.0/go.mod h1:E5yfLk+7swimpb2L/Alb/PJmXilQ/rhwaUYs4T20WEQ=
 github.com/holiman/billy v0.0.0-20230718173358-1c7e68d277a7 h1:3JQNjnMRil1yD0IfZKHF9GxxWKDJGj8I0IqOUol//sw=

@@ -58,6 +58,10 @@ func SetDefaultConfigValues(v *viper.Viper) {
 	v.SetDefault(APIPortKey, defaultAPIPort)
 	v.SetDefault(MetricsPortKey, defaultMetricsPort)
 	v.SetDefault(DBWriteIntervalSecondsKey, defaultIntervalSeconds)
+	v.SetDefault(
+		SignatureCacheSizeKey,
+		defaultSignatureCacheSize,
+	)
 }
 
 // BuildConfig constructs the relayer config using Viper.
