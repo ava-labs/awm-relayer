@@ -212,14 +212,19 @@ func main() {
 		panic(err)
 	}
 
-	signatureAggregator := aggregator.NewSignatureAggregator(
+	signatureAggregator, err := aggregator.NewSignatureAggregator(
 		network,
 		logger,
+		cfg.SignatureCacheSize,
 		sigAggMetrics.NewSignatureAggregatorMetrics(
 			prometheus.DefaultRegisterer,
 		),
 		messageCreator,
 	)
+	if err != nil {
+		logger.Fatal("Failed to create signature aggregator", zap.Error(err))
+		panic(err)
+	}
 
 	applicationRelayers, minHeights, err := createApplicationRelayers(
 		context.Background(),

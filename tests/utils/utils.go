@@ -270,9 +270,13 @@ func CreateDefaultRelayerConfig(
 		DestinationBlockchains: destinations,
 		APIPort:                8080,
 		DeciderURL:             "localhost:50051",
+		SignatureCacheSize:     (1024 * 1024),
 	}
 }
 
+// TODO: convert this function to be just "applySubnetsInfoToConfig" and have
+// callers use the defaults defined in the config package via viper, so that
+// there aren't two sets of "defaults".
 func CreateDefaultSignatureAggregatorConfig(
 	sourceSubnetsInfo []interfaces.SubnetTestInfo,
 ) signatureaggregatorcfg.Config {
@@ -294,8 +298,9 @@ func CreateDefaultSignatureAggregatorConfig(
 		InfoAPI: &config.APIConfig{
 			BaseURL: sourceSubnetsInfo[0].NodeURIs[0],
 		},
-		APIPort:     8080,
-		MetricsPort: 8081,
+		APIPort:            8080,
+		MetricsPort:        8081,
+		SignatureCacheSize: (1024 * 1024),
 	}
 }
 
