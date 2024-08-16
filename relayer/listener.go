@@ -11,7 +11,7 @@ import (
 
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/utils/logging"
-	"github.com/ava-labs/awm-relayer/config"
+	"github.com/ava-labs/awm-relayer/relayer/config"
 	"github.com/ava-labs/awm-relayer/utils"
 	"github.com/ava-labs/awm-relayer/vms"
 	"github.com/ava-labs/subnet-evm/ethclient"
