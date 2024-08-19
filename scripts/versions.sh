@@ -19,12 +19,12 @@ export GO_VERSION=${GO_VERSION:-$(getDepVersion go)}
 # Don't export them as they're used in the context of other calls
 # TODO: undo this hack once go.mod is referring to a tag rather than a commit
 #AVALANCHEGO_VERSION=${AVALANCHEGO_VERSION:-$(getDepVersion github.com/ava-labs/avalanchego)}
-AVALANCHEGO_VERSION=${AVALANCHEGO_VERSION:-376688b4912bf1b3c988167cfabf4ebedc27dc16}
+AVALANCHEGO_VERSION=${AVALANCHEGO_VERSION:-ab83fb41528de93c1790301cdd67a07dda9299f0}
 GINKGO_VERSION=${GINKGO_VERSION:-$(getDepVersion github.com/onsi/ginkgo/v2)}
 
 # TODO: undo this hack once go.mod is referring to a tag rather than a commit
 #SUBNET_EVM_VERSION=${SUBNET_EVM_VERSION:-$(getDepVersion github.com/ava-labs/subnet-evm)}
-SUBNET_EVM_VERSION=${SUBNET_EVM_VERSION:-3ceec5c96a5f83b09d06767fae83e89f79c5c2c6}
+SUBNET_EVM_VERSION=${SUBNET_EVM_VERSION:-18633729a0cde7d695616e14b77873957a2b59c2}
 
 # Set golangci-lint version
 GOLANGCI_LINT_VERSION=${GOLANGCI_LINT_VERSION:-'v1.55'}
