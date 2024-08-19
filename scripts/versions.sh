@@ -2,7 +2,7 @@
 # Copyright (C) 2023, Ava Labs, Inc. All rights reserved.
 # See the file LICENSE for licensing terms.
 
-RELAYER_PATH=$(
+BASE_PATH=$(
   cd "$(dirname "${BASH_SOURCE[0]}")"
   cd .. && pwd
 )
@@ -10,7 +10,7 @@ RELAYER_PATH=$(
 # Pass in the full name of the dependency.
 # Parses go.mod for a matching entry and extracts the version number.
 function getDepVersion() {
-    grep -m1 "^\s*$1" $RELAYER_PATH/go.mod | cut -d ' ' -f2
+    grep -m1 "^\s*$1" $BASE_PATH/go.mod | cut -d ' ' -f2
 }
 
 # This needs to be exported to be picked up by the dockerfile.

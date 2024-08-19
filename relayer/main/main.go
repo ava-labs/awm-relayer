@@ -18,15 +18,15 @@ import (
 	"github.com/ava-labs/avalanchego/utils/constants"
 	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/avalanchego/utils/set"
-	"github.com/ava-labs/awm-relayer/api"
-	"github.com/ava-labs/awm-relayer/config"
 	"github.com/ava-labs/awm-relayer/database"
 	"github.com/ava-labs/awm-relayer/messages"
 	offchainregistry "github.com/ava-labs/awm-relayer/messages/off-chain-registry"
 	"github.com/ava-labs/awm-relayer/messages/teleporter"
 	"github.com/ava-labs/awm-relayer/peers"
 	"github.com/ava-labs/awm-relayer/relayer"
+	"github.com/ava-labs/awm-relayer/relayer/api"
 	"github.com/ava-labs/awm-relayer/relayer/checkpoint"
+	"github.com/ava-labs/awm-relayer/relayer/config"
 	"github.com/ava-labs/awm-relayer/signature-aggregator/aggregator"
 	sigAggMetrics "github.com/ava-labs/awm-relayer/signature-aggregator/metrics"
 	"github.com/ava-labs/awm-relayer/utils"
@@ -152,10 +152,14 @@ func main() {
 		trackedSubnets,
 		&cfg,
 	)
-	network.InitializeConnectionsAndCheckStake(&cfg)
-
 	if err != nil {
 		logger.Fatal("Failed to create app request network", zap.Error(err))
+		panic(err)
+	}
+
+	err = relayer.InitializeConnectionsAndCheckStake(logger, network, &cfg)
+	if err != nil {
+		logger.Fatal("Failed to initialize connections and check stake", zap.Error(err))
 		panic(err)
 	}
 

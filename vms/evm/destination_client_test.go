@@ -11,7 +11,8 @@ import (
 
 	"github.com/ava-labs/avalanchego/utils/logging"
 	avalancheWarp "github.com/ava-labs/avalanchego/vms/platformvm/warp"
-	"github.com/ava-labs/awm-relayer/config"
+	basecfg "github.com/ava-labs/awm-relayer/config"
+	"github.com/ava-labs/awm-relayer/relayer/config"
 	mock_ethclient "github.com/ava-labs/awm-relayer/vms/evm/mocks"
 	"github.com/ava-labs/awm-relayer/vms/evm/signer"
 	"github.com/stretchr/testify/require"
@@ -22,7 +23,7 @@ var destinationSubnet = config.DestinationBlockchain{
 	SubnetID:     "2TGBXcnwx5PqiXWiqxAKUaNSqDguXNh1mxnp82jui68hxJSZAx",
 	BlockchainID: "S4mMqUXe7vHsGiRAma6bv3CKnyaLssyAxmQ2KvFpX1KEvfFCD",
 	VM:           config.EVM.String(),
-	RPCEndpoint: config.APIConfig{
+	RPCEndpoint: basecfg.APIConfig{
 		BaseURL: "https://subnets.avax.network/mysubnet/rpc",
 	},
 	AccountPrivateKey: "56289e99c94b6912bfc12adc093c9b51124f0dc54ac7a766b2bc5ccf558d8027",
