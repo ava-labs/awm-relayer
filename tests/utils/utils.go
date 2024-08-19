@@ -21,6 +21,7 @@ import (
 	warpPayload "github.com/ava-labs/avalanchego/vms/platformvm/warp/payload"
 	"github.com/ava-labs/awm-relayer/config"
 	offchainregistry "github.com/ava-labs/awm-relayer/messages/off-chain-registry"
+	relayercfg "github.com/ava-labs/awm-relayer/relayer/config"
 	signatureaggregatorcfg "github.com/ava-labs/awm-relayer/signature-aggregator/config"
 	batchcrosschainmessenger "github.com/ava-labs/awm-relayer/tests/abi-bindings/go/BatchCrossChainMessenger"
 	relayerUtils "github.com/ava-labs/awm-relayer/utils"
@@ -117,10 +118,10 @@ func BuildAndRunSignatureAggregatorExecutable(ctx context.Context, configPath st
 	var signatureAggregatorCtx context.Context
 	signatureAggregatorCtx, signatureAggregatorCancelFunc := context.WithCancel(ctx)
 	log.Info("Instantiating the signature-aggregator executable command")
-	log.Info(fmt.Sprintf("./signature-aggregator/build/signature-aggregator --config-file %s ", configPath))
+	log.Info(fmt.Sprintf("./build/signature-aggregator --config-file %s ", configPath))
 	signatureAggregatorCmd := exec.CommandContext(
 		signatureAggregatorCtx,
-		"./signature-aggregator/build/signature-aggregator",
+		"./build/signature-aggregator",
 		"--config-file",
 		configPath,
 	)
@@ -178,7 +179,7 @@ func CreateDefaultRelayerConfig(
 	teleporterContractAddress common.Address,
 	fundedAddress common.Address,
 	relayerKey *ecdsa.PrivateKey,
-) config.Config {
+) relayercfg.Config {
 	logLevel, err := logging.ToLevel(os.Getenv("LOG_LEVEL"))
 	if err != nil {
 		logLevel = logging.Info
@@ -189,16 +190,16 @@ func CreateDefaultRelayerConfig(
 		"logLevel", logLevel.LowerString(),
 	)
 	// Construct the config values for each subnet
-	sources := make([]*config.SourceBlockchain, len(sourceSubnetsInfo))
-	destinations := make([]*config.DestinationBlockchain, len(destinationSubnetsInfo))
+	sources := make([]*relayercfg.SourceBlockchain, len(sourceSubnetsInfo))
+	destinations := make([]*relayercfg.DestinationBlockchain, len(destinationSubnetsInfo))
 	for i, subnetInfo := range sourceSubnetsInfo {
 		host, port, err := teleporterTestUtils.GetURIHostAndPort(subnetInfo.NodeURIs[0])
 		Expect(err).Should(BeNil())
 
-		sources[i] = &config.SourceBlockchain{
+		sources[i] = &relayercfg.SourceBlockchain{
 			SubnetID:     subnetInfo.SubnetID.String(),
 			BlockchainID: subnetInfo.BlockchainID.String(),
-			VM:           config.EVM.String(),
+			VM:           relayercfg.EVM.String(),
 			RPCEndpoint: config.APIConfig{
 				BaseURL: fmt.Sprintf("http://%s:%d/ext/bc/%s/rpc", host, port, subnetInfo.BlockchainID.String()),
 			},
@@ -206,15 +207,15 @@ func CreateDefaultRelayerConfig(
 				BaseURL: fmt.Sprintf("ws://%s:%d/ext/bc/%s/ws", host, port, subnetInfo.BlockchainID.String()),
 			},
 
-			MessageContracts: map[string]config.MessageProtocolConfig{
+			MessageContracts: map[string]relayercfg.MessageProtocolConfig{
 				teleporterContractAddress.Hex(): {
-					MessageFormat: config.TELEPORTER.String(),
+					MessageFormat: relayercfg.TELEPORTER.String(),
 					Settings: map[string]interface{}{
 						"reward-address": fundedAddress.Hex(),
 					},
 				},
 				offchainregistry.OffChainRegistrySourceAddress.Hex(): {
-					MessageFormat: config.OFF_CHAIN_REGISTRY.String(),
+					MessageFormat: relayercfg.OFF_CHAIN_REGISTRY.String(),
 					Settings: map[string]interface{}{
 						"teleporter-registry-address": subnetInfo.TeleporterRegistryAddress.Hex(),
 					},
@@ -235,10 +236,10 @@ func CreateDefaultRelayerConfig(
 		host, port, err := teleporterTestUtils.GetURIHostAndPort(subnetInfo.NodeURIs[0])
 		Expect(err).Should(BeNil())
 
-		destinations[i] = &config.DestinationBlockchain{
+		destinations[i] = &relayercfg.DestinationBlockchain{
 			SubnetID:     subnetInfo.SubnetID.String(),
 			BlockchainID: subnetInfo.BlockchainID.String(),
-			VM:           config.EVM.String(),
+			VM:           relayercfg.EVM.String(),
 			RPCEndpoint: config.APIConfig{
 				BaseURL: fmt.Sprintf("http://%s:%d/ext/bc/%s/rpc", host, port, subnetInfo.BlockchainID.String()),
 			},
@@ -254,7 +255,7 @@ func CreateDefaultRelayerConfig(
 		)
 	}
 
-	return config.Config{
+	return relayercfg.Config{
 		LogLevel: logging.Info.LowerString(),
 		PChainAPI: &config.APIConfig{
 			BaseURL: sourceSubnetsInfo[0].NodeURIs[0],
@@ -270,9 +271,13 @@ func CreateDefaultRelayerConfig(
 		DestinationBlockchains: destinations,
 		APIPort:                8080,
 		DeciderURL:             "localhost:50051",
+		SignatureCacheSize:     (1024 * 1024),
 	}
 }
 
+// TODO: convert this function to be just "applySubnetsInfoToConfig" and have
+// callers use the defaults defined in the config package via viper, so that
+// there aren't two sets of "defaults".
 func CreateDefaultSignatureAggregatorConfig(
 	sourceSubnetsInfo []interfaces.SubnetTestInfo,
 ) signatureaggregatorcfg.Config {
@@ -294,8 +299,9 @@ func CreateDefaultSignatureAggregatorConfig(
 		InfoAPI: &config.APIConfig{
 			BaseURL: sourceSubnetsInfo[0].NodeURIs[0],
 		},
-		APIPort:     8080,
-		MetricsPort: 8081,
+		APIPort:            8080,
+		MetricsPort:        8081,
+		SignatureCacheSize: (1024 * 1024),
 	}
 }
 
@@ -474,7 +480,8 @@ func RelayBasicMessage(
 	// Check that the teleporter message is correct
 	// We don't validate the entire message, since the message receipts
 	// are populated by the Teleporter contract
-	receivedTeleporterMessage, err := teleportermessenger.UnpackTeleporterMessage(addressedPayload.Payload)
+	var receivedTeleporterMessage teleportermessenger.TeleporterMessage
+	err = receivedTeleporterMessage.Unpack(addressedPayload.Payload)
 	Expect(err).Should(BeNil())
 
 	receivedMessageID, err := teleporterUtils.CalculateMessageID(
@@ -494,7 +501,7 @@ func RelayBasicMessage(
 	Expect(receivedTeleporterMessage.Message).Should(Equal(teleporterMessage.Message))
 }
 
-func WriteRelayerConfig(relayerConfig config.Config, fname string) string {
+func WriteRelayerConfig(relayerConfig relayercfg.Config, fname string) string {
 	data, err := json.MarshalIndent(relayerConfig, "", "\t")
 	Expect(err).Should(BeNil())
 
@@ -530,7 +537,7 @@ func TriggerProcessMissedBlocks(
 	sourceSubnetInfo interfaces.SubnetTestInfo,
 	destinationSubnetInfo interfaces.SubnetTestInfo,
 	currRelayerCleanup context.CancelFunc,
-	currrentRelayerConfig config.Config,
+	currrentRelayerConfig relayercfg.Config,
 	fundedAddress common.Address,
 	fundedKey *ecdsa.PrivateKey,
 ) {

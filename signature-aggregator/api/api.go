@@ -135,6 +135,7 @@ func signatureAggregationAPIHandler(
 					zap.String("input", req.SigningSubnetID),
 				)
 				writeJSONError(logger, w, msg)
+				return
 			}
 		}
 
@@ -147,6 +148,7 @@ func signatureAggregationAPIHandler(
 			msg := "Failed to aggregate signatures"
 			logger.Warn(msg, zap.Error(err))
 			writeJSONError(logger, w, msg)
+			return
 		}
 		resp, err := json.Marshal(
 			AggregateSignatureResponse{

@@ -2,7 +2,11 @@
 
 package config
 
-import "fmt"
+import (
+	"fmt"
+
+	basecfg "github.com/ava-labs/awm-relayer/config"
+)
 
 var (
 	testSubnetID      string = "2TGBXcnwx5PqiXWiqxAKUaNSqDguXNh1mxnp82jui68hxJSZAx"
@@ -21,7 +25,7 @@ var (
 var (
 	TestValidConfig = Config{
 		LogLevel: "info",
-		PChainAPI: &APIConfig{
+		PChainAPI: &basecfg.APIConfig{
 			BaseURL: "http://test.avax.network",
 			QueryParams: map[string]string{
 				queryParamKey1: queryParamVal1,
@@ -30,16 +34,16 @@ var (
 				httpHeaderKey1: httpHeaderVal1,
 			},
 		},
-		InfoAPI: &APIConfig{
+		InfoAPI: &basecfg.APIConfig{
 			BaseURL: "http://test.avax.network",
 		},
 		DBWriteIntervalSeconds: 1,
 		SourceBlockchains: []*SourceBlockchain{
 			{
-				RPCEndpoint: APIConfig{
+				RPCEndpoint: basecfg.APIConfig{
 					BaseURL: fmt.Sprintf("http://test.avax.network/ext/bc/%s/rpc", testBlockchainID),
 				},
-				WSEndpoint: APIConfig{
+				WSEndpoint: basecfg.APIConfig{
 					BaseURL: fmt.Sprintf("ws://test.avax.network/ext/bc/%s/ws", testBlockchainID),
 				},
 				BlockchainID: testBlockchainID,
@@ -54,7 +58,7 @@ var (
 		},
 		DestinationBlockchains: []*DestinationBlockchain{
 			{
-				RPCEndpoint: APIConfig{
+				RPCEndpoint: basecfg.APIConfig{
 					BaseURL: fmt.Sprintf("http://test.avax.network/ext/bc/%s/rpc", testBlockchainID),
 				},
 				BlockchainID:      testBlockchainID,
@@ -65,10 +69,10 @@ var (
 		},
 	}
 	TestValidSourceBlockchainConfig = SourceBlockchain{
-		RPCEndpoint: APIConfig{
+		RPCEndpoint: basecfg.APIConfig{
 			BaseURL: "http://test.avax.network/ext/bc/C/rpc",
 		},
-		WSEndpoint: APIConfig{
+		WSEndpoint: basecfg.APIConfig{
 			BaseURL: "ws://test.avax.network/ext/bc/C/ws",
 		},
 		BlockchainID: "S4mMqUXe7vHsGiRAma6bv3CKnyaLssyAxmQ2KvFpX1KEvfFCD",
@@ -84,7 +88,7 @@ var (
 		SubnetID:     "2TGBXcnwx5PqiXWiqxAKUaNSqDguXNh1mxnp82jui68hxJSZAx",
 		BlockchainID: "S4mMqUXe7vHsGiRAma6bv3CKnyaLssyAxmQ2KvFpX1KEvfFCD",
 		VM:           "evm",
-		RPCEndpoint: APIConfig{
+		RPCEndpoint: basecfg.APIConfig{
 			BaseURL: "http://test.avax.network/ext/bc/C/rpc",
 		},
 		AccountPrivateKey: "1234567890123456789012345678901234567890123456789012345678901234",

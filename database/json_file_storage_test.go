@@ -51,10 +51,9 @@ func TestConcurrentWriteReadSingleChain(t *testing.T) {
 	wg := sync.WaitGroup{}
 	for i := 0; i < 10; i++ {
 		wg.Add(1)
-		idx := i
 		go func() {
 			defer wg.Done()
-			testWrite(jsonStorage, relayerIDs[0], uint64(idx))
+			testWrite(jsonStorage, relayerIDs[0], uint64(i))
 		}()
 	}
 	wg.Wait()
@@ -95,10 +94,9 @@ func TestConcurrentWriteReadMultipleChains(t *testing.T) {
 	wg := sync.WaitGroup{}
 	for i := 0; i < 3; i++ {
 		wg.Add(1)
-		index := i
 		go func() {
 			defer wg.Done()
-			testWrite(jsonStorage, relayerIDs[index], uint64(index))
+			testWrite(jsonStorage, relayerIDs[i], uint64(i))
 		}()
 	}
 	wg.Wait()

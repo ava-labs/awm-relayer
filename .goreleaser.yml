@@ -1,7 +1,7 @@
 # ref. https://goreleaser.com/customization/build/
 builds:
   - id: awm-relayer
-    main: ./main/main.go
+    main: ./relayer/main/main.go
     binary: awm-relayer
     flags:
       - -v

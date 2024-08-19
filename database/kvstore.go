@@ -4,8 +4,8 @@ import (
 	"fmt"
 
 	"github.com/ava-labs/avalanchego/utils/logging"
-	"github.com/ava-labs/awm-relayer/config"
 	"github.com/ava-labs/awm-relayer/relayer"
+	"github.com/ava-labs/awm-relayer/relayer/config"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
