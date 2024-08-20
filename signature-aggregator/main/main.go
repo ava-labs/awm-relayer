@@ -17,6 +17,7 @@ import (
 	"github.com/ava-labs/awm-relayer/signature-aggregator/aggregator"
 	"github.com/ava-labs/awm-relayer/signature-aggregator/api"
 	"github.com/ava-labs/awm-relayer/signature-aggregator/config"
+	"github.com/ava-labs/awm-relayer/signature-aggregator/healthcheck"
 	"github.com/ava-labs/awm-relayer/signature-aggregator/metrics"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
@@ -127,6 +128,7 @@ func main() {
 		metricsInstance,
 		signatureAggregator,
 	)
+	healthcheck.HandleHealthCheckRequest()
 
 	logger.Info("Initialization complete")
 	err = http.ListenAndServe(fmt.Sprintf(":%d", cfg.APIPort), nil)

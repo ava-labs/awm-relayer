@@ -26,3 +26,6 @@ SUBNET_EVM_VERSION=${SUBNET_EVM_VERSION:-update-avago-teleporter}
 
 # Set golangci-lint version
 GOLANGCI_LINT_VERSION=${GOLANGCI_LINT_VERSION:-'v1.60'}
+
+# Set buf version
+BUF_VERSION=${BUF_VERSION:-'v1.37.0'}
