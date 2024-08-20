@@ -4,6 +4,7 @@
 package tests
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/hex"
@@ -11,10 +12,13 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
+	"strings"
 	"time"
 
 	avalancheWarp "github.com/ava-labs/avalanchego/vms/platformvm/warp"
 	"github.com/ava-labs/awm-relayer/signature-aggregator/api"
+	"github.com/ava-labs/awm-relayer/signature-aggregator/metrics"
 	testUtils "github.com/ava-labs/awm-relayer/tests/utils"
 	"github.com/ava-labs/teleporter/tests/interfaces"
 	"github.com/ava-labs/teleporter/tests/utils"
@@ -78,8 +82,7 @@ func SignatureAggregatorAPI(network interfaces.LocalNetwork) {
 
 	requestURL := fmt.Sprintf("http://localhost:%d%s", signatureAggregatorConfig.APIPort, api.APIPath)
 
-	// Send request to API
-	{
+	var sendRequestToAPI = func() {
 		b, err := json.Marshal(reqBody)
 		Expect(err).Should(BeNil())
 		bodyReader := bytes.NewReader(b)
@@ -108,4 +111,101 @@ func SignatureAggregatorAPI(network interfaces.LocalNetwork) {
 		Expect(err).Should(BeNil())
 		Expect(signedMessage.ID()).Should(Equal(warpMessage.ID()))
 	}
+
+	sendRequestToAPI()
+
+	// Check metrics
+	metricsSample := sampleMetrics(signatureAggregatorConfig.MetricsPort)
+	for _, m := range []struct {
+		name  string
+		op    string
+		value int
+	}{
+		{metrics.Opts.AggregateSignaturesRequestCount.Name, "==", 1},
+		{metrics.Opts.AggregateSignaturesLatencyMS.Name, ">", 0},
+		{metrics.Opts.AppRequestCount.Name, "<=", 5},
+		{metrics.Opts.FailuresToGetValidatorSet.Name, "==", 0},
+		{metrics.Opts.FailuresToConnectToSufficientStake.Name, "==", 0},
+		{metrics.Opts.FailuresSendingToNode.Name, "<", 5},
+		{metrics.Opts.ValidatorTimeouts.Name, "==", 0},
+		{metrics.Opts.InvalidSignatureResponses.Name, "==", 0},
+		{metrics.Opts.SignatureCacheHits.Name, "==", 0},
+		{metrics.Opts.SignatureCacheMisses.Name, "==", 0},
+	} {
+		Expect(metricsSample[m.name]).Should(
+			BeNumerically(m.op, m.value),
+			"Expected metric %s %s %d",
+			m.name,
+			m.op,
+			m.value,
+		)
+	}
+
+	// make a second request, and ensure that the metrics reflect that the
+	// signatures for the second request are retrieved from the cache. note
+	// that even though 4 signatures were requested in the previous
+	// request, only 3 will be cached, because that's all that was required
+	// to reach a quorum, so that's all that were handled.
+	sendRequestToAPI()
+	metricsSample2 := sampleMetrics(signatureAggregatorConfig.MetricsPort)
+	Expect(
+		metricsSample2[metrics.Opts.AppRequestCount.Name],
+	).Should(Equal(metricsSample[metrics.Opts.AppRequestCount.Name]))
+	Expect(
+		metricsSample2[metrics.Opts.SignatureCacheHits.Name],
+	).Should(BeNumerically("==", 3))
+	Expect(
+		metricsSample2[metrics.Opts.SignatureCacheMisses.Name],
+	).Should(Equal(metricsSample[metrics.Opts.SignatureCacheMisses.Name]))
+}
+
+// returns a map of metric names to metric samples
+func sampleMetrics(port uint16) map[string]uint64 {
+	resp, err := http.Get(
+		fmt.Sprintf("http://localhost:%d/metrics", port),
+	)
+	Expect(err).Should(BeNil())
+
+	body, err := io.ReadAll(resp.Body)
+	Expect(err).Should(BeNil())
+	defer resp.Body.Close()
+
+	var samples = make(map[string]uint64)
+	scanner := bufio.NewScanner(strings.NewReader(string(body)))
+	for scanner.Scan() {
+		line := scanner.Text()
+		for _, metricName := range []string{
+			metrics.Opts.AggregateSignaturesLatencyMS.Name,
+			metrics.Opts.AggregateSignaturesRequestCount.Name,
+			metrics.Opts.AppRequestCount.Name,
+			metrics.Opts.FailuresToGetValidatorSet.Name,
+			metrics.Opts.FailuresToConnectToSufficientStake.Name,
+			metrics.Opts.FailuresSendingToNode.Name,
+			metrics.Opts.ValidatorTimeouts.Name,
+			metrics.Opts.InvalidSignatureResponses.Name,
+			metrics.Opts.SignatureCacheHits.Name,
+			metrics.Opts.SignatureCacheMisses.Name,
+		} {
+			if strings.HasPrefix(
+				line,
+				"U__signature_2d_aggregator_"+metricName,
+			) {
+				log.Debug("Found metric line", "line", line)
+				parts := strings.Fields(line)
+
+				// Fetch the metric count from the last field of the line
+				value, err := strconv.ParseUint(parts[len(parts)-1], 10, 64)
+				if err != nil {
+					log.Warn("failed to parse value from metric line")
+					continue
+				}
+				log.Debug("parsed metric", "name", metricName, "value", value)
+
+				samples[metricName] = value
+			} else {
+				log.Debug("Ignoring non-metric line", "line", line)
+			}
+		}
+	}
+	return samples
 }

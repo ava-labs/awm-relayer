@@ -11,7 +11,7 @@ import (
 
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/utils/logging"
-	"github.com/ava-labs/awm-relayer/config"
+	"github.com/ava-labs/awm-relayer/relayer/config"
 	"github.com/ava-labs/awm-relayer/utils"
 	"github.com/ava-labs/awm-relayer/vms"
 	"github.com/ava-labs/subnet-evm/ethclient"
@@ -47,8 +47,7 @@ func RunListener(
 	sourceBlockchain config.SourceBlockchain,
 	ethRPCClient ethclient.Client,
 	relayerHealth *atomic.Bool,
-	processMissedBlocks bool,
-	minHeight uint64,
+	startingHeight uint64,
 	messageCoordinator *MessageCoordinator,
 ) error {
 	// Create the Listener
@@ -58,8 +57,7 @@ func RunListener(
 		sourceBlockchain,
 		ethRPCClient,
 		relayerHealth,
-		processMissedBlocks,
-		minHeight,
+		startingHeight,
 		messageCoordinator,
 	)
 	if err != nil {
@@ -82,7 +80,6 @@ func newListener(
 	sourceBlockchain config.SourceBlockchain,
 	ethRPCClient ethclient.Client,
 	relayerHealth *atomic.Bool,
-	processMissedBlocks bool,
 	startingHeight uint64,
 	messageCoordinator *MessageCoordinator,
 ) (*Listener, error) {
@@ -149,18 +146,10 @@ func newListener(
 		return nil, err
 	}
 
-	if processMissedBlocks {
-		// Process historical blocks in a separate goroutine so that the main processing loop can
-		// start processing new blocks as soon as possible. Otherwise, it's possible for
-		// ProcessFromHeight to overload the message queue and cause a deadlock.
-		go sub.ProcessFromHeight(big.NewInt(0).SetUint64(startingHeight), lstnr.catchUpResultChan)
-	} else {
-		lstnr.logger.Info(
-			"processed-missed-blocks set to false, starting processing from chain head",
-			zap.String("blockchainID", lstnr.sourceBlockchain.GetBlockchainID().String()),
-		)
-		lstnr.catchUpResultChan <- true
-	}
+	// Process historical blocks in a separate goroutine so that the main processing loop can
+	// start processing new blocks as soon as possible. Otherwise, it's possible for
+	// ProcessFromHeight to overload the message queue and cause a deadlock.
+	go sub.ProcessFromHeight(big.NewInt(0).SetUint64(startingHeight), lstnr.catchUpResultChan)
 
 	return &lstnr, nil
 }

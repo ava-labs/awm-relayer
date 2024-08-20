@@ -17,6 +17,7 @@ Namely:
 - `PChainAPI`: APIConfig
 - `InfoAPI` : APIConfig
 - `APIPort` : (optional) defaults to 8080
+- `MetricsPort`: (optional) defaults to 8081
 
 Sample config that can be used for local testing is `signature-aggregator/sample-signature-aggregator-config.json`
 

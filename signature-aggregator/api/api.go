@@ -8,10 +8,12 @@ import (
 	"encoding/json"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/awm-relayer/signature-aggregator/aggregator"
+	"github.com/ava-labs/awm-relayer/signature-aggregator/metrics"
 	"github.com/ava-labs/awm-relayer/types"
 	"github.com/ava-labs/awm-relayer/utils"
 	"go.uber.org/zap"
@@ -43,9 +45,17 @@ type AggregateSignatureResponse struct {
 
 func HandleAggregateSignaturesByRawMsgRequest(
 	logger logging.Logger,
+	metrics *metrics.SignatureAggregatorMetrics,
 	signatureAggregator *aggregator.SignatureAggregator,
 ) {
-	http.Handle(APIPath, signatureAggregationAPIHandler(logger, signatureAggregator))
+	http.Handle(
+		APIPath,
+		signatureAggregationAPIHandler(
+			logger,
+			metrics,
+			signatureAggregator,
+		),
+	)
 }
 
 func writeJSONError(
@@ -77,8 +87,15 @@ func isEmptyOrZeroes(bytes []byte) bool {
 	return true
 }
 
-func signatureAggregationAPIHandler(logger logging.Logger, aggregator *aggregator.SignatureAggregator) http.Handler {
+func signatureAggregationAPIHandler(
+	logger logging.Logger,
+	metrics *metrics.SignatureAggregatorMetrics,
+	aggregator *aggregator.SignatureAggregator,
+) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		metrics.AggregateSignaturesRequestCount.Inc()
+		startTime := time.Now()
+
 		var req AggregateSignatureRequest
 		err := json.NewDecoder(r.Body).Decode(&req)
 		if err != nil {
@@ -154,6 +171,7 @@ func signatureAggregationAPIHandler(logger logging.Logger, aggregator *aggregato
 					zap.String("input", req.SigningSubnetID),
 				)
 				writeJSONError(logger, w, msg)
+				return
 			}
 		}
 
@@ -167,6 +185,7 @@ func signatureAggregationAPIHandler(logger logging.Logger, aggregator *aggregato
 			msg := "Failed to aggregate signatures"
 			logger.Warn(msg, zap.Error(err))
 			writeJSONError(logger, w, msg)
+			return
 		}
 		resp, err := json.Marshal(
 			AggregateSignatureResponse{
@@ -187,5 +206,8 @@ func signatureAggregationAPIHandler(logger logging.Logger, aggregator *aggregato
 		if err != nil {
 			logger.Error("Error writing response", zap.Error(err))
 		}
+		metrics.AggregateSignaturesLatencyMS.Set(
+			float64(time.Since(startTime).Milliseconds()),
+		)
 	})
 }

@@ -17,6 +17,7 @@ import (
 	"github.com/ava-labs/awm-relayer/signature-aggregator/aggregator"
 	"github.com/ava-labs/awm-relayer/signature-aggregator/api"
 	"github.com/ava-labs/awm-relayer/signature-aggregator/config"
+	"github.com/ava-labs/awm-relayer/signature-aggregator/metrics"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 )
@@ -105,9 +106,27 @@ func main() {
 		logger.Fatal("Failed to create message creator", zap.Error(err))
 		panic(err)
 	}
-	signatureAggregator := aggregator.NewSignatureAggregator(network, logger, messageCreator)
 
-	api.HandleAggregateSignaturesByRawMsgRequest(logger, signatureAggregator)
+	registry := metrics.Initialize(cfg.MetricsPort)
+	metricsInstance := metrics.NewSignatureAggregatorMetrics(registry)
+
+	signatureAggregator, err := aggregator.NewSignatureAggregator(
+		network,
+		logger,
+		cfg.SignatureCacheSize,
+		metricsInstance,
+		messageCreator,
+	)
+	if err != nil {
+		logger.Fatal("Failed to create signature aggregator", zap.Error(err))
+		panic(err)
+	}
+
+	api.HandleAggregateSignaturesByRawMsgRequest(
+		logger,
+		metricsInstance,
+		signatureAggregator,
+	)
 
 	err = http.ListenAndServe(fmt.Sprintf(":%d", cfg.APIPort), nil)
 	if errors.Is(err, http.ErrServerClosed) {

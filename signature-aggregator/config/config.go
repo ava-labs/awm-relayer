@@ -7,11 +7,15 @@ import (
 	"fmt"
 
 	"github.com/ava-labs/avalanchego/utils/logging"
-	baseCfg "github.com/ava-labs/awm-relayer/config"
+	basecfg "github.com/ava-labs/awm-relayer/config"
+	"github.com/ava-labs/awm-relayer/peers"
 )
 
 const (
-	defaultAPIPort = uint16(8080)
+	defaultAPIPort     = uint16(8080)
+	defaultMetricsPort = uint16(8081)
+
+	DefaultSignatureCacheSize = uint64(1024 * 1024)
 )
 
 var defaultLogLevel = logging.Info.String()
@@ -24,10 +28,12 @@ signature-aggregator --help                                  Display signature-a
 `
 
 type Config struct {
-	LogLevel  string             `mapstructure:"log-level" json:"log-level"`
-	PChainAPI *baseCfg.APIConfig `mapstructure:"p-chain-api" json:"p-chain-api"`
-	InfoAPI   *baseCfg.APIConfig `mapstructure:"info-api" json:"info-api"`
-	APIPort   uint16             `mapstructure:"api-port" json:"api-port"`
+	LogLevel           string             `mapstructure:"log-level" json:"log-level"`
+	PChainAPI          *basecfg.APIConfig `mapstructure:"p-chain-api" json:"p-chain-api"`
+	InfoAPI            *basecfg.APIConfig `mapstructure:"info-api" json:"info-api"`
+	APIPort            uint16             `mapstructure:"api-port" json:"api-port"`
+	MetricsPort        uint16             `mapstructure:"metrics-port" json:"metrics-port"`
+	SignatureCacheSize uint64             `mapstructure:"signature-cache-size" json:"signature-cache-size"`
 }
 
 func DisplayUsageText() {
@@ -48,12 +54,12 @@ func (c *Config) Validate() error {
 	return nil
 }
 
-// Config implements the peers.Config interface
-func (c *Config) GetPChainAPI() *baseCfg.APIConfig {
+var _ peers.Config = &Config{}
+
+func (c *Config) GetPChainAPI() *basecfg.APIConfig {
 	return c.PChainAPI
 }
 
-// Config implements the peers.Config interface
-func (c *Config) GetInfoAPI() *baseCfg.APIConfig {
+func (c *Config) GetInfoAPI() *basecfg.APIConfig {
 	return c.InfoAPI
 }
