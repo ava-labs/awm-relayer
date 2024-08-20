@@ -5,6 +5,7 @@ package tests
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"time"
 
@@ -63,7 +64,14 @@ func BasicRelay(network interfaces.LocalNetwork) {
 	log.Info("Test Relaying from Subnet A to Subnet B")
 
 	log.Info("Starting the relayer")
-	relayerCleanup, readyChan := testUtils.RunRelayerExecutable(ctx, relayerConfigPath)
+	relayerCleanup, readyChan := testUtils.RunRelayerExecutable(
+		ctx,
+		relayerConfigPath,
+		fmt.Sprintf(
+			"http://localhost:%d/health",
+			relayerConfig.APIPort,
+		),
+	)
 	defer relayerCleanup()
 
 	// Wait for relayer to start up
@@ -142,7 +150,14 @@ func BasicRelay(network interfaces.LocalNetwork) {
 
 	// Run the relayer
 	log.Info("Creating new relayer instance to test already delivered message")
-	relayerCleanup, readyChan = testUtils.RunRelayerExecutable(ctx, relayerConfigPath)
+	relayerCleanup, readyChan = testUtils.RunRelayerExecutable(
+		ctx,
+		relayerConfigPath,
+		fmt.Sprintf(
+			"http://localhost:%d/health",
+			relayerConfig.APIPort,
+		),
+	)
 	defer relayerCleanup()
 
 	// Wait for relayer to start up

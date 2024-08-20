@@ -109,7 +109,14 @@ func ManualMessage(network interfaces.LocalNetwork) {
 	relayerConfigPath := testUtils.WriteRelayerConfig(relayerConfig, testUtils.DefaultRelayerCfgFname)
 
 	log.Info("Starting the relayer")
-	relayerCleanup, readyChan := testUtils.RunRelayerExecutable(ctx, relayerConfigPath)
+	relayerCleanup, readyChan := testUtils.RunRelayerExecutable(
+		ctx,
+		relayerConfigPath,
+		fmt.Sprintf(
+			"http://localhost:%d/health",
+			relayerConfig.APIPort,
+		),
+	)
 	defer relayerCleanup()
 
 	// Wait for relayer to startup.

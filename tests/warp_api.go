@@ -69,7 +69,14 @@ func WarpAPIRelay(network interfaces.LocalNetwork) {
 	log.Info("Test Relaying from Subnet A to Subnet B")
 
 	log.Info("Starting the relayer")
-	relayerCleanup, readyChan := testUtils.RunRelayerExecutable(ctx, relayerConfigPath)
+	relayerCleanup, readyChan := testUtils.RunRelayerExecutable(
+		ctx,
+		relayerConfigPath,
+		fmt.Sprintf(
+			"http://localhost:%d/health",
+			relayerConfig.APIPort,
+		),
+	)
 	defer relayerCleanup()
 
 	// Wait for relayer to start up

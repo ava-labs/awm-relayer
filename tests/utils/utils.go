@@ -53,7 +53,11 @@ func BuildAllExecutables(ctx context.Context) {
 	Expect(err).Should(BeNil())
 }
 
-func RunRelayerExecutable(ctx context.Context, relayerConfigPath string) (context.CancelFunc, chan struct{}) {
+func RunRelayerExecutable(
+	ctx context.Context,
+	relayerConfigPath string,
+	healthCheckURL string,
+) (context.CancelFunc, chan struct{}) {
 	relayerCtx, relayerCancel := context.WithCancel(ctx)
 	relayerCmd := exec.CommandContext(relayerCtx, "./build/awm-relayer", "--config-file", relayerConfigPath)
 
@@ -61,7 +65,7 @@ func RunRelayerExecutable(ctx context.Context, relayerConfigPath string) (contex
 		relayerCmd,
 		relayerCtx,
 		"awm-relayer",
-		"http://localhost:8080/health",
+		healthCheckURL,
 	)
 	return func() {
 		relayerCancel()
@@ -69,7 +73,11 @@ func RunRelayerExecutable(ctx context.Context, relayerConfigPath string) (contex
 	}, readyChan
 }
 
-func RunSignatureAggregatorExecutable(ctx context.Context, configPath string) (context.CancelFunc, chan struct{}) {
+func RunSignatureAggregatorExecutable(
+	ctx context.Context,
+	configPath string,
+	healthCheckURL string,
+) (context.CancelFunc, chan struct{}) {
 	aggregatorCtx, aggregatorCancel := context.WithCancel(ctx)
 	signatureAggregatorCmd := exec.CommandContext(
 		aggregatorCtx,
@@ -82,7 +90,7 @@ func RunSignatureAggregatorExecutable(ctx context.Context, configPath string) (c
 		signatureAggregatorCmd,
 		aggregatorCtx,
 		"signature-aggregator",
-		"http://localhost:8080/health",
+		healthCheckURL,
 	)
 
 	return func() {
@@ -390,7 +398,7 @@ func TriggerProcessMissedBlocks(
 	sourceSubnetInfo interfaces.SubnetTestInfo,
 	destinationSubnetInfo interfaces.SubnetTestInfo,
 	currRelayerCleanup context.CancelFunc,
-	currrentRelayerConfig relayercfg.Config,
+	currentRelayerConfig relayercfg.Config,
 	fundedAddress common.Address,
 	fundedKey *ecdsa.PrivateKey,
 ) {
@@ -417,13 +425,20 @@ func TriggerProcessMissedBlocks(
 	// The relayer DB stores the height of the block *before* the first message, so by setting the
 	// ProcessHistoricalBlocksFromHeight to the block height of the *third* message, we expect the relayer to skip
 	// the first two messages on startup, but process the third.
-	modifiedRelayerConfig := currrentRelayerConfig
+	modifiedRelayerConfig := currentRelayerConfig
 	modifiedRelayerConfig.SourceBlockchains[0].ProcessHistoricalBlocksFromHeight = currHeight
 	modifiedRelayerConfig.ProcessMissedBlocks = true
 	relayerConfigPath := WriteRelayerConfig(modifiedRelayerConfig, DefaultRelayerCfgFname)
 
 	log.Info("Starting the relayer")
-	relayerCleanup, readyChan := RunRelayerExecutable(ctx, relayerConfigPath)
+	relayerCleanup, readyChan := RunRelayerExecutable(
+		ctx,
+		relayerConfigPath,
+		fmt.Sprintf(
+			"http://localhost:%d/health",
+			currentRelayerConfig.APIPort,
+		),
+	)
 	defer relayerCleanup()
 
 	// Wait for relayer to start up

@@ -172,7 +172,14 @@ func AllowedAddresses(network interfaces.LocalNetwork) {
 
 	// Test Relayer 1
 	log.Info("Testing Relayer 1: All sources -> All destinations")
-	relayerCleanup, readyChan := testUtils.RunRelayerExecutable(ctx, relayerConfigPath1)
+	relayerCleanup, readyChan := testUtils.RunRelayerExecutable(
+		ctx,
+		relayerConfigPath1,
+		fmt.Sprintf(
+			"http://localhost:%d/health",
+			relayerConfig1.APIPort,
+		),
+	)
 	defer relayerCleanup()
 
 	// Wait for relayer to start up
@@ -196,7 +203,14 @@ func AllowedAddresses(network interfaces.LocalNetwork) {
 
 	// Test Relayer 2
 	log.Info("Testing Relayer 2: Specific source -> All destinations")
-	relayerCleanup, readyChan = testUtils.RunRelayerExecutable(ctx, relayerConfigPath2)
+	relayerCleanup, readyChan = testUtils.RunRelayerExecutable(
+		ctx,
+		relayerConfigPath2,
+		fmt.Sprintf(
+			"http://localhost:%d/health",
+			relayerConfig2.APIPort,
+		),
+	)
 	defer relayerCleanup()
 
 	// Wait for relayer to start up
@@ -236,7 +250,14 @@ func AllowedAddresses(network interfaces.LocalNetwork) {
 
 	// Test Relayer 3
 	log.Info("Testing Relayer 3: All sources -> Specific destination")
-	relayerCleanup, readyChan = testUtils.RunRelayerExecutable(ctx, relayerConfigPath3)
+	relayerCleanup, readyChan = testUtils.RunRelayerExecutable(
+		ctx,
+		relayerConfigPath3,
+		fmt.Sprintf(
+			"http://localhost:%d/health",
+			relayerConfig3.APIPort,
+		),
+	)
 	defer relayerCleanup()
 
 	// Wait for relayer to start up
@@ -276,7 +297,14 @@ func AllowedAddresses(network interfaces.LocalNetwork) {
 
 	// Test Relayer 4
 	log.Info("Testing Relayer 4: Specific source -> Specific destination")
-	relayerCleanup, readyChan = testUtils.RunRelayerExecutable(ctx, relayerConfigPath4)
+	relayerCleanup, readyChan = testUtils.RunRelayerExecutable(
+		ctx,
+		relayerConfigPath4,
+		fmt.Sprintf(
+			"http://localhost:%d/health",
+			relayerConfig4.APIPort,
+		),
+	)
 	defer relayerCleanup()
 
 	// Wait for relayer to start up
