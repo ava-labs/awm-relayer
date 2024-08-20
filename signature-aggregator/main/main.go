@@ -4,13 +4,11 @@
 package main
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
-	"sync"
 
 	"github.com/ava-labs/avalanchego/message"
 	"github.com/ava-labs/avalanchego/utils/constants"
@@ -77,19 +75,6 @@ func main() {
 
 	logger.Info("Initializing signature-aggregator")
 
-	var ready bool = false
-	healthcheck.Run(
-		logger,
-		cfg.HealthCheckPort,
-		func(context.Context) error {
-			if ready {
-				return nil
-			} else {
-				return errors.New("not yet ready")
-			}
-		},
-	)
-
 	// Initialize the global app request network
 	logger.Info("Initializing app request network")
 	// The app request network generates P2P networking logs that are verbose at the info level.
@@ -143,19 +128,13 @@ func main() {
 		metricsInstance,
 		signatureAggregator,
 	)
+	healthcheck.HandleHealthCheckRequest()
 
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		err = http.ListenAndServe(fmt.Sprintf(":%d", cfg.APIPort), nil)
-		if errors.Is(err, http.ErrServerClosed) {
-			logger.Info("server closed")
-		} else if err != nil {
-			logger.Error("server error", zap.Error(err))
-			log.Fatal(err)
-		}
-	}()
-	ready = true
-	wg.Wait()
+	err = http.ListenAndServe(fmt.Sprintf(":%d", cfg.APIPort), nil)
+	if errors.Is(err, http.ErrServerClosed) {
+		logger.Info("server closed")
+	} else if err != nil {
+		logger.Error("server error", zap.Error(err))
+		log.Fatal(err)
+	}
 }

@@ -57,7 +57,6 @@ func SetDefaultConfigValues(v *viper.Viper) {
 		SignatureCacheSizeKey,
 		DefaultSignatureCacheSize,
 	)
-	v.SetDefault(HealthCheckPortKey, defaultHealthCheckPort)
 }
 
 // BuildConfig constructs the signature aggregator config using Viper.

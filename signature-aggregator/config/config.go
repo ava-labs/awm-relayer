@@ -12,9 +12,8 @@ import (
 )
 
 const (
-	defaultAPIPort         = uint16(8080)
-	defaultMetricsPort     = uint16(8081)
-	defaultHealthCheckPort = uint16(8082)
+	defaultAPIPort     = uint16(8080)
+	defaultMetricsPort = uint16(8081)
 
 	DefaultSignatureCacheSize = uint64(1024 * 1024)
 )
@@ -34,7 +33,6 @@ type Config struct {
 	InfoAPI            *basecfg.APIConfig `mapstructure:"info-api" json:"info-api"`
 	APIPort            uint16             `mapstructure:"api-port" json:"api-port"`
 	MetricsPort        uint16             `mapstructure:"metrics-port" json:"metrics-port"`
-	HealthCheckPort    uint16             `mapstructure:"health-check-port" json:"health-check-port"`
 	SignatureCacheSize uint64             `mapstructure:"signature-cache-size" json:"signature-cache-size"`
 }
 
