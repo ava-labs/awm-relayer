@@ -69,30 +69,15 @@ var _ = ginkgo.BeforeSuite(func() {
 	log.Info("Building all ICM off-chain service executables")
 	testUtils.BuildAllExecutables(ctx)
 
-	log.Info("Setting up local network")
-	localNetworkInstance = local.NewLocalNetwork(
-		"icm-off-chain-services-e2e-test",
-		warpGenesisTemplateFile,
-		[]local.SubnetSpec{
-			{
-				Name:       "A",
-				EVMChainID: 12345,
-				NodeCount:  2,
-			},
-			{
-				Name:       "B",
-				EVMChainID: 54321,
-				NodeCount:  2,
-			},
-		},
-		0,
-	)
 	// Generate the Teleporter deployment values
 	teleporterContractAddress := common.HexToAddress(
 		testUtils.ReadHexTextFile("./tests/utils/UniversalTeleporterMessengerContractAddress.txt"),
 	)
 	teleporterDeployerAddress := common.HexToAddress(
 		testUtils.ReadHexTextFile("./tests/utils/UniversalTeleporterDeployerAddress.txt"),
+	)
+	teleporterDeployedByteCode := testUtils.ReadHexTextFile(
+		"./tests/utils/UniversalTeleporterDeployedBytecode.txt",
 	)
 	teleporterDeployerTransactionStr := testUtils.ReadHexTextFile(
 		"./tests/utils/UniversalTeleporterDeployerTransaction.txt",
@@ -101,20 +86,42 @@ var _ = ginkgo.BeforeSuite(func() {
 		utils.SanitizeHexString(teleporterDeployerTransactionStr),
 	)
 	Expect(err).Should(BeNil())
+	localNetworkInstance = local.NewLocalNetwork(
+		"icm-off-chain-services-e2e-test",
+		warpGenesisTemplateFile,
+		[]local.SubnetSpec{
+			{
+				Name:                       "A",
+				EVMChainID:                 12345,
+				TeleporterContractAddress:  teleporterContractAddress,
+				TeleporterDeployedBytecode: teleporterDeployedByteCode,
+				TeleporterDeployerAddress:  teleporterDeployerAddress,
+				NodeCount:                  2,
+			},
+			{
+				Name:                       "B",
+				EVMChainID:                 54321,
+				TeleporterContractAddress:  teleporterContractAddress,
+				TeleporterDeployedBytecode: teleporterDeployedByteCode,
+				TeleporterDeployerAddress:  teleporterDeployerAddress,
+				NodeCount:                  2,
+			},
+		},
+		0,
+	)
 
 	_, fundedKey := localNetworkInstance.GetFundedAccountInfo()
-	localNetworkInstance.DeployTeleporterContracts(
+	log.Info("Deployed Teleporter contracts")
+	localNetworkInstance.DeployTeleporterContractToCChain(
 		teleporterDeployerTransaction,
 		teleporterDeployerAddress,
 		teleporterContractAddress,
 		fundedKey,
-		true,
 	)
-	log.Info("Deployed Teleporter contracts")
-	localNetworkInstance.DeployTeleporterRegistryContracts(
-		teleporterContractAddress,
-		fundedKey,
-	)
+	localNetworkInstance.SetTeleporterContractAddress(teleporterContractAddress)
+
+	// Deploy the Teleporter registry contracts to all subnets and the C-Chain.
+	localNetworkInstance.DeployTeleporterRegistryContracts(teleporterContractAddress, fundedKey)
 
 	decider = exec.CommandContext(ctx, "./tests/cmd/decider/decider")
 	decider.Start()
