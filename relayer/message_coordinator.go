@@ -224,6 +224,7 @@ func (mc *MessageCoordinator) ProcessMessageID(
 // Meant to be ran asynchronously. Errors should be sent to errChan.
 func (mc *MessageCoordinator) ProcessBlock(
 	blockHeader *types.Header,
+	blockchainID ids.ID,
 	ethClient ethclient.Client,
 	errChan chan error,
 ) {
@@ -256,6 +257,9 @@ func (mc *MessageCoordinator) ProcessBlock(
 	}
 	// Initiate message relay of all registered messages
 	for _, appRelayer := range mc.applicationRelayers {
+		if appRelayer.sourceBlockchain.GetBlockchainID() != blockchainID {
+			continue
+		}
 		// Dispatch all messages in the block to the appropriate application relayer.
 		// An empty slice is still a valid argument to ProcessHeight; in this case the height is immediately committed.
 		handlers := messageHandlers[appRelayer.relayerID.ID]

@@ -11,7 +11,7 @@ import (
 
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/utils/logging"
-	"github.com/ava-labs/awm-relayer/config"
+	"github.com/ava-labs/awm-relayer/relayer/config"
 	"github.com/ava-labs/awm-relayer/utils"
 	"github.com/ava-labs/awm-relayer/vms"
 	"github.com/ava-labs/subnet-evm/ethclient"
@@ -192,7 +192,12 @@ func (lstnr *Listener) processLogs(ctx context.Context) error {
 				return fmt.Errorf("failed to catch up on historical blocks")
 			}
 		case blockHeader := <-lstnr.Subscriber.Headers():
-			go lstnr.messageCoordinator.ProcessBlock(blockHeader, lstnr.ethClient, errChan)
+			go lstnr.messageCoordinator.ProcessBlock(
+				blockHeader,
+				lstnr.sourceBlockchain.GetBlockchainID(),
+				lstnr.ethClient,
+				errChan,
+			)
 		case err := <-lstnr.Subscriber.Err():
 			lstnr.healthStatus.Store(false)
 			lstnr.logger.Error(

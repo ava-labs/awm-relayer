@@ -17,23 +17,18 @@ import (
 
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/utils/logging"
-	avalancheWarp "github.com/ava-labs/avalanchego/vms/platformvm/warp"
-	warpPayload "github.com/ava-labs/avalanchego/vms/platformvm/warp/payload"
 	"github.com/ava-labs/awm-relayer/config"
 	offchainregistry "github.com/ava-labs/awm-relayer/messages/off-chain-registry"
+	relayercfg "github.com/ava-labs/awm-relayer/relayer/config"
 	signatureaggregatorcfg "github.com/ava-labs/awm-relayer/signature-aggregator/config"
 	batchcrosschainmessenger "github.com/ava-labs/awm-relayer/tests/abi-bindings/go/BatchCrossChainMessenger"
 	relayerUtils "github.com/ava-labs/awm-relayer/utils"
 	"github.com/ava-labs/subnet-evm/accounts/abi/bind"
 	"github.com/ava-labs/subnet-evm/core/types"
-	"github.com/ava-labs/subnet-evm/precompile/contracts/warp"
-	predicateutils "github.com/ava-labs/subnet-evm/predicate"
-	subnetevmutils "github.com/ava-labs/subnet-evm/utils"
 	teleportermessenger "github.com/ava-labs/teleporter/abi-bindings/go/teleporter/TeleporterMessenger"
 	"github.com/ava-labs/teleporter/tests/interfaces"
 	"github.com/ava-labs/teleporter/tests/utils"
 	teleporterTestUtils "github.com/ava-labs/teleporter/tests/utils"
-	teleporterUtils "github.com/ava-labs/teleporter/utils/teleporter-utils"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
@@ -117,10 +112,10 @@ func BuildAndRunSignatureAggregatorExecutable(ctx context.Context, configPath st
 	var signatureAggregatorCtx context.Context
 	signatureAggregatorCtx, signatureAggregatorCancelFunc := context.WithCancel(ctx)
 	log.Info("Instantiating the signature-aggregator executable command")
-	log.Info(fmt.Sprintf("./signature-aggregator/build/signature-aggregator --config-file %s ", configPath))
+	log.Info(fmt.Sprintf("./build/signature-aggregator --config-file %s ", configPath))
 	signatureAggregatorCmd := exec.CommandContext(
 		signatureAggregatorCtx,
-		"./signature-aggregator/build/signature-aggregator",
+		"./build/signature-aggregator",
 		"--config-file",
 		configPath,
 	)
@@ -178,7 +173,7 @@ func CreateDefaultRelayerConfig(
 	teleporterContractAddress common.Address,
 	fundedAddress common.Address,
 	relayerKey *ecdsa.PrivateKey,
-) config.Config {
+) relayercfg.Config {
 	logLevel, err := logging.ToLevel(os.Getenv("LOG_LEVEL"))
 	if err != nil {
 		logLevel = logging.Info
@@ -189,16 +184,16 @@ func CreateDefaultRelayerConfig(
 		"logLevel", logLevel.LowerString(),
 	)
 	// Construct the config values for each subnet
-	sources := make([]*config.SourceBlockchain, len(sourceSubnetsInfo))
-	destinations := make([]*config.DestinationBlockchain, len(destinationSubnetsInfo))
+	sources := make([]*relayercfg.SourceBlockchain, len(sourceSubnetsInfo))
+	destinations := make([]*relayercfg.DestinationBlockchain, len(destinationSubnetsInfo))
 	for i, subnetInfo := range sourceSubnetsInfo {
 		host, port, err := teleporterTestUtils.GetURIHostAndPort(subnetInfo.NodeURIs[0])
 		Expect(err).Should(BeNil())
 
-		sources[i] = &config.SourceBlockchain{
+		sources[i] = &relayercfg.SourceBlockchain{
 			SubnetID:     subnetInfo.SubnetID.String(),
 			BlockchainID: subnetInfo.BlockchainID.String(),
-			VM:           config.EVM.String(),
+			VM:           relayercfg.EVM.String(),
 			RPCEndpoint: config.APIConfig{
 				BaseURL: fmt.Sprintf("http://%s:%d/ext/bc/%s/rpc", host, port, subnetInfo.BlockchainID.String()),
 			},
@@ -206,15 +201,15 @@ func CreateDefaultRelayerConfig(
 				BaseURL: fmt.Sprintf("ws://%s:%d/ext/bc/%s/ws", host, port, subnetInfo.BlockchainID.String()),
 			},
 
-			MessageContracts: map[string]config.MessageProtocolConfig{
+			MessageContracts: map[string]relayercfg.MessageProtocolConfig{
 				teleporterContractAddress.Hex(): {
-					MessageFormat: config.TELEPORTER.String(),
+					MessageFormat: relayercfg.TELEPORTER.String(),
 					Settings: map[string]interface{}{
 						"reward-address": fundedAddress.Hex(),
 					},
 				},
 				offchainregistry.OffChainRegistrySourceAddress.Hex(): {
-					MessageFormat: config.OFF_CHAIN_REGISTRY.String(),
+					MessageFormat: relayercfg.OFF_CHAIN_REGISTRY.String(),
 					Settings: map[string]interface{}{
 						"teleporter-registry-address": subnetInfo.TeleporterRegistryAddress.Hex(),
 					},
@@ -235,10 +230,10 @@ func CreateDefaultRelayerConfig(
 		host, port, err := teleporterTestUtils.GetURIHostAndPort(subnetInfo.NodeURIs[0])
 		Expect(err).Should(BeNil())
 
-		destinations[i] = &config.DestinationBlockchain{
+		destinations[i] = &relayercfg.DestinationBlockchain{
 			SubnetID:     subnetInfo.SubnetID.String(),
 			BlockchainID: subnetInfo.BlockchainID.String(),
-			VM:           config.EVM.String(),
+			VM:           relayercfg.EVM.String(),
 			RPCEndpoint: config.APIConfig{
 				BaseURL: fmt.Sprintf("http://%s:%d/ext/bc/%s/rpc", host, port, subnetInfo.BlockchainID.String()),
 			},
@@ -254,7 +249,7 @@ func CreateDefaultRelayerConfig(
 		)
 	}
 
-	return config.Config{
+	return relayercfg.Config{
 		LogLevel: logging.Info.LowerString(),
 		PChainAPI: &config.APIConfig{
 			BaseURL: sourceSubnetsInfo[0].NodeURIs[0],
@@ -415,7 +410,7 @@ func RelayBasicMessage(
 	Expect(err).Should(BeNil())
 	defer sub.Unsubscribe()
 
-	_, teleporterMessage, teleporterMessageID := SendBasicTeleporterMessage(
+	_, _, teleporterMessageID := SendBasicTeleporterMessage(
 		ctx,
 		source,
 		destination,
@@ -423,84 +418,12 @@ func RelayBasicMessage(
 		destinationAddress,
 	)
 
-	log.Info("Waiting for new block confirmation")
-	newHead := <-newHeadsDest
-	blockNumber := newHead.Number
-	log.Info(
-		"Received new head",
-		"height", blockNumber.Uint64(),
-		"hash", newHead.Hash(),
-	)
-	block, err := destination.RPCClient.BlockByNumber(ctx, blockNumber)
+	log.Info("Waiting for Teleporter message delivery")
+	err = utils.WaitTeleporterMessageDelivered(ctx, destination.TeleporterMessenger, teleporterMessageID)
 	Expect(err).Should(BeNil())
-	log.Info(
-		"Got block",
-		"blockHash", block.Hash(),
-		"blockNumber", block.NumberU64(),
-		"transactions", block.Transactions(),
-		"numTransactions", len(block.Transactions()),
-		"block", block,
-	)
-	accessLists := block.Transactions()[0].AccessList()
-	Expect(len(accessLists)).Should(Equal(1))
-	Expect(accessLists[0].Address).Should(Equal(warp.Module.Address))
-
-	// Check the transaction storage key has warp message we're expecting
-	storageKeyHashes := accessLists[0].StorageKeys
-	packedPredicate := subnetevmutils.HashSliceToBytes(storageKeyHashes)
-	predicateBytes, err := predicateutils.UnpackPredicate(packedPredicate)
-	Expect(err).Should(BeNil())
-	receivedWarpMessage, err := avalancheWarp.ParseMessage(predicateBytes)
-	Expect(err).Should(BeNil())
-
-	// Check that the transaction has successful receipt status
-	txHash := block.Transactions()[0].Hash()
-	receipt, err := destination.RPCClient.TransactionReceipt(ctx, txHash)
-	Expect(err).Should(BeNil())
-	Expect(receipt.Status).Should(Equal(types.ReceiptStatusSuccessful))
-
-	// Check that the transaction emits ReceiveCrossChainMessage
-	receiveEvent, err := teleporterTestUtils.GetEventFromLogs(
-		receipt.Logs,
-		destination.TeleporterMessenger.ParseReceiveCrossChainMessage,
-	)
-	Expect(err).Should(BeNil())
-	Expect(receiveEvent.SourceBlockchainID[:]).Should(Equal(source.BlockchainID[:]))
-	Expect(receiveEvent.MessageID[:]).Should(Equal(teleporterMessageID[:]))
-
-	//
-	// Validate Received Warp Message Values
-	//
-	log.Info("Validating received warp message")
-	Expect(receivedWarpMessage.SourceChainID).Should(Equal(source.BlockchainID))
-	addressedPayload, err := warpPayload.ParseAddressedCall(receivedWarpMessage.Payload)
-	Expect(err).Should(BeNil())
-
-	// Check that the teleporter message is correct
-	// We don't validate the entire message, since the message receipts
-	// are populated by the Teleporter contract
-	var receivedTeleporterMessage teleportermessenger.TeleporterMessage
-	err = receivedTeleporterMessage.Unpack(addressedPayload.Payload)
-	Expect(err).Should(BeNil())
-
-	receivedMessageID, err := teleporterUtils.CalculateMessageID(
-		teleporterContractAddress,
-		source.BlockchainID,
-		destination.BlockchainID,
-		teleporterMessage.MessageNonce,
-	)
-	Expect(err).Should(BeNil())
-	Expect(receivedMessageID).Should(Equal(teleporterMessageID))
-	Expect(receivedTeleporterMessage.OriginSenderAddress).Should(Equal(teleporterMessage.OriginSenderAddress))
-	receivedDestinationID, err := ids.ToID(receivedTeleporterMessage.DestinationBlockchainID[:])
-	Expect(err).Should(BeNil())
-	Expect(receivedDestinationID).Should(Equal(destination.BlockchainID))
-	Expect(receivedTeleporterMessage.DestinationAddress).Should(Equal(teleporterMessage.DestinationAddress))
-	Expect(receivedTeleporterMessage.RequiredGasLimit.Uint64()).Should(Equal(teleporterMessage.RequiredGasLimit.Uint64()))
-	Expect(receivedTeleporterMessage.Message).Should(Equal(teleporterMessage.Message))
 }
 
-func WriteRelayerConfig(relayerConfig config.Config, fname string) string {
+func WriteRelayerConfig(relayerConfig relayercfg.Config, fname string) string {
 	data, err := json.MarshalIndent(relayerConfig, "", "\t")
 	Expect(err).Should(BeNil())
 
@@ -536,7 +459,7 @@ func TriggerProcessMissedBlocks(
 	sourceSubnetInfo interfaces.SubnetTestInfo,
 	destinationSubnetInfo interfaces.SubnetTestInfo,
 	currRelayerCleanup context.CancelFunc,
-	currrentRelayerConfig config.Config,
+	currrentRelayerConfig relayercfg.Config,
 	fundedAddress common.Address,
 	fundedKey *ecdsa.PrivateKey,
 ) {
@@ -571,8 +494,11 @@ func TriggerProcessMissedBlocks(
 	log.Info("Starting the relayer")
 	relayerCleanup := BuildAndRunRelayerExecutable(ctx, relayerConfigPath)
 	defer relayerCleanup()
-	log.Info("Waiting for a new block confirmation on the destination")
-	<-newHeads
+
+	log.Info("Waiting for Teleporter message delivery")
+	err = utils.WaitTeleporterMessageDelivered(ctx, destinationSubnetInfo.TeleporterMessenger, id3)
+	Expect(err).Should(BeNil())
+
 	delivered1, err := destinationSubnetInfo.TeleporterMessenger.MessageReceived(
 		&bind.CallOpts{}, id1,
 	)

@@ -170,6 +170,11 @@ func (s *SignatureAggregator) CreateSignedMessage(
 	} else if signedMsg != nil {
 		return signedMsg, nil
 	}
+	if len(signatureMap) > 0 {
+		s.metrics.SignatureCacheMisses.Add(float64(
+			len(connectedValidators.ValidatorSet) - len(signatureMap),
+		))
+	}
 
 	// TODO: remove this special handling and replace with ACP-118 interface once available
 	var reqBytes []byte
@@ -215,9 +220,6 @@ func (s *SignatureAggregator) CreateSignedMessage(
 	// Query the validators with retries. On each retry, query one node per unique BLS pubkey
 	for attempt := 1; attempt <= maxRelayerQueryAttempts; attempt++ {
 		responsesExpected := len(connectedValidators.ValidatorSet) - len(signatureMap)
-		if len(signatureMap) > 0 {
-			s.metrics.SignatureCacheMisses.Add(float64(responsesExpected))
-		}
 		s.logger.Debug(
 			"Aggregator collecting signatures from peers.",
 			zap.Int("attempt", attempt),

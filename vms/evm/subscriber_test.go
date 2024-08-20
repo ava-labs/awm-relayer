@@ -9,7 +9,8 @@ import (
 
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/utils/logging"
-	"github.com/ava-labs/awm-relayer/config"
+	basecfg "github.com/ava-labs/awm-relayer/config"
+	"github.com/ava-labs/awm-relayer/relayer/config"
 	mock_ethclient "github.com/ava-labs/awm-relayer/vms/evm/mocks"
 	"github.com/ava-labs/subnet-evm/core/types"
 	"github.com/stretchr/testify/require"
@@ -21,7 +22,7 @@ func makeSubscriberWithMockEthClient(t *testing.T) (*subscriber, *mock_ethclient
 		SubnetID:     "2TGBXcnwx5PqiXWiqxAKUaNSqDguXNh1mxnp82jui68hxJSZAx",
 		BlockchainID: "S4mMqUXe7vHsGiRAma6bv3CKnyaLssyAxmQ2KvFpX1KEvfFCD",
 		VM:           config.EVM.String(),
-		RPCEndpoint: config.APIConfig{
+		RPCEndpoint: basecfg.APIConfig{
 			BaseURL: "https://subnets.avax.network/mysubnet/rpc",
 		},
 	}

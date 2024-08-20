@@ -22,15 +22,14 @@ version_lt() {
     fi
 }
 
-# Signature Aggregator root directory
-SIGNATURE_AGGREGATOR_PATH=$(
-    cd "$(dirname "${BASH_SOURCE[0]}")"
-    cd ../signature-aggregator && pwd
-)
 
 BASE_PATH=$(
-    cd $SIGNATURE_AGGREGATOR_PATH
+    cd "$(dirname "${BASH_SOURCE[0]}")"
     cd .. && pwd
+)
+
+SIGNATURE_AGGREGATOR_PATH=$(
+    cd $BASE_PATH/signature-aggregator && pwd
 )
 
 source $BASE_PATH/scripts/constants.sh
