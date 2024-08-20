@@ -7,6 +7,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
+
+	basecfg "github.com/ava-labs/awm-relayer/config"
+	"github.com/ava-labs/awm-relayer/peers"
 
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/utils/constants"
@@ -24,6 +28,7 @@ const (
 	accountPrivateKeyEnvVarName = "ACCOUNT_PRIVATE_KEY"
 	cChainIdentifierString      = "C"
 	warpConfigKey               = "warpConfig"
+	suppliedSubnetsLimit        = 16
 )
 
 const (
@@ -32,6 +37,7 @@ const (
 	defaultAPIPort             = uint16(8080)
 	defaultMetricsPort         = uint16(9090)
 	defaultIntervalSeconds     = uint64(10)
+	defaultSignatureCacheSize  = uint64(1024 * 1024)
 )
 
 var defaultLogLevel = logging.Info.String()
@@ -53,11 +59,13 @@ type Config struct {
 	APIPort                uint16                   `mapstructure:"api-port" json:"api-port"`
 	MetricsPort            uint16                   `mapstructure:"metrics-port" json:"metrics-port"`
 	DBWriteIntervalSeconds uint64                   `mapstructure:"db-write-interval-seconds" json:"db-write-interval-seconds"` //nolint:lll
-	PChainAPI              *APIConfig               `mapstructure:"p-chain-api" json:"p-chain-api"`
-	InfoAPI                *APIConfig               `mapstructure:"info-api" json:"info-api"`
+	PChainAPI              *basecfg.APIConfig       `mapstructure:"p-chain-api" json:"p-chain-api"`
+	InfoAPI                *basecfg.APIConfig       `mapstructure:"info-api" json:"info-api"`
 	SourceBlockchains      []*SourceBlockchain      `mapstructure:"source-blockchains" json:"source-blockchains"`
 	DestinationBlockchains []*DestinationBlockchain `mapstructure:"destination-blockchains" json:"destination-blockchains"`
 	ProcessMissedBlocks    bool                     `mapstructure:"process-missed-blocks" json:"process-missed-blocks"`
+	DeciderURL             string                   `mapstructure:"decider-url" json:"decider-url"`
+	SignatureCacheSize     uint64                   `mapstructure:"signature-cache-size" json:"signature-cache-size"`
 
 	// convenience field to fetch a blockchain's subnet ID
 	blockchainIDToSubnetID map[ids.ID]ids.ID
@@ -68,12 +76,23 @@ func DisplayUsageText() {
 	fmt.Printf("%s\n", usageText)
 }
 
+func (c *Config) countSuppliedSubnets() int {
+	foundSubnets := make(map[string]struct{})
+	for _, sourceBlockchain := range c.SourceBlockchains {
+		foundSubnets[sourceBlockchain.SubnetID] = struct{}{}
+	}
+	return len(foundSubnets)
+}
+
 // Validates the configuration
 // Does not modify the public fields as derived from the configuration passed to the application,
 // but does initialize private fields available through getters.
 func (c *Config) Validate() error {
 	if len(c.SourceBlockchains) == 0 {
 		return errors.New("relayer not configured to relay from any subnets. A list of source subnets must be provided in the configuration file") //nolint:lll
+	}
+	if suppliedSubnets := c.countSuppliedSubnets(); suppliedSubnets > suppliedSubnetsLimit {
+		return fmt.Errorf("relayer can track at most %d subnets, %d are provided", suppliedSubnetsLimit, suppliedSubnets)
 	}
 	if len(c.DestinationBlockchains) == 0 {
 		return errors.New("relayer not configured to relay to any subnets. A list of destination subnets must be provided in the configuration file") //nolint:lll
@@ -118,6 +137,12 @@ func (c *Config) Validate() error {
 		blockchainIDToSubnetID[s.blockchainID] = s.subnetID
 	}
 	c.blockchainIDToSubnetID = blockchainIDToSubnetID
+
+	if len(c.DeciderURL) != 0 {
+		if _, err := url.ParseRequestURI(c.DeciderURL); err != nil {
+			return fmt.Errorf("Invalid decider URL: %w", err)
+		}
+	}
 
 	return nil
 }
@@ -225,4 +250,14 @@ func (c *Config) GetWarpQuorum(blockchainID ids.ID) (WarpQuorum, error) {
 		}
 	}
 	return WarpQuorum{}, errFailedToGetWarpQuorum
+}
+
+var _ peers.Config = &Config{}
+
+func (c *Config) GetPChainAPI() *basecfg.APIConfig {
+	return c.PChainAPI
+}
+
+func (c *Config) GetInfoAPI() *basecfg.APIConfig {
+	return c.InfoAPI
 }

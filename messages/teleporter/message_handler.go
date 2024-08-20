@@ -13,8 +13,9 @@ import (
 	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/avalanchego/vms/platformvm/warp"
 	warpPayload "github.com/ava-labs/avalanchego/vms/platformvm/warp/payload"
-	"github.com/ava-labs/awm-relayer/config"
 	"github.com/ava-labs/awm-relayer/messages"
+	pbDecider "github.com/ava-labs/awm-relayer/proto/pb/decider"
+	"github.com/ava-labs/awm-relayer/relayer/config"
 	"github.com/ava-labs/awm-relayer/utils"
 	"github.com/ava-labs/awm-relayer/vms"
 	"github.com/ava-labs/subnet-evm/accounts/abi/bind"
@@ -25,12 +26,18 @@ import (
 	teleporterUtils "github.com/ava-labs/teleporter/utils/teleporter-utils"
 	"github.com/ethereum/go-ethereum/common"
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
 )
+
+// The maximum gas limit that can be specified for a Teleporter message
+// Based on the C-Chain 15_000_000 gas limit per block, with other Warp message gas overhead conservatively estimated.
+const maxTeleporterGasLimit = 12_000_000
 
 type factory struct {
 	messageConfig   Config
 	protocolAddress common.Address
 	logger          logging.Logger
+	deciderClient   pbDecider.DeciderServiceClient
 }
 
 type messageHandler struct {
@@ -38,12 +45,25 @@ type messageHandler struct {
 	teleporterMessage *teleportermessenger.TeleporterMessage
 	unsignedMessage   *warp.UnsignedMessage
 	factory           *factory
+	deciderClient     pbDecider.DeciderServiceClient
+}
+
+// define an "empty" decider client to use when a connection isn't provided:
+type emptyDeciderClient struct{}
+
+func (s *emptyDeciderClient) ShouldSendMessage(
+	_ context.Context,
+	_ *pbDecider.ShouldSendMessageRequest,
+	_ ...grpc.CallOption,
+) (*pbDecider.ShouldSendMessageResponse, error) {
+	return &pbDecider.ShouldSendMessageResponse{ShouldSendMessage: true}, nil
 }
 
 func NewMessageHandlerFactory(
 	logger logging.Logger,
 	messageProtocolAddress common.Address,
 	messageProtocolConfig config.MessageProtocolConfig,
+	deciderClientConn *grpc.ClientConn,
 ) (messages.MessageHandlerFactory, error) {
 	// Marshal the map and unmarshal into the Teleporter config
 	data, err := json.Marshal(messageProtocolConfig.Settings)
@@ -65,10 +85,18 @@ func NewMessageHandlerFactory(
 		return nil, err
 	}
 
+	var deciderClient pbDecider.DeciderServiceClient
+	if deciderClientConn == nil {
+		deciderClient = &emptyDeciderClient{}
+	} else {
+		deciderClient = pbDecider.NewDeciderServiceClient(deciderClientConn)
+	}
+
 	return &factory{
 		messageConfig:   messageConfig,
 		protocolAddress: messageProtocolAddress,
 		logger:          logger,
+		deciderClient:   deciderClient,
 	}, nil
 }
 
@@ -86,6 +114,7 @@ func (f *factory) NewMessageHandler(unsignedMessage *warp.UnsignedMessage) (mess
 		teleporterMessage: teleporterMessage,
 		unsignedMessage:   unsignedMessage,
 		factory:           f,
+		deciderClient:     f.deciderClient,
 	}, nil
 }
 
@@ -134,6 +163,19 @@ func (m *messageHandler) ShouldSendMessage(destinationClient vms.DestinationClie
 		return false, fmt.Errorf("failed to calculate Teleporter message ID: %w", err)
 	}
 
+	// Check if the specified gas limit is below the maximum threshold
+	if m.teleporterMessage.RequiredGasLimit.Uint64() > maxTeleporterGasLimit {
+		m.logger.Info(
+			"Gas limit exceeds maximum threshold",
+			zap.String("destinationBlockchainID", destinationBlockchainID.String()),
+			zap.String("teleporterMessageID", teleporterMessageID.String()),
+			zap.Uint64("requiredGasLimit", m.teleporterMessage.RequiredGasLimit.Uint64()),
+			zap.Uint64("maxGasLimit", maxTeleporterGasLimit),
+		)
+		return false, nil
+	}
+
+	// Check if the relayer is allowed to deliver this message
 	senderAddress := destinationClient.SenderAddress()
 	if !isAllowedRelayer(m.teleporterMessage.AllowedRelayerAddresses, senderAddress) {
 		m.logger.Info(
@@ -167,7 +209,51 @@ func (m *messageHandler) ShouldSendMessage(destinationClient vms.DestinationClie
 		return false, nil
 	}
 
-	return true, nil
+	// Dispatch to the external decider service. If the service is unavailable or returns
+	// an error, then use the decision that has already been made, i.e. return true
+	decision, err := m.getShouldSendMessageFromDecider()
+	if err != nil {
+		m.logger.Warn(
+			"Error delegating to decider",
+			zap.String("warpMessageID", m.unsignedMessage.ID().String()),
+			zap.String("teleporterMessageID", teleporterMessageID.String()),
+		)
+		return true, nil
+	}
+	if !decision {
+		m.logger.Info(
+			"Decider rejected message",
+			zap.String("warpMessageID", m.unsignedMessage.ID().String()),
+			zap.String("teleporterMessageID", teleporterMessageID.String()),
+			zap.String("destinationBlockchainID", destinationBlockchainID.String()),
+		)
+	}
+	return decision, nil
+}
+
+// Queries the decider service to determine whether this message should be
+// sent. If the decider client is nil, returns true.
+func (m *messageHandler) getShouldSendMessageFromDecider() (bool, error) {
+	warpMsgID := m.unsignedMessage.ID()
+
+	ctx, cancelCtx := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancelCtx()
+	response, err := m.deciderClient.ShouldSendMessage(
+		ctx,
+		&pbDecider.ShouldSendMessageRequest{
+			NetworkId:           m.unsignedMessage.NetworkID,
+			SourceChainId:       m.unsignedMessage.SourceChainID[:],
+			Payload:             m.unsignedMessage.Payload,
+			BytesRepresentation: m.unsignedMessage.Bytes(),
+			Id:                  warpMsgID[:],
+		},
+	)
+	if err != nil {
+		m.logger.Error("Error response from decider.", zap.Error(err))
+		return false, err
+	}
+
+	return response.ShouldSendMessage, nil
 }
 
 // SendMessage extracts the gasLimit and packs the call data to call the receiveCrossChainMessage
@@ -320,7 +406,8 @@ func (f *factory) parseTeleporterMessage(
 		)
 		return nil, err
 	}
-	teleporterMessage, err := teleportermessenger.UnpackTeleporterMessage(addressedPayload.Payload)
+	var teleporterMessage teleportermessenger.TeleporterMessage
+	err = teleporterMessage.Unpack(addressedPayload.Payload)
 	if err != nil {
 		f.logger.Error(
 			"Failed unpacking teleporter message.",
@@ -329,7 +416,7 @@ func (f *factory) parseTeleporterMessage(
 		return nil, err
 	}
 
-	return teleporterMessage, nil
+	return &teleporterMessage, nil
 }
 
 // getTeleporterMessenger returns the Teleporter messenger instance for the destination chain.

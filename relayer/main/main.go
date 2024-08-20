@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"runtime"
 	"strings"
 
 	"github.com/ava-labs/avalanchego/api/metrics"
@@ -16,14 +17,18 @@ import (
 	"github.com/ava-labs/avalanchego/message"
 	"github.com/ava-labs/avalanchego/utils/constants"
 	"github.com/ava-labs/avalanchego/utils/logging"
-	"github.com/ava-labs/awm-relayer/api"
-	"github.com/ava-labs/awm-relayer/config"
+	"github.com/ava-labs/avalanchego/utils/set"
 	"github.com/ava-labs/awm-relayer/database"
 	"github.com/ava-labs/awm-relayer/messages"
 	offchainregistry "github.com/ava-labs/awm-relayer/messages/off-chain-registry"
 	"github.com/ava-labs/awm-relayer/messages/teleporter"
 	"github.com/ava-labs/awm-relayer/peers"
 	"github.com/ava-labs/awm-relayer/relayer"
+	"github.com/ava-labs/awm-relayer/relayer/api"
+	"github.com/ava-labs/awm-relayer/relayer/checkpoint"
+	"github.com/ava-labs/awm-relayer/relayer/config"
+	"github.com/ava-labs/awm-relayer/signature-aggregator/aggregator"
+	sigAggMetrics "github.com/ava-labs/awm-relayer/signature-aggregator/metrics"
 	"github.com/ava-labs/awm-relayer/utils"
 	"github.com/ava-labs/awm-relayer/vms"
 	"github.com/ava-labs/subnet-evm/ethclient"
@@ -33,6 +38,8 @@ import (
 	"go.uber.org/atomic"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 var version = "v0.0.0-dev"
@@ -130,13 +137,29 @@ func main() {
 	if logLevel <= logging.Debug {
 		networkLogLevel = logLevel
 	}
+	var trackedSubnets set.Set[ids.ID]
+	// trackedSubnets is no longer strictly required but keeping it here for now
+	// to keep full parity with existing AWM relayer for now
+	// TODO: remove this from here once trackedSubnets are no longer referenced
+	// by ping messages in avalanchego
+	for _, sourceBlockchain := range cfg.SourceBlockchains {
+		trackedSubnets.Add(sourceBlockchain.GetSubnetID())
+	}
+
 	network, err := peers.NewNetwork(
 		networkLogLevel,
 		registerer,
+		trackedSubnets,
 		&cfg,
 	)
 	if err != nil {
 		logger.Fatal("Failed to create app request network", zap.Error(err))
+		panic(err)
+	}
+
+	err = relayer.InitializeConnectionsAndCheckStake(logger, network, &cfg)
+	if err != nil {
+		logger.Fatal("Failed to initialize connections and check stake", zap.Error(err))
 		panic(err)
 	}
 
@@ -174,9 +197,36 @@ func main() {
 
 	relayerHealth := createHealthTrackers(&cfg)
 
-	messageHandlerFactories, err := createMessageHandlerFactories(logger, &cfg)
+	deciderConnection, err := createDeciderConnection(cfg.DeciderURL)
+	if err != nil {
+		logger.Fatal(
+			"Failed to instantiate decider connection",
+			zap.Error(err),
+		)
+		panic(err)
+	}
+
+	messageHandlerFactories, err := createMessageHandlerFactories(
+		logger,
+		&cfg,
+		deciderConnection,
+	)
 	if err != nil {
 		logger.Fatal("Failed to create message handler factories", zap.Error(err))
+		panic(err)
+	}
+
+	signatureAggregator, err := aggregator.NewSignatureAggregator(
+		network,
+		logger,
+		cfg.SignatureCacheSize,
+		sigAggMetrics.NewSignatureAggregatorMetrics(
+			prometheus.DefaultRegisterer,
+		),
+		messageCreator,
+	)
+	if err != nil {
+		logger.Fatal("Failed to create signature aggregator", zap.Error(err))
 		panic(err)
 	}
 
@@ -187,10 +237,10 @@ func main() {
 		db,
 		ticker,
 		network,
-		messageCreator,
 		&cfg,
 		sourceClients,
 		destinationClients,
+		signatureAggregator,
 	)
 	if err != nil {
 		logger.Fatal("Failed to create application relayers", zap.Error(err))
@@ -220,14 +270,13 @@ func main() {
 
 		// errgroup will cancel the context when the first goroutine returns an error
 		errGroup.Go(func() error {
-			// runListener runs until it errors or the context is cancelled by another goroutine
+			// runListener runs until it errors or the context is canceled by another goroutine
 			return relayer.RunListener(
 				ctx,
 				logger,
 				*sourceBlockchain,
 				sourceClients[sourceBlockchain.GetBlockchainID()],
 				relayerHealth[sourceBlockchain.GetBlockchainID()],
-				cfg.ProcessMissedBlocks,
 				minHeights[sourceBlockchain.GetBlockchainID()],
 				messageCoordinator,
 			)
@@ -240,6 +289,7 @@ func main() {
 func createMessageHandlerFactories(
 	logger logging.Logger,
 	globalConfig *config.Config,
+	deciderConnection *grpc.ClientConn,
 ) (map[ids.ID]map[common.Address]messages.MessageHandlerFactory, error) {
 	messageHandlerFactories := make(map[ids.ID]map[common.Address]messages.MessageHandlerFactory)
 	for _, sourceBlockchain := range globalConfig.SourceBlockchains {
@@ -258,6 +308,7 @@ func createMessageHandlerFactories(
 					logger,
 					address,
 					cfg,
+					deciderConnection,
 				)
 			case config.OFF_CHAIN_REGISTRY:
 				m, err = offchainregistry.NewMessageHandlerFactory(
@@ -313,10 +364,10 @@ func createApplicationRelayers(
 	db database.RelayerDatabase,
 	ticker *utils.Ticker,
 	network *peers.AppRequestNetwork,
-	messageCreator message.Creator,
 	cfg *config.Config,
 	sourceClients map[ids.ID]ethclient.Client,
 	destinationClients map[ids.ID]vms.DestinationClient,
+	signatureAggregator *aggregator.SignatureAggregator,
 ) (map[common.Hash]*relayer.ApplicationRelayer, map[ids.ID]uint64, error) {
 	applicationRelayers := make(map[common.Hash]*relayer.ApplicationRelayer)
 	minHeights := make(map[ids.ID]uint64)
@@ -336,10 +387,10 @@ func createApplicationRelayers(
 			ticker,
 			*sourceBlockchain,
 			network,
-			messageCreator,
 			cfg,
 			currentHeight,
 			destinationClients,
+			signatureAggregator,
 		)
 		if err != nil {
 			logger.Error(
@@ -372,10 +423,10 @@ func createApplicationRelayersForSourceChain(
 	ticker *utils.Ticker,
 	sourceBlockchain config.SourceBlockchain,
 	network *peers.AppRequestNetwork,
-	messageCreator message.Creator,
 	cfg *config.Config,
 	currentHeight uint64,
 	destinationClients map[ids.ID]vms.DestinationClient,
+	signatureAggregator *aggregator.SignatureAggregator,
 ) (map[common.Hash]*relayer.ApplicationRelayer, uint64, error) {
 	// Create the ApplicationRelayers
 	logger.Info(
@@ -384,40 +435,62 @@ func createApplicationRelayersForSourceChain(
 	)
 	applicationRelayers := make(map[common.Hash]*relayer.ApplicationRelayer)
 
-	// Each ApplicationRelayer determines its starting height based on the database state.
+	// Each ApplicationRelayer determines its starting height based on the configuration and database state.
 	// The Listener begins processing messages starting from the minimum height across all the ApplicationRelayers
-	minHeight := uint64(0)
+	// If catch up is disabled, the first block the ApplicationRelayer processes is the next block after the current height
+	var height, minHeight uint64
+	if !cfg.ProcessMissedBlocks {
+		logger.Info(
+			"processed-missed-blocks set to false, starting processing from chain head",
+			zap.String("blockchainID", sourceBlockchain.GetBlockchainID().String()),
+		)
+		height = currentHeight + 1
+		minHeight = height
+	}
 	for _, relayerID := range database.GetSourceBlockchainRelayerIDs(&sourceBlockchain) {
-		height, err := database.CalculateStartingBlockHeight(
+		// Calculate the catch-up starting block height, and update the min height if necessary
+		if cfg.ProcessMissedBlocks {
+			var err error
+			height, err = database.CalculateStartingBlockHeight(
+				logger,
+				db,
+				relayerID,
+				sourceBlockchain.ProcessHistoricalBlocksFromHeight,
+				currentHeight,
+			)
+			if err != nil {
+				logger.Error(
+					"Failed to calculate starting block height",
+					zap.String("relayerID", relayerID.ID.String()),
+					zap.Error(err),
+				)
+				return nil, 0, err
+			}
+
+			// Update the min height. This is the height that the listener will start processing from
+			if minHeight == 0 || height < minHeight {
+				minHeight = height
+			}
+		}
+
+		checkpointManager := checkpoint.NewCheckpointManager(
 			logger,
 			db,
+			ticker.Subscribe(),
 			relayerID,
-			sourceBlockchain.ProcessHistoricalBlocksFromHeight,
-			currentHeight,
+			height,
 		)
-		if err != nil {
-			logger.Error(
-				"Failed to calculate starting block height",
-				zap.String("relayerID", relayerID.ID.String()),
-				zap.Error(err),
-			)
-			return nil, 0, err
-		}
-		if minHeight == 0 || height < minHeight {
-			minHeight = height
-		}
+
 		applicationRelayer, err := relayer.NewApplicationRelayer(
 			logger,
 			metrics,
 			network,
-			messageCreator,
 			relayerID,
-			db,
-			ticker,
 			destinationClients[relayerID.DestinationBlockchainID],
 			sourceBlockchain,
-			height,
+			checkpointManager,
 			cfg,
+			signatureAggregator,
 		)
 		if err != nil {
 			logger.Error(
@@ -430,6 +503,32 @@ func createApplicationRelayersForSourceChain(
 		applicationRelayers[relayerID.ID] = applicationRelayer
 	}
 	return applicationRelayers, minHeight, nil
+}
+
+// create a connection to the "should send message" decider service.
+// if url is unspecified, returns a nil client pointer
+func createDeciderConnection(url string) (*grpc.ClientConn, error) {
+	if len(url) == 0 {
+		return nil, nil
+	}
+
+	connection, err := grpc.NewClient(
+		url,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+	)
+	if err != nil {
+		return nil, fmt.Errorf(
+			"Failed to instantiate grpc client: %w",
+			err,
+		)
+	}
+
+	runtime.SetFinalizer(
+		connection,
+		func(c *grpc.ClientConn) { c.Close() },
+	)
+
+	return connection, nil
 }
 
 func createHealthTrackers(cfg *config.Config) map[ids.ID]*atomic.Bool {

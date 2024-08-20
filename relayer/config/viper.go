@@ -35,7 +35,7 @@ func BuildViper(fs *pflag.FlagSet) (*viper.Viper, error) {
 		return nil, err
 	}
 
-	// Verify required flags are set
+	// Verify that required flags are set
 	if !v.IsSet(ConfigFileKey) {
 		DisplayUsageText()
 		return nil, fmt.Errorf("config file not set")
@@ -58,6 +58,10 @@ func SetDefaultConfigValues(v *viper.Viper) {
 	v.SetDefault(APIPortKey, defaultAPIPort)
 	v.SetDefault(MetricsPortKey, defaultMetricsPort)
 	v.SetDefault(DBWriteIntervalSecondsKey, defaultIntervalSeconds)
+	v.SetDefault(
+		SignatureCacheSizeKey,
+		defaultSignatureCacheSize,
+	)
 }
 
 // BuildConfig constructs the relayer config using Viper.

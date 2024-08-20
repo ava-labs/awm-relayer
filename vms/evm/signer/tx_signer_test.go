@@ -8,7 +8,7 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/ava-labs/awm-relayer/config"
+	"github.com/ava-labs/awm-relayer/relayer/config"
 	"github.com/ava-labs/awm-relayer/utils"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"

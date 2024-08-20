@@ -12,6 +12,7 @@ import (
 
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/utils/set"
+	basecfg "github.com/ava-labs/awm-relayer/config"
 	"github.com/ava-labs/awm-relayer/utils"
 	mock_ethclient "github.com/ava-labs/awm-relayer/vms/evm/mocks"
 	"github.com/ava-labs/subnet-evm/params"
@@ -373,10 +374,10 @@ func TestGetWarpQuorum(t *testing.T) {
 func TestValidateSourceBlockchain(t *testing.T) {
 	validSourceCfg := SourceBlockchain{
 		BlockchainID: testBlockchainID,
-		RPCEndpoint: APIConfig{
+		RPCEndpoint: basecfg.APIConfig{
 			BaseURL: fmt.Sprintf("http://test.avax.network/ext/bc/%s/rpc", testBlockchainID),
 		},
-		WSEndpoint: APIConfig{
+		WSEndpoint: basecfg.APIConfig{
 			BaseURL: fmt.Sprintf("ws://test.avax.network/ext/bc/%s/ws", testBlockchainID),
 		},
 		SubnetID: testSubnetID,
@@ -461,4 +462,21 @@ func TestValidateSourceBlockchain(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestCountSuppliedSubnets(t *testing.T) {
+	config := Config{
+		SourceBlockchains: []*SourceBlockchain{
+			{
+				SubnetID: "1",
+			},
+			{
+				SubnetID: "2",
+			},
+			{
+				SubnetID: "1",
+			},
+		},
+	}
+	require.Equal(t, 2, config.countSuppliedSubnets())
 }

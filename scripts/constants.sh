@@ -5,18 +5,29 @@
 # Use lower_case variables in the scripts and UPPER_CASE variables for override
 # Use the constants.sh for env overrides
 
-RELAYER_PATH=$(
+BASE_PATH=$(
     cd "$(dirname "${BASH_SOURCE[0]}")"
     cd .. && pwd
 )
 
-# Where AWM Relayer binary goes
-relayer_path="$RELAYER_PATH/build/awm-relayer"
+RELAYER_PATH=$(
+    cd "$(dirname "${BASH_SOURCE[0]}")"
+    cd ../relayer && pwd
+)
+
+SIGNATURE_AGGREGATOR_PATH=$(
+    cd "$(dirname "${BASH_SOURCE[0]}")"
+    cd ../signature-aggregator && pwd
+)
+
+# Where binaries go
+relayer_path="$BASE_PATH/build/awm-relayer"
+signature_aggregator_path="$BASE_PATH/build/signature-aggregator"
 
 # Set the PATHS
 GOPATH="$(go env GOPATH)"
 
-TELEPORTER_PATH="$RELAYER_PATH"/tests/contracts/lib/teleporter
+TELEPORTER_PATH="$BASE_PATH"/tests/contracts/lib/teleporter
 source $TELEPORTER_PATH/scripts/constants.sh
 
 # Avalabs docker hub repo is avaplatform/awm-relayer.

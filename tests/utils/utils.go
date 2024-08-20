@@ -1,7 +1,7 @@
 // Copyright (C) 2023, Ava Labs, Inc. All rights reserved.
 // See the file LICENSE for licensing terms.
 
-package tests
+package utils
 
 import (
 	"bufio"
@@ -17,22 +17,18 @@ import (
 
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/utils/logging"
-	avalancheWarp "github.com/ava-labs/avalanchego/vms/platformvm/warp"
-	warpPayload "github.com/ava-labs/avalanchego/vms/platformvm/warp/payload"
 	"github.com/ava-labs/awm-relayer/config"
 	offchainregistry "github.com/ava-labs/awm-relayer/messages/off-chain-registry"
+	relayercfg "github.com/ava-labs/awm-relayer/relayer/config"
+	signatureaggregatorcfg "github.com/ava-labs/awm-relayer/signature-aggregator/config"
 	batchcrosschainmessenger "github.com/ava-labs/awm-relayer/tests/abi-bindings/go/BatchCrossChainMessenger"
 	relayerUtils "github.com/ava-labs/awm-relayer/utils"
 	"github.com/ava-labs/subnet-evm/accounts/abi/bind"
 	"github.com/ava-labs/subnet-evm/core/types"
-	"github.com/ava-labs/subnet-evm/precompile/contracts/warp"
-	predicateutils "github.com/ava-labs/subnet-evm/predicate"
-	subnetevmutils "github.com/ava-labs/subnet-evm/utils"
 	teleportermessenger "github.com/ava-labs/teleporter/abi-bindings/go/teleporter/TeleporterMessenger"
 	"github.com/ava-labs/teleporter/tests/interfaces"
 	"github.com/ava-labs/teleporter/tests/utils"
 	teleporterTestUtils "github.com/ava-labs/teleporter/tests/utils"
-	teleporterUtils "github.com/ava-labs/teleporter/utils/teleporter-utils"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
@@ -43,13 +39,14 @@ import (
 var StorageLocation = fmt.Sprintf("%s/.awm-relayer-storage", os.TempDir())
 
 const (
-	DefaultRelayerCfgFname = "relayer-config.json"
-	DBUpdateSeconds        = 1
+	DefaultRelayerCfgFname             = "relayer-config.json"
+	DefaultSignatureAggregatorCfgFname = "signature-aggregator-config.json"
+	DBUpdateSeconds                    = 1
 )
 
 func BuildAndRunRelayerExecutable(ctx context.Context, relayerConfigPath string) context.CancelFunc {
 	// Build the awm-relayer binary
-	cmd := exec.Command("./scripts/build.sh")
+	cmd := exec.Command("./scripts/build_relayer.sh")
 	out, err := cmd.CombinedOutput()
 	fmt.Println(string(out))
 	Expect(err).Should(BeNil())
@@ -95,9 +92,71 @@ func BuildAndRunRelayerExecutable(ctx context.Context, relayerConfigPath string)
 			panic(fmt.Errorf("relayer exited abnormally: %w", err))
 		}
 	}()
+
 	return func() {
 		relayerCancel()
 		<-relayerContext.Done()
+	}
+}
+
+func BuildAndRunSignatureAggregatorExecutable(ctx context.Context, configPath string) context.CancelFunc {
+	// Build the signature-aggregator binary
+	cmd := exec.Command("./scripts/build_signature_aggregator.sh")
+	out, err := cmd.CombinedOutput()
+	fmt.Println(string(out))
+	Expect(err).Should(BeNil())
+
+	cmdOutput := make(chan string)
+
+	// Run signature-aggregator binary with config path
+	var signatureAggregatorCtx context.Context
+	signatureAggregatorCtx, signatureAggregatorCancelFunc := context.WithCancel(ctx)
+	log.Info("Instantiating the signature-aggregator executable command")
+	log.Info(fmt.Sprintf("./build/signature-aggregator --config-file %s ", configPath))
+	signatureAggregatorCmd := exec.CommandContext(
+		signatureAggregatorCtx,
+		"./build/signature-aggregator",
+		"--config-file",
+		configPath,
+	)
+
+	// Set up a pipe to capture the command's output
+	cmdStdOutReader, err := signatureAggregatorCmd.StdoutPipe()
+	Expect(err).Should(BeNil())
+	cmdStdErrReader, err := signatureAggregatorCmd.StderrPipe()
+	Expect(err).Should(BeNil())
+
+	// Start the command
+	log.Info("Starting the signature-aggregator executable")
+	err = signatureAggregatorCmd.Start()
+	Expect(err).Should(BeNil())
+
+	// Start goroutines to read and output the command's stdout and stderr
+	go func() {
+		scanner := bufio.NewScanner(cmdStdOutReader)
+		for scanner.Scan() {
+			log.Info(scanner.Text())
+		}
+		cmdOutput <- "Command execution finished"
+	}()
+	go func() {
+		scanner := bufio.NewScanner(cmdStdErrReader)
+		for scanner.Scan() {
+			log.Error(scanner.Text())
+		}
+		cmdOutput <- "Command execution finished"
+	}()
+	// Spawn a goroutine that will panic if the aggregator exits abnormally.
+	go func() {
+		err := signatureAggregatorCmd.Wait()
+		// Context cancellation is the only expected way for the process to exit, otherwise panic
+		if !errors.Is(signatureAggregatorCtx.Err(), context.Canceled) {
+			panic(fmt.Errorf("signature-aggregator exited abnormally: %w", err))
+		}
+	}()
+	return func() {
+		signatureAggregatorCancelFunc()
+		<-signatureAggregatorCtx.Done()
 	}
 }
 
@@ -114,7 +173,7 @@ func CreateDefaultRelayerConfig(
 	teleporterContractAddress common.Address,
 	fundedAddress common.Address,
 	relayerKey *ecdsa.PrivateKey,
-) config.Config {
+) relayercfg.Config {
 	logLevel, err := logging.ToLevel(os.Getenv("LOG_LEVEL"))
 	if err != nil {
 		logLevel = logging.Info
@@ -125,16 +184,16 @@ func CreateDefaultRelayerConfig(
 		"logLevel", logLevel.LowerString(),
 	)
 	// Construct the config values for each subnet
-	sources := make([]*config.SourceBlockchain, len(sourceSubnetsInfo))
-	destinations := make([]*config.DestinationBlockchain, len(destinationSubnetsInfo))
+	sources := make([]*relayercfg.SourceBlockchain, len(sourceSubnetsInfo))
+	destinations := make([]*relayercfg.DestinationBlockchain, len(destinationSubnetsInfo))
 	for i, subnetInfo := range sourceSubnetsInfo {
 		host, port, err := teleporterTestUtils.GetURIHostAndPort(subnetInfo.NodeURIs[0])
 		Expect(err).Should(BeNil())
 
-		sources[i] = &config.SourceBlockchain{
+		sources[i] = &relayercfg.SourceBlockchain{
 			SubnetID:     subnetInfo.SubnetID.String(),
 			BlockchainID: subnetInfo.BlockchainID.String(),
-			VM:           config.EVM.String(),
+			VM:           relayercfg.EVM.String(),
 			RPCEndpoint: config.APIConfig{
 				BaseURL: fmt.Sprintf("http://%s:%d/ext/bc/%s/rpc", host, port, subnetInfo.BlockchainID.String()),
 			},
@@ -142,15 +201,15 @@ func CreateDefaultRelayerConfig(
 				BaseURL: fmt.Sprintf("ws://%s:%d/ext/bc/%s/ws", host, port, subnetInfo.BlockchainID.String()),
 			},
 
-			MessageContracts: map[string]config.MessageProtocolConfig{
+			MessageContracts: map[string]relayercfg.MessageProtocolConfig{
 				teleporterContractAddress.Hex(): {
-					MessageFormat: config.TELEPORTER.String(),
+					MessageFormat: relayercfg.TELEPORTER.String(),
 					Settings: map[string]interface{}{
 						"reward-address": fundedAddress.Hex(),
 					},
 				},
 				offchainregistry.OffChainRegistrySourceAddress.Hex(): {
-					MessageFormat: config.OFF_CHAIN_REGISTRY.String(),
+					MessageFormat: relayercfg.OFF_CHAIN_REGISTRY.String(),
 					Settings: map[string]interface{}{
 						"teleporter-registry-address": subnetInfo.TeleporterRegistryAddress.Hex(),
 					},
@@ -171,10 +230,10 @@ func CreateDefaultRelayerConfig(
 		host, port, err := teleporterTestUtils.GetURIHostAndPort(subnetInfo.NodeURIs[0])
 		Expect(err).Should(BeNil())
 
-		destinations[i] = &config.DestinationBlockchain{
+		destinations[i] = &relayercfg.DestinationBlockchain{
 			SubnetID:     subnetInfo.SubnetID.String(),
 			BlockchainID: subnetInfo.BlockchainID.String(),
-			VM:           config.EVM.String(),
+			VM:           relayercfg.EVM.String(),
 			RPCEndpoint: config.APIConfig{
 				BaseURL: fmt.Sprintf("http://%s:%d/ext/bc/%s/rpc", host, port, subnetInfo.BlockchainID.String()),
 			},
@@ -190,7 +249,7 @@ func CreateDefaultRelayerConfig(
 		)
 	}
 
-	return config.Config{
+	return relayercfg.Config{
 		LogLevel: logging.Info.LowerString(),
 		PChainAPI: &config.APIConfig{
 			BaseURL: sourceSubnetsInfo[0].NodeURIs[0],
@@ -205,6 +264,38 @@ func CreateDefaultRelayerConfig(
 		SourceBlockchains:      sources,
 		DestinationBlockchains: destinations,
 		APIPort:                8080,
+		DeciderURL:             "localhost:50051",
+		SignatureCacheSize:     (1024 * 1024),
+	}
+}
+
+// TODO: convert this function to be just "applySubnetsInfoToConfig" and have
+// callers use the defaults defined in the config package via viper, so that
+// there aren't two sets of "defaults".
+func CreateDefaultSignatureAggregatorConfig(
+	sourceSubnetsInfo []interfaces.SubnetTestInfo,
+) signatureaggregatorcfg.Config {
+	logLevel, err := logging.ToLevel(os.Getenv("LOG_LEVEL"))
+	if err != nil {
+		logLevel = logging.Info
+	}
+
+	log.Info(
+		"Setting up signature aggregator config",
+		"logLevel", logLevel.LowerString(),
+	)
+	// Construct the config values for each subnet
+	return signatureaggregatorcfg.Config{
+		LogLevel: logging.Info.LowerString(),
+		PChainAPI: &config.APIConfig{
+			BaseURL: sourceSubnetsInfo[0].NodeURIs[0],
+		},
+		InfoAPI: &config.APIConfig{
+			BaseURL: sourceSubnetsInfo[0].NodeURIs[0],
+		},
+		APIPort:            8080,
+		MetricsPort:        8081,
+		SignatureCacheSize: (1024 * 1024),
 	}
 }
 
@@ -319,7 +410,7 @@ func RelayBasicMessage(
 	Expect(err).Should(BeNil())
 	defer sub.Unsubscribe()
 
-	_, teleporterMessage, teleporterMessageID := SendBasicTeleporterMessage(
+	_, _, teleporterMessageID := SendBasicTeleporterMessage(
 		ctx,
 		source,
 		destination,
@@ -327,83 +418,12 @@ func RelayBasicMessage(
 		destinationAddress,
 	)
 
-	log.Info("Waiting for new block confirmation")
-	newHead := <-newHeadsDest
-	blockNumber := newHead.Number
-	log.Info(
-		"Received new head",
-		"height", blockNumber.Uint64(),
-		"hash", newHead.Hash(),
-	)
-	block, err := destination.RPCClient.BlockByNumber(ctx, blockNumber)
+	log.Info("Waiting for Teleporter message delivery")
+	err = utils.WaitTeleporterMessageDelivered(ctx, destination.TeleporterMessenger, teleporterMessageID)
 	Expect(err).Should(BeNil())
-	log.Info(
-		"Got block",
-		"blockHash", block.Hash(),
-		"blockNumber", block.NumberU64(),
-		"transactions", block.Transactions(),
-		"numTransactions", len(block.Transactions()),
-		"block", block,
-	)
-	accessLists := block.Transactions()[0].AccessList()
-	Expect(len(accessLists)).Should(Equal(1))
-	Expect(accessLists[0].Address).Should(Equal(warp.Module.Address))
-
-	// Check the transaction storage key has warp message we're expecting
-	storageKeyHashes := accessLists[0].StorageKeys
-	packedPredicate := subnetevmutils.HashSliceToBytes(storageKeyHashes)
-	predicateBytes, err := predicateutils.UnpackPredicate(packedPredicate)
-	Expect(err).Should(BeNil())
-	receivedWarpMessage, err := avalancheWarp.ParseMessage(predicateBytes)
-	Expect(err).Should(BeNil())
-
-	// Check that the transaction has successful receipt status
-	txHash := block.Transactions()[0].Hash()
-	receipt, err := destination.RPCClient.TransactionReceipt(ctx, txHash)
-	Expect(err).Should(BeNil())
-	Expect(receipt.Status).Should(Equal(types.ReceiptStatusSuccessful))
-
-	// Check that the transaction emits ReceiveCrossChainMessage
-	receiveEvent, err := teleporterTestUtils.GetEventFromLogs(
-		receipt.Logs,
-		destination.TeleporterMessenger.ParseReceiveCrossChainMessage,
-	)
-	Expect(err).Should(BeNil())
-	Expect(receiveEvent.SourceBlockchainID[:]).Should(Equal(source.BlockchainID[:]))
-	Expect(receiveEvent.MessageID[:]).Should(Equal(teleporterMessageID[:]))
-
-	//
-	// Validate Received Warp Message Values
-	//
-	log.Info("Validating received warp message")
-	Expect(receivedWarpMessage.SourceChainID).Should(Equal(source.BlockchainID))
-	addressedPayload, err := warpPayload.ParseAddressedCall(receivedWarpMessage.Payload)
-	Expect(err).Should(BeNil())
-
-	// Check that the teleporter message is correct
-	// We don't validate the entire message, since the message receipts
-	// are populated by the Teleporter contract
-	receivedTeleporterMessage, err := teleportermessenger.UnpackTeleporterMessage(addressedPayload.Payload)
-	Expect(err).Should(BeNil())
-
-	receivedMessageID, err := teleporterUtils.CalculateMessageID(
-		teleporterContractAddress,
-		source.BlockchainID,
-		destination.BlockchainID,
-		teleporterMessage.MessageNonce,
-	)
-	Expect(err).Should(BeNil())
-	Expect(receivedMessageID).Should(Equal(teleporterMessageID))
-	Expect(receivedTeleporterMessage.OriginSenderAddress).Should(Equal(teleporterMessage.OriginSenderAddress))
-	receivedDestinationID, err := ids.ToID(receivedTeleporterMessage.DestinationBlockchainID[:])
-	Expect(err).Should(BeNil())
-	Expect(receivedDestinationID).Should(Equal(destination.BlockchainID))
-	Expect(receivedTeleporterMessage.DestinationAddress).Should(Equal(teleporterMessage.DestinationAddress))
-	Expect(receivedTeleporterMessage.RequiredGasLimit.Uint64()).Should(Equal(teleporterMessage.RequiredGasLimit.Uint64()))
-	Expect(receivedTeleporterMessage.Message).Should(Equal(teleporterMessage.Message))
 }
 
-func WriteRelayerConfig(relayerConfig config.Config, fname string) string {
+func WriteRelayerConfig(relayerConfig relayercfg.Config, fname string) string {
 	data, err := json.MarshalIndent(relayerConfig, "", "\t")
 	Expect(err).Should(BeNil())
 
@@ -418,12 +438,28 @@ func WriteRelayerConfig(relayerConfig config.Config, fname string) string {
 	return relayerConfigPath
 }
 
+// TODO define interface over Config and write a generic function to write either config
+func WriteSignatureAggregatorConfig(signatureAggregatorConfig signatureaggregatorcfg.Config, fname string) string {
+	data, err := json.MarshalIndent(signatureAggregatorConfig, "", "\t")
+	Expect(err).Should(BeNil())
+
+	f, err := os.CreateTemp(os.TempDir(), fname)
+	Expect(err).Should(BeNil())
+
+	_, err = f.Write(data)
+	Expect(err).Should(BeNil())
+	signatureAggregatorConfigPath := f.Name()
+
+	log.Info("Created signature-aggregator config", "configPath", signatureAggregatorConfigPath, "config", string(data))
+	return signatureAggregatorConfigPath
+}
+
 func TriggerProcessMissedBlocks(
 	ctx context.Context,
 	sourceSubnetInfo interfaces.SubnetTestInfo,
 	destinationSubnetInfo interfaces.SubnetTestInfo,
 	currRelayerCleanup context.CancelFunc,
-	currrentRelayerConfig config.Config,
+	currrentRelayerConfig relayercfg.Config,
 	fundedAddress common.Address,
 	fundedKey *ecdsa.PrivateKey,
 ) {
@@ -458,8 +494,11 @@ func TriggerProcessMissedBlocks(
 	log.Info("Starting the relayer")
 	relayerCleanup := BuildAndRunRelayerExecutable(ctx, relayerConfigPath)
 	defer relayerCleanup()
-	log.Info("Waiting for a new block confirmation on the destination")
-	<-newHeads
+
+	log.Info("Waiting for Teleporter message delivery")
+	err = utils.WaitTeleporterMessageDelivered(ctx, destinationSubnetInfo.TeleporterMessenger, id3)
+	Expect(err).Should(BeNil())
+
 	delivered1, err := destinationSubnetInfo.TeleporterMessenger.MessageReceived(
 		&bind.CallOpts{}, id1,
 	)

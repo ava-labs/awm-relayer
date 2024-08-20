@@ -4,8 +4,14 @@
 package tests
 
 import (
+	"context"
 	"encoding/hex"
+	"errors"
+	"fmt"
 	"os"
+	"os/exec"
+	"os/signal"
+	"syscall"
 	"testing"
 
 	testUtils "github.com/ava-labs/awm-relayer/tests/utils"
@@ -21,7 +27,12 @@ const (
 	warpGenesisTemplateFile = "./tests/utils/warp-genesis-template.json"
 )
 
-var localNetworkInstance *local.LocalNetwork
+var (
+	localNetworkInstance *local.LocalNetwork
+
+	decider       *exec.Cmd
+	cancelDecider context.CancelFunc
+)
 
 func TestE2E(t *testing.T) {
 	if os.Getenv("RUN_E2E") == "" {
@@ -34,29 +45,15 @@ func TestE2E(t *testing.T) {
 
 // Define the Relayer before and after suite functions.
 var _ = ginkgo.BeforeSuite(func() {
-	localNetworkInstance = local.NewLocalNetwork(
-		"awm-relayer-e2e-test",
-		warpGenesisTemplateFile,
-		[]local.SubnetSpec{
-			{
-				Name:       "A",
-				EVMChainID: 12345,
-				NodeCount:  5,
-			},
-			{
-				Name:       "B",
-				EVMChainID: 54321,
-				NodeCount:  5,
-			},
-		},
-		0,
-	)
 	// Generate the Teleporter deployment values
 	teleporterContractAddress := common.HexToAddress(
 		testUtils.ReadHexTextFile("./tests/utils/UniversalTeleporterMessengerContractAddress.txt"),
 	)
 	teleporterDeployerAddress := common.HexToAddress(
 		testUtils.ReadHexTextFile("./tests/utils/UniversalTeleporterDeployerAddress.txt"),
+	)
+	teleporterDeployedByteCode := testUtils.ReadHexTextFile(
+		"./tests/utils/UniversalTeleporterDeployedBytecode.txt",
 	)
 	teleporterDeployerTransactionStr := testUtils.ReadHexTextFile(
 		"./tests/utils/UniversalTeleporterDeployerTransaction.txt",
@@ -65,20 +62,65 @@ var _ = ginkgo.BeforeSuite(func() {
 		utils.SanitizeHexString(teleporterDeployerTransactionStr),
 	)
 	Expect(err).Should(BeNil())
+	localNetworkInstance = local.NewLocalNetwork(
+		"awm-relayer-e2e-test",
+		warpGenesisTemplateFile,
+		[]local.SubnetSpec{
+			{
+				Name:                       "A",
+				EVMChainID:                 12345,
+				TeleporterContractAddress:  teleporterContractAddress,
+				TeleporterDeployedBytecode: teleporterDeployedByteCode,
+				TeleporterDeployerAddress:  teleporterDeployerAddress,
+				NodeCount:                  2,
+			},
+			{
+				Name:                       "B",
+				EVMChainID:                 54321,
+				TeleporterContractAddress:  teleporterContractAddress,
+				TeleporterDeployedBytecode: teleporterDeployedByteCode,
+				TeleporterDeployerAddress:  teleporterDeployerAddress,
+				NodeCount:                  2,
+			},
+		},
+		0,
+	)
 
 	_, fundedKey := localNetworkInstance.GetFundedAccountInfo()
-	localNetworkInstance.DeployTeleporterContracts(
+	log.Info("Deployed Teleporter contracts")
+	localNetworkInstance.DeployTeleporterContractToCChain(
 		teleporterDeployerTransaction,
 		teleporterDeployerAddress,
 		teleporterContractAddress,
 		fundedKey,
-		true,
 	)
-	log.Info("Deployed Teleporter contracts")
-	localNetworkInstance.DeployTeleporterRegistryContracts(
-		teleporterContractAddress,
-		fundedKey,
-	)
+	localNetworkInstance.SetTeleporterContractAddress(teleporterContractAddress)
+
+	// Deploy the Teleporter registry contracts to all subnets and the C-Chain.
+	localNetworkInstance.DeployTeleporterRegistryContracts(teleporterContractAddress, fundedKey)
+
+	var ctx context.Context
+	ctx, cancelDecider = context.WithCancel(context.Background())
+	// we'll call cancelDecider in AfterSuite, but also call it if this
+	// process is killed, because AfterSuite won't always run then:
+	signalChan := make(chan os.Signal, 2)
+	signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-signalChan
+		cancelDecider()
+	}()
+	decider = exec.CommandContext(ctx, "./tests/cmd/decider/decider")
+	decider.Start()
+	go func() { // panic if the decider exits abnormally
+		err := decider.Wait()
+		// Context cancellation is the only expected way for the
+		// process to exit, otherwise panic
+		if !errors.Is(ctx.Err(), context.Canceled) {
+			panic(fmt.Errorf("decider exited abnormally: %w", err))
+		}
+	}()
+	log.Info("Started decider service")
+
 	log.Info("Set up ginkgo before suite")
 
 	ginkgo.AddReportEntry(
@@ -89,7 +131,12 @@ var _ = ginkgo.BeforeSuite(func() {
 })
 
 var _ = ginkgo.AfterSuite(func() {
-	localNetworkInstance.TearDownNetwork()
+	if localNetworkInstance != nil {
+		localNetworkInstance.TearDownNetwork()
+	}
+	if decider != nil {
+		cancelDecider()
+	}
 })
 
 var _ = ginkgo.Describe("[AWM Relayer Integration Tests", func() {
@@ -113,5 +160,8 @@ var _ = ginkgo.Describe("[AWM Relayer Integration Tests", func() {
 	})
 	ginkgo.It("Warp API", func() {
 		WarpAPIRelay(localNetworkInstance)
+	})
+	ginkgo.It("Signature Aggregator", func() {
+		SignatureAggregatorAPI(localNetworkInstance)
 	})
 })
