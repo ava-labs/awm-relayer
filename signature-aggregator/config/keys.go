@@ -15,5 +15,6 @@ const (
 	InfoAPIKey            = "info-api"
 	APIPortKey            = "api-port"
 	MetricsPortKey        = "metrics-port"
+	HealthCheckPortKey    = "health-check-port"
 	SignatureCacheSizeKey = "signature-cache-size"
 )

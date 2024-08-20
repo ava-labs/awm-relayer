@@ -301,6 +301,7 @@ func CreateDefaultSignatureAggregatorConfig(
 		},
 		APIPort:            8080,
 		MetricsPort:        8081,
+		HealthCheckPort:    8082,
 		SignatureCacheSize: (1024 * 1024),
 	}
 }
