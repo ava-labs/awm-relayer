@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"net/http"
 	"os"
 	"os/exec"
 	"strings"
@@ -56,7 +57,12 @@ func RunRelayerExecutable(ctx context.Context, relayerConfigPath string) (contex
 	relayerCtx, relayerCancel := context.WithCancel(ctx)
 	relayerCmd := exec.CommandContext(relayerCtx, "./build/awm-relayer", "--config-file", relayerConfigPath)
 
-	readyChan := runExecutable(relayerCmd, relayerCtx, "awm-relayer")
+	readyChan := runExecutable(
+		relayerCmd,
+		relayerCtx,
+		"awm-relayer",
+		"http://localhost:8080/health",
+	)
 	return func() {
 		relayerCancel()
 		<-relayerCtx.Done()
@@ -72,7 +78,12 @@ func RunSignatureAggregatorExecutable(ctx context.Context, configPath string) (c
 		configPath,
 	)
 
-	readyChan := runExecutable(signatureAggregatorCmd, aggregatorCtx, "signature-aggregator")
+	readyChan := runExecutable(
+		signatureAggregatorCmd,
+		aggregatorCtx,
+		"signature-aggregator",
+		"http://localhost:8080/health",
+	)
 
 	return func() {
 		aggregatorCancel()
@@ -469,6 +480,7 @@ func runExecutable(
 	cmd *exec.Cmd,
 	ctx context.Context,
 	appName string,
+	healthCheckUrl string,
 ) chan struct{} {
 	cmdOutput := make(chan string)
 
@@ -489,11 +501,7 @@ func runExecutable(
 	go func() {
 		scanner := bufio.NewScanner(cmdStdOutReader)
 		for scanner.Scan() {
-			text := scanner.Text()
-			if strings.Contains(text, "Initialization complete") {
-				close(readyChan)
-			}
-			log.Info(text)
+			log.Info(scanner.Text())
 		}
 		cmdOutput <- "Command execution finished"
 	}()
@@ -510,6 +518,16 @@ func runExecutable(
 		// Don't panic to allow for easier cleanup
 		if !errors.Is(ctx.Err(), context.Canceled) {
 			log.Error("Executable exited abnormally", "appName", appName, "err", err)
+		}
+	}()
+	go func() { // wait for health check to report healthy
+		for {
+			resp, err := http.Get(healthCheckUrl)
+			if err == nil && resp.StatusCode == 200 {
+				close(readyChan)
+				break
+			}
+			time.Sleep(time.Second * 1)
 		}
 	}()
 	return readyChan
