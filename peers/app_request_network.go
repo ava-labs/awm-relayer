@@ -180,18 +180,18 @@ func (n *AppRequestNetwork) ConnectPeers(nodeIDs set.Set[ids.NodeID]) set.Set[id
 	// If the Info API node is in nodeIDs, it will not be reflected in the call to info.Peers.
 	// In this case, we need to manually track the API node.
 	startInfoAPICall = time.Now()
-	if apiNodeID, _, err := n.infoAPI.GetNodeID(context.Background()); err != nil {
-		n.setInfoAPICallLatencyMS(float64(time.Since(startInfoAPICall).Milliseconds()))
-
+	apiNodeID, _, err := n.infoAPI.GetNodeID(context.Background())
+	n.setInfoAPICallLatencyMS(float64(time.Since(startInfoAPICall).Milliseconds()))
+	if err != nil {
 		n.logger.Error(
 			"Failed to get API Node ID",
 			zap.Error(err),
 		)
 	} else if nodeIDs.Contains(apiNodeID) {
-		n.setInfoAPICallLatencyMS(float64(time.Since(startInfoAPICall).Milliseconds()))
-
 		startInfoAPICall = time.Now()
-		if apiNodeIPPort, err := n.infoAPI.GetNodeIP(context.Background()); err != nil {
+		apiNodeIPPort, err := n.infoAPI.GetNodeIP(context.Background())
+		n.setInfoAPICallLatencyMS(float64(time.Since(startInfoAPICall).Milliseconds()))
+		if err != nil {
 			n.logger.Error(
 				"Failed to get API Node IP",
 				zap.Error(err),
@@ -200,7 +200,6 @@ func (n *AppRequestNetwork) ConnectPeers(nodeIDs set.Set[ids.NodeID]) set.Set[id
 			trackedNodes.Add(apiNodeID)
 			n.Network.ManuallyTrack(apiNodeID, apiNodeIPPort)
 		}
-		n.setInfoAPICallLatencyMS(float64(time.Since(startInfoAPICall).Milliseconds()))
 	}
 
 	return trackedNodes
