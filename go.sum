@@ -64,8 +64,8 @@ github.com/ava-labs/coreth v0.13.7 h1:k8T9u/ROifl8f7oXjHRc1KvSISRl9txvy7gGVmHEz6
 github.com/ava-labs/coreth v0.13.7/go.mod h1:tXDujonxXFOF6oK5HS2EmgtSXJK3Gy6RpZxb5WzR9rM=
 github.com/ava-labs/subnet-evm v0.6.8 h1:IrHGajBYWs692YIYdd5J0oVWWt88Q/XAZQq/dOtkHFw=
 github.com/ava-labs/subnet-evm v0.6.8/go.mod h1:qt8DXyGm40CY9yffNOe1+4yUyL9mD3v5RPWqAuGj5u4=
-github.com/ava-labs/teleporter v1.0.4 h1:+OAS3YyPc/LijR29qu3EqU6xAnQnjOgf4EtDlCMcDsc=
-github.com/ava-labs/teleporter v1.0.4/go.mod h1:bUiOSIGjFktkYg01XDjeaZdgLEx0ZpUDfJXI6Z0rHY8=
+github.com/ava-labs/teleporter v1.0.5 h1:51fRzvo7eo9VotYq6cldx+yoAkEk5o9yCXOJ6q3tSEo=
+github.com/ava-labs/teleporter v1.0.5/go.mod h1:C5/ETmPQh/MxZOCARrhPV+J40y4R3TOeT0lvQrjz/RE=
 github.com/aws/aws-sdk-go-v2 v1.30.3 h1:jUeBtG0Ih+ZIFH0F4UkmL9w3cSpaMv9tYYDbzILP8dY=
 github.com/aws/aws-sdk-go-v2 v1.30.3/go.mod h1:nIQjQVp5sfpQcTc9mPSr1B0PaWK5ByX9MOoDadSN4lc=
 github.com/aws/aws-sdk-go-v2/config v1.27.9 h1:gRx/NwpNEFSk+yQlgmk1bmxxvQ5TyJ76CWXs9XScTqg=
@@ -518,8 +518,8 @@ github.com/pkg/errors v0.9.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINE
 github.com/pkg/sftp v1.13.1/go.mod h1:3HaPG6Dq1ILlpPZRO0HVMrsydcdLt6HRDccSgb87qRg=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
-github.com/prometheus/client_golang v1.20.0 h1:jBzTZ7B099Rg24tny+qngoynol8LtVYlA2bqx3vEloI=
-github.com/prometheus/client_golang v1.20.0/go.mod h1:PIEt8X02hGcP8JWbeHyeZ53Y/jReSnHgO035n//V5WE=
+github.com/prometheus/client_golang v1.20.1 h1:IMJXHOD6eARkQpxo8KkhgEVFlBNm+nkrFUyGlIu7Na8=
+github.com/prometheus/client_golang v1.20.1/go.mod h1:PIEt8X02hGcP8JWbeHyeZ53Y/jReSnHgO035n//V5WE=
 github.com/prometheus/client_model v0.0.0-20190812154241-14fe0d1b01d4/go.mod h1:xMI15A0UPsDsEKsMN9yxemIoYk6Tm2C1GtYGdfGttqA=
 github.com/prometheus/client_model v0.6.1 h1:ZKSh/rekM+n3CeS952MLRAdFwIKqeY8b62p8ais2e9E=
 github.com/prometheus/client_model v0.6.1/go.mod h1:OrxVMOVHjw3lKMa8+x6HeMGkHMQyHDk9E3jmP2AmGiY=
