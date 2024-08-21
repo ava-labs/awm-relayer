@@ -131,7 +131,15 @@ func SignatureAggregatorAPI(network interfaces.LocalNetwork) {
 		{metrics.Opts.InvalidSignatureResponses.Name, "==", 0},
 		{metrics.Opts.SignatureCacheHits.Name, "==", 0},
 		{metrics.Opts.SignatureCacheMisses.Name, "==", 0},
-		{metrics.Opts.CachedSignatureWeightPercentage.Name, "==", 0},
+		{
+			fmt.Sprintf(
+				"%s{subnetID=\"%s\"}",
+				metrics.Opts.ConnectedStakeWeightPercentage.Name,
+				subnetAInfo.SubnetID.String(),
+			),
+			"==",
+			1,
+		},
 	} {
 		Expect(metricsSample[m.name]).Should(
 			BeNumerically(m.op, m.value),
@@ -158,9 +166,6 @@ func SignatureAggregatorAPI(network interfaces.LocalNetwork) {
 	Expect(
 		metricsSample2[metrics.Opts.SignatureCacheMisses.Name],
 	).Should(Equal(metricsSample[metrics.Opts.SignatureCacheMisses.Name]))
-	Expect(
-		metricsSample2[metrics.Opts.CachedSignatureWeightPercentage.Name],
-	).Should(BeNumerically("==", 75))
 }
 
 // returns a map of metric names to metric samples
@@ -189,7 +194,7 @@ func sampleMetrics(port uint16) map[string]uint64 {
 			metrics.Opts.InvalidSignatureResponses.Name,
 			metrics.Opts.SignatureCacheHits.Name,
 			metrics.Opts.SignatureCacheMisses.Name,
-			metrics.Opts.CachedSignatureWeightPercentage.Name,
+			metrics.Opts.ConnectedStakeWeightPercentage.Name,
 		} {
 			if strings.HasPrefix(
 				line,
@@ -198,7 +203,9 @@ func sampleMetrics(port uint16) map[string]uint64 {
 				log.Debug("Found metric line", "line", line)
 				parts := strings.Fields(line)
 
-				// Fetch the metric count from the last field of the line
+				metricName = strings.Replace(parts[0], "U__signature_2d_aggregator_", "", 1)
+
+				// Parse the metric count from the last field of the line
 				value, err := strconv.ParseUint(parts[len(parts)-1], 10, 64)
 				if err != nil {
 					log.Warn("failed to parse value from metric line")

@@ -121,6 +121,14 @@ func (s *SignatureAggregator) CreateSignedMessage(
 		s.metrics.FailuresToGetValidatorSet.Inc()
 		return nil, fmt.Errorf("%s: %w", msg, err)
 	}
+	s.metrics.ConnectedStakeWeightPercentage.WithLabelValues(
+		signingSubnet.String(),
+	).Set(
+		float64(
+			connectedValidators.ConnectedWeight /
+				connectedValidators.TotalValidatorWeight,
+		),
+	)
 
 	if !utils.CheckStakeWeightPercentageExceedsThreshold(
 		big.NewInt(0).SetUint64(connectedValidators.ConnectedWeight),
@@ -152,12 +160,6 @@ func (s *SignatureAggregator) CreateSignedMessage(
 			}
 		}
 		s.metrics.SignatureCacheHits.Add(float64(len(signatureMap)))
-		s.metrics.CachedSignatureWeightPercentage.Set(
-			float64(utils.GetStakeWeightPercentage(
-				accumulatedSignatureWeight,
-				connectedValidators.TotalValidatorWeight,
-			)),
-		)
 	}
 	if signedMsg, err := s.aggregateIfSufficientWeight(
 		unsignedMessage,
