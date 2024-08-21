@@ -140,7 +140,7 @@ func (s *subscriber) getHeaderByNumberRetryable(headerNumber *big.Int) (*types.H
 			zap.Int("attempt", attempt),
 			zap.Error(err),
 		)
-		if attempt == rpcMaxRetries {
+		if attempt >= rpcMaxRetries {
 			return nil, err
 		}
 		time.Sleep(subscribeRetryTimeout)
