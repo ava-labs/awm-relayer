@@ -15,6 +15,7 @@ import (
 
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/message"
+	networkP2P "github.com/ava-labs/avalanchego/network/p2p"
 	"github.com/ava-labs/avalanchego/proto/pb/p2p"
 	"github.com/ava-labs/avalanchego/proto/pb/sdk"
 	"github.com/ava-labs/avalanchego/subnets"
@@ -24,7 +25,6 @@ import (
 	avalancheWarp "github.com/ava-labs/avalanchego/vms/platformvm/warp"
 	"github.com/ava-labs/awm-relayer/peers"
 	"github.com/ava-labs/awm-relayer/utils"
-	msg "github.com/ava-labs/subnet-evm/plugin/evm/message"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
 )
@@ -120,9 +120,11 @@ func (s *SignatureAggregator) CreateSignedMessage(
 		return nil, errNotEnoughConnectedStake
 	}
 
-	reqBytes, err := proto.Marshal(
+	reqBytes := networkP2P.ProtocolPrefix(networkP2P.SignatureRequestHandlerID)
+	messageBytes, err := proto.Marshal(
 		&sdk.SignatureRequest{Message: unsignedMessage.Bytes()},
 	)
+	reqBytes = append(reqBytes, messageBytes...)
 	if err != nil {
 		msg := "Failed to marshal request bytes"
 		s.logger.Error(
@@ -426,8 +428,9 @@ func (s *SignatureAggregator) isValidSignatureResponse(
 		return blsSignatureBuf{}, false
 	}
 
-	var sigResponse msg.SignatureResponse
-	if _, err := msg.Codec.Unmarshal(appResponse.AppBytes, &sigResponse); err != nil {
+	sigResponse := sdk.SignatureResponse{}
+	err := proto.Unmarshal(appResponse.AppBytes, &sigResponse)
+	if err != nil {
 		s.logger.Error(
 			"Error unmarshaling signature response",
 			zap.Error(err),
@@ -441,6 +444,15 @@ func (s *SignatureAggregator) isValidSignatureResponse(
 		s.logger.Debug(
 			"Response contained an empty signature",
 			zap.String("nodeID", response.NodeID().String()),
+		)
+		return blsSignatureBuf{}, false
+	}
+
+	if len(signature) != bls.SignatureLen {
+		s.logger.Debug(
+			"Response signature has incorrect length",
+			zap.Int("actual", len(signature)),
+			zap.Int("expected", bls.SignatureLen),
 		)
 		return blsSignatureBuf{}, false
 	}
@@ -459,8 +471,9 @@ func (s *SignatureAggregator) isValidSignatureResponse(
 		)
 		return blsSignatureBuf{}, false
 	}
-
-	return signature, true
+	blsSig := blsSignatureBuf{}
+	copy(blsSig[:], signature[:])
+	return blsSig, true
 }
 
 // aggregateSignatures constructs a BLS aggregate signature from the collected validator signatures. Also
