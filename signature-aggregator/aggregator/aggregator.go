@@ -448,6 +448,15 @@ func (s *SignatureAggregator) isValidSignatureResponse(
 		return blsSignatureBuf{}, false
 	}
 
+	if len(signature) != bls.SignatureLen {
+		s.logger.Debug(
+			"Response signature has incorrect length",
+			zap.Int("actual", len(signature)),
+			zap.Int("expected", bls.SignatureLen),
+		)
+		return blsSignatureBuf{}, false
+	}
+
 	sig, err := bls.SignatureFromBytes(signature[:])
 	if err != nil {
 		s.logger.Debug(
