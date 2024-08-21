@@ -2,7 +2,6 @@ package tests
 
 import (
 	"context"
-	"fmt"
 	"sync"
 
 	testUtils "github.com/ava-labs/awm-relayer/tests/utils"
@@ -72,13 +71,13 @@ func SharedDatabaseAccess(network interfaces.LocalNetwork) {
 	relayerCleanupA, readyChanA := testUtils.RunRelayerExecutable(
 		ctx,
 		relayerConfigPathA,
-		fmt.Sprintf("http://localhost:%d/health", relayerConfigA.APIPort),
+		relayerConfigA,
 	)
 	defer relayerCleanupA()
 	relayerCleanupB, readyChanB := testUtils.RunRelayerExecutable(
 		ctx,
 		relayerConfigPathB,
-		fmt.Sprintf("http://localhost:%d/health", relayerConfigB.APIPort),
+		relayerConfigB,
 	)
 	defer relayerCleanupB()
 

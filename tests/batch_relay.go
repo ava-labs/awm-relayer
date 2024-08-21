@@ -70,10 +70,7 @@ func BatchRelay(network interfaces.LocalNetwork) {
 	relayerCleanup, readyChan := testUtils.RunRelayerExecutable(
 		ctx,
 		relayerConfigPath,
-		fmt.Sprintf(
-			"http://localhost:%d/health",
-			relayerConfig.APIPort,
-		),
+		relayerConfig,
 	)
 	defer relayerCleanup()
 

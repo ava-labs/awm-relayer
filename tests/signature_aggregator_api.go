@@ -55,10 +55,7 @@ func SignatureAggregatorAPI(network interfaces.LocalNetwork) {
 	signatureAggregatorCancel, readyChan := testUtils.RunSignatureAggregatorExecutable(
 		ctx,
 		signatureAggregatorConfigPath,
-		fmt.Sprintf(
-			"http://localhost:%d/health",
-			signatureAggregatorConfig.APIPort,
-		),
+		signatureAggregatorConfig,
 	)
 	defer signatureAggregatorCancel()
 

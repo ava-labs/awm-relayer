@@ -5,7 +5,6 @@ package tests
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"time"
 
@@ -67,10 +66,7 @@ func BasicRelay(network interfaces.LocalNetwork) {
 	relayerCleanup, readyChan := testUtils.RunRelayerExecutable(
 		ctx,
 		relayerConfigPath,
-		fmt.Sprintf(
-			"http://localhost:%d/health",
-			relayerConfig.APIPort,
-		),
+		relayerConfig,
 	)
 	defer relayerCleanup()
 
@@ -154,10 +150,7 @@ func BasicRelay(network interfaces.LocalNetwork) {
 	relayerCleanup, readyChan = testUtils.RunRelayerExecutable(
 		ctx,
 		relayerConfigPath,
-		fmt.Sprintf(
-			"http://localhost:%d/health",
-			relayerConfig.APIPort,
-		),
+		relayerConfig,
 	)
 	defer relayerCleanup()
 

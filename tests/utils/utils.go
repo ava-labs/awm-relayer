@@ -56,10 +56,12 @@ func BuildAllExecutables(ctx context.Context) {
 func RunRelayerExecutable(
 	ctx context.Context,
 	relayerConfigPath string,
-	healthCheckURL string,
+	relayerConfig relayercfg.Config,
 ) (context.CancelFunc, chan struct{}) {
 	relayerCtx, relayerCancel := context.WithCancel(ctx)
 	relayerCmd := exec.CommandContext(relayerCtx, "./build/awm-relayer", "--config-file", relayerConfigPath)
+
+	healthCheckURL := fmt.Sprintf("http://localhost:%d/health", relayerConfig.APIPort)
 
 	readyChan := runExecutable(
 		relayerCmd,
@@ -76,7 +78,7 @@ func RunRelayerExecutable(
 func RunSignatureAggregatorExecutable(
 	ctx context.Context,
 	configPath string,
-	healthCheckURL string,
+	config signatureaggregatorcfg.Config,
 ) (context.CancelFunc, chan struct{}) {
 	aggregatorCtx, aggregatorCancel := context.WithCancel(ctx)
 	signatureAggregatorCmd := exec.CommandContext(
@@ -86,6 +88,7 @@ func RunSignatureAggregatorExecutable(
 		configPath,
 	)
 
+	healthCheckURL := fmt.Sprintf("http://localhost:%d/health", config.APIPort)
 	readyChan := runExecutable(
 		signatureAggregatorCmd,
 		aggregatorCtx,
@@ -434,10 +437,7 @@ func TriggerProcessMissedBlocks(
 	relayerCleanup, readyChan := RunRelayerExecutable(
 		ctx,
 		relayerConfigPath,
-		fmt.Sprintf(
-			"http://localhost:%d/health",
-			currentRelayerConfig.APIPort,
-		),
+		currentRelayerConfig,
 	)
 	defer relayerCleanup()
 
