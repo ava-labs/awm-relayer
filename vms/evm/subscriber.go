@@ -128,7 +128,8 @@ func (s *subscriber) processBlockRange(
 func (s *subscriber) getHeaderByNumberRetryable(headerNumber *big.Int) (*types.Header, error) {
 	var err error
 	var header *types.Header
-	for i := 0; i < rpcMaxRetries; i++ {
+	attempt := 1
+	for {
 		header, err = s.rpcClient.HeaderByNumber(context.Background(), headerNumber)
 		if err == nil {
 			return header, nil
@@ -136,15 +137,15 @@ func (s *subscriber) getHeaderByNumberRetryable(headerNumber *big.Int) (*types.H
 		s.logger.Warn(
 			"Failed to get header by number",
 			zap.String("blockchainID", s.blockchainID.String()),
-			zap.Int("attempt", i),
+			zap.Int("attempt", attempt),
 			zap.Error(err),
 		)
-		// Sleep if this wasn't the last retry
-		if i < rpcMaxRetries-1 {
-			time.Sleep(time.Duration(i+1) * time.Second)
+		if attempt == rpcMaxRetries {
+			return nil, err
 		}
+		time.Sleep(subscribeRetryTimeout)
+		attempt++
 	}
-	return nil, err
 }
 
 // Loops forever iff maxResubscribeAttempts == 0
