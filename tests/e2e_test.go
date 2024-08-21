@@ -30,20 +30,12 @@ const (
 var (
 	localNetworkInstance *local.LocalNetwork
 
-	decider       *exec.Cmd
-	cancelDecider context.CancelFunc
+	decider  *exec.Cmd
+	cancelFn context.CancelFunc
 )
 
 func TestE2E(t *testing.T) {
-	// In case of a panic we need to recover to ensure the Ginkgo cleanup is done
-	defer func() {
-		if r := recover(); r != nil {
-			log.Error("Panic caught: ", "panic", r)
-			cleanup()
-			os.Exit(1)
-		}
-	}()
-	// Handle SIGINT and SIGTERM signals as well.
+	// Handle SIGINT and SIGTERM signals.
 	signalChan := make(chan os.Signal, 2)
 	signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM)
 	go func() {
@@ -64,7 +56,7 @@ func TestE2E(t *testing.T) {
 // Define the Relayer before and after suite functions.
 var _ = ginkgo.BeforeSuite(func() {
 	var ctx context.Context
-	ctx, cancelDecider = context.WithCancel(context.Background())
+	ctx, cancelFn = context.WithCancel(context.Background())
 
 	log.Info("Building all ICM off-chain service executables")
 	testUtils.BuildAllExecutables(ctx)
@@ -146,7 +138,7 @@ var _ = ginkgo.BeforeSuite(func() {
 
 func cleanup() {
 	if decider != nil {
-		cancelDecider()
+		cancelFn()
 		decider = nil
 	}
 	if localNetworkInstance != nil {
