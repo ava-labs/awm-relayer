@@ -137,8 +137,8 @@ var _ = ginkgo.BeforeSuite(func() {
 })
 
 func cleanup() {
+	cancelFn()
 	if decider != nil {
-		cancelFn()
 		decider = nil
 	}
 	if localNetworkInstance != nil {
