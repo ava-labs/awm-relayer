@@ -442,7 +442,8 @@ func TriggerProcessMissedBlocks(
 	defer relayerCleanup()
 
 	// Wait for relayer to start up
-	WaitForChannelClose(readyChan, 15*time.Second)
+	startupCtx, _ := context.WithTimeout(ctx, 15*time.Second)
+	WaitForChannelClose(startupCtx, readyChan)
 
 	log.Info("Waiting for a new block confirmation on the destination")
 	<-newHeads
@@ -550,10 +551,10 @@ func runExecutable(
 
 // Helper function that waits for a signaling channel to be closed
 // or throws an error if the channel is not closed in time
-func WaitForChannelClose(ch <-chan struct{}, timeout time.Duration) {
+func WaitForChannelClose(ctx context.Context, ch <-chan struct{}) {
 	select {
 	case <-ch:
-	case <-time.After(timeout):
+	case <-ctx.Done():
 		Expect(false).To(BeTrue(), "Channel did not close in time")
 	}
 }

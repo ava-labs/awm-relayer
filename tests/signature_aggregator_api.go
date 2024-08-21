@@ -64,7 +64,8 @@ func SignatureAggregatorAPI(network interfaces.LocalNetwork) {
 
 	// Wait for signature-aggregator to start up
 	log.Info("Waiting for the relayer to start up")
-	testUtils.WaitForChannelClose(readyChan, 15*time.Second)
+	startupCtx, _ := context.WithTimeout(ctx, 15*time.Second)
+	testUtils.WaitForChannelClose(startupCtx, readyChan)
 
 	// End setup step
 	// Begin Test Case 1

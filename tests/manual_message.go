@@ -121,7 +121,8 @@ func ManualMessage(network interfaces.LocalNetwork) {
 
 	// Wait for relayer to startup.
 	log.Info("Waiting for the relayer to start up")
-	testUtils.WaitForChannelClose(readyChan, 15*time.Second)
+	startupCtx, _ := context.WithTimeout(ctx, 15*time.Second)
+	testUtils.WaitForChannelClose(startupCtx, readyChan)
 
 	reqBody := api.ManualWarpMessageRequest{
 		UnsignedMessageBytes: unsignedMessage.Bytes(),

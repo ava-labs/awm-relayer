@@ -75,7 +75,8 @@ func BasicRelay(network interfaces.LocalNetwork) {
 	defer relayerCleanup()
 
 	// Wait for relayer to start up
-	testUtils.WaitForChannelClose(readyChan, 15*time.Second)
+	startupCtx, _ := context.WithTimeout(ctx, 15*time.Second)
+	testUtils.WaitForChannelClose(startupCtx, readyChan)
 
 	log.Info("Sending transaction from Subnet A to Subnet B")
 	testUtils.RelayBasicMessage(
@@ -162,7 +163,7 @@ func BasicRelay(network interfaces.LocalNetwork) {
 
 	// Wait for relayer to start up
 	log.Info("Waiting for the relayer to start up")
-	testUtils.WaitForChannelClose(readyChan, 15*time.Second)
+	testUtils.WaitForChannelClose(startupCtx, readyChan)
 
 	// We should not receive a new block on subnet B, since the relayer should have
 	// seen the Teleporter message was already delivered.
