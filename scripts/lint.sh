@@ -16,4 +16,5 @@ source $RELAYER_PATH/scripts/versions.sh
 go install -v github.com/golangci/golangci-lint/cmd/golangci-lint@${GOLANGCI_LINT_VERSION}
 golangci-lint run --config=$RELAYER_PATH/.golangci.yml --build-tags=testing ./... --timeout 5m
 
+go install -v github.com/bufbuild/buf/cmd/buf@${BUF_VERSION}
 (cd proto && buf lint)
