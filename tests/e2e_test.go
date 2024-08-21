@@ -142,7 +142,6 @@ var _ = ginkgo.BeforeSuite(func() {
 		localNetworkInstance.Dir(),
 		ginkgo.ReportEntryVisibilityFailureOrVerbose,
 	)
-
 })
 
 func cleanup() {
