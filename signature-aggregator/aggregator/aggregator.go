@@ -170,7 +170,10 @@ func (s *SignatureAggregator) CreateSignedMessage(
 
 	reqBytes := networkP2P.ProtocolPrefix(networkP2P.SignatureRequestHandlerID)
 	messageBytes, err := proto.Marshal(
-		&sdk.SignatureRequest{Message: unsignedMessage.Bytes()},
+		&sdk.SignatureRequest{
+			Message:       unsignedMessage.Bytes(),
+			Justification: justification,
+		},
 	)
 	reqBytes = append(reqBytes, messageBytes...)
 	if err != nil {
