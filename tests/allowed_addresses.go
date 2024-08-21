@@ -210,6 +210,7 @@ func AllowedAddresses(network interfaces.LocalNetwork) {
 
 	// Wait for relayer to start up
 	log.Info("Waiting for the relayer to start up")
+	startupCtx, _ = context.WithTimeout(ctx, 15*time.Second)
 	testUtils.WaitForChannelClose(startupCtx, readyChan)
 
 	// Disallowed by Relayer 2
@@ -254,6 +255,7 @@ func AllowedAddresses(network interfaces.LocalNetwork) {
 
 	// Wait for relayer to start up
 	log.Info("Waiting for the relayer to start up")
+	startupCtx, _ = context.WithTimeout(ctx, 15*time.Second)
 	testUtils.WaitForChannelClose(startupCtx, readyChan)
 
 	// Disallowed by Relayer 3
@@ -297,6 +299,7 @@ func AllowedAddresses(network interfaces.LocalNetwork) {
 	defer relayerCleanup()
 
 	// Wait for relayer to start up
+	startupCtx, _ = context.WithTimeout(ctx, 15*time.Second)
 	testUtils.WaitForChannelClose(startupCtx, readyChan)
 
 	// Disallowed by Relayer 4
