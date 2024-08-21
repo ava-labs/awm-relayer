@@ -71,7 +71,8 @@ func BasicRelay(network interfaces.LocalNetwork) {
 	defer relayerCleanup()
 
 	// Wait for relayer to start up
-	startupCtx, _ := context.WithTimeout(ctx, 15*time.Second)
+	startupCtx, startupCancel := context.WithTimeout(ctx, 15*time.Second)
+	defer startupCancel()
 	testUtils.WaitForChannelClose(startupCtx, readyChan)
 
 	log.Info("Sending transaction from Subnet A to Subnet B")
@@ -156,6 +157,8 @@ func BasicRelay(network interfaces.LocalNetwork) {
 
 	// Wait for relayer to start up
 	log.Info("Waiting for the relayer to start up")
+	startupCtx, startupCancel = context.WithTimeout(ctx, 15*time.Second)
+	defer startupCancel()
 	testUtils.WaitForChannelClose(startupCtx, readyChan)
 
 	// We should not receive a new block on subnet B, since the relayer should have

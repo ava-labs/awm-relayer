@@ -442,7 +442,8 @@ func TriggerProcessMissedBlocks(
 	defer relayerCleanup()
 
 	// Wait for relayer to start up
-	startupCtx, _ := context.WithTimeout(ctx, 15*time.Second)
+	startupCtx, startupCancel := context.WithTimeout(ctx, 15*time.Second)
+	defer startupCancel()
 	WaitForChannelClose(startupCtx, readyChan)
 
 	log.Info("Waiting for a new block confirmation on the destination")
