@@ -37,7 +37,12 @@ type subscriber struct {
 }
 
 // NewSubscriber returns a subscriber
-func NewSubscriber(logger logging.Logger, blockchainID ids.ID, wsClient ethclient.Client, rpcClient ethclient.Client) *subscriber {
+func NewSubscriber(
+	logger logging.Logger,
+	blockchainID ids.ID,
+	wsClient ethclient.Client,
+	rpcClient ethclient.Client,
+) *subscriber {
 	return &subscriber{
 		blockchainID: blockchainID,
 		wsClient:     wsClient,
