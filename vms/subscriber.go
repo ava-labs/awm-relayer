@@ -39,10 +39,16 @@ type Subscriber interface {
 }
 
 // NewSubscriber returns a concrete Subscriber according to the VM specified by [subnetInfo]
-func NewSubscriber(logger logging.Logger, vm config.VM, blockchainID ids.ID, ethClient ethclient.Client) Subscriber {
+func NewSubscriber(
+	logger logging.Logger,
+	vm config.VM,
+	blockchainID ids.ID,
+	ethWSClient ethclient.Client,
+	ethRPCClient ethclient.Client,
+) Subscriber {
 	switch vm {
 	case config.EVM:
-		return evm.NewSubscriber(logger, blockchainID, ethClient)
+		return evm.NewSubscriber(logger, blockchainID, ethWSClient, ethRPCClient)
 	default:
 		return nil
 	}
