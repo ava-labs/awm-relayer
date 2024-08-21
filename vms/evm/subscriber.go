@@ -127,8 +127,9 @@ func (s *subscriber) processBlockRange(
 
 func (s *subscriber) getHeaderByNumberRetryable(headerNumber *big.Int) (*types.Header, error) {
 	var err error
+	var header *types.Header
 	for i := 0; i < rpcMaxRetries; i++ {
-		header, err := s.rpcClient.HeaderByNumber(context.Background(), headerNumber)
+		header, err = s.rpcClient.HeaderByNumber(context.Background(), headerNumber)
 		if err == nil {
 			return header, nil
 		}
