@@ -31,6 +31,7 @@ var Opts = struct {
 	InvalidSignatureResponses          prometheus.CounterOpts
 	SignatureCacheHits                 prometheus.CounterOpts
 	SignatureCacheMisses               prometheus.CounterOpts
+	ConnectedStakeWeightPercentage     prometheus.GaugeOpts
 }{
 	AggregateSignaturesLatencyMS: prometheus.GaugeOpts{
 		Name: "agg_sigs_latency_ms",
@@ -72,6 +73,10 @@ var Opts = struct {
 		Name: "signature_cache_misses",
 		Help: "Number of signatures that were not found in the cache",
 	},
+	ConnectedStakeWeightPercentage: prometheus.GaugeOpts{
+		Name: "connected_stake_weight_percentage",
+		Help: "The percentage of connected stake weight for a specific subnet",
+	},
 }
 
 type SignatureAggregatorMetrics struct {
@@ -85,6 +90,7 @@ type SignatureAggregatorMetrics struct {
 	InvalidSignatureResponses          prometheus.Counter
 	SignatureCacheHits                 prometheus.Counter
 	SignatureCacheMisses               prometheus.Counter
+	ConnectedStakeWeightPercentage     *prometheus.GaugeVec
 
 	// TODO: consider other failures to monitor. Issue #384 requires
 	// "network failures", but we probably don't handle those directly.
@@ -129,6 +135,10 @@ func NewSignatureAggregatorMetrics(
 		SignatureCacheMisses: prometheus.NewCounter(
 			Opts.SignatureCacheMisses,
 		),
+		ConnectedStakeWeightPercentage: prometheus.NewGaugeVec(
+			Opts.ConnectedStakeWeightPercentage,
+			[]string{"subnetID"},
+		),
 	}
 
 	registerer.MustRegister(m.AggregateSignaturesLatencyMS)
@@ -141,6 +151,7 @@ func NewSignatureAggregatorMetrics(
 	registerer.MustRegister(m.InvalidSignatureResponses)
 	registerer.MustRegister(m.SignatureCacheHits)
 	registerer.MustRegister(m.SignatureCacheMisses)
+	registerer.MustRegister(m.ConnectedStakeWeightPercentage)
 
 	return &m
 }
