@@ -343,6 +343,8 @@ func (s *SignatureAggregator) CreateSignedMessage(
 	return nil, errNotEnoughSignatures
 }
 
+// TODO: consider making this function private. its only reference seems to be
+// within this module.
 func (s *SignatureAggregator) GetSubnetID(blockchainID ids.ID) (ids.ID, error) {
 	s.subnetsMapLock.RLock()
 	subnetID, ok := s.subnetIDsByBlockchainID[blockchainID]
@@ -359,6 +361,8 @@ func (s *SignatureAggregator) GetSubnetID(blockchainID ids.ID) (ids.ID, error) {
 	return subnetID, nil
 }
 
+// TODO: consider making this function private. its only reference seems to be
+// within this module.
 func (s *SignatureAggregator) SetSubnetID(blockchainID ids.ID, subnetID ids.ID) {
 	s.subnetsMapLock.Lock()
 	s.subnetIDsByBlockchainID[blockchainID] = subnetID

@@ -10,6 +10,6 @@ root=$(
     cd .. && pwd
 )
 
-"$root"/scripts/generate.sh
-"$root"/scripts/build_relayer.sh
-"$root"/scripts/build_signature_aggregator.sh
+source "$root"/scripts/versions.sh
+go install -v "go.uber.org/mock/mockgen@$(getDepVersion go.uber.org/mock)"
+PATH="$PATH:$(go env GOPATH)/bin" go generate ./...

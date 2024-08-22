@@ -1,0 +1,35 @@
+name: Check generated code is up to date
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - "**"
+
+jobs:
+  generated_code:
+    name: generated_code
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: "go.mod"
+
+      - name: Generate code
+        run: |
+          scripts/generate.sh
+
+      - name: Print diff
+        run: git --no-pager diff
+
+      - name: Fail if diff exists
+        run: git --no-pager diff --quiet
