@@ -106,7 +106,7 @@ func newListener(
 		)
 		return nil, err
 	}
-	sub := vms.NewSubscriber(logger, config.ParseVM(sourceBlockchain.VM), blockchainID, ethWSClient)
+	sub := vms.NewSubscriber(logger, config.ParseVM(sourceBlockchain.VM), blockchainID, ethWSClient, ethRPCClient)
 
 	// Marks when the listener has finished the catch-up process on startup.
 	// Until that time, we do not know the order in which messages are processed,
