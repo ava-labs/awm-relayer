@@ -26,7 +26,7 @@ import (
 // or if the subnet supports all destinations, by the quora of all configured destinations.
 func InitializeConnectionsAndCheckStake(
 	logger logging.Logger,
-	network *peers.AppRequestNetwork,
+	network peers.AppRequestNetwork,
 	cfg *config.Config,
 ) error {
 	for _, sourceBlockchain := range cfg.SourceBlockchains {
@@ -53,7 +53,7 @@ func InitializeConnectionsAndCheckStake(
 // verify that we have connected to a threshold of stake.
 func connectToNonPrimaryNetworkPeers(
 	logger logging.Logger,
-	network *peers.AppRequestNetwork,
+	network peers.AppRequestNetwork,
 	cfg *config.Config,
 	sourceBlockchain *config.SourceBlockchain,
 ) error {
@@ -87,7 +87,7 @@ func connectToNonPrimaryNetworkPeers(
 // to a threshold of stake for each blockchain.
 func connectToPrimaryNetworkPeers(
 	logger logging.Logger,
-	network *peers.AppRequestNetwork,
+	network peers.AppRequestNetwork,
 	cfg *config.Config,
 	sourceBlockchain *config.SourceBlockchain,
 ) error {

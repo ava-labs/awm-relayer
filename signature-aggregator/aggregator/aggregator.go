@@ -51,7 +51,7 @@ var (
 )
 
 type SignatureAggregator struct {
-	network *peers.AppRequestNetwork
+	network peers.AppRequestNetwork
 	// protected by subnetsMapLock
 	subnetIDsByBlockchainID map[ids.ID]ids.ID
 	logger                  logging.Logger
@@ -63,7 +63,7 @@ type SignatureAggregator struct {
 }
 
 func NewSignatureAggregator(
-	network *peers.AppRequestNetwork,
+	network peers.AppRequestNetwork,
 	logger logging.Logger,
 	signatureCacheSize uint64,
 	metrics *metrics.SignatureAggregatorMetrics,
