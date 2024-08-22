@@ -130,6 +130,7 @@ func main() {
 	)
 	healthcheck.HandleHealthCheckRequest()
 
+	logger.Info("Initialization complete")
 	err = http.ListenAndServe(fmt.Sprintf(":%d", cfg.APIPort), nil)
 	if errors.Is(err, http.ErrServerClosed) {
 		logger.Info("server closed")

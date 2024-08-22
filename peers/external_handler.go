@@ -96,7 +96,7 @@ func (h *RelayerExternalHandler) HandleInbound(_ context.Context, inboundMessage
 }
 
 func (h *RelayerExternalHandler) Connected(nodeID ids.NodeID, version *version.Application, subnetID ids.ID) {
-	h.log.Info(
+	h.log.Debug(
 		"Connected",
 		zap.Stringer("nodeID", nodeID),
 		zap.Stringer("version", version),
@@ -105,7 +105,7 @@ func (h *RelayerExternalHandler) Connected(nodeID ids.NodeID, version *version.A
 }
 
 func (h *RelayerExternalHandler) Disconnected(nodeID ids.NodeID) {
-	h.log.Info(
+	h.log.Debug(
 		"Disconnected",
 		zap.Stringer("nodeID", nodeID),
 	)

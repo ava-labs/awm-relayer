@@ -30,11 +30,21 @@ const (
 var (
 	localNetworkInstance *local.LocalNetwork
 
-	decider       *exec.Cmd
-	cancelDecider context.CancelFunc
+	decider  *exec.Cmd
+	cancelFn context.CancelFunc
 )
 
 func TestE2E(t *testing.T) {
+	// Handle SIGINT and SIGTERM signals.
+	signalChan := make(chan os.Signal, 2)
+	signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		sig := <-signalChan
+		fmt.Printf("Caught signal %s: Shutting down...\n", sig)
+		cleanup()
+		os.Exit(1)
+	}()
+
 	if os.Getenv("RUN_E2E") == "" {
 		t.Skip("Environment variable RUN_E2E not set; skipping E2E tests")
 	}
@@ -45,6 +55,12 @@ func TestE2E(t *testing.T) {
 
 // Define the Relayer before and after suite functions.
 var _ = ginkgo.BeforeSuite(func() {
+	var ctx context.Context
+	ctx, cancelFn = context.WithCancel(context.Background())
+
+	log.Info("Building all ICM off-chain service executables")
+	testUtils.BuildAllExecutables(ctx)
+
 	// Generate the Teleporter deployment values
 	teleporterContractAddress := common.HexToAddress(
 		testUtils.ReadHexTextFile("./tests/utils/UniversalTeleporterMessengerContractAddress.txt"),
@@ -63,7 +79,7 @@ var _ = ginkgo.BeforeSuite(func() {
 	)
 	Expect(err).Should(BeNil())
 	localNetworkInstance = local.NewLocalNetwork(
-		"awm-relayer-e2e-test",
+		"icm-off-chain-services-e2e-test",
 		warpGenesisTemplateFile,
 		[]local.SubnetSpec{
 			{
@@ -99,24 +115,14 @@ var _ = ginkgo.BeforeSuite(func() {
 	// Deploy the Teleporter registry contracts to all subnets and the C-Chain.
 	localNetworkInstance.DeployTeleporterRegistryContracts(teleporterContractAddress, fundedKey)
 
-	var ctx context.Context
-	ctx, cancelDecider = context.WithCancel(context.Background())
-	// we'll call cancelDecider in AfterSuite, but also call it if this
-	// process is killed, because AfterSuite won't always run then:
-	signalChan := make(chan os.Signal, 2)
-	signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM)
-	go func() {
-		<-signalChan
-		cancelDecider()
-	}()
 	decider = exec.CommandContext(ctx, "./tests/cmd/decider/decider")
 	decider.Start()
-	go func() { // panic if the decider exits abnormally
+	go func() {
 		err := decider.Wait()
-		// Context cancellation is the only expected way for the
-		// process to exit, otherwise panic
+		// Context cancellation is the only expected way for the process to exit
+		// otherwise log an error but don't panic to allow for easier cleanup
 		if !errors.Is(ctx.Err(), context.Canceled) {
-			panic(fmt.Errorf("decider exited abnormally: %w", err))
+			log.Error("Decider exited abnormally: ", "error", err)
 		}
 	}()
 	log.Info("Started decider service")
@@ -130,14 +136,18 @@ var _ = ginkgo.BeforeSuite(func() {
 	)
 })
 
-var _ = ginkgo.AfterSuite(func() {
+func cleanup() {
+	cancelFn()
+	if decider != nil {
+		decider = nil
+	}
 	if localNetworkInstance != nil {
 		localNetworkInstance.TearDownNetwork()
+		localNetworkInstance = nil
 	}
-	if decider != nil {
-		cancelDecider()
-	}
-})
+}
+
+var _ = ginkgo.AfterSuite(cleanup)
 
 var _ = ginkgo.Describe("[AWM Relayer Integration Tests", func() {
 	ginkgo.It("Manually Provided Message", func() {
