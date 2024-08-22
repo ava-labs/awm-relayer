@@ -148,7 +148,7 @@ func main() {
 
 	network, err := peers.NewNetwork(
 		networkLogLevel,
-		prometheus.DefaultRegisterer,
+		registerer,
 		trackedSubnets,
 		&cfg,
 	)
