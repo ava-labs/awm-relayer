@@ -67,12 +67,18 @@ func BatchRelay(network interfaces.LocalNetwork) {
 	relayerConfigPath := testUtils.WriteRelayerConfig(relayerConfig, testUtils.DefaultRelayerCfgFname)
 
 	log.Info("Starting the relayer")
-	relayerCleanup := testUtils.BuildAndRunRelayerExecutable(ctx, relayerConfigPath)
+	relayerCleanup, readyChan := testUtils.RunRelayerExecutable(
+		ctx,
+		relayerConfigPath,
+		relayerConfig,
+	)
 	defer relayerCleanup()
 
-	// Sleep for some time to make sure relayer has started up and subscribed.
+	// Wait for relayer to start up
 	log.Info("Waiting for the relayer to start up")
-	time.Sleep(15 * time.Second)
+	startupCtx, startupCancel := context.WithTimeout(ctx, 15*time.Second)
+	defer startupCancel()
+	testUtils.WaitForChannelClose(startupCtx, readyChan)
 
 	//
 	// Send a batch message from subnet A -> B

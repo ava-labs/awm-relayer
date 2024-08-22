@@ -32,7 +32,7 @@ func makeSubscriberWithMockEthClient(t *testing.T) (*subscriber, *mock_ethclient
 	mockEthClient := mock_ethclient.NewMockClient(gomock.NewController(t))
 	blockchainID, err := ids.FromString(sourceSubnet.BlockchainID)
 	require.NoError(t, err)
-	subscriber := NewSubscriber(logger, blockchainID, mockEthClient)
+	subscriber := NewSubscriber(logger, blockchainID, mockEthClient, mockEthClient)
 
 	return subscriber, mockEthClient
 }
