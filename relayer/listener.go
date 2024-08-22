@@ -106,7 +106,7 @@ func newListener(
 		)
 		return nil, err
 	}
-	sub := vms.NewSubscriber(logger, config.ParseVM(sourceBlockchain.VM), blockchainID, ethWSClient)
+	sub := vms.NewSubscriber(logger, config.ParseVM(sourceBlockchain.VM), blockchainID, ethWSClient, ethRPCClient)
 
 	// Marks when the listener has finished the catch-up process on startup.
 	// Until that time, we do not know the order in which messages are processed,
@@ -192,7 +192,12 @@ func (lstnr *Listener) processLogs(ctx context.Context) error {
 				return fmt.Errorf("failed to catch up on historical blocks")
 			}
 		case blockHeader := <-lstnr.Subscriber.Headers():
-			go lstnr.messageCoordinator.ProcessBlock(blockHeader, lstnr.ethClient, errChan)
+			go lstnr.messageCoordinator.ProcessBlock(
+				blockHeader,
+				lstnr.sourceBlockchain.GetBlockchainID(),
+				lstnr.ethClient,
+				errChan,
+			)
 		case err := <-lstnr.Subscriber.Err():
 			lstnr.healthStatus.Store(false)
 			lstnr.logger.Error(
