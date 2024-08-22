@@ -138,7 +138,7 @@ func SignatureAggregatorAPI(network interfaces.LocalNetwork) {
 				subnetAInfo.SubnetID.String(),
 			),
 			"==",
-			1,
+			100,
 		},
 	} {
 		Expect(metricsSample[m.name]).Should(

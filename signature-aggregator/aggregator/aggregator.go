@@ -125,7 +125,7 @@ func (s *SignatureAggregator) CreateSignedMessage(
 		signingSubnet.String(),
 	).Set(
 		float64(connectedValidators.ConnectedWeight) /
-			float64(connectedValidators.TotalValidatorWeight),
+			float64(connectedValidators.TotalValidatorWeight) * 100,
 	)
 
 	if !utils.CheckStakeWeightPercentageExceedsThreshold(
