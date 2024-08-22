@@ -52,12 +52,18 @@ func SignatureAggregatorAPI(network interfaces.LocalNetwork) {
 		testUtils.DefaultSignatureAggregatorCfgFname,
 	)
 	log.Info("Starting the signature aggregator", "configPath", signatureAggregatorConfigPath)
-	signatureAggregatorCancel := testUtils.BuildAndRunSignatureAggregatorExecutable(ctx, signatureAggregatorConfigPath)
+	signatureAggregatorCancel, readyChan := testUtils.RunSignatureAggregatorExecutable(
+		ctx,
+		signatureAggregatorConfigPath,
+		signatureAggregatorConfig,
+	)
 	defer signatureAggregatorCancel()
 
-	// Sleep for some time to make sure signature aggregator has started up and subscribed.
-	log.Info("Waiting for the signature aggregator to start up")
-	time.Sleep(5 * time.Second)
+	// Wait for signature-aggregator to start up
+	log.Info("Waiting for the relayer to start up")
+	startupCtx, startupCancel := context.WithTimeout(ctx, 15*time.Second)
+	defer startupCancel()
+	testUtils.WaitForChannelClose(startupCtx, readyChan)
 
 	// End setup step
 	// Begin Test Case 1
