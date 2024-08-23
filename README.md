@@ -30,7 +30,7 @@ The most complicated example case that can arise above is that a feature depends
 
 1. If an `avalanchego` commit referencing this change in its `go.mod` file doesn't exist yet then it needs to be added.
 2. In `subnet-evm` add a commit that references the `avalanchego` commit from above in both its `go.mod` file as well as `scripts/versions.sh` file. 
-3. Create a new commit in this repository referencing `avalanchego` and `subnet-evm` directly and `coreth` indirectly as well as update references in `scripts/version.sh` file for both `AVALANCHEGO_VERSION` and `SUBNET_EVM_VERSION`.
+3. Create a new commit in this repository referencing `avalanchego` and `subnet-evm` directly and `coreth` indirectly as well as update references in the `scripts/version.sh` file for both `AVALANCHEGO_VERSION` and `SUBNET_EVM_VERSION`.
 
  If all of the commits mentioned above are published to GitHub branches, this will enable running of E2E tests through the CI.
 
