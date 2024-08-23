@@ -28,7 +28,7 @@ The most complicated example case that can arise above is that a feature depends
 
 ### Remote E2E testing through GitHub Actions
 
-1. If an `avalanchego` commit referencing this change in it's `go.mod` file doesn't exist yet it needs to be added.
+1. If an `avalanchego` commit referencing this change in its `go.mod` file doesn't exist yet then it needs to be added.
 2. In `subnet-evm` add a commit that references the `avalanchego` commit from above in both its `go.mod` file as well as `scripts/versions.sh` file. 
 3. Create a new commit in this repository referencing `avalanchego` and `subnet-evm` directly and `coreth` indirectly as well as update references in `scripts/version.sh` file for both `AVALANCHEGO_VERSION` and `SUBNET_EVM_VERSION`.
 
