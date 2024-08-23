@@ -97,7 +97,7 @@ func (s *SignatureAggregator) CreateSignedMessage(
 	var signingSubnet ids.ID
 	var err error
 	// If signingSubnet is not set we default to the subnet of the source blockchain
-	sourceSubnet, err := s.GetSubnetID(unsignedMessage.SourceChainID)
+	sourceSubnet, err := s.getSubnetID(unsignedMessage.SourceChainID)
 	if err != nil {
 		return nil, fmt.Errorf(
 			"Source message subnet not found for chainID %s",
@@ -343,9 +343,7 @@ func (s *SignatureAggregator) CreateSignedMessage(
 	return nil, errNotEnoughSignatures
 }
 
-// TODO: consider making this function private. its only reference seems to be
-// within this module.
-func (s *SignatureAggregator) GetSubnetID(blockchainID ids.ID) (ids.ID, error) {
+func (s *SignatureAggregator) getSubnetID(blockchainID ids.ID) (ids.ID, error) {
 	s.subnetsMapLock.RLock()
 	subnetID, ok := s.subnetIDsByBlockchainID[blockchainID]
 	s.subnetsMapLock.RUnlock()
@@ -357,13 +355,11 @@ func (s *SignatureAggregator) GetSubnetID(blockchainID ids.ID) (ids.ID, error) {
 	if err != nil {
 		return ids.ID{}, fmt.Errorf("source blockchain not found for chain ID %s", blockchainID)
 	}
-	s.SetSubnetID(blockchainID, subnetID)
+	s.setSubnetID(blockchainID, subnetID)
 	return subnetID, nil
 }
 
-// TODO: consider making this function private. its only reference seems to be
-// within this module.
-func (s *SignatureAggregator) SetSubnetID(blockchainID ids.ID, subnetID ids.ID) {
+func (s *SignatureAggregator) setSubnetID(blockchainID ids.ID, subnetID ids.ID) {
 	s.subnetsMapLock.Lock()
 	s.subnetIDsByBlockchainID[blockchainID] = subnetID
 	s.subnetsMapLock.Unlock()
