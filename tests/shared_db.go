@@ -2,7 +2,7 @@ package tests
 
 import (
 	"context"
-	"time"
+	"sync"
 
 	testUtils "github.com/ava-labs/awm-relayer/tests/utils"
 	"github.com/ava-labs/teleporter/tests/interfaces"
@@ -68,14 +68,30 @@ func SharedDatabaseAccess(network interfaces.LocalNetwork) {
 	log.Info("Test Relaying from Subnet A to Subnet B")
 
 	log.Info("Starting the relayers")
-	relayerCleanupA := testUtils.BuildAndRunRelayerExecutable(ctx, relayerConfigPathA)
+	relayerCleanupA, readyChanA := testUtils.RunRelayerExecutable(
+		ctx,
+		relayerConfigPathA,
+		relayerConfigA,
+	)
 	defer relayerCleanupA()
-	relayerCleanupB := testUtils.BuildAndRunRelayerExecutable(ctx, relayerConfigPathB)
+	relayerCleanupB, readyChanB := testUtils.RunRelayerExecutable(
+		ctx,
+		relayerConfigPathB,
+		relayerConfigB,
+	)
 	defer relayerCleanupB()
 
-	// Sleep for some time to make sure relayer has started up and subscribed.
+	// Wait for the relayers to start up
 	log.Info("Waiting for the relayers to start up")
-	time.Sleep(15 * time.Second)
+	var wg sync.WaitGroup
+	wg.Add(2)
+	waitFunc := func(wg *sync.WaitGroup, readyChan chan struct{}) {
+		defer wg.Done()
+		<-readyChan
+	}
+	go waitFunc(&wg, readyChanA)
+	go waitFunc(&wg, readyChanB)
+	wg.Wait()
 
 	log.Info("Sending transaction from Subnet A to Subnet B")
 	testUtils.RelayBasicMessage(

@@ -148,7 +148,7 @@ func main() {
 
 	network, err := peers.NewNetwork(
 		networkLogLevel,
-		prometheus.DefaultRegisterer,
+		registerer,
 		trackedSubnets,
 		&cfg,
 	)
@@ -282,6 +282,7 @@ func main() {
 			)
 		})
 	}
+	logger.Info("Initialization complete")
 	err = errGroup.Wait()
 	logger.Error("Relayer exiting.", zap.Error(err))
 }

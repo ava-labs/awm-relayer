@@ -52,12 +52,18 @@ func SignatureAggregatorAPI(network interfaces.LocalNetwork) {
 		testUtils.DefaultSignatureAggregatorCfgFname,
 	)
 	log.Info("Starting the signature aggregator", "configPath", signatureAggregatorConfigPath)
-	signatureAggregatorCancel := testUtils.BuildAndRunSignatureAggregatorExecutable(ctx, signatureAggregatorConfigPath)
+	signatureAggregatorCancel, readyChan := testUtils.RunSignatureAggregatorExecutable(
+		ctx,
+		signatureAggregatorConfigPath,
+		signatureAggregatorConfig,
+	)
 	defer signatureAggregatorCancel()
 
-	// Sleep for some time to make sure signature aggregator has started up and subscribed.
-	log.Info("Waiting for the signature aggregator to start up")
-	time.Sleep(5 * time.Second)
+	// Wait for signature-aggregator to start up
+	log.Info("Waiting for the relayer to start up")
+	startupCtx, startupCancel := context.WithTimeout(ctx, 15*time.Second)
+	defer startupCancel()
+	testUtils.WaitForChannelClose(startupCtx, readyChan)
 
 	// End setup step
 	// Begin Test Case 1
@@ -131,6 +137,15 @@ func SignatureAggregatorAPI(network interfaces.LocalNetwork) {
 		{metrics.Opts.InvalidSignatureResponses.Name, "==", 0},
 		{metrics.Opts.SignatureCacheHits.Name, "==", 0},
 		{metrics.Opts.SignatureCacheMisses.Name, "==", 0},
+		{
+			fmt.Sprintf(
+				"%s{subnetID=\"%s\"}",
+				metrics.Opts.ConnectedStakeWeightPercentage.Name,
+				subnetAInfo.SubnetID.String(),
+			),
+			"==",
+			100,
+		},
 	} {
 		Expect(metricsSample[m.name]).Should(
 			BeNumerically(m.op, m.value),
@@ -185,6 +200,7 @@ func sampleMetrics(port uint16) map[string]uint64 {
 			metrics.Opts.InvalidSignatureResponses.Name,
 			metrics.Opts.SignatureCacheHits.Name,
 			metrics.Opts.SignatureCacheMisses.Name,
+			metrics.Opts.ConnectedStakeWeightPercentage.Name,
 		} {
 			if strings.HasPrefix(
 				line,
@@ -193,7 +209,9 @@ func sampleMetrics(port uint16) map[string]uint64 {
 				log.Debug("Found metric line", "line", line)
 				parts := strings.Fields(line)
 
-				// Fetch the metric count from the last field of the line
+				metricName = strings.Replace(parts[0], "U__signature_2d_aggregator_", "", 1)
+
+				// Parse the metric count from the last field of the line
 				value, err := strconv.ParseUint(parts[len(parts)-1], 10, 64)
 				if err != nil {
 					log.Warn("failed to parse value from metric line")
