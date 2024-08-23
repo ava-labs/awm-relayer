@@ -24,17 +24,20 @@ When developing such features that require updates to one or more of the above, 
 
 `avalanchego` and `coreth` have a direct circular dependency and this repository is only indirectly dependent on `coreth` but directly dependent on `avalanchego`. Therefore if any updates are required from the `coreth` side, a corresponding `avalanchego` commit referencing those changes is required. On the other hand `subnet-evm` just depends directly on `avalanchego`.
 
-The most complicated example case that can arise above is that a feature depends on a new change in `coreth`. In this case, the developer needs to:
+### Example dependency update flow
 
-### Remote E2E testing through GitHub Actions
+The most complicated example case that can arise above is that a feature depends on a new change in `coreth`. And the steps below outline the necessary commits:
 
 1. If an `avalanchego` commit referencing this change in its `go.mod` file doesn't exist yet then it needs to be added.
 2. Add a commit in `subnet-evm` that references the `avalanchego` commit from above in both its `go.mod` file as well as its `scripts/versions.sh` file. 
 3. Create a new commit in this repository referencing `avalanchego` and `subnet-evm` directly and `coreth` indirectly as well as update references in the `scripts/version.sh` file for both `AVALANCHEGO_VERSION` and `SUBNET_EVM_VERSION`.
 
- If all of the commits mentioned above are published to GitHub branches, this will enable running of E2E tests through the CI.
+Publishing all of the commits mentioned above to GitHub branches will enable running E2E tests through the CI.
 
-### Local E2E testing
+Running the tests locally doesn't require publishing the `subnet-evm` commit since `./scripts/e2e_test.sh` takes a flag specifying local checkout of `subnet-evm` repository.
 
- Local testing through running `./scripts/e2e_test.sh` also requires local checkout of the `subnet-evm` repository with the commit matching the `go.mod` and `SUBNET_EVM_VERSION`.
- If they do not match, tests might still run but fail with unexpected errors. 
+> [!NOTE]
+> Locally running E2E tests using local checkout of `subnet-evm` will install `avalanchego` version specified by the `AVALANCHEGO_VERSION` in that working tree's `./scripts/versions.sh`.
+
+> [!TIP]
+> Using the local checkout it's possible to run tests against a `tmpnet` consisting of nodes using a different version of `avalanchego` than the application being tested which might be helpful when troubleshooting.
