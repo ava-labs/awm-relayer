@@ -26,8 +26,8 @@ const (
 
 // Defines a request interface for signature aggregation for a raw unsigned message.
 type AggregateSignatureRequest struct {
-	// Required: either Message or Justification must be provided
-	// Required. hex-encoded message, optionally prefixed with "0x".
+	// Required: either Message or Justification must be provided.
+	// hex-encoded message, optionally prefixed with "0x".
 	Message string `json:"message"`
 	// hex-encoded justification, optionally prefixed with "0x".
 	Justification string `json:"justification"`
