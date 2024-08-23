@@ -11,7 +11,7 @@ Currently implemented applications are
 
 ## Updating dependencies and E2E testing
 
-Applications in this repository depend on the following upstream repositories, both directly in terms of code imports defined in `go.mod` file as well as indirectly for E2E tests where binary versions are used to spin up the test network via `tmpnet`:
+Applications in this repository depend on the following upstream repositories, both directly in terms of code imports defined in the `go.mod` file as well as indirectly for E2E tests where binary versions are used to spin up the test network via `tmpnet`:
 
 1.  [avalanchego](https://github.com/ava-labs/avalanchego/)
 2.  [coreth](https://github.com/ava-labs/coreth) (indirectly)
