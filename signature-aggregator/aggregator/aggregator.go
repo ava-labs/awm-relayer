@@ -121,6 +121,12 @@ func (s *SignatureAggregator) CreateSignedMessage(
 		s.metrics.FailuresToGetValidatorSet.Inc()
 		return nil, fmt.Errorf("%s: %w", msg, err)
 	}
+	s.metrics.ConnectedStakeWeightPercentage.WithLabelValues(
+		signingSubnet.String(),
+	).Set(
+		float64(connectedValidators.ConnectedWeight) /
+			float64(connectedValidators.TotalValidatorWeight) * 100,
+	)
 
 	if !utils.CheckStakeWeightPercentageExceedsThreshold(
 		big.NewInt(0).SetUint64(connectedValidators.ConnectedWeight),

@@ -13,6 +13,8 @@ var (
 type AppRequestNetworkMetrics struct {
 	infoAPICallLatencyMS   prometheus.Histogram
 	pChainAPICallLatencyMS prometheus.Histogram
+	connects               prometheus.Counter
+	disconnects            prometheus.Counter
 }
 
 func newAppRequestNetworkMetrics(registerer prometheus.Registerer) (*AppRequestNetworkMetrics, error) {
@@ -40,8 +42,32 @@ func newAppRequestNetworkMetrics(registerer prometheus.Registerer) (*AppRequestN
 	}
 	registerer.MustRegister(pChainAPICallLatencyMS)
 
+	connects := prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Name: "connects",
+			Help: "Number of connected events",
+		},
+	)
+	if connects == nil {
+		return nil, ErrFailedToCreateAppRequestNetworkMetrics
+	}
+	registerer.MustRegister(connects)
+
+	disconnects := prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Name: "disconnects",
+			Help: "Number of disconnected events",
+		},
+	)
+	if disconnects == nil {
+		return nil, ErrFailedToCreateAppRequestNetworkMetrics
+	}
+	registerer.MustRegister(disconnects)
+
 	return &AppRequestNetworkMetrics{
 		infoAPICallLatencyMS:   infoAPICallLatencyMS,
 		pChainAPICallLatencyMS: pChainAPICallLatencyMS,
+		connects:               connects,
+		disconnects:            disconnects,
 	}, nil
 }
