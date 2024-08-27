@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"time"
 
 	basecfg "github.com/ava-labs/awm-relayer/config"
 	"github.com/ava-labs/awm-relayer/peers"
@@ -66,6 +67,7 @@ type Config struct {
 	ProcessMissedBlocks    bool                     `mapstructure:"process-missed-blocks" json:"process-missed-blocks"`
 	DeciderURL             string                   `mapstructure:"decider-url" json:"decider-url"`
 	SignatureCacheSize     uint64                   `mapstructure:"signature-cache-size" json:"signature-cache-size"`
+	EtnaTime               time.Time                `mapstructure:"etna-time" json:"etna-time"`
 
 	// convenience field to fetch a blockchain's subnet ID
 	blockchainIDToSubnetID map[ids.ID]ids.ID

@@ -5,6 +5,7 @@ package config
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/ava-labs/avalanchego/utils/logging"
 	basecfg "github.com/ava-labs/awm-relayer/config"
@@ -34,6 +35,7 @@ type Config struct {
 	APIPort            uint16             `mapstructure:"api-port" json:"api-port"`
 	MetricsPort        uint16             `mapstructure:"metrics-port" json:"metrics-port"`
 	SignatureCacheSize uint64             `mapstructure:"signature-cache-size" json:"signature-cache-size"`
+	EtnaTime           time.Time          `mapstructure:"etna-time" json:"etna-time"`
 }
 
 func DisplayUsageText() {

@@ -24,4 +24,5 @@ const (
 	ManualWarpMessagesKey     = "manual-warp-messages"
 	DBWriteIntervalSecondsKey = "db-write-interval-seconds"
 	SignatureCacheSizeKey     = "signature-cache-size"
+	EtnaTimestampKey          = "etna-timestamp"
 )
