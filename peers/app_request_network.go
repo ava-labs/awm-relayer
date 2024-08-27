@@ -61,7 +61,7 @@ func NewNetwork(
 	}
 
 	// Create the handler for handling inbound app responses
-	handler, err := NewRelayerExternalHandler(logger, prometheus.DefaultRegisterer)
+	handler, err := NewRelayerExternalHandler(logger, metrics)
 	if err != nil {
 		logger.Error(
 			"Failed to create p2p network handler",
