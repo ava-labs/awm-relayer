@@ -601,7 +601,6 @@ func (s *SignatureAggregator) marshalRequest(
 ) ([]byte, error) {
 	if !s.etnaTime.IsZero() && s.etnaTime.Before(time.Now()) {
 		// Post-Etna case
-		reqBytes := networkP2P.ProtocolPrefix(networkP2P.SignatureRequestHandlerID)
 		messageBytes, err := proto.Marshal(
 			&sdk.SignatureRequest{
 				Message:       unsignedMessage.Bytes(),
@@ -609,10 +608,12 @@ func (s *SignatureAggregator) marshalRequest(
 			},
 		)
 		if err != nil {
-			return []byte{}, err
+			return nil, err
 		}
-		reqBytes = append(reqBytes, messageBytes...)
-		return reqBytes, nil
+		return networkP2P.PrefixMessage(
+			networkP2P.ProtocolPrefix(networkP2P.SignatureRequestHandlerID),
+			messageBytes,
+		), nil
 	} else {
 		// Pre-Etna case
 		if sourceSubnet == constants.PrimaryNetworkID {
