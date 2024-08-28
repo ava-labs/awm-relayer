@@ -67,7 +67,9 @@ type Config struct {
 	ProcessMissedBlocks    bool                     `mapstructure:"process-missed-blocks" json:"process-missed-blocks"`
 	DeciderURL             string                   `mapstructure:"decider-url" json:"decider-url"`
 	SignatureCacheSize     uint64                   `mapstructure:"signature-cache-size" json:"signature-cache-size"`
-	EtnaTime               time.Time                `mapstructure:"etna-time" json:"etna-time"`
+
+	// mapstructure doesn't handle time.Time out of the box so handle it manually
+	EtnaTime time.Time `json:"etna-time"`
 
 	// convenience field to fetch a blockchain's subnet ID
 	blockchainIDToSubnetID map[ids.ID]ids.ID

@@ -28,7 +28,7 @@ import (
 	"github.com/ava-labs/awm-relayer/signature-aggregator/aggregator/cache"
 	"github.com/ava-labs/awm-relayer/signature-aggregator/metrics"
 	"github.com/ava-labs/awm-relayer/utils"
-	coreEthMsg "github.com/ava-labs/subnet-evm/plugin/evm/message"
+	corethMsg "github.com/ava-labs/coreth/plugin/evm/message"
 	msg "github.com/ava-labs/subnet-evm/plugin/evm/message"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
@@ -45,8 +45,8 @@ const (
 )
 
 var (
-	codec        = msg.Codec
-	coreEthCodec = coreEthMsg.Codec
+	codec       = msg.Codec
+	corethCodec = corethMsg.Codec
 
 	// Errors
 	errNotEnoughSignatures     = errors.New("failed to collect a threshold of signatures")
@@ -594,8 +594,13 @@ func (s *SignatureAggregator) aggregateSignatures(
 	return aggSig, vdrBitSet, nil
 }
 
-func (s *SignatureAggregator) marshalRequest(unsignedMessage *avalancheWarp.UnsignedMessage, justification []byte, sourceSubnet ids.ID) ([]byte, error) {
+func (s *SignatureAggregator) marshalRequest(
+	unsignedMessage *avalancheWarp.UnsignedMessage,
+	justification []byte,
+	sourceSubnet ids.ID,
+) ([]byte, error) {
 	if !s.etnaTime.IsZero() && s.etnaTime.Before(time.Now()) {
+		// Post-Etna case
 		reqBytes := networkP2P.ProtocolPrefix(networkP2P.SignatureRequestHandlerID)
 		messageBytes, err := proto.Marshal(
 			&sdk.SignatureRequest{
@@ -609,11 +614,12 @@ func (s *SignatureAggregator) marshalRequest(unsignedMessage *avalancheWarp.Unsi
 		reqBytes = append(reqBytes, messageBytes...)
 		return reqBytes, nil
 	} else {
+		// Pre-Etna case
 		if sourceSubnet == constants.PrimaryNetworkID {
-			req := coreEthMsg.MessageSignatureRequest{
+			req := corethMsg.MessageSignatureRequest{
 				MessageID: unsignedMessage.ID(),
 			}
-			return coreEthMsg.RequestToBytes(coreEthCodec, req)
+			return corethMsg.RequestToBytes(corethCodec, req)
 		} else {
 			req := msg.MessageSignatureRequest{
 				MessageID: unsignedMessage.ID(),
@@ -624,8 +630,8 @@ func (s *SignatureAggregator) marshalRequest(unsignedMessage *avalancheWarp.Unsi
 }
 
 func (s *SignatureAggregator) unmarshalResponse(responseBytes []byte) (blsSignatureBuf, error) {
-	// Post-Etna case
 	if !s.etnaTime.IsZero() && s.etnaTime.Before(time.Now()) {
+		// Post-Etna case
 		var sigResponse sdk.SignatureResponse
 		err := proto.Unmarshal(responseBytes, &sigResponse)
 		if err != nil {
