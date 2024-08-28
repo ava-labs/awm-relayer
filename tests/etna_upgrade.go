@@ -15,10 +15,11 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-// This tests basic functionality of the relayer in the context
-// of Etna network upgrade using the following cases:
-// - Relaying from Subnet A to Subnet B using Pre-Etna config
-// - Relaying from Subnet B to Subnet A using Post-Etna config
+// This tests basic functionality of the relayer post-etna upgrade
+// since other tests write zero value of time.Time
+// to the config  and therefore are testing the pre-etna case
+// - Relaying from Subnet A to Subnet B
+// - Relaying from Subnet B to Subnet A
 func EtnaUpgrade(network interfaces.LocalNetwork) {
 	subnetAInfo := network.GetPrimaryNetworkInfo()
 	subnetBInfo, _ := utils.GetTwoSubnets(network)
@@ -46,7 +47,7 @@ func EtnaUpgrade(network interfaces.LocalNetwork) {
 		fundedAddress,
 		relayerKey,
 	)
-	relayerConfig.EtnaTime = time.Now().AddDate(0, 0, 1)
+	relayerConfig.EtnaTime = time.Now().AddDate(0, 0, -1)
 	// The config needs to be validated in order to be passed to database.GetConfigRelayerIDs
 	relayerConfig.Validate()
 
@@ -70,7 +71,7 @@ func EtnaUpgrade(network interfaces.LocalNetwork) {
 	defer startupCancel()
 	testUtils.WaitForChannelClose(startupCtx, readyChan)
 
-	log.Info("Sending transaction from Subnet A to Subnet B, Pre-Etna")
+	log.Info("Sending transaction from Subnet A to Subnet B")
 	testUtils.RelayBasicMessage(
 		ctx,
 		subnetAInfo,
@@ -79,25 +80,8 @@ func EtnaUpgrade(network interfaces.LocalNetwork) {
 		fundedKey,
 		fundedAddress,
 	)
-	// Shutdown the relayer and write a new config with EtnaTime set to yesterday
-	relayerCleanup()
 
-	relayerConfig.EtnaTime = time.Now().AddDate(0, 0, -1)
-	relayerConfigPath = testUtils.WriteRelayerConfig(relayerConfig, testUtils.DefaultRelayerCfgFname)
-
-	relayerCleanup, readyChan = testUtils.RunRelayerExecutable(
-		ctx,
-		relayerConfigPath,
-		relayerConfig,
-	)
-	defer relayerCleanup()
-
-	// Wait for relayer to start up
-	startupCtx, startupCancel = context.WithTimeout(ctx, 15*time.Second)
-	defer startupCancel()
-	testUtils.WaitForChannelClose(startupCtx, readyChan)
-
-	log.Info("Test Relaying from Subnet B to Subnet A - Post-Etna")
+	log.Info("Test Relaying from Subnet B to Subnet A")
 	testUtils.RelayBasicMessage(
 		ctx,
 		subnetBInfo,
