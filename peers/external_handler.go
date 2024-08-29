@@ -30,6 +30,7 @@ type RelayerExternalHandler struct {
 	responseChans  map[uint32]chan message.InboundMessage
 	responsesCount map[uint32]expectedResponses
 	timeoutManager timer.AdaptiveTimeoutManager
+	metrics        *AppRequestNetworkMetrics
 }
 
 // expectedResponses counts the number of responses and compares against the expected number of responses
@@ -41,7 +42,7 @@ type expectedResponses struct {
 // Teleporter application relayer, as well as handle timeouts.
 func NewRelayerExternalHandler(
 	logger logging.Logger,
-	registerer prometheus.Registerer,
+	metrics *AppRequestNetworkMetrics,
 ) (*RelayerExternalHandler, error) {
 	// TODO: Leaving this static for now, but we may want to have this as a config option
 	cfg := timer.AdaptiveTimeoutConfig{
@@ -52,7 +53,7 @@ func NewRelayerExternalHandler(
 		TimeoutHalflife:    constants.DefaultNetworkTimeoutHalflife,
 	}
 
-	timeoutManager, err := timer.NewAdaptiveTimeoutManager(&cfg, registerer)
+	timeoutManager, err := timer.NewAdaptiveTimeoutManager(&cfg, prometheus.DefaultRegisterer)
 	if err != nil {
 		logger.Error(
 			"Failed to create timeout manager",
@@ -69,6 +70,7 @@ func NewRelayerExternalHandler(
 		responseChans:  make(map[uint32]chan message.InboundMessage),
 		responsesCount: make(map[uint32]expectedResponses),
 		timeoutManager: timeoutManager,
+		metrics:        metrics,
 	}, nil
 }
 
@@ -102,6 +104,7 @@ func (h *RelayerExternalHandler) Connected(nodeID ids.NodeID, version *version.A
 		zap.Stringer("version", version),
 		zap.Stringer("subnetID", subnetID),
 	)
+	h.metrics.connects.Inc()
 }
 
 func (h *RelayerExternalHandler) Disconnected(nodeID ids.NodeID) {
@@ -109,6 +112,7 @@ func (h *RelayerExternalHandler) Disconnected(nodeID ids.NodeID) {
 		"Disconnected",
 		zap.Stringer("nodeID", nodeID),
 	)
+	h.metrics.disconnects.Inc()
 }
 
 // RegisterRequestID registers an AppRequest by requestID, and marks the number of

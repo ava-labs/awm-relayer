@@ -143,6 +143,9 @@ func main() {
 	// TODO: remove this from here once trackedSubnets are no longer referenced
 	// by ping messages in avalanchego
 	for _, sourceBlockchain := range cfg.SourceBlockchains {
+		if sourceBlockchain.GetSubnetID() == constants.PrimaryNetworkID {
+			continue
+		}
 		trackedSubnets.Add(sourceBlockchain.GetSubnetID())
 	}
 

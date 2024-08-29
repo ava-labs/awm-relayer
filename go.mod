@@ -9,14 +9,14 @@ require (
 	github.com/ava-labs/teleporter v1.0.5
 	github.com/aws/aws-sdk-go-v2 v1.30.4
 	github.com/aws/aws-sdk-go-v2/config v1.27.9
-	github.com/aws/aws-sdk-go-v2/service/kms v1.35.4
+	github.com/aws/aws-sdk-go-v2/service/kms v1.35.5
 	github.com/ethereum/go-ethereum v1.13.8
 	github.com/hashicorp/golang-lru/v2 v2.0.7
-	github.com/onsi/ginkgo/v2 v2.20.1
-	github.com/onsi/gomega v1.34.1
+	github.com/onsi/ginkgo/v2 v2.20.2
+	github.com/onsi/gomega v1.34.2
 	github.com/pingcap/errors v0.11.4
 	github.com/pkg/errors v0.9.1
-	github.com/prometheus/client_golang v1.20.1
+	github.com/prometheus/client_golang v1.20.2
 	github.com/redis/go-redis/v9 v9.6.1
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.16.0
@@ -80,7 +80,7 @@ require (
 	github.com/golang/snappy v0.0.5-0.20220116011046-fa5810519dcb // indirect
 	github.com/google/btree v1.1.2 // indirect
 	github.com/google/go-cmp v0.6.0 // indirect
-	github.com/google/pprof v0.0.0-20240727154555-813a5fbdbec8 // indirect
+	github.com/google/pprof v0.0.0-20240827171923-fa2c70bbbfe5 // indirect
 	github.com/google/renameio/v2 v2.0.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/mux v1.8.0 // indirect
@@ -146,7 +146,7 @@ require (
 	golang.org/x/crypto v0.26.0 // indirect
 	golang.org/x/exp v0.0.0-20240719175910-8a7402abbf56 // indirect
 	golang.org/x/net v0.28.0 // indirect
-	golang.org/x/sys v0.23.0 // indirect
+	golang.org/x/sys v0.24.0 // indirect
 	golang.org/x/term v0.23.0 // indirect
 	golang.org/x/text v0.17.0 // indirect
 	golang.org/x/time v0.3.0 // indirect
