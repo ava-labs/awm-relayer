@@ -1,4 +1,4 @@
-name: Check generated code is up to date
+name: Mock Checker
 
 on:
   push:
