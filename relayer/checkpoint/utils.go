@@ -1,20 +1,12 @@
-// Copyright (C) 2024, Ava Labs, Inc. All rights reserved.
-// See the file LICENSE for licensing terms.
-
-package database
+package checkpoint
 
 import (
-	"strconv"
+	"errors"
 
 	"github.com/ava-labs/avalanchego/utils/logging"
-	"github.com/pkg/errors"
+	"github.com/ava-labs/awm-relayer/relayer"
 	"go.uber.org/zap"
 )
-
-// Returns true if an error returned by a RelayerDatabase indicates the requested key was not found.
-func IsKeyNotFoundError(err error) bool {
-	return errors.Is(err, ErrRelayerIDNotFound) || errors.Is(err, ErrKeyNotFound)
-}
 
 // Determines the height to process from. There are three cases:
 // 1) The database contains the latest processed block data for the chain
@@ -30,12 +22,12 @@ func IsKeyNotFoundError(err error) bool {
 func CalculateStartingBlockHeight(
 	logger logging.Logger,
 	db RelayerDatabase,
-	relayerID RelayerID,
+	relayerID relayer.RelayerID,
 	processHistoricalBlocksFromHeight uint64,
 	currentHeight uint64,
 ) (uint64, error) {
-	latestProcessedBlock, err := GetLatestProcessedBlockHeight(db, relayerID)
-	if IsKeyNotFoundError(err) {
+	latestProcessedBlock, err := db.GetLatestProcessedBlockHeight(relayerID)
+	if errors.Is(err, ErrNotFound) {
 		// The database does not contain the latest processed block data for the chain,
 		// use the configured process-historical-blocks-from-height instead.
 		// If process-historical-blocks-from-height was not configured, start from the chain head.
@@ -70,17 +62,4 @@ func CalculateStartingBlockHeight(
 		zap.Uint64("processHistoricalBlocksFromHeight", processHistoricalBlocksFromHeight),
 	)
 	return processHistoricalBlocksFromHeight, nil
-}
-
-// Helper function to get the latest processed block height from the database.
-func GetLatestProcessedBlockHeight(db RelayerDatabase, relayerID RelayerID) (uint64, error) {
-	latestProcessedBlockData, err := db.Get(relayerID.ID, LatestProcessedBlockKey)
-	if err != nil {
-		return 0, err
-	}
-	latestProcessedBlock, err := strconv.ParseUint(string(latestProcessedBlockData), 10, 64)
-	if err != nil {
-		return 0, err
-	}
-	return latestProcessedBlock, nil
 }

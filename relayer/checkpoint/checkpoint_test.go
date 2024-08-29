@@ -5,9 +5,10 @@ import (
 	"testing"
 
 	"github.com/ava-labs/avalanchego/utils/logging"
-	"github.com/ava-labs/awm-relayer/database"
-	mock_database "github.com/ava-labs/awm-relayer/database/mocks"
+	"github.com/ava-labs/awm-relayer/relayer"
+	mock_database "github.com/ava-labs/awm-relayer/relayer/checkpoint/mocks"
 	"github.com/ava-labs/awm-relayer/utils"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/require"
@@ -60,7 +61,7 @@ func TestCommitHeight(t *testing.T) {
 	}
 	db := mock_database.NewMockRelayerDatabase(gomock.NewController(t))
 	for _, test := range testCases {
-		id := database.RelayerID{
+		id := relayer.RelayerID{
 			ID: common.BytesToHash(crypto.Keccak256([]byte(test.name))),
 		}
 		cm := NewCheckpointManager(logging.NoLog{}, db, nil, id, test.currentMaxHeight)

@@ -12,7 +12,6 @@ import (
 	"github.com/ava-labs/avalanchego/utils/constants"
 	"github.com/ava-labs/avalanchego/utils/logging"
 	avalancheWarp "github.com/ava-labs/avalanchego/vms/platformvm/warp"
-	"github.com/ava-labs/awm-relayer/database"
 	"github.com/ava-labs/awm-relayer/messages"
 	"github.com/ava-labs/awm-relayer/peers"
 	"github.com/ava-labs/awm-relayer/relayer/config"
@@ -35,10 +34,8 @@ const (
 	signatureRequestRetryWaitPeriodMs = 10_000
 )
 
-var (
-	// Errors
-	errFailedToGetAggSig = errors.New("failed to get aggregate signature from node endpoint")
-)
+// Errors
+var errFailedToGetAggSig = errors.New("failed to get aggregate signature from node endpoint")
 
 // CheckpointManager stores committed heights in the database
 type CheckpointManager interface {
@@ -61,7 +58,7 @@ type ApplicationRelayer struct {
 	sourceBlockchain          config.SourceBlockchain
 	signingSubnetID           ids.ID
 	destinationClient         vms.DestinationClient
-	relayerID                 database.RelayerID
+	relayerID                 RelayerID
 	warpQuorum                config.WarpQuorum
 	checkpointManager         CheckpointManager
 	sourceWarpSignatureClient *rpc.Client // nil if configured to fetch signatures via AppRequest for the source blockchain
@@ -72,7 +69,7 @@ func NewApplicationRelayer(
 	logger logging.Logger,
 	metrics *ApplicationRelayerMetrics,
 	network *peers.AppRequestNetwork,
-	relayerID database.RelayerID,
+	relayerID RelayerID,
 	destinationClient vms.DestinationClient,
 	sourceBlockchain config.SourceBlockchain,
 	checkpointManager CheckpointManager,
@@ -251,7 +248,7 @@ func (r *ApplicationRelayer) ProcessMessage(handler messages.MessageHandler) (co
 	return txHash, nil
 }
 
-func (r *ApplicationRelayer) RelayerID() database.RelayerID {
+func (r *ApplicationRelayer) RelayerID() RelayerID {
 	return r.relayerID
 }
 

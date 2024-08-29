@@ -1,7 +1,7 @@
 // Copyright (C) 2024, Ava Labs, Inc. All rights reserved.
 // See the file LICENSE for licensing terms.
 
-package database
+package relayer
 
 import (
 	"strings"
@@ -13,10 +13,8 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 )
 
-var (
-	// AllAllowedAddress is used to construct relayer IDs when all addresses are allowed
-	AllAllowedAddress = utils.ZeroAddress
-)
+// AllAllowedAddress is used to construct relayer IDs when all addresses are allowed
+var AllAllowedAddress = utils.ZeroAddress
 
 // RelayerID is a unique identifier for an application relayer
 type RelayerID struct {

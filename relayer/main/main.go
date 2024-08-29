@@ -188,11 +188,12 @@ func main() {
 	}
 
 	// Initialize the database
-	db, err := database.NewDatabase(logger, &cfg)
+	kvdb, err := database.NewKeyValueDatabase(logger, &cfg)
 	if err != nil {
 		logger.Fatal("Failed to create database", zap.Error(err))
 		panic(err)
 	}
+	db := database.NewRelayerDatabase(kvdb)
 
 	// Initialize the global write ticker
 	ticker := utils.NewTicker(cfg.DBWriteIntervalSeconds)
@@ -365,7 +366,7 @@ func createApplicationRelayers(
 	ctx context.Context,
 	logger logging.Logger,
 	relayerMetrics *relayer.ApplicationRelayerMetrics,
-	db database.RelayerDatabase,
+	db checkpoint.RelayerDatabase,
 	ticker *utils.Ticker,
 	network *peers.AppRequestNetwork,
 	cfg *config.Config,
@@ -423,7 +424,7 @@ func createApplicationRelayersForSourceChain(
 	ctx context.Context,
 	logger logging.Logger,
 	metrics *relayer.ApplicationRelayerMetrics,
-	db database.RelayerDatabase,
+	db checkpoint.RelayerDatabase,
 	ticker *utils.Ticker,
 	sourceBlockchain config.SourceBlockchain,
 	network *peers.AppRequestNetwork,
@@ -451,11 +452,11 @@ func createApplicationRelayersForSourceChain(
 		height = currentHeight + 1
 		minHeight = height
 	}
-	for _, relayerID := range database.GetSourceBlockchainRelayerIDs(&sourceBlockchain) {
+	for _, relayerID := range relayer.GetSourceBlockchainRelayerIDs(&sourceBlockchain) {
 		// Calculate the catch-up starting block height, and update the min height if necessary
 		if cfg.ProcessMissedBlocks {
 			var err error
-			height, err = database.CalculateStartingBlockHeight(
+			height, err = checkpoint.CalculateStartingBlockHeight(
 				logger,
 				db,
 				relayerID,

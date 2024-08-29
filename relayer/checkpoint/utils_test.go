@@ -1,12 +1,11 @@
-package database
+package checkpoint
 
 import (
 	"fmt"
-	"strconv"
 	"testing"
 
 	"github.com/ava-labs/avalanchego/utils/logging"
-	"github.com/ethereum/go-ethereum/common"
+	"github.com/ava-labs/awm-relayer/relayer"
 	"github.com/stretchr/testify/require"
 )
 
@@ -25,7 +24,7 @@ func TestCalculateStartingBlockHeight(t *testing.T) {
 			name:          "value in cfg, no value in db",
 			cfgBlock:      100,
 			dbBlock:       0,
-			dbError:       ErrKeyNotFound,
+			dbError:       ErrNotFound,
 			expectedBlock: 100,
 			expectedError: nil,
 		},
@@ -61,7 +60,7 @@ func TestCalculateStartingBlockHeight(t *testing.T) {
 			name:          "no DB value, no cfg value",
 			cfgBlock:      0,
 			dbBlock:       0,
-			dbError:       ErrKeyNotFound,
+			dbError:       ErrNotFound,
 			expectedBlock: currentBlock,
 			expectedError: nil,
 		},
@@ -69,11 +68,11 @@ func TestCalculateStartingBlockHeight(t *testing.T) {
 
 	for _, testCase := range testCases {
 		db := &mockDB{}
-		db.getFunc = func(relayerID common.Hash, key DataKey) ([]byte, error) {
-			return []byte(strconv.FormatUint(testCase.dbBlock, 10)), testCase.dbError
+		db.getFunc = func(relayerID relayer.RelayerID) (uint64, error) {
+			return testCase.dbBlock, testCase.dbError
 		}
 
-		ret, err := CalculateStartingBlockHeight(logging.NoLog{}, db, RelayerID{}, testCase.cfgBlock, currentBlock)
+		ret, err := CalculateStartingBlockHeight(logging.NoLog{}, db, relayer.RelayerID{}, testCase.cfgBlock, currentBlock)
 		if testCase.expectedError == nil {
 			require.NoError(t, err, fmt.Sprintf("test failed: %s", testCase.name))
 			require.Equal(t, testCase.expectedBlock, ret, fmt.Sprintf("test failed: %s", testCase.name))
@@ -85,13 +84,13 @@ func TestCalculateStartingBlockHeight(t *testing.T) {
 
 // in-package mock to allow for unit testing of non-receiver functions that use the RelayerDatabase interface
 type mockDB struct {
-	getFunc func(relayerID common.Hash, key DataKey) ([]byte, error)
+	getFunc func(relayerID relayer.RelayerID) (uint64, error)
 }
 
-func (m *mockDB) Get(relayerID common.Hash, key DataKey) ([]byte, error) {
-	return m.getFunc(relayerID, key)
+func (m *mockDB) GetLatestProcessedBlockHeight(relayerID relayer.RelayerID) (uint64, error) {
+	return m.getFunc(relayerID)
 }
 
-func (m *mockDB) Put(relayerID common.Hash, key DataKey, value []byte) error {
+func (m *mockDB) StoreLatestProcessedBlockHeight(relayerID relayer.RelayerID, value uint64) error {
 	return nil
 }

@@ -5,11 +5,11 @@ package checkpoint
 
 import (
 	"container/heap"
-	"strconv"
+	"errors"
 	"sync"
 
 	"github.com/ava-labs/avalanchego/utils/logging"
-	"github.com/ava-labs/awm-relayer/database"
+	"github.com/ava-labs/awm-relayer/relayer"
 	"github.com/ava-labs/awm-relayer/utils"
 	"go.uber.org/zap"
 )
@@ -20,9 +20,9 @@ import (
 
 type CheckpointManager struct {
 	logger          logging.Logger
-	database        database.RelayerDatabase
+	database        RelayerDatabase
 	writeSignal     chan struct{}
-	relayerID       database.RelayerID
+	relayerID       relayer.RelayerID
 	committedHeight uint64
 	lock            *sync.RWMutex
 	pendingCommits  *utils.UInt64Heap
@@ -30,9 +30,9 @@ type CheckpointManager struct {
 
 func NewCheckpointManager(
 	logger logging.Logger,
-	database database.RelayerDatabase,
+	database RelayerDatabase,
 	writeSignal chan struct{},
-	relayerID database.RelayerID,
+	relayerID relayer.RelayerID,
 	startingHeight uint64,
 ) *CheckpointManager {
 	h := &utils.UInt64Heap{}
@@ -64,8 +64,8 @@ func (cm *CheckpointManager) writeToDatabase() {
 	if cm.committedHeight == 0 {
 		return
 	}
-	storedHeight, err := database.GetLatestProcessedBlockHeight(cm.database, cm.relayerID)
-	if err != nil && !database.IsKeyNotFoundError(err) {
+	storedHeight, err := cm.database.GetLatestProcessedBlockHeight(cm.relayerID)
+	if err != nil && !errors.Is(err, ErrNotFound) {
 		cm.logger.Error(
 			"Failed to get latest processed block height",
 			zap.Error(err),
@@ -81,11 +81,7 @@ func (cm *CheckpointManager) writeToDatabase() {
 		zap.Uint64("height", cm.committedHeight),
 		zap.String("relayerID", cm.relayerID.ID.String()),
 	)
-	err = cm.database.Put(
-		cm.relayerID.ID,
-		database.LatestProcessedBlockKey,
-		[]byte(strconv.FormatUint(cm.committedHeight, 10)),
-	)
+	err = cm.database.StoreLatestProcessedBlockHeight(cm.relayerID, cm.committedHeight)
 	if err != nil {
 		cm.logger.Error(
 			"Failed to write latest processed block height",

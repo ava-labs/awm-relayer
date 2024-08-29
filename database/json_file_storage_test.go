@@ -14,22 +14,23 @@ import (
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/avalanchego/utils/set"
+	"github.com/ava-labs/awm-relayer/relayer"
 	"github.com/stretchr/testify/assert"
 )
 
-func createRelayerIDs(blockchainIDs []ids.ID) []RelayerID {
+func createRelayerIDs(blockchainIDs []ids.ID) []relayer.RelayerID {
 	destinationsBlockchainIDs := set.NewSet[string](1) // just needs to be non-nil
 	destinationsBlockchainIDs.Add(ids.GenerateTestID().String())
 
-	var relayerIDs []RelayerID
+	var relayerIDs []relayer.RelayerID
 	for _, blockchainID := range blockchainIDs {
 		for allowedDestination := range destinationsBlockchainIDs {
 			id, _ := ids.FromString(allowedDestination)
-			relayerIDs = append(relayerIDs, NewRelayerID(
+			relayerIDs = append(relayerIDs, relayer.NewRelayerID(
 				blockchainID,
 				id,
-				AllAllowedAddress,
-				AllAllowedAddress,
+				relayer.AllAllowedAddress,
+				relayer.AllAllowedAddress,
 			),
 			)
 		}
@@ -61,7 +62,7 @@ func TestConcurrentWriteReadSingleChain(t *testing.T) {
 	finalTargetValue := uint64(11)
 	testWrite(jsonStorage, relayerIDs[0], finalTargetValue)
 
-	latestProcessedBlockData, err := jsonStorage.Get(relayerIDs[0].ID, LatestProcessedBlockKey)
+	latestProcessedBlockData, err := jsonStorage.Get(relayerIDs[0].ID, latestProcessedBlockKey)
 	if err != nil {
 		t.Fatalf("failed to retrieve from JSON storage. err: %v", err)
 	}
@@ -107,7 +108,7 @@ func TestConcurrentWriteReadMultipleChains(t *testing.T) {
 	}
 
 	for i, relayerID := range relayerIDs {
-		latestProcessedBlockData, err := jsonStorage.Get(relayerID.ID, LatestProcessedBlockKey)
+		latestProcessedBlockData, err := jsonStorage.Get(relayerID.ID, latestProcessedBlockKey)
 		if err != nil {
 			t.Fatalf("failed to retrieve from JSON storage. networkID: %d err: %v", i, err)
 		}
@@ -124,7 +125,7 @@ func TestConcurrentWriteReadMultipleChains(t *testing.T) {
 	}
 }
 
-func setupJsonStorage(t *testing.T, relayerIDs []RelayerID) *JSONFileStorage {
+func setupJsonStorage(t *testing.T, relayerIDs []relayer.RelayerID) *JSONFileStorage {
 	logger := logging.NewLogger(
 		"awm-relayer-test",
 		logging.NewWrappedCore(
@@ -142,8 +143,8 @@ func setupJsonStorage(t *testing.T, relayerIDs []RelayerID) *JSONFileStorage {
 	return jsonStorage
 }
 
-func testWrite(storage *JSONFileStorage, relayerID RelayerID, height uint64) {
-	err := storage.Put(relayerID.ID, LatestProcessedBlockKey, []byte(strconv.FormatUint(height, 10)))
+func testWrite(storage *JSONFileStorage, relayerID relayer.RelayerID, height uint64) {
+	err := storage.Put(relayerID.ID, latestProcessedBlockKey, []byte(strconv.FormatUint(height, 10)))
 	if err != nil {
 		fmt.Printf("failed to put data: %v", err)
 		return
