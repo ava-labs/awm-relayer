@@ -594,6 +594,8 @@ func (s *SignatureAggregator) aggregateSignatures(
 	return aggSig, vdrBitSet, nil
 }
 
+// TODO: refactor this to remove special handling based on etnaTime
+// after Etna release, along with related config and testing code
 func (s *SignatureAggregator) marshalRequest(
 	unsignedMessage *avalancheWarp.UnsignedMessage,
 	justification []byte,
