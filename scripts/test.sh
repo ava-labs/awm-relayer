@@ -27,12 +27,14 @@ if [ "$HELP" = true ]; then
 fi
 
 # Directory above this script
-RELAYER_PATH=$(
+root=$(
     cd "$(dirname "${BASH_SOURCE[0]}")"
     cd .. && pwd
 )
-source "$RELAYER_PATH"/scripts/constants.sh
+source "$root"/scripts/constants.sh
 
 go build -o tests/cmd/decider/decider ./tests/cmd/decider/
+
+"$root"/scripts/generate.sh
 
 go test -tags testing $VERBOSE ./...
