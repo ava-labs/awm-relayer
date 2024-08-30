@@ -1,6 +1,7 @@
 package cache
 
 import (
+	"encoding/hex"
 	"math"
 
 	"github.com/ava-labs/avalanchego/ids"
@@ -41,7 +42,16 @@ func (c *Cache) Get(msgID ids.ID) (map[PublicKeyBytes]SignatureBytes, bool) {
 	cachedValue, isCached := c.signatures.Get(msgID)
 
 	if isCached {
-		c.logger.Debug("cache hit", zap.Stringer("msgID", msgID))
+		var encodedKeys []string
+		for key := range cachedValue {
+			encodedKeys = append(encodedKeys, hex.EncodeToString(key[:]))
+		}
+		c.logger.Debug(
+			"cache hit",
+			zap.Stringer("msgID", msgID),
+			zap.Int("signatureCount", len(cachedValue)),
+			zap.Strings("public keys", encodedKeys),
+		)
 		return cachedValue, true
 	} else {
 		c.logger.Debug("cache miss", zap.Stringer("msgID", msgID))

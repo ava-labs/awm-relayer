@@ -1,23 +1,37 @@
 package aggregator
 
 import (
+	"context"
+	"encoding/hex"
+	"fmt"
+	"os"
 	"testing"
 
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/message"
+	"github.com/ava-labs/avalanchego/snow/validators"
+	"github.com/ava-labs/avalanchego/subnets"
+	"github.com/ava-labs/avalanchego/utils"
 	"github.com/ava-labs/avalanchego/utils/constants"
+	"github.com/ava-labs/avalanchego/utils/crypto/bls"
 	"github.com/ava-labs/avalanchego/utils/logging"
+	"github.com/ava-labs/avalanchego/utils/set"
 	"github.com/ava-labs/avalanchego/vms/platformvm/warp"
 	"github.com/ava-labs/awm-relayer/peers"
 	"github.com/ava-labs/awm-relayer/peers/mocks"
 	"github.com/ava-labs/awm-relayer/signature-aggregator/metrics"
+	evmMsg "github.com/ava-labs/subnet-evm/plugin/evm/message"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
-var sigAggMetrics *metrics.SignatureAggregatorMetrics
-var messageCreator message.Creator
+var (
+	sigAggMetrics  *metrics.SignatureAggregatorMetrics
+	messageCreator message.Creator
+)
 
 func instantiateAggregator(t *testing.T) (
 	*SignatureAggregator,
@@ -35,23 +49,77 @@ func instantiateAggregator(t *testing.T) (
 			constants.DefaultNetworkCompressionType,
 			constants.DefaultNetworkMaximumInboundTimeout,
 		)
-		require.Equal(t, err, nil)
+		require.Equal(t, nil, err)
 	}
 	aggregator, err := NewSignatureAggregator(
 		mockNetwork,
-		logging.NoLog{},
+		logging.NewLogger(
+			"aggregator_test",
+			logging.NewWrappedCore(
+				logging.Debug,
+				os.Stdout,
+				zapcore.NewConsoleEncoder(
+					zap.NewProductionEncoderConfig(),
+				),
+			),
+		),
 		1024,
 		sigAggMetrics,
 		messageCreator,
 	)
-	require.Equal(t, err, nil)
+	require.Equal(t, nil, err)
 	return aggregator, mockNetwork
+}
+
+func makeConnectedValidators(validatorCount int) (*peers.ConnectedCanonicalValidators, []*bls.SecretKey) {
+	var validatorSet []*warp.Validator
+	var validatorSecretKeys []*bls.SecretKey
+
+	nodeValidatorIndexMap := make(map[ids.NodeID]int)
+
+	for i := 0; i < validatorCount; i++ {
+		secretKey, err := bls.NewSecretKey()
+		if err != nil {
+			panic(err)
+		}
+		validatorSecretKeys = append(validatorSecretKeys, secretKey)
+
+		pubKey := bls.PublicFromSecretKey(secretKey)
+
+		nodeID, err := ids.ToNodeID(utils.RandomBytes(20))
+		if err != nil {
+			panic(err)
+		}
+		nodeValidatorIndexMap[nodeID] = i
+
+		fmt.Printf(
+			"validator with pubKey %s has nodeID %s\n",
+			hex.EncodeToString(bls.PublicKeyToUncompressedBytes(pubKey)),
+			nodeID.String(),
+		)
+
+		validatorSet = append(validatorSet,
+			&warp.Validator{
+				PublicKey:      pubKey,
+				PublicKeyBytes: bls.PublicKeyToUncompressedBytes(pubKey),
+				Weight:         1,
+				NodeIDs:        []ids.NodeID{nodeID},
+			},
+		)
+	}
+
+	return &peers.ConnectedCanonicalValidators{
+		ConnectedWeight:       uint64(validatorCount),
+		TotalValidatorWeight:  uint64(validatorCount),
+		ValidatorSet:          validatorSet,
+		NodeValidatorIndexMap: nodeValidatorIndexMap,
+	}, validatorSecretKeys
 }
 
 func TestCreateSignedMessageFailsWithNoValidators(t *testing.T) {
 	aggregator, mockNetwork := instantiateAggregator(t)
 	msg, err := warp.NewUnsignedMessage(0, ids.Empty, []byte{})
-	require.Equal(t, err, nil)
+	require.Equal(t, nil, err)
 	mockNetwork.EXPECT().GetSubnetID(ids.Empty).Return(ids.Empty, nil)
 	mockNetwork.EXPECT().ConnectToCanonicalValidators(ids.Empty).Return(
 		&peers.ConnectedCanonicalValidators{
@@ -68,7 +136,7 @@ func TestCreateSignedMessageFailsWithNoValidators(t *testing.T) {
 func TestCreateSignedMessageFailsWithoutSufficientConnectedStake(t *testing.T) {
 	aggregator, mockNetwork := instantiateAggregator(t)
 	msg, err := warp.NewUnsignedMessage(0, ids.Empty, []byte{})
-	require.Equal(t, err, nil)
+	require.Equal(t, nil, err)
 	mockNetwork.EXPECT().GetSubnetID(ids.Empty).Return(ids.Empty, nil)
 	mockNetwork.EXPECT().ConnectToCanonicalValidators(ids.Empty).Return(
 		&peers.ConnectedCanonicalValidators{
@@ -84,4 +152,249 @@ func TestCreateSignedMessageFailsWithoutSufficientConnectedStake(t *testing.T) {
 		err,
 		"failed to connect to a threshold of stake",
 	)
+}
+
+func makeAppRequests(
+	chainID ids.ID,
+	requestID uint32,
+	connectedValidators *peers.ConnectedCanonicalValidators,
+) []ids.RequestID {
+	var appRequests []ids.RequestID
+	for _, validator := range connectedValidators.ValidatorSet {
+		for _, nodeID := range validator.NodeIDs {
+			appRequests = append(
+				appRequests,
+				ids.RequestID{
+					NodeID:             nodeID,
+					SourceChainID:      chainID,
+					DestinationChainID: chainID,
+					RequestID:          requestID,
+					Op: byte(
+						message.AppResponseOp,
+					),
+				},
+			)
+		}
+	}
+	return appRequests
+}
+
+func TestCreateSignedMessageRetriesAndFailsWithoutP2PResponses(t *testing.T) {
+	aggregator, mockNetwork := instantiateAggregator(t)
+
+	var (
+		connectedValidators, _ = makeConnectedValidators(2)
+		requestID              = aggregator.currentRequestID.Load() + 1
+	)
+
+	chainID, err := ids.ToID(utils.RandomBytes(32))
+	if err != nil {
+		panic(err)
+	}
+
+	msg, err := warp.NewUnsignedMessage(0, chainID, []byte{})
+	require.Equal(t, nil, err)
+
+	subnetID, err := ids.ToID(utils.RandomBytes(32))
+	require.Equal(t, nil, err)
+	mockNetwork.EXPECT().GetSubnetID(chainID).Return(
+		subnetID,
+		nil,
+	)
+
+	mockNetwork.EXPECT().ConnectToCanonicalValidators(subnetID).Return(
+		connectedValidators,
+		nil,
+	)
+
+	appRequests := makeAppRequests(chainID, requestID, connectedValidators)
+	for _, appRequest := range appRequests {
+		mockNetwork.EXPECT().RegisterAppRequest(appRequest).Times(
+			maxRelayerQueryAttempts,
+		)
+	}
+
+	mockNetwork.EXPECT().RegisterRequestID(
+		requestID,
+		len(appRequests),
+	).Return(
+		make(chan message.InboundMessage, len(appRequests)),
+	).Times(maxRelayerQueryAttempts)
+
+	var nodeIDs set.Set[ids.NodeID]
+	for _, appRequest := range appRequests {
+		nodeIDs.Add(appRequest.NodeID)
+	}
+	mockNetwork.EXPECT().Send(
+		gomock.Any(),
+		nodeIDs,
+		subnetID,
+		subnets.NoOpAllower,
+	).Times(maxRelayerQueryAttempts)
+
+	_, err = aggregator.CreateSignedMessage(msg, subnetID, 80)
+	require.ErrorContains(
+		t,
+		err,
+		"failed to collect a threshold of signatures",
+	)
+}
+
+func TestCreateSignedMessageSucceeds(t *testing.T) {
+	var msg *warp.UnsignedMessage // to be signed
+	chainID, err := ids.ToID(utils.RandomBytes(32))
+	if err != nil {
+		panic(err)
+	}
+	networkID := uint32(0)
+	msg, err = warp.NewUnsignedMessage(
+		networkID,
+		chainID,
+		utils.RandomBytes(1234),
+	)
+	require.Equal(t, nil, err)
+
+	// the signers:
+	var connectedValidators, validatorSecretKeys = makeConnectedValidators(5)
+
+	// prime the aggregator:
+
+	aggregator, mockNetwork := instantiateAggregator(t)
+
+	subnetID, err := ids.ToID(utils.RandomBytes(32))
+	require.Equal(t, nil, err)
+	mockNetwork.EXPECT().GetSubnetID(chainID).Return(
+		subnetID,
+		nil,
+	)
+
+	mockNetwork.EXPECT().ConnectToCanonicalValidators(subnetID).Return(
+		connectedValidators,
+		nil,
+	)
+
+	// prime the signers' responses:
+
+	var requestID = aggregator.currentRequestID.Load() + 1
+
+	appRequests := makeAppRequests(chainID, requestID, connectedValidators)
+	for _, appRequest := range appRequests {
+		mockNetwork.EXPECT().RegisterAppRequest(appRequest).Times(1)
+	}
+
+	var nodeIDs set.Set[ids.NodeID]
+	responseChan := make(chan message.InboundMessage, len(appRequests))
+	for _, appRequest := range appRequests {
+		nodeIDs.Add(appRequest.NodeID)
+		validatorSecretKey := validatorSecretKeys[connectedValidators.NodeValidatorIndexMap[appRequest.NodeID]]
+		responseBytes, err := evmMsg.Codec.Marshal(
+			0,
+			&evmMsg.SignatureResponse{
+				Signature: [bls.SignatureLen]byte(
+					bls.SignatureToBytes(
+						bls.Sign(
+							validatorSecretKey,
+							msg.Bytes(),
+						),
+					),
+				),
+			},
+		)
+		require.Equal(t, nil, err)
+		responseChan <- message.InboundAppResponse(
+			chainID,
+			requestID,
+			responseBytes,
+			appRequest.NodeID,
+		)
+	}
+	mockNetwork.EXPECT().RegisterRequestID(
+		requestID,
+		len(appRequests),
+	).Return(responseChan).Times(1)
+
+	mockNetwork.EXPECT().Send(
+		gomock.Any(),
+		nodeIDs,
+		subnetID,
+		subnets.NoOpAllower,
+	).Times(1).Return(nodeIDs)
+
+	// aggregate the signatures:
+	var quorumPercentage uint64 = 80
+	signedMessage, err := aggregator.CreateSignedMessage(
+		msg,
+		subnetID,
+		quorumPercentage,
+	)
+	require.Equal(t, nil, err)
+
+	// verify the aggregated signature:
+	pChainState := newPChainStateStub(
+		chainID,
+		subnetID,
+		1,
+		connectedValidators,
+	)
+	require.Equal(
+		t,
+		nil,
+		signedMessage.Signature.Verify(
+			context.Background(),
+			msg,
+			networkID,
+			pChainState,
+			pChainState.currentHeight,
+			quorumPercentage,
+			100,
+		),
+	)
+}
+
+type pChainStateStub struct {
+	subnetIDByChainID            map[ids.ID]ids.ID
+	connectedCanonicalValidators *peers.ConnectedCanonicalValidators
+	currentHeight                uint64
+}
+
+func newPChainStateStub(
+	chainID, subnetID ids.ID,
+	currentHeight uint64,
+	connectedValidators *peers.ConnectedCanonicalValidators,
+) *pChainStateStub {
+	subnetIDByChainID := make(map[ids.ID]ids.ID)
+	subnetIDByChainID[chainID] = subnetID
+	return &pChainStateStub{
+		subnetIDByChainID:            subnetIDByChainID,
+		connectedCanonicalValidators: connectedValidators,
+		currentHeight:                currentHeight,
+	}
+}
+
+func (p pChainStateStub) GetSubnetID(ctx context.Context, chainID ids.ID) (ids.ID, error) {
+	return p.subnetIDByChainID[chainID], nil
+}
+
+func (p pChainStateStub) GetMinimumHeight(context.Context) (uint64, error) { return 0, nil }
+
+func (p pChainStateStub) GetCurrentHeight(context.Context) (uint64, error) {
+	return p.currentHeight, nil
+}
+
+func (p pChainStateStub) GetValidatorSet(
+	ctx context.Context,
+	height uint64,
+	subnetID ids.ID,
+) (map[ids.NodeID]*validators.GetValidatorOutput, error) {
+	output := make(map[ids.NodeID]*validators.GetValidatorOutput)
+	for _, validator := range p.connectedCanonicalValidators.ValidatorSet {
+		for _, nodeID := range validator.NodeIDs {
+			output[nodeID] = &validators.GetValidatorOutput{
+				NodeID:    nodeID,
+				PublicKey: validator.PublicKey,
+				Weight:    validator.Weight,
+			}
+		}
+	}
+	return output, nil
 }
