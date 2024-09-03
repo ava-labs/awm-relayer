@@ -29,9 +29,19 @@ The only exposed endpoint is `/aggregate-signatures`  expecting `application/jso
     "message": "",            // (string) hex-encoded unsigned message bytes to be signed
     "justification": "",      // (string) hex-encoded bytes to supply to the validators as justification
     "signing-subnet-id": "",  // (string) hex or cb58 encoded signing subnet ID. Defaults to source blockchain's subnet from data if omitted.
-    "quorum-percentage": 67  // (int) quorum percentage required to sign the message. Defaults to 67 if omitted
+    "quorum-percentage": 67   // (int) quorum percentage required to sign the message. Defaults to 67 if omitted
 }
 ```
+
+The successful `HTTP 200` response format is
+
+```json
+{
+    "signed-message": ""  // (string) hex-encoded signed message bytes signed by at least `quorum-percentage` of the validator set.
+}
+```
+
+Unsuccessful responses will include a `40x-50x` status codes with an explanatory `application/json` encoded message in the body of the response.
 
 ## Sample workflow
 If you want to manually test a locally running service pointed to the Fuji testnet you can do so with the following steps.
