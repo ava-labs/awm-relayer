@@ -1,6 +1,8 @@
 // Copyright (C) 2023, Ava Labs, Inc. All rights reserved.
 // See the file LICENSE for licensing terms.
 
+//go:generate mockgen -source=$GOFILE -destination=./mocks/mock_app_request_network.go -package=mocks
+
 package peers
 
 import (
@@ -28,7 +30,27 @@ const (
 	DefaultAppRequestTimeout  = time.Second * 2
 )
 
-type AppRequestNetwork struct {
+type AppRequestNetwork interface {
+	ConnectPeers(nodeIDs set.Set[ids.NodeID]) set.Set[ids.NodeID]
+	ConnectToCanonicalValidators(subnetID ids.ID) (
+		*ConnectedCanonicalValidators,
+		error,
+	)
+	GetSubnetID(blockchainID ids.ID) (ids.ID, error)
+	RegisterAppRequest(requestID ids.RequestID)
+	RegisterRequestID(
+		requestID uint32,
+		numExpectedResponse int,
+	) chan message.InboundMessage
+	Send(
+		msg message.OutboundMessage,
+		nodeIDs set.Set[ids.NodeID],
+		subnetID ids.ID,
+		allower subnets.Allower,
+	) set.Set[ids.NodeID]
+}
+
+type appRequestNetwork struct {
 	network         network.Network
 	handler         *RelayerExternalHandler
 	infoAPI         *InfoAPI
@@ -44,7 +66,7 @@ func NewNetwork(
 	registerer prometheus.Registerer,
 	trackedSubnets set.Set[ids.ID],
 	cfg Config,
-) (*AppRequestNetwork, error) {
+) (AppRequestNetwork, error) {
 	logger := logging.NewLogger(
 		"p2p-network",
 		logging.NewWrappedCore(
@@ -98,7 +120,7 @@ func NewNetwork(
 
 	validatorClient := validators.NewCanonicalValidatorClient(logger, cfg.GetPChainAPI())
 
-	arNetwork := &AppRequestNetwork{
+	arNetwork := &appRequestNetwork{
 		network:         testNetwork,
 		handler:         handler,
 		infoAPI:         infoAPI,
@@ -116,7 +138,7 @@ func NewNetwork(
 
 // ConnectPeers connects the network to peers with the given nodeIDs.
 // Returns the set of nodeIDs that were successfully connected to.
-func (n *AppRequestNetwork) ConnectPeers(nodeIDs set.Set[ids.NodeID]) set.Set[ids.NodeID] {
+func (n *appRequestNetwork) ConnectPeers(nodeIDs set.Set[ids.NodeID]) set.Set[ids.NodeID] {
 	n.lock.Lock()
 	defer n.lock.Unlock()
 
@@ -200,7 +222,7 @@ func (c *ConnectedCanonicalValidators) GetValidator(nodeID ids.NodeID) (*warp.Va
 
 // ConnectToCanonicalValidators connects to the canonical validators of the given subnet and returns the connected
 // validator information
-func (n *AppRequestNetwork) ConnectToCanonicalValidators(subnetID ids.ID) (*ConnectedCanonicalValidators, error) {
+func (n *appRequestNetwork) ConnectToCanonicalValidators(subnetID ids.ID) (*ConnectedCanonicalValidators, error) {
 	// Get the subnet's current canonical validator set
 	startPChainAPICall := time.Now()
 	validatorSet, totalValidatorWeight, err := n.validatorClient.GetCurrentCanonicalValidatorSet(subnetID)
@@ -240,7 +262,7 @@ func (n *AppRequestNetwork) ConnectToCanonicalValidators(subnetID ids.ID) (*Conn
 	}, nil
 }
 
-func (n *AppRequestNetwork) Send(
+func (n *appRequestNetwork) Send(
 	msg message.OutboundMessage,
 	nodeIDs set.Set[ids.NodeID],
 	subnetID ids.ID,
@@ -249,13 +271,13 @@ func (n *AppRequestNetwork) Send(
 	return n.network.Send(msg, avagoCommon.SendConfig{NodeIDs: nodeIDs}, subnetID, allower)
 }
 
-func (n *AppRequestNetwork) RegisterAppRequest(requestID ids.RequestID) {
+func (n *appRequestNetwork) RegisterAppRequest(requestID ids.RequestID) {
 	n.handler.RegisterAppRequest(requestID)
 }
-func (n *AppRequestNetwork) RegisterRequestID(requestID uint32, numExpectedResponse int) chan message.InboundMessage {
+func (n *appRequestNetwork) RegisterRequestID(requestID uint32, numExpectedResponse int) chan message.InboundMessage {
 	return n.handler.RegisterRequestID(requestID, numExpectedResponse)
 }
-func (n *AppRequestNetwork) GetSubnetID(blockchainID ids.ID) (ids.ID, error) {
+func (n *appRequestNetwork) GetSubnetID(blockchainID ids.ID) (ids.ID, error) {
 	return n.validatorClient.GetSubnetID(context.Background(), blockchainID)
 }
 
@@ -263,10 +285,10 @@ func (n *AppRequestNetwork) GetSubnetID(blockchainID ids.ID) (ids.ID, error) {
 // Metrics
 //
 
-func (n *AppRequestNetwork) setInfoAPICallLatencyMS(latency float64) {
+func (n *appRequestNetwork) setInfoAPICallLatencyMS(latency float64) {
 	n.metrics.infoAPICallLatencyMS.Observe(latency)
 }
 
-func (n *AppRequestNetwork) setPChainAPICallLatencyMS(latency float64) {
+func (n *appRequestNetwork) setPChainAPICallLatencyMS(latency float64) {
 	n.metrics.pChainAPICallLatencyMS.Observe(latency)
 }
