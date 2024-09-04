@@ -319,7 +319,7 @@ The relayer consists of the following components:
 ### Data Flow
 
 <figure>
-  <img src="../resources/relayer-diagram.png"></img>
+  <img src="../resources/relayer-diagram.png?raw=true"></img>
   <figcaption>Figure 1: Relayer Data Flow</figcaption>
 </figure>
 
@@ -338,7 +338,7 @@ _Note:_ Given these semantics for computing the starting block height, it's poss
 - **Run 3**: The relayer is then restarted again with the original configuration of `allowed-origin-sender-addresses=[0x1234]`. The relayer will calculate the starting block height as `100`, and process blocks `100` through the current chain tip, reprocessing block `200` along the way. Instead of ignoring the message in this block, however, the relayer will relay it to the destination.
 
 <figure>
-  <img src="../resources/catch-up-example.png"></img>
+  <img src="../resources/catch-up-example.png?raw=true"></img>
   <figcaption>Figure 2: Processing Missed Blocks Example</figcaption>
 </figure>
 
