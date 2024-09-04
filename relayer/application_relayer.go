@@ -57,7 +57,7 @@ type CheckpointManager interface {
 type ApplicationRelayer struct {
 	logger                    logging.Logger
 	metrics                   *ApplicationRelayerMetrics
-	network                   *peers.AppRequestNetwork
+	network                   peers.AppRequestNetwork
 	sourceBlockchain          config.SourceBlockchain
 	signingSubnetID           ids.ID
 	destinationClient         vms.DestinationClient
@@ -71,7 +71,7 @@ type ApplicationRelayer struct {
 func NewApplicationRelayer(
 	logger logging.Logger,
 	metrics *ApplicationRelayerMetrics,
-	network *peers.AppRequestNetwork,
+	network peers.AppRequestNetwork,
 	relayerID database.RelayerID,
 	destinationClient vms.DestinationClient,
 	sourceBlockchain config.SourceBlockchain,
