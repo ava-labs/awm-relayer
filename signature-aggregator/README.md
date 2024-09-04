@@ -41,7 +41,7 @@ The successful `HTTP 200` response format is
 }
 ```
 
-Unsuccessful responses will include a `40x-50x` status codes with an explanatory `application/json` encoded message in the body of the response.
+Unsuccessful responses will include an explanatory `application/json` encoded message in the body of the response.
 
 ## Sample workflow
 If you want to manually test a locally running service pointed to the Fuji testnet you can do so with the following steps.
