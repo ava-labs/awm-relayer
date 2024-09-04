@@ -204,7 +204,7 @@ func (r *ApplicationRelayer) ProcessMessage(handler messages.MessageHandler) (co
 	if r.sourceWarpSignatureClient == nil {
 		signedMessage, err = r.signatureAggregator.CreateSignedMessage(
 			unsignedMessage,
-			make([]byte, 0),
+			nil,
 			r.signingSubnetID,
 			r.warpQuorum.QuorumNumerator,
 		)
