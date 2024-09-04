@@ -2,6 +2,7 @@ package aggregator
 
 import (
 	"testing"
+	"time"
 
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/message"
@@ -43,6 +44,7 @@ func instantiateAggregator(t *testing.T) (
 		1024,
 		sigAggMetrics,
 		messageCreator,
+		time.Now().Add(-1*time.Minute),
 	)
 	require.Equal(t, err, nil)
 	return aggregator, mockNetwork
@@ -61,7 +63,7 @@ func TestCreateSignedMessageFailsWithNoValidators(t *testing.T) {
 		},
 		nil,
 	)
-	_, err = aggregator.CreateSignedMessage(msg, ids.Empty, 80)
+	_, err = aggregator.CreateSignedMessage(msg, nil, ids.Empty, 80)
 	require.ErrorContains(t, err, "no signatures")
 }
 
@@ -78,7 +80,7 @@ func TestCreateSignedMessageFailsWithoutSufficientConnectedStake(t *testing.T) {
 		},
 		nil,
 	)
-	_, err = aggregator.CreateSignedMessage(msg, ids.Empty, 80)
+	_, err = aggregator.CreateSignedMessage(msg, nil, ids.Empty, 80)
 	require.ErrorContains(
 		t,
 		err,
