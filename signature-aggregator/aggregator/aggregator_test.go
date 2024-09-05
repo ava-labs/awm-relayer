@@ -236,7 +236,7 @@ func TestCreateSignedMessageRetriesAndFailsWithoutP2PResponses(t *testing.T) {
 func TestCreateSignedMessageSucceeds(t *testing.T) {
 	var msg *warp.UnsignedMessage // to be signed
 	chainID := ids.GenerateTestID()
-	networkID := uint32(0)
+	networkID := constants.UnitTestID
 	msg, err := warp.NewUnsignedMessage(
 		networkID,
 		chainID,
