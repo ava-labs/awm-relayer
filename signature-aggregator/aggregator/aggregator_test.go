@@ -86,10 +86,7 @@ func makeConnectedValidators(validatorCount int) (*peers.ConnectedCanonicalValid
 
 		pubKey := bls.PublicFromSecretKey(secretKey)
 
-		nodeID, err := ids.ToNodeID(utils.RandomBytes(20))
-		if err != nil {
-			panic(err)
-		}
+		nodeID := ids.GenerateTestNodeID()
 		nodeValidatorIndexMap[nodeID] = i
 
 		fmt.Printf(
@@ -187,16 +184,12 @@ func TestCreateSignedMessageRetriesAndFailsWithoutP2PResponses(t *testing.T) {
 		requestID              = aggregator.currentRequestID.Load() + 1
 	)
 
-	chainID, err := ids.ToID(utils.RandomBytes(32))
-	if err != nil {
-		panic(err)
-	}
+	chainID := ids.GenerateTestID()
 
 	msg, err := warp.NewUnsignedMessage(0, chainID, []byte{})
 	require.NoError(t, err)
 
-	subnetID, err := ids.ToID(utils.RandomBytes(32))
-	require.NoError(t, err)
+	subnetID := ids.GenerateTestID()
 	mockNetwork.EXPECT().GetSubnetID(chainID).Return(
 		subnetID,
 		nil,
@@ -242,12 +235,9 @@ func TestCreateSignedMessageRetriesAndFailsWithoutP2PResponses(t *testing.T) {
 
 func TestCreateSignedMessageSucceeds(t *testing.T) {
 	var msg *warp.UnsignedMessage // to be signed
-	chainID, err := ids.ToID(utils.RandomBytes(32))
-	if err != nil {
-		panic(err)
-	}
+	chainID := ids.GenerateTestID()
 	networkID := uint32(0)
-	msg, err = warp.NewUnsignedMessage(
+	msg, err := warp.NewUnsignedMessage(
 		networkID,
 		chainID,
 		utils.RandomBytes(1234),
@@ -261,8 +251,7 @@ func TestCreateSignedMessageSucceeds(t *testing.T) {
 
 	aggregator, mockNetwork := instantiateAggregator(t)
 
-	subnetID, err := ids.ToID(utils.RandomBytes(32))
-	require.NoError(t, err)
+	subnetID := ids.GenerateTestID()
 	mockNetwork.EXPECT().GetSubnetID(chainID).Return(
 		subnetID,
 		nil,
