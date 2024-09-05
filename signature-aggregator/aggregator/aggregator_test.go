@@ -49,7 +49,7 @@ func instantiateAggregator(t *testing.T) (
 			constants.DefaultNetworkCompressionType,
 			constants.DefaultNetworkMaximumInboundTimeout,
 		)
-		require.Equal(t, nil, err)
+		require.NoError(t, err)
 	}
 	aggregator, err := NewSignatureAggregator(
 		mockNetwork,
@@ -67,7 +67,7 @@ func instantiateAggregator(t *testing.T) (
 		sigAggMetrics,
 		messageCreator,
 	)
-	require.Equal(t, nil, err)
+	require.NoError(t, err)
 	return aggregator, mockNetwork
 }
 
@@ -119,7 +119,7 @@ func makeConnectedValidators(validatorCount int) (*peers.ConnectedCanonicalValid
 func TestCreateSignedMessageFailsWithNoValidators(t *testing.T) {
 	aggregator, mockNetwork := instantiateAggregator(t)
 	msg, err := warp.NewUnsignedMessage(0, ids.Empty, []byte{})
-	require.Equal(t, nil, err)
+	require.NoError(t, err)
 	mockNetwork.EXPECT().GetSubnetID(ids.Empty).Return(ids.Empty, nil)
 	mockNetwork.EXPECT().ConnectToCanonicalValidators(ids.Empty).Return(
 		&peers.ConnectedCanonicalValidators{
@@ -136,7 +136,7 @@ func TestCreateSignedMessageFailsWithNoValidators(t *testing.T) {
 func TestCreateSignedMessageFailsWithoutSufficientConnectedStake(t *testing.T) {
 	aggregator, mockNetwork := instantiateAggregator(t)
 	msg, err := warp.NewUnsignedMessage(0, ids.Empty, []byte{})
-	require.Equal(t, nil, err)
+	require.NoError(t, err)
 	mockNetwork.EXPECT().GetSubnetID(ids.Empty).Return(ids.Empty, nil)
 	mockNetwork.EXPECT().ConnectToCanonicalValidators(ids.Empty).Return(
 		&peers.ConnectedCanonicalValidators{
@@ -193,10 +193,10 @@ func TestCreateSignedMessageRetriesAndFailsWithoutP2PResponses(t *testing.T) {
 	}
 
 	msg, err := warp.NewUnsignedMessage(0, chainID, []byte{})
-	require.Equal(t, nil, err)
+	require.NoError(t, err)
 
 	subnetID, err := ids.ToID(utils.RandomBytes(32))
-	require.Equal(t, nil, err)
+	require.NoError(t, err)
 	mockNetwork.EXPECT().GetSubnetID(chainID).Return(
 		subnetID,
 		nil,
@@ -252,7 +252,7 @@ func TestCreateSignedMessageSucceeds(t *testing.T) {
 		chainID,
 		utils.RandomBytes(1234),
 	)
-	require.Equal(t, nil, err)
+	require.NoError(t, err)
 
 	// the signers:
 	var connectedValidators, validatorSecretKeys = makeConnectedValidators(5)
@@ -262,7 +262,7 @@ func TestCreateSignedMessageSucceeds(t *testing.T) {
 	aggregator, mockNetwork := instantiateAggregator(t)
 
 	subnetID, err := ids.ToID(utils.RandomBytes(32))
-	require.Equal(t, nil, err)
+	require.NoError(t, err)
 	mockNetwork.EXPECT().GetSubnetID(chainID).Return(
 		subnetID,
 		nil,
@@ -300,7 +300,7 @@ func TestCreateSignedMessageSucceeds(t *testing.T) {
 				),
 			},
 		)
-		require.Equal(t, nil, err)
+		require.NoError(t, err)
 		responseChan <- message.InboundAppResponse(
 			chainID,
 			requestID,
@@ -327,7 +327,7 @@ func TestCreateSignedMessageSucceeds(t *testing.T) {
 		subnetID,
 		quorumPercentage,
 	)
-	require.Equal(t, nil, err)
+	require.NoError(t, err)
 
 	// verify the aggregated signature:
 	pChainState := newPChainStateStub(
