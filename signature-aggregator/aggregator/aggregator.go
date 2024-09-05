@@ -601,7 +601,7 @@ func (s *SignatureAggregator) marshalRequest(
 	justification []byte,
 	sourceSubnet ids.ID,
 ) ([]byte, error) {
-	if !s.etnaTime.IsZero() && s.etnaTime.Before(time.Now()) {
+	if s.etnaActivated() {
 		// Post-Etna case
 		messageBytes, err := proto.Marshal(
 			&sdk.SignatureRequest{
@@ -633,7 +633,7 @@ func (s *SignatureAggregator) marshalRequest(
 }
 
 func (s *SignatureAggregator) unmarshalResponse(responseBytes []byte) (blsSignatureBuf, error) {
-	if !s.etnaTime.IsZero() && s.etnaTime.Before(time.Now()) {
+	if s.etnaActivated() {
 		// Post-Etna case
 		var sigResponse sdk.SignatureResponse
 		err := proto.Unmarshal(responseBytes, &sigResponse)
@@ -650,4 +650,8 @@ func (s *SignatureAggregator) unmarshalResponse(responseBytes []byte) (blsSignat
 		}
 		return sigResponse.Signature, nil
 	}
+}
+
+func (s *SignatureAggregator) etnaActivated() bool {
+	return !s.etnaTime.IsZero() && s.etnaTime.Before(time.Now())
 }

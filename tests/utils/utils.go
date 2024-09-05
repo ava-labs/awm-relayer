@@ -228,7 +228,7 @@ func CreateDefaultSignatureAggregatorConfig(
 	)
 	// Construct the config values for each subnet
 	return signatureaggregatorcfg.Config{
-		LogLevel: logging.Debug.LowerString(),
+		LogLevel: logging.Info.LowerString(),
 		PChainAPI: &config.APIConfig{
 			BaseURL: sourceSubnetsInfo[0].NodeURIs[0],
 		},
