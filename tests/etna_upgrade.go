@@ -47,6 +47,7 @@ func EtnaUpgrade(network interfaces.LocalNetwork) {
 		fundedAddress,
 		relayerKey,
 	)
+	// Setting the EtnaTime to yesterday so that the post-etna logic path is used.
 	relayerConfig.EtnaTime = time.Now().AddDate(0, 0, -1)
 	// The config needs to be validated in order to be passed to database.GetConfigRelayerIDs
 	relayerConfig.Validate()

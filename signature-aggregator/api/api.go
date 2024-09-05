@@ -127,7 +127,7 @@ func signatureAggregationAPIHandler(
 		}
 
 		justification, err := hex.DecodeString(
-			strings.TrimPrefix(req.Justification, "0x"),
+			utils.SanitizeHexString(req.Justification),
 		)
 		if err != nil {
 			msg := "Could not decode justification"
