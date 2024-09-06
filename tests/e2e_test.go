@@ -13,6 +13,7 @@ import (
 	"os/signal"
 	"syscall"
 	"testing"
+	"time"
 
 	testUtils "github.com/ava-labs/awm-relayer/tests/utils"
 	"github.com/ava-labs/awm-relayer/utils"
@@ -78,7 +79,10 @@ var _ = ginkgo.BeforeSuite(func() {
 		utils.SanitizeHexString(teleporterDeployerTransactionStr),
 	)
 	Expect(err).Should(BeNil())
+	networkStartCtx, networkStartCancel := context.WithTimeout(ctx, 120*time.Second)
+	defer networkStartCancel()
 	localNetworkInstance = local.NewLocalNetwork(
+		networkStartCtx,
 		"icm-off-chain-services-e2e-test",
 		warpGenesisTemplateFile,
 		[]local.SubnetSpec{
