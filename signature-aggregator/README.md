@@ -69,9 +69,9 @@ curl --location 'https://api.avax-test.network/ext/bc/C/rpc' \
    The topic of the message will be `0x56600c567728a800c0aa927500f831cb451df66a7af570eb4df4dfbf4674887d` which is the output of`cast keccak "SendWarpMessage(address,bytes32,bytes)"`
 4. Use the data field of the log message found in step 2 and send it to the locally running service via curl.
 ```bash
-curl --location 'http://localhost:8080/aggregate-signatures/by-raw-message' \
+curl --location 'http://localhost:8080/aggregate-signatures' \
 --header 'Content-Type: application/json' \
 --data '{
-    "data": "<hex encoded unsigned message bytes retrieved from the logs>",
+    "message": "<hex encoded unsigned message bytes retrieved from the logs>"
 }'
 ```

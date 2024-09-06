@@ -3,13 +3,13 @@ module github.com/ava-labs/awm-relayer
 go 1.22.6
 
 require (
-	github.com/ava-labs/avalanchego v1.11.10
-	github.com/ava-labs/coreth v0.13.7
-	github.com/ava-labs/subnet-evm v0.6.8
+	github.com/ava-labs/avalanchego v1.11.11-0.20240813203340-ab83fb41528d
+	github.com/ava-labs/coreth v0.13.8-fixed-genesis-upgrade.0.20240813194342-7635a96aa180
+	github.com/ava-labs/subnet-evm v0.6.9-0.20240816202746-18633729a0cd
 	github.com/ava-labs/teleporter v1.0.6
 	github.com/aws/aws-sdk-go-v2 v1.30.5
 	github.com/aws/aws-sdk-go-v2/config v1.27.9
-	github.com/aws/aws-sdk-go-v2/service/kms v1.35.6
+	github.com/aws/aws-sdk-go-v2/service/kms v1.35.7
 	github.com/ethereum/go-ethereum v1.13.8
 	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/onsi/ginkgo/v2 v2.20.2
