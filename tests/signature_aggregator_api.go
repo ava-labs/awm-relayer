@@ -79,7 +79,7 @@ func SignatureAggregatorAPI(network interfaces.LocalNetwork) {
 	warpMessage := getWarpMessageFromLog(ctx, receipt, subnetAInfo)
 
 	reqBody := api.AggregateSignatureRequest{
-		UnsignedMessage: "0x" + hex.EncodeToString(warpMessage.Bytes()),
+		Message: "0x" + hex.EncodeToString(warpMessage.Bytes()),
 	}
 
 	client := http.Client{

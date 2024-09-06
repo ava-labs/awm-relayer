@@ -117,6 +117,7 @@ func main() {
 		cfg.SignatureCacheSize,
 		metricsInstance,
 		messageCreator,
+		cfg.EtnaTime,
 	)
 	if err != nil {
 		logger.Fatal("Failed to create signature aggregator", zap.Error(err))
