@@ -178,4 +178,7 @@ var _ = ginkgo.Describe("[AWM Relayer Integration Tests", func() {
 	ginkgo.It("Signature Aggregator", func() {
 		SignatureAggregatorAPI(localNetworkInstance)
 	})
+	ginkgo.It("Etna Upgrade", func() {
+		EtnaUpgrade(localNetworkInstance)
+	})
 })
