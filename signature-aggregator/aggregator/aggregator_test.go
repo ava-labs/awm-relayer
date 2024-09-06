@@ -71,19 +71,19 @@ func instantiateAggregator(t *testing.T) (
 }
 
 // Generate the validator values.
-type ValidatorInfo struct {
+type validatorInfo struct {
 	nodeID            ids.NodeID
 	blsSecretKey      *bls.SecretKey
 	blsPublicKey      *bls.PublicKey
 	blsPublicKeyBytes []byte
 }
 
-func (v ValidatorInfo) Compare(o ValidatorInfo) int {
+func (v validatorInfo) Compare(o validatorInfo) int {
 	return bytes.Compare(v.blsPublicKeyBytes, o.blsPublicKeyBytes)
 }
 
 func makeConnectedValidators(validatorCount int) (*peers.ConnectedCanonicalValidators, []*bls.SecretKey) {
-	validatorValues := make([]ValidatorInfo, validatorCount)
+	validatorValues := make([]validatorInfo, validatorCount)
 	for i := 0; i < validatorCount; i++ {
 		secretKey, err := bls.NewSecretKey()
 		if err != nil {
@@ -91,7 +91,7 @@ func makeConnectedValidators(validatorCount int) (*peers.ConnectedCanonicalValid
 		}
 		pubKey := bls.PublicFromSecretKey(secretKey)
 		nodeID := ids.GenerateTestNodeID()
-		validatorValues[i] = ValidatorInfo{
+		validatorValues[i] = validatorInfo{
 			nodeID:            nodeID,
 			blsSecretKey:      secretKey,
 			blsPublicKey:      pubKey,
