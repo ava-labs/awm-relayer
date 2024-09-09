@@ -1,9 +1,8 @@
 package aggregator
 
 import (
+	"bytes"
 	"context"
-	"encoding/hex"
-	"fmt"
 	"os"
 	"testing"
 
@@ -71,38 +70,51 @@ func instantiateAggregator(t *testing.T) (
 	return aggregator, mockNetwork
 }
 
+// Generate the validator values.
+type validatorInfo struct {
+	nodeID            ids.NodeID
+	blsSecretKey      *bls.SecretKey
+	blsPublicKey      *bls.PublicKey
+	blsPublicKeyBytes []byte
+}
+
+func (v validatorInfo) Compare(o validatorInfo) int {
+	return bytes.Compare(v.blsPublicKeyBytes, o.blsPublicKeyBytes)
+}
+
 func makeConnectedValidators(validatorCount int) (*peers.ConnectedCanonicalValidators, []*bls.SecretKey) {
-	var validatorSet []*warp.Validator
-	var validatorSecretKeys []*bls.SecretKey
-
-	nodeValidatorIndexMap := make(map[ids.NodeID]int)
-
+	validatorValues := make([]validatorInfo, validatorCount)
 	for i := 0; i < validatorCount; i++ {
 		secretKey, err := bls.NewSecretKey()
 		if err != nil {
 			panic(err)
 		}
-		validatorSecretKeys = append(validatorSecretKeys, secretKey)
-
 		pubKey := bls.PublicFromSecretKey(secretKey)
-
 		nodeID := ids.GenerateTestNodeID()
-		nodeValidatorIndexMap[nodeID] = i
+		validatorValues[i] = validatorInfo{
+			nodeID:            nodeID,
+			blsSecretKey:      secretKey,
+			blsPublicKey:      pubKey,
+			blsPublicKeyBytes: bls.PublicKeyToUncompressedBytes(pubKey),
+		}
+	}
 
-		fmt.Printf(
-			"validator with pubKey %s has nodeID %s\n",
-			hex.EncodeToString(bls.PublicKeyToUncompressedBytes(pubKey)),
-			nodeID.String(),
-		)
+	// Sort the validators by public key to construct the NodeValidatorIndexMap
+	utils.Sort(validatorValues)
 
-		validatorSet = append(validatorSet,
-			&warp.Validator{
-				PublicKey:      pubKey,
-				PublicKeyBytes: bls.PublicKeyToUncompressedBytes(pubKey),
-				Weight:         1,
-				NodeIDs:        []ids.NodeID{nodeID},
-			},
-		)
+	// Placeholder for results
+	validatorSet := make([]*warp.Validator, validatorCount)
+	validatorSecretKeys := make([]*bls.SecretKey, validatorCount)
+	nodeValidatorIndexMap := make(map[ids.NodeID]int)
+	for i, validator := range validatorValues {
+		validatorSecretKeys[i] = validator.blsSecretKey
+		validatorSet[i] = &warp.Validator{
+			PublicKey:      validator.blsPublicKey,
+			PublicKeyBytes: validator.blsPublicKeyBytes,
+			Weight:         1,
+			NodeIDs:        []ids.NodeID{validator.nodeID},
+		}
+		nodeValidatorIndexMap[validator.nodeID] = i
 	}
 
 	return &peers.ConnectedCanonicalValidators{
@@ -325,19 +337,16 @@ func TestCreateSignedMessageSucceeds(t *testing.T) {
 		1,
 		connectedValidators,
 	)
-	require.Equal(
-		t,
-		nil,
-		signedMessage.Signature.Verify(
-			context.Background(),
-			msg,
-			networkID,
-			pChainState,
-			pChainState.currentHeight,
-			quorumPercentage,
-			100,
-		),
+	verifyErr := signedMessage.Signature.Verify(
+		context.Background(),
+		msg,
+		networkID,
+		pChainState,
+		pChainState.currentHeight,
+		quorumPercentage,
+		100,
 	)
+	require.NoError(t, verifyErr)
 }
 
 type pChainStateStub struct {
