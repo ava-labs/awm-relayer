@@ -1,8 +1,11 @@
 # ref. https://goreleaser.com/customization/build/
+project_name: signature-aggregator
+monorepo:
+  tag_prefix: signature-aggregator/
 builds:
-  - id: awm-relayer
-    main: ./relayer/main/main.go
-    binary: awm-relayer
+  - id: signature-aggregator
+    main: ./signature-aggregator/main/main.go
+    binary: signature-aggregator
     flags:
       - -v
     # windows is ignored by default, as the `goos` field by default only
@@ -30,29 +33,29 @@ builds:
         goarch: amd64
 dockers:
   - image_templates:
-    - 'avaplatform/awm-relayer:{{ .Tag }}-amd64'
+    - 'avaplatform/signature-aggregator:{{ .Tag }}-amd64'
     use: buildx
     build_flag_templates:
     - "--pull"
     - "--platform=linux/amd64"
-    - "--build-arg=GO_VERSION={{ .Env.GO_VERSION }}"
+    dockerfile: "signature-aggregator/Dockerfile"
   - image_templates:
-    - 'avaplatform/awm-relayer:{{ .Tag }}-arm64'
+    - 'avaplatform/signature-aggregator:{{ .Tag }}-arm64'
     use: buildx
     build_flag_templates:
     - "--pull"
     - "--platform=linux/arm64"
-    - "--build-arg=GO_VERSION={{ .Env.GO_VERSION }}"
+    dockerfile: "signature-aggregator/Dockerfile"
     goarch: arm64
 docker_manifests:
-  - name_template: 'avaplatform/awm-relayer:{{ .Tag }}'
+  - name_template: 'avaplatform/signature-aggregator:{{ .Tag }}'
     image_templates:
-    - 'avaplatform/awm-relayer:{{ .Tag }}-amd64'
-    - 'avaplatform/awm-relayer:{{ .Tag }}-arm64'
-  - name_template: 'avaplatform/awm-relayer:latest'
+    - 'avaplatform/signature-aggregator:{{ .Tag }}-amd64'
+    - 'avaplatform/signature-aggregator:{{ .Tag }}-arm64'
+  - name_template: 'avaplatform/signature-aggregator:latest'
     image_templates:
-    - 'avaplatform/awm-relayer:{{ .Tag }}-amd64'
-    - 'avaplatform/awm-relayer:{{ .Tag }}-arm64'
+    - 'avaplatform/signature-aggregator:{{ .Tag }}-amd64'
+    - 'avaplatform/signature-aggregator:{{ .Tag }}-arm64'
     # If tag is an rc, do not push the latest tag
     skip_push: auto
 release:

@@ -5,9 +5,11 @@ import (
 	"context"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/message"
+	"github.com/ava-labs/avalanchego/proto/pb/sdk"
 	"github.com/ava-labs/avalanchego/snow/validators"
 	"github.com/ava-labs/avalanchego/subnets"
 	"github.com/ava-labs/avalanchego/utils"
@@ -19,12 +21,12 @@ import (
 	"github.com/ava-labs/awm-relayer/peers"
 	"github.com/ava-labs/awm-relayer/peers/mocks"
 	"github.com/ava-labs/awm-relayer/signature-aggregator/metrics"
-	evmMsg "github.com/ava-labs/subnet-evm/plugin/evm/message"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+	"google.golang.org/protobuf/proto"
 )
 
 var (
@@ -65,6 +67,8 @@ func instantiateAggregator(t *testing.T) (
 		1024,
 		sigAggMetrics,
 		messageCreator,
+		// Setting the etnaTime to a minute ago so that the post-etna code path is used in the test
+		time.Now().Add(-1*time.Minute),
 	)
 	require.NoError(t, err)
 	return aggregator, mockNetwork
@@ -138,7 +142,7 @@ func TestCreateSignedMessageFailsWithNoValidators(t *testing.T) {
 		},
 		nil,
 	)
-	_, err = aggregator.CreateSignedMessage(msg, ids.Empty, 80)
+	_, err = aggregator.CreateSignedMessage(msg, nil, ids.Empty, 80)
 	require.ErrorContains(t, err, "no signatures")
 }
 
@@ -155,7 +159,7 @@ func TestCreateSignedMessageFailsWithoutSufficientConnectedStake(t *testing.T) {
 		},
 		nil,
 	)
-	_, err = aggregator.CreateSignedMessage(msg, ids.Empty, 80)
+	_, err = aggregator.CreateSignedMessage(msg, nil, ids.Empty, 80)
 	require.ErrorContains(
 		t,
 		err,
@@ -237,7 +241,7 @@ func TestCreateSignedMessageRetriesAndFailsWithoutP2PResponses(t *testing.T) {
 		subnets.NoOpAllower,
 	).Times(maxRelayerQueryAttempts)
 
-	_, err = aggregator.CreateSignedMessage(msg, subnetID, 80)
+	_, err = aggregator.CreateSignedMessage(msg, nil, subnetID, 80)
 	require.ErrorContains(
 		t,
 		err,
@@ -288,15 +292,12 @@ func TestCreateSignedMessageSucceeds(t *testing.T) {
 	for _, appRequest := range appRequests {
 		nodeIDs.Add(appRequest.NodeID)
 		validatorSecretKey := validatorSecretKeys[connectedValidators.NodeValidatorIndexMap[appRequest.NodeID]]
-		responseBytes, err := evmMsg.Codec.Marshal(
-			0,
-			&evmMsg.SignatureResponse{
-				Signature: [bls.SignatureLen]byte(
-					bls.SignatureToBytes(
-						bls.Sign(
-							validatorSecretKey,
-							msg.Bytes(),
-						),
+		responseBytes, err := proto.Marshal(
+			&sdk.SignatureResponse{
+				Signature: bls.SignatureToBytes(
+					bls.Sign(
+						validatorSecretKey,
+						msg.Bytes(),
 					),
 				),
 			},
@@ -325,6 +326,7 @@ func TestCreateSignedMessageSucceeds(t *testing.T) {
 	var quorumPercentage uint64 = 80
 	signedMessage, err := aggregator.CreateSignedMessage(
 		msg,
+		nil,
 		subnetID,
 		quorumPercentage,
 	)
