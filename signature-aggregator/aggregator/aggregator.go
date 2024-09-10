@@ -245,11 +245,10 @@ func (s *SignatureAggregator) CreateSignedMessage(
 
 			// Register a timeout response for each queried node
 			reqID := ids.RequestID{
-				NodeID:             nodeID,
-				SourceChainID:      unsignedMessage.SourceChainID,
-				DestinationChainID: unsignedMessage.SourceChainID,
-				RequestID:          requestID,
-				Op:                 byte(message.AppResponseOp),
+				NodeID:    nodeID,
+				ChainID:   unsignedMessage.SourceChainID,
+				RequestID: requestID,
+				Op:        byte(message.AppResponseOp),
 			}
 			s.network.RegisterAppRequest(reqID)
 		}
