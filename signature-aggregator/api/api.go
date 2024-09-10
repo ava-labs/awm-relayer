@@ -78,15 +78,6 @@ func writeJSONError(
 	}
 }
 
-func isEmptyOrZeroes(bytes []byte) bool {
-	for _, b := range bytes {
-		if b != 0 {
-			return false
-		}
-	}
-	return true
-}
-
 func signatureAggregationAPIHandler(
 	logger logging.Logger,
 	metrics *metrics.SignatureAggregatorMetrics,
@@ -140,7 +131,7 @@ func signatureAggregationAPIHandler(
 			return
 		}
 
-		if isEmptyOrZeroes(message.Bytes()) && isEmptyOrZeroes(justification) {
+		if utils.IsEmptyOrZeroes(message.Bytes()) && utils.IsEmptyOrZeroes(justification) {
 			writeJSONError(
 				logger,
 				w,

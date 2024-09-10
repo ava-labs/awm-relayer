@@ -1,6 +1,6 @@
 module github.com/ava-labs/awm-relayer
 
-go 1.22.6
+go 1.22.7
 
 require (
 	github.com/ava-labs/avalanchego v1.11.11-0.20240813203340-ab83fb41528d
@@ -23,7 +23,7 @@ require (
 	github.com/stretchr/testify v1.9.0
 	go.uber.org/mock v0.4.0
 	go.uber.org/zap v1.27.0
-	google.golang.org/grpc v1.66.0
+	google.golang.org/grpc v1.66.1
 	google.golang.org/protobuf v1.34.2
 )
 
