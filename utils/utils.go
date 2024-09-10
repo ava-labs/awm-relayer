@@ -146,3 +146,13 @@ func HexOrCB58ToID(s string) (ids.ID, error) {
 	}
 	return ids.FromString(s)
 }
+
+// IsEmptyOrZeroes returns true if the byte slice is empty or all zeroes
+func IsEmptyOrZeroes(bytes []byte) bool {
+	for _, b := range bytes {
+		if b != 0 {
+			return false
+		}
+	}
+	return true
+}
