@@ -178,10 +178,9 @@ func makeAppRequests(
 			appRequests = append(
 				appRequests,
 				ids.RequestID{
-					NodeID:             nodeID,
-					SourceChainID:      chainID,
-					DestinationChainID: chainID,
-					RequestID:          requestID,
+					NodeID:    nodeID,
+					ChainID:   chainID,
+					RequestID: requestID,
 					Op: byte(
 						message.AppResponseOp,
 					),
