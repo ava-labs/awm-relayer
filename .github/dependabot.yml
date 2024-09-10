@@ -17,10 +17,6 @@ updates:
       - dependency-name: "github.com/ethereum/go-ethereum"
       # Avalanchego is updated to stay compatible with subnet-evm
       - dependency-name: "github.com/ava-labs/avalanchego"
-  - package-ecosystem: "gitsubmodule"
-    directory: "/"
-    schedule:
-      interval: "daily"
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
