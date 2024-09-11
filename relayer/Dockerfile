@@ -1,4 +1,4 @@
-FROM debian:11-slim
+FROM debian:12-slim
 RUN apt update && apt --yes install ca-certificates
 COPY awm-relayer /usr/bin/awm-relayer
 EXPOSE 8080
