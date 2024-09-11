@@ -41,3 +41,16 @@ Running the tests locally doesn't require publishing the `subnet-evm` commit sin
 
 > [!TIP]
 > Using the local checkout it's possible to run tests against a `tmpnet` consisting of nodes using a different version of `avalanchego` than the application being tested which might be helpful when troubleshooting.
+
+## Releases
+GoReleaser is used to build the binaries of the services and also Docker images with those binaries. The monorepo feature of GoReleaser Pro is used to automate the release flow in response to tags like `signature-aggregator/v0.0.0`. The release actions in .github/workflows automate this, but the release build can also be run locally. Be sure to install the "pro" distribution of the command line utility, so that it can parse the `monorepo` key. For example:
+
+```bash
+$ goreleaser release --single-target --clean --snapshot --config signature-aggregator/.goreleaser.yml
+...
+    • creating                                       archive=dist/linux_amd64/signature-aggregator_0.1.0-rc0-SNAPSHOT-3c2ae78_linux_amd64.tar.gz
+  • docker images
+    • building docker image                          image=avaplatform/signature-aggregator:v0.1.0-rc0-amd64
+...
+$ docker run avaplatform/signature-aggregator:v0.1.0-rc0-amd64
+```
