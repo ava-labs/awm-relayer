@@ -62,3 +62,11 @@ $ docker run -v $(pwd)/signature-aggregator/sample-signature-aggregator-config.j
 {"level":"debug","timestamp":"2024-09-11T22:25:03.086Z","logger":"p2p-network","caller":"dialer/dialer.go:52","msg":"creating dialer","throttleRPS":50,"dialTimeout":30000000000}
 {"level":"info","timestamp":"2024-09-11T22:25:03.086Z","logger":"signature-aggregator","caller":"main/main.go:134","msg":"Initialization complete"}
 ```
+
+Or, for the relayer:
+
+```bash
+$ goreleaser release --single-target --clean --snapshot --config signature-aggregator/.goreleaser.yml
+...
+$ docker run -v $(pwd)/signature-aggregator/sample-signature-aggregator-config.json:/config.json avaplatform/signature-aggregator:v0.1.0-rc0-amd64 --config-file /config.json
+```
