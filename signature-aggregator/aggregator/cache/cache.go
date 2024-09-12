@@ -41,7 +41,11 @@ func (c *Cache) Get(msgID ids.ID) (map[PublicKeyBytes]SignatureBytes, bool) {
 	cachedValue, isCached := c.signatures.Get(msgID)
 
 	if isCached {
-		c.logger.Debug("cache hit", zap.Stringer("msgID", msgID))
+		c.logger.Debug(
+			"cache hit",
+			zap.Stringer("msgID", msgID),
+			zap.Int("signatureCount", len(cachedValue)),
+		)
 		return cachedValue, true
 	} else {
 		c.logger.Debug("cache miss", zap.Stringer("msgID", msgID))

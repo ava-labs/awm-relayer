@@ -5,6 +5,7 @@ package aggregator
 
 import (
 	"bytes"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"math/big"
@@ -556,6 +557,7 @@ func (s *SignatureAggregator) isValidSignatureResponse(
 	if !bls.Verify(pubKey, sig, unsignedMessage.Bytes()) {
 		s.logger.Debug(
 			"Failed verification for signature",
+			zap.String("pubKey", hex.EncodeToString(bls.PublicKeyToUncompressedBytes(pubKey))),
 		)
 		return blsSignatureBuf{}, false
 	}
