@@ -29,6 +29,7 @@ import (
 	"github.com/ava-labs/awm-relayer/relayer/config"
 	"github.com/ava-labs/awm-relayer/signature-aggregator/aggregator"
 	sigAggMetrics "github.com/ava-labs/awm-relayer/signature-aggregator/metrics"
+	relayerTypes "github.com/ava-labs/awm-relayer/types"
 	"github.com/ava-labs/awm-relayer/utils"
 	"github.com/ava-labs/awm-relayer/vms"
 	"github.com/ava-labs/subnet-evm/ethclient"
@@ -255,6 +256,7 @@ func main() {
 		messageHandlerFactories,
 		applicationRelayers,
 		sourceClients,
+		relayerTypes.DefaultNewWarpMessageInfo,
 	)
 
 	// Each Listener goroutine will have an atomic bool that it can set to false to indicate an unrecoverable error

@@ -38,7 +38,11 @@ type WarpMessageInfo struct {
 }
 
 // Extract Warp logs from the block, if they exist
-func NewWarpBlockInfo(header *types.Header, ethClient ethclient.Client) (*WarpBlockInfo, error) {
+func NewWarpBlockInfo(
+	header *types.Header,
+	ethClient ethclient.Client,
+	warpMessageDecoder func(log types.Log) (*WarpMessageInfo, bool, error),
+) (*WarpBlockInfo, error) {
 	var (
 		logs []types.Log
 		err  error
@@ -61,11 +65,14 @@ func NewWarpBlockInfo(header *types.Header, ethClient ethclient.Client) (*WarpBl
 			return nil, err
 		}
 	}
-	messages := make([]*WarpMessageInfo, len(logs))
+	messages := make([]*WarpMessageInfo, 0, len(logs))
 	for i, log := range logs {
-		warpLog, err := NewWarpMessageInfo(log)
+		warpLog, ok, err := warpMessageDecoder(log)
 		if err != nil {
 			return nil, err
+		}
+		if !ok {
+			continue
 		}
 		messages[i] = warpLog
 	}
@@ -77,22 +84,22 @@ func NewWarpBlockInfo(header *types.Header, ethClient ethclient.Client) (*WarpBl
 }
 
 // Extract the Warp message information from the raw log
-func NewWarpMessageInfo(log types.Log) (*WarpMessageInfo, error) {
+func DefaultNewWarpMessageInfo(log types.Log) (*WarpMessageInfo, bool, error) {
 	if len(log.Topics) != 3 {
-		return nil, ErrInvalidLog
+		return nil, false, nil
 	}
 	if log.Topics[0] != WarpPrecompileLogFilter {
-		return nil, ErrInvalidLog
+		return nil, false, nil
 	}
 	unsignedMsg, err := UnpackWarpMessage(log.Data)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
 	return &WarpMessageInfo{
 		SourceAddress:   common.BytesToAddress(log.Topics[1][:]),
 		UnsignedMessage: unsignedMsg,
-	}, nil
+	}, true, nil
 }
 
 func UnpackWarpMessage(unsignedMsgBytes []byte) (*avalancheWarp.UnsignedMessage, error) {

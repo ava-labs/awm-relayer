@@ -31,6 +31,7 @@ type MessageCoordinator struct {
 	messageHandlerFactories map[ids.ID]map[common.Address]messages.MessageHandlerFactory
 	applicationRelayers     map[common.Hash]*ApplicationRelayer
 	sourceClients           map[ids.ID]ethclient.Client
+	warpMessageDecoder      func(log types.Log) (*relayerTypes.WarpMessageInfo, bool, error)
 }
 
 func NewMessageCoordinator(
@@ -38,12 +39,14 @@ func NewMessageCoordinator(
 	messageHandlerFactories map[ids.ID]map[common.Address]messages.MessageHandlerFactory,
 	applicationRelayers map[common.Hash]*ApplicationRelayer,
 	sourceClients map[ids.ID]ethclient.Client,
+	warpMessageDecoder func(log types.Log) (*relayerTypes.WarpMessageInfo, bool, error),
 ) *MessageCoordinator {
 	return &MessageCoordinator{
 		logger:                  logger,
 		messageHandlerFactories: messageHandlerFactories,
 		applicationRelayers:     applicationRelayers,
 		sourceClients:           sourceClients,
+		warpMessageDecoder:      warpMessageDecoder,
 	}
 }
 
@@ -229,7 +232,7 @@ func (mc *MessageCoordinator) ProcessBlock(
 	errChan chan error,
 ) {
 	// Parse the logs in the block, and group by application relayer
-	block, err := relayerTypes.NewWarpBlockInfo(blockHeader, ethClient)
+	block, err := relayerTypes.NewWarpBlockInfo(blockHeader, ethClient, mc.warpMessageDecoder)
 	if err != nil {
 		mc.logger.Error("Failed to create Warp block info", zap.Error(err))
 		errChan <- err
@@ -286,5 +289,11 @@ func FetchWarpMessage(
 		return nil, fmt.Errorf("found more than 1 log: %d", len(logs))
 	}
 
-	return relayerTypes.NewWarpMessageInfo(logs[0])
+	message, ok, err := relayerTypes.DefaultNewWarpMessageInfo(logs[0])
+	if err != nil {
+		return nil, err
+	} else if !ok {
+		return nil, errors.New("failed to decode log")
+	}
+	return message, nil
 }
