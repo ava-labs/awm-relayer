@@ -1,10 +1,7 @@
 package chainlink
 
 import (
-	"context"
-	"fmt"
 	"math/big"
-	"time"
 
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/utils/logging"
@@ -12,10 +9,7 @@ import (
 	"github.com/ava-labs/awm-relayer/abi-bindings/eventimporter"
 	"github.com/ava-labs/awm-relayer/messages"
 	"github.com/ava-labs/awm-relayer/relayer/config"
-	"github.com/ava-labs/awm-relayer/utils"
 	"github.com/ava-labs/awm-relayer/vms"
-	"github.com/ava-labs/coreth/core/types"
-	"github.com/ava-labs/coreth/ethclient"
 
 	"github.com/ethereum/go-ethereum/common"
 	"go.uber.org/zap"
@@ -84,8 +78,8 @@ func (c *ChainlinkMessageHandler) SendMessage(signedMessage *warp.Message, desti
 	if err != nil {
 		c.logger.Error(
 			"Failed packing importEvent call data",
-			// zap.String("destinationBlockchainID", destinationBlockchainID.String()),
-			// zap.String("warpMessageID", signedMessage.ID().String()),
+			zap.String("destinationBlockchainID", destinationBlockchainID.String()),
+			zap.String("warpMessageID", signedMessage.ID().String()),
 		)
 		return common.Hash{}, err
 	}
@@ -106,8 +100,9 @@ func (c *ChainlinkMessageHandler) SendMessage(signedMessage *warp.Message, desti
 		return common.Hash{}, err
 	}
 
+	teleporterMessageID := ids.Empty
 	// Wait for the message to be included in a block before returning
-	err = c.waitForReceipt(signedMessage, destinationClient, txHash)
+	err = messages.WaitForReceipt(c.logger, signedMessage, destinationClient, txHash, teleporterMessageID)
 	if err != nil {
 		return common.Hash{}, err
 	}
@@ -119,41 +114,6 @@ func (c *ChainlinkMessageHandler) SendMessage(signedMessage *warp.Message, desti
 		zap.String("txHash", txHash.String()),
 	)
 	return txHash, nil
-}
-
-func (c *ChainlinkMessageHandler) waitForReceipt(
-	signedMessage *warp.Message,
-	destinationClient vms.DestinationClient,
-	txHash common.Hash,
-) error {
-	destinationBlockchainID := destinationClient.DestinationBlockchainID()
-	callCtx, callCtxCancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer callCtxCancel()
-	receipt, err := utils.CallWithRetry[*types.Receipt](
-		callCtx,
-		func() (*types.Receipt, error) {
-			return destinationClient.Client().(ethclient.Client).TransactionReceipt(callCtx, txHash)
-		},
-	)
-	if err != nil {
-		c.logger.Error(
-			"Failed to get transaction receipt",
-			zap.String("destinationBlockchainID", destinationBlockchainID.String()),
-			zap.String("warpMessageID", signedMessage.ID().String()),
-			zap.Error(err),
-		)
-		return err
-	}
-	if receipt.Status != types.ReceiptStatusSuccessful {
-		c.logger.Error(
-			"Transaction failed",
-			zap.String("destinationBlockchainID", destinationBlockchainID.String()),
-			zap.String("warpMessageID", signedMessage.ID().String()),
-			zap.String("txHash", txHash.String()),
-		)
-		return fmt.Errorf("transaction failed with status: %d", receipt.Status)
-	}
-	return nil
 }
 
 func (c *ChainlinkMessageHandler) GetMessageRoutingInfo() (

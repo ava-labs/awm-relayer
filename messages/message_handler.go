@@ -6,10 +6,19 @@
 package messages
 
 import (
+	"context"
+	"fmt"
+	"time"
+
 	"github.com/ava-labs/avalanchego/ids"
+	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/avalanchego/vms/platformvm/warp"
+	"github.com/ava-labs/awm-relayer/utils"
 	"github.com/ava-labs/awm-relayer/vms"
+	"github.com/ava-labs/coreth/core/types"
+	"github.com/ava-labs/coreth/ethclient"
 	"github.com/ethereum/go-ethereum/common"
+	"go.uber.org/zap"
 )
 
 // MessageManager is specific to each message protocol. The interface handles choosing which messages to send
@@ -42,4 +51,43 @@ type MessageHandler interface {
 
 	// GetUnsignedMessage returns the unsigned message
 	GetUnsignedMessage() *warp.UnsignedMessage
+}
+
+func WaitForReceipt(
+	logger logging.Logger,
+	signedMessage *warp.Message,
+	destinationClient vms.DestinationClient,
+	txHash common.Hash,
+	teleporterMessageID ids.ID,
+) error {
+	destinationBlockchainID := destinationClient.DestinationBlockchainID()
+	callCtx, callCtxCancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer callCtxCancel()
+	receipt, err := utils.CallWithRetry[*types.Receipt](
+		callCtx,
+		func() (*types.Receipt, error) {
+			return destinationClient.Client().(ethclient.Client).TransactionReceipt(callCtx, txHash)
+		},
+	)
+	if err != nil {
+		logger.Error(
+			"Failed to get transaction receipt",
+			zap.String("destinationBlockchainID", destinationBlockchainID.String()),
+			zap.String("warpMessageID", signedMessage.ID().String()),
+			zap.String("teleporterMessageID", teleporterMessageID.String()),
+			zap.Error(err),
+		)
+		return err
+	}
+	if receipt.Status != types.ReceiptStatusSuccessful {
+		logger.Error(
+			"Transaction failed",
+			zap.String("destinationBlockchainID", destinationBlockchainID.String()),
+			zap.String("warpMessageID", signedMessage.ID().String()),
+			zap.String("teleporterMessageID", teleporterMessageID.String()),
+			zap.String("txHash", txHash.String()),
+		)
+		return fmt.Errorf("transaction failed with status: %d", receipt.Status)
+	}
+	return nil
 }
