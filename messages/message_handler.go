@@ -66,7 +66,7 @@ type MessageDecoder interface {
 type WarpMessageDecoder struct{}
 
 // Extract Warp logs from the block, if they exist
-func (w *WarpMessageDecoder) Decode(
+func (w WarpMessageDecoder) Decode(
 	header *subnetTypes.Header,
 	ethClient subnetEthclient.Client,
 ) ([]*relayerTypes.WarpMessageInfo, error) {

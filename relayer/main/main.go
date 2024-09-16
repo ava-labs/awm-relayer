@@ -250,7 +250,7 @@ func main() {
 		logger.Fatal("Failed to create application relayers", zap.Error(err))
 		panic(err)
 	}
-	messagesDecoders := createMessageDecoders(&cfg)
+	messagesDecoders := []messages.MessageDecoder{messages.WarpMessageDecoder{}}
 	messageCoordinator := relayer.NewMessageCoordinator(
 		logger,
 		messageHandlerFactories,
@@ -550,10 +550,6 @@ func createHealthTrackers(cfg *config.Config) map[ids.ID]*atomic.Bool {
 		healthTrackers[sourceBlockchain.GetBlockchainID()] = atomic.NewBool(true)
 	}
 	return healthTrackers
-}
-
-func createMessageDecoders(cfg *config.Config) []messages.MessageDecoder {
-	return nil
 }
 
 func startMetricsServer(logger logging.Logger, gatherer prometheus.Gatherer, port uint16) {
