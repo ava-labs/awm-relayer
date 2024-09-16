@@ -7,16 +7,22 @@ package messages
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/utils/logging"
-	"github.com/ava-labs/avalanchego/vms/platformvm/warp"
+	avalancheWarp "github.com/ava-labs/avalanchego/vms/platformvm/warp"
+	relayerTypes "github.com/ava-labs/awm-relayer/types"
 	"github.com/ava-labs/awm-relayer/utils"
 	"github.com/ava-labs/awm-relayer/vms"
 	"github.com/ava-labs/coreth/core/types"
 	"github.com/ava-labs/coreth/ethclient"
+	subnetTypes "github.com/ava-labs/subnet-evm/core/types"
+	subnetEthclient "github.com/ava-labs/subnet-evm/ethclient"
+	"github.com/ava-labs/subnet-evm/interfaces"
+	"github.com/ava-labs/subnet-evm/precompile/contracts/warp"
 	"github.com/ethereum/go-ethereum/common"
 	"go.uber.org/zap"
 )
@@ -25,7 +31,7 @@ import (
 // for each message protocol, and performs the sending to the destination chain.
 type MessageHandlerFactory interface {
 	// Create a message handler to relay the Warp message
-	NewMessageHandler(unsignedMessage *warp.UnsignedMessage) (MessageHandler, error)
+	NewMessageHandler(unsignedMessage *avalancheWarp.UnsignedMessage) (MessageHandler, error)
 }
 
 // MessageHandlers relay a single Warp message. A new instance should be created for each Warp message.
@@ -37,7 +43,7 @@ type MessageHandler interface {
 	// SendMessage sends the signed message to the destination chain. The payload parsed according to
 	// the VM rules is also passed in, since MessageManager does not assume any particular VM
 	// returns the transaction hash if the transaction is successful.
-	SendMessage(signedMessage *warp.Message, destinationClient vms.DestinationClient) (common.Hash, error)
+	SendMessage(signedMessage *avalancheWarp.Message, destinationClient vms.DestinationClient) (common.Hash, error)
 
 	// GetMessageRoutingInfo returns the source chain ID, origin sender address,
 	// destination chain ID, and destination address.
@@ -50,12 +56,90 @@ type MessageHandler interface {
 	)
 
 	// GetUnsignedMessage returns the unsigned message
-	GetUnsignedMessage() *warp.UnsignedMessage
+	GetUnsignedMessage() *avalancheWarp.UnsignedMessage
+}
+
+type MessageDecoder interface {
+	Decode(header *subnetTypes.Header, ethClient subnetEthclient.Client) ([]*relayerTypes.WarpMessageInfo, error)
+}
+
+type WarpMessageDecoder struct{}
+
+// Extract Warp logs from the block, if they exist
+func (w *WarpMessageDecoder) Decode(
+	header *subnetTypes.Header,
+	ethClient subnetEthclient.Client,
+) ([]*relayerTypes.WarpMessageInfo, error) {
+	var (
+		logs []subnetTypes.Log
+		err  error
+	)
+	// Check if the block contains warp logs, and fetch them from the client if it does
+	if header.Bloom.Test(relayerTypes.WarpPrecompileLogFilter[:]) {
+		cctx, cancel := context.WithTimeout(context.Background(), utils.DefaultRPCRetryTimeout)
+		defer cancel()
+		logs, err = utils.CallWithRetry[[]subnetTypes.Log](
+			cctx,
+			func() ([]subnetTypes.Log, error) {
+				return ethClient.FilterLogs(context.Background(), interfaces.FilterQuery{
+					Topics:    [][]common.Hash{{relayerTypes.WarpPrecompileLogFilter}},
+					Addresses: []common.Address{warp.ContractAddress},
+					FromBlock: header.Number,
+					ToBlock:   header.Number,
+				})
+			})
+		if err != nil {
+			return nil, err
+		}
+	}
+	messages := make([]*relayerTypes.WarpMessageInfo, len(logs))
+	for i, log := range logs {
+		warpLog, err := NewWarpMessageInfo(log)
+		if err != nil {
+			return nil, err
+		}
+		messages[i] = warpLog
+	}
+
+	return messages, nil
+}
+
+// Extract the Warp message information from the raw log
+func NewWarpMessageInfo(log subnetTypes.Log) (*relayerTypes.WarpMessageInfo, error) {
+	if len(log.Topics) != 3 {
+		return nil, relayerTypes.ErrInvalidLog
+	}
+	if log.Topics[0] != relayerTypes.WarpPrecompileLogFilter {
+		return nil, relayerTypes.ErrInvalidLog
+	}
+	unsignedMsg, err := UnpackWarpMessage(log.Data)
+	if err != nil {
+		return nil, err
+	}
+
+	return &relayerTypes.WarpMessageInfo{
+		SourceAddress:   common.BytesToAddress(log.Topics[1][:]),
+		UnsignedMessage: unsignedMsg,
+	}, nil
+}
+
+func UnpackWarpMessage(unsignedMsgBytes []byte) (*avalancheWarp.UnsignedMessage, error) {
+	unsignedMsg, err := warp.UnpackSendWarpEventDataToMessage(unsignedMsgBytes)
+	if err != nil {
+		// If we failed to parse the message as a log, attempt to parse it as a standalone message
+		var standaloneErr error
+		unsignedMsg, standaloneErr = avalancheWarp.ParseUnsignedMessage(unsignedMsgBytes)
+		if standaloneErr != nil {
+			err = errors.Join(err, standaloneErr)
+			return nil, err
+		}
+	}
+	return unsignedMsg, nil
 }
 
 func WaitForReceipt(
 	logger logging.Logger,
-	signedMessage *warp.Message,
+	signedMessage *avalancheWarp.Message,
 	destinationClient vms.DestinationClient,
 	txHash common.Hash,
 	teleporterMessageID ids.ID,

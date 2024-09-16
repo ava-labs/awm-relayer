@@ -29,7 +29,6 @@ import (
 	"github.com/ava-labs/awm-relayer/relayer/config"
 	"github.com/ava-labs/awm-relayer/signature-aggregator/aggregator"
 	sigAggMetrics "github.com/ava-labs/awm-relayer/signature-aggregator/metrics"
-	relayerTypes "github.com/ava-labs/awm-relayer/types"
 	"github.com/ava-labs/awm-relayer/utils"
 	"github.com/ava-labs/awm-relayer/vms"
 	"github.com/ava-labs/subnet-evm/ethclient"
@@ -251,12 +250,13 @@ func main() {
 		logger.Fatal("Failed to create application relayers", zap.Error(err))
 		panic(err)
 	}
+	messagesDecoders := createMessageDecoders(&cfg)
 	messageCoordinator := relayer.NewMessageCoordinator(
 		logger,
 		messageHandlerFactories,
 		applicationRelayers,
 		sourceClients,
-		relayerTypes.DefaultNewWarpMessageInfo,
+		messagesDecoders,
 	)
 
 	// Each Listener goroutine will have an atomic bool that it can set to false to indicate an unrecoverable error
@@ -318,6 +318,12 @@ func createMessageHandlerFactories(
 					deciderConnection,
 				)
 			case config.OFF_CHAIN_REGISTRY:
+				m, err = offchainregistry.NewMessageHandlerFactory(
+					logger,
+					cfg,
+				)
+			case config.CHAINLINK_PRICE_FEED:
+				// TODO
 				m, err = offchainregistry.NewMessageHandlerFactory(
 					logger,
 					cfg,
@@ -544,6 +550,10 @@ func createHealthTrackers(cfg *config.Config) map[ids.ID]*atomic.Bool {
 		healthTrackers[sourceBlockchain.GetBlockchainID()] = atomic.NewBool(true)
 	}
 	return healthTrackers
+}
+
+func createMessageDecoders(cfg *config.Config) []messages.MessageDecoder {
+	return nil
 }
 
 func startMetricsServer(logger logging.Logger, gatherer prometheus.Gatherer, port uint16) {

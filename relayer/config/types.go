@@ -37,6 +37,7 @@ const (
 	UNKNOWN_MESSAGE_PROTOCOL MessageProtocol = iota
 	TELEPORTER
 	OFF_CHAIN_REGISTRY
+	CHAINLINK_PRICE_FEED
 )
 
 func (msg MessageProtocol) String() string {

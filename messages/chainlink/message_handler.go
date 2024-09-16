@@ -52,7 +52,10 @@ func (c *ChainlinkMessageHandler) ShouldSendMessage(destinationClient vms.Destin
 	return true, nil
 }
 
-func (c *ChainlinkMessageHandler) SendMessage(signedMessage *warp.Message, destinationClient vms.DestinationClient) (common.Hash, error) {
+func (c *ChainlinkMessageHandler) SendMessage(
+	signedMessage *warp.Message,
+	destinationClient vms.DestinationClient,
+) (common.Hash, error) {
 	destinationBlockchainID := destinationClient.DestinationBlockchainID()
 
 	c.logger.Info(
