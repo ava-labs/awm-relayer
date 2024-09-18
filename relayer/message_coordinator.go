@@ -226,6 +226,7 @@ func (mc *MessageCoordinator) ProcessMessageID(
 
 // Meant to be ran asynchronously. Errors should be sent to errChan.
 func (mc *MessageCoordinator) ProcessBlock(
+	ctx context.Context,
 	blockHeader *types.Header,
 	blockchainID ids.ID,
 	ethClient ethclient.Client,
@@ -235,7 +236,7 @@ func (mc *MessageCoordinator) ProcessBlock(
 	number := blockHeader.Number.Uint64()
 	msgs := make([]*relayerTypes.WarpMessageInfo, 0)
 	for _, msgDecoder := range mc.messageDecoders {
-		message, err := msgDecoder.Decode(blockHeader, ethClient)
+		message, err := msgDecoder.Decode(ctx, blockHeader, ethClient)
 		if err != nil {
 			mc.logger.Error(
 				"Failed to create Warp block info",

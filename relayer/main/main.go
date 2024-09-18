@@ -20,6 +20,7 @@ import (
 	"github.com/ava-labs/avalanchego/utils/set"
 	"github.com/ava-labs/awm-relayer/database"
 	"github.com/ava-labs/awm-relayer/messages"
+	"github.com/ava-labs/awm-relayer/messages/chainlink"
 	offchainregistry "github.com/ava-labs/awm-relayer/messages/off-chain-registry"
 	"github.com/ava-labs/awm-relayer/messages/teleporter"
 	"github.com/ava-labs/awm-relayer/peers"
@@ -323,8 +324,7 @@ func createMessageHandlerFactories(
 					cfg,
 				)
 			case config.CHAINLINK_PRICE_FEED:
-				// TODO
-				m, err = offchainregistry.NewMessageHandlerFactory(
+				m, err = chainlink.NewMessageHandlerFactory(
 					logger,
 					cfg,
 				)

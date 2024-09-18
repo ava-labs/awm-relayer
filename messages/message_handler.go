@@ -60,13 +60,21 @@ type MessageHandler interface {
 }
 
 type MessageDecoder interface {
-	Decode(header *subnetTypes.Header, ethClient subnetEthclient.Client) ([]*relayerTypes.WarpMessageInfo, error)
+	Decode(
+		ctx context.Context,
+		header *subnetTypes.Header,
+		ethClient subnetEthclient.Client,
+	) (
+		[]*relayerTypes.WarpMessageInfo,
+		error,
+	)
 }
 
 type WarpMessageDecoder struct{}
 
 // Extract Warp logs from the block, if they exist
 func (w WarpMessageDecoder) Decode(
+	ctx context.Context,
 	header *subnetTypes.Header,
 	ethClient subnetEthclient.Client,
 ) ([]*relayerTypes.WarpMessageInfo, error) {
