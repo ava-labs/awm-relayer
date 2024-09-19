@@ -30,15 +30,16 @@ type factory struct {
 }
 
 type ChainlinkMessageHandler struct {
-	unsignedMessage       *warp.UnsignedMessage
-	logger                logging.Logger
-	maxFilterAdresses     uint64
-	aggregatorsToReplicas map[common.Address]common.Address
-	aggregators           []common.Address
+	unsignedMessage         *warp.UnsignedMessage
+	logger                  logging.Logger
+	destinationBlockchainID ids.ID
+	maxFilterAdresses       uint64
+	aggregatorsToReplicas   map[common.Address]common.Address
+	aggregators             []common.Address
 }
 
 type ChainlinkMessageDecoder struct {
-	handler *ChainlinkMessageHandler
+	aggregators []common.Address
 }
 
 type ChainlinkMessage struct {
@@ -56,6 +57,20 @@ type ChainlinkMessage struct {
 }
 
 var ChainlinkPriceUpdatedFilter = common.HexToHash("0559884fd3a460db3073b7fc896cc77986f16e378210ded43186175bf646fc5f")
+
+func NewMessageDecoder(messageProtocolConfig config.MessageProtocolConfig) (*ChainlinkMessageDecoder, error) {
+	cfg, err := ParseConfig(messageProtocolConfig)
+	aggregators := make([]common.Address, len(cfg.AggregatorsToReplicas))
+	for aggregator := range cfg.AggregatorsToReplicas {
+		aggregators = append(aggregators, aggregator)
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &ChainlinkMessageDecoder{
+		aggregators: aggregators,
+	}, nil
+}
 
 func (c ChainlinkMessageDecoder) Decode(
 	ctx context.Context,
@@ -75,7 +90,7 @@ func (c ChainlinkMessageDecoder) Decode(
 			func() ([]subnetTypes.Log, error) {
 				return ethClient.FilterLogs(context.Background(), subnetInterfaces.FilterQuery{
 					Topics:    [][]common.Hash{{ChainlinkPriceUpdatedFilter}},
-					Addresses: c.handler.aggregators,
+					Addresses: c.aggregators,
 					FromBlock: header.Number,
 					ToBlock:   header.Number,
 				})
@@ -145,22 +160,29 @@ func ConvertToUnsignedMessage(msg *ChainlinkMessage) (*warp.UnsignedMessage, err
 	return warp.ParseUnsignedMessage(bytes)
 }
 
+func ParseConfig(messageProtocolConfig config.MessageProtocolConfig) (*Config, error) {
+	data, err := json.Marshal(messageProtocolConfig.Settings)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to marshal Teleporter config: %w", err)
+	}
+	var messageConfig RawConfig
+	if err := json.Unmarshal(data, &messageConfig); err != nil {
+		return nil, fmt.Errorf("Failed to unmarshal Teleporter config: %w", err)
+	}
+
+	config, err := messageConfig.Parse()
+	if err != nil {
+		return nil, err
+	}
+
+	return config, nil
+}
+
 func NewMessageHandlerFactory(
 	logger logging.Logger,
 	messageProtocolConfig config.MessageProtocolConfig,
 ) (messages.MessageHandlerFactory, error) {
-	data, err := json.Marshal(messageProtocolConfig.Settings)
-	if err != nil {
-		logger.Error("Failed to marshal Teleporter config")
-		return nil, err
-	}
-	var messageConfig RawConfig
-	if err := json.Unmarshal(data, &messageConfig); err != nil {
-		logger.Error("Failed to unmarshal Teleporter config")
-		return nil, err
-	}
-
-	config, err := messageConfig.Parse()
+	config, err := ParseConfig(messageProtocolConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -179,11 +201,12 @@ func (f *factory) NewMessageHandler(unsignedMessage *warp.UnsignedMessage) (mess
 	}
 
 	return &ChainlinkMessageHandler{
-		logger:                f.logger,
-		unsignedMessage:       unsignedMessage,
-		maxFilterAdresses:     f.config.MaxFilterAdresses,
-		aggregatorsToReplicas: aggregatorsToReplicas,
-		aggregators:           aggregators,
+		logger:                  f.logger,
+		unsignedMessage:         unsignedMessage,
+		destinationBlockchainID: f.config.DestinationBlockchainID,
+		maxFilterAdresses:       f.config.MaxFilterAdresses,
+		aggregatorsToReplicas:   aggregatorsToReplicas,
+		aggregators:             aggregators,
 	}, nil
 }
 
@@ -272,14 +295,29 @@ func (c *ChainlinkMessageHandler) SendMessage(
 	return txHash, nil
 }
 
-func (c *ChainlinkMessageHandler) GetMessageRoutingInfo() (
+func (c *ChainlinkMessageHandler) GetMessageRoutingInfo(warpMessageInfo *relayerTypes.WarpMessageInfo) (
 	ids.ID,
 	common.Address,
 	ids.ID,
 	common.Address,
 	error,
 ) {
-	return ids.Empty, common.Address{}, ids.Empty, common.Address{}, nil
+	var msg ChainlinkMessage
+	err := json.Unmarshal(warpMessageInfo.UnsignedMessage.Payload, &msg)
+	if err != nil {
+		return ids.Empty, common.Address{}, ids.Empty, common.Address{}, err
+	}
+
+	replica, ok := c.aggregatorsToReplicas[msg.aggregator]
+	if !ok {
+		return ids.Empty, common.Address{}, ids.Empty, common.Address{}, fmt.Errorf("replica not found for aggregator %s", msg.aggregator)
+	}
+
+	return c.unsignedMessage.SourceChainID,
+		warpMessageInfo.SourceAddress,
+		c.destinationBlockchainID,
+		replica,
+		nil
 }
 
 func (c *ChainlinkMessageHandler) GetUnsignedMessage() *warp.UnsignedMessage {

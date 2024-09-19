@@ -251,7 +251,11 @@ func main() {
 		logger.Fatal("Failed to create application relayers", zap.Error(err))
 		panic(err)
 	}
-	messagesDecoders := []messages.MessageDecoder{messages.WarpMessageDecoder{}}
+	messagesDecoders, err := createMessageDecoders(logger, &cfg)
+	if err != nil {
+		logger.Fatal("Failed to create application relayers", zap.Error(err))
+		panic(err)
+	}
 	messageCoordinator := relayer.NewMessageCoordinator(
 		logger,
 		messageHandlerFactories,
@@ -340,6 +344,34 @@ func createMessageHandlerFactories(
 		messageHandlerFactories[sourceBlockchain.GetBlockchainID()] = messageHandlerFactoriesForSource
 	}
 	return messageHandlerFactories, nil
+}
+
+func createMessageDecoders(logger logging.Logger, globalConfig *config.Config) ([]messages.MessageDecoder, error) {
+	messageDecoders := make([]messages.MessageDecoder, 0)
+	for _, sourceBlockchain := range globalConfig.SourceBlockchains {
+		// Create message decoder for each supported message protocol
+		for _, cfg := range sourceBlockchain.MessageContracts {
+			format := cfg.MessageFormat
+			var (
+				m   messages.MessageDecoder
+				err error
+			)
+			switch config.ParseMessageProtocol(format) {
+			case config.TELEPORTER, config.OFF_CHAIN_REGISTRY:
+				m = messages.WarpMessageDecoder{}
+			case config.CHAINLINK_PRICE_FEED:
+				m, err = chainlink.NewMessageDecoder(cfg)
+			default:
+				m, err = nil, fmt.Errorf("invalid message format %s", format)
+			}
+			if err != nil {
+				logger.Error("Failed to create message handler factory", zap.Error(err))
+				return nil, err
+			}
+			messageDecoders = append(messageDecoders, m)
+		}
+	}
+	return messageDecoders, nil
 }
 
 func createSourceClients(

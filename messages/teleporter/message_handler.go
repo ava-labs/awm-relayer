@@ -16,6 +16,7 @@ import (
 	"github.com/ava-labs/awm-relayer/messages"
 	pbDecider "github.com/ava-labs/awm-relayer/proto/pb/decider"
 	"github.com/ava-labs/awm-relayer/relayer/config"
+	relayerTypes "github.com/ava-labs/awm-relayer/types"
 	"github.com/ava-labs/awm-relayer/vms"
 	"github.com/ava-labs/subnet-evm/accounts/abi/bind"
 	"github.com/ava-labs/subnet-evm/ethclient"
@@ -134,7 +135,7 @@ func (m *messageHandler) GetUnsignedMessage() *warp.UnsignedMessage {
 	return m.unsignedMessage
 }
 
-func (m *messageHandler) GetMessageRoutingInfo() (
+func (m *messageHandler) GetMessageRoutingInfo(warpMessageInfo *relayerTypes.WarpMessageInfo) (
 	ids.ID,
 	common.Address,
 	ids.ID,

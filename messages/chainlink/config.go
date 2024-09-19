@@ -4,17 +4,20 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ethereum/go-ethereum/common"
 )
 
 type RawConfig struct {
-	AggregatorsToReplicas map[string]string `json:"aggregators-to-replicas"`
-	MaxFilterAdresses     string            `json:"max-filter-addresses"`
+	AggregatorsToReplicas   map[string]string `json:"aggregators-to-replicas"`
+	MaxFilterAdresses       string            `json:"max-filter-addresses"`
+	DestinationBlockchainID string            `json:"destination-blockchain-id"`
 }
 
 type Config struct {
-	AggregatorsToReplicas map[common.Address]common.Address
-	MaxFilterAdresses     uint64
+	AggregatorsToReplicas   map[common.Address]common.Address
+	MaxFilterAdresses       uint64
+	DestinationBlockchainID ids.ID
 }
 
 func (c *RawConfig) Parse() (*Config, error) {
@@ -36,9 +39,14 @@ func (c *RawConfig) Parse() (*Config, error) {
 		}
 		aggregatorToReplicas[aggregator] = replica
 	}
+	destinationBlockchainID, err := ids.FromString(c.DestinationBlockchainID)
+	if err != nil {
+		return nil, err
+	}
 	config := Config{
-		AggregatorsToReplicas: aggregatorToReplicas,
-		MaxFilterAdresses:     maxFilterAdresses,
+		AggregatorsToReplicas:   aggregatorToReplicas,
+		MaxFilterAdresses:       maxFilterAdresses,
+		DestinationBlockchainID: destinationBlockchainID,
 	}
 	return &config, nil
 }

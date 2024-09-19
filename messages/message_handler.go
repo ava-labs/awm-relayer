@@ -47,7 +47,7 @@ type MessageHandler interface {
 
 	// GetMessageRoutingInfo returns the source chain ID, origin sender address,
 	// destination chain ID, and destination address.
-	GetMessageRoutingInfo() (
+	GetMessageRoutingInfo(warpMessageInfo *relayerTypes.WarpMessageInfo) (
 		ids.ID,
 		common.Address,
 		ids.ID,

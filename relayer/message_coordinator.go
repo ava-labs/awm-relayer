@@ -81,7 +81,7 @@ func (mc *MessageCoordinator) getAppRelayerMessageHandler(
 
 	// Fetch the message delivery data
 	//nolint:lll
-	sourceBlockchainID, originSenderAddress, destinationBlockchainID, destinationAddress, err := messageHandler.GetMessageRoutingInfo()
+	sourceBlockchainID, originSenderAddress, destinationBlockchainID, destinationAddress, err := messageHandler.GetMessageRoutingInfo(warpMessageInfo)
 	if err != nil {
 		mc.logger.Error("Failed to get message routing information", zap.Error(err))
 		return nil, nil, err
