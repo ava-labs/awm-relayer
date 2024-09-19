@@ -145,7 +145,7 @@ func (h *RelayerExternalHandler) RegisterRequestID(
 func (h *RelayerExternalHandler) RegisterAppRequest(reqID ids.RequestID) {
 	inMsg := message.InboundAppError(
 		reqID.NodeID,
-		reqID.SourceChainID,
+		reqID.ChainID,
 		reqID.RequestID,
 		avalancheCommon.ErrTimeout.Code,
 		avalancheCommon.ErrTimeout.Message,
@@ -163,19 +163,9 @@ func (h *RelayerExternalHandler) registerAppResponse(inboundMessage message.Inbo
 	// Extract the message fields
 	m := inboundMessage.Message()
 
-	// Get the blockchainID from the message.
-	// Note: we should NOT call GetSourceBlockchainID; this is for cross-chain messages using the vm2 interface
-	// For normal app requests messages, the calls result in the same value, but if the relayer handles an
-	// inbound cross-chain app message, then we would get the incorrect chain ID.
-	blockchainID, err := message.GetChainID(m)
+	chainID, err := message.GetChainID(m)
 	if err != nil {
-		h.log.Error("Could not get blockchainID from message")
-		inboundMessage.OnFinishedHandling()
-		return
-	}
-	sourceBlockchainID, err := message.GetSourceChainID(m)
-	if err != nil {
-		h.log.Error("Could not get sourceBlockchainID from message")
+		h.log.Error("Could not get chainID from message")
 		inboundMessage.OnFinishedHandling()
 		return
 	}
@@ -188,11 +178,10 @@ func (h *RelayerExternalHandler) registerAppResponse(inboundMessage message.Inbo
 
 	// Remove the timeout on the request
 	reqID := ids.RequestID{
-		NodeID:             inboundMessage.NodeID(),
-		SourceChainID:      sourceBlockchainID,
-		DestinationChainID: blockchainID,
-		RequestID:          requestID,
-		Op:                 byte(inboundMessage.Op()),
+		NodeID:    inboundMessage.NodeID(),
+		ChainID:   chainID,
+		RequestID: requestID,
+		Op:        byte(inboundMessage.Op()),
 	}
 	h.timeoutManager.Remove(reqID)
 

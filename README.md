@@ -41,3 +41,32 @@ Running the tests locally doesn't require publishing the `subnet-evm` commit sin
 
 > [!TIP]
 > Using the local checkout it's possible to run tests against a `tmpnet` consisting of nodes using a different version of `avalanchego` than the application being tested which might be helpful when troubleshooting.
+
+## Releases
+GoReleaser is used to build the binaries of the services and also Docker images with those binaries. The monorepo feature of GoReleaser Pro is used to automate the release flow in response to tags like `signature-aggregator/v0.0.0`. The release actions in .github/workflows automate this, but the release build can also be run locally. Be sure to install the "pro" distribution of the command line utility, so that it can parse the `monorepo` key. For example:
+
+```bash
+$ goreleaser release --single-target --clean --snapshot --config signature-aggregator/.goreleaser.yml
+...
+    • creating                                       archive=dist/linux_amd64/signature-aggregator_0.1.0-rc0-SNAPSHOT-3c2ae78_linux_amd64.tar.gz
+  • docker images
+    • building docker image                          image=avaplatform/signature-aggregator:v0.1.0-rc0-amd64
+```
+
+Then:
+
+```bash
+$ docker run -v $(pwd)/signature-aggregator/sample-signature-aggregator-config.json:/config.json avaplatform/signature-aggregator:v0.1.0-rc0-amd64 --config-file /config.json
+{"level":"info","timestamp":"2024-09-11T22:25:03.001Z","logger":"signature-aggregator","caller":"main/main.go:76","msg":"Initializing signature-aggregator"}
+{"level":"info","timestamp":"2024-09-11T22:25:03.001Z","logger":"signature-aggregator","caller":"main/main.go:79","msg":"Initializing app request network"}
+{"level":"debug","timestamp":"2024-09-11T22:25:03.086Z","logger":"p2p-network","caller":"dialer/dialer.go:52","msg":"creating dialer","throttleRPS":50,"dialTimeout":30000000000}
+{"level":"info","timestamp":"2024-09-11T22:25:03.086Z","logger":"signature-aggregator","caller":"main/main.go:134","msg":"Initialization complete"}
+```
+
+Or, for the relayer:
+
+```bash
+$ goreleaser release --single-target --clean --snapshot --config relayer/.goreleaser.yml
+...
+$ docker run -v $(pwd)/sample-relayer-config.json:/config.json avaplatform/awm-relayer:v1.0.4-test12-amd64 --config-file /config.json
+```
