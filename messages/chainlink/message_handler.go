@@ -60,6 +60,9 @@ var ChainlinkPriceUpdatedFilter = common.HexToHash("0559884fd3a460db3073b7fc896c
 
 func NewMessageDecoder(messageProtocolConfig config.MessageProtocolConfig) (*ChainlinkMessageDecoder, error) {
 	cfg, err := ParseConfig(messageProtocolConfig)
+	if err != nil {
+		return nil, err
+	}
 	aggregators := make([]common.Address, len(cfg.AggregatorsToReplicas))
 	for aggregator := range cfg.AggregatorsToReplicas {
 		aggregators = append(aggregators, aggregator)
@@ -310,7 +313,8 @@ func (c *ChainlinkMessageHandler) GetMessageRoutingInfo(warpMessageInfo *relayer
 
 	replica, ok := c.aggregatorsToReplicas[msg.aggregator]
 	if !ok {
-		return ids.Empty, common.Address{}, ids.Empty, common.Address{}, fmt.Errorf("replica not found for aggregator %s", msg.aggregator)
+		err = fmt.Errorf("replica not found for aggregator %s", msg.aggregator)
+		return ids.Empty, common.Address{}, ids.Empty, common.Address{}, err
 	}
 
 	return c.unsignedMessage.SourceChainID,
