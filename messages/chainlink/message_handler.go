@@ -19,6 +19,7 @@ import (
 	subnetTypes "github.com/ava-labs/subnet-evm/core/types"
 	subnetEthclient "github.com/ava-labs/subnet-evm/ethclient"
 	subnetInterfaces "github.com/ava-labs/subnet-evm/interfaces"
+	teleporterUtils "github.com/ava-labs/teleporter/utils/teleporter-utils"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/rlp"
@@ -36,7 +37,6 @@ type ChainlinkMessageHandler struct {
 	destinationBlockchainID ids.ID
 	maxFilterAdresses       uint64
 	aggregatorsToReplicas   map[common.Address]common.Address
-	aggregators             []common.Address
 }
 
 type ChainlinkMessageDecoder struct {
@@ -210,19 +210,12 @@ func NewMessageHandlerFactory(
 }
 
 func (f *factory) NewMessageHandler(unsignedMessage *warp.UnsignedMessage) (messages.MessageHandler, error) {
-	aggregatorsToReplicas := f.config.AggregatorsToReplicas
-	aggregators := make([]common.Address, len(aggregatorsToReplicas))
-	for aggregator := range aggregatorsToReplicas {
-		aggregators = append(aggregators, aggregator)
-	}
-
 	return &ChainlinkMessageHandler{
 		logger:                  f.logger,
 		unsignedMessage:         unsignedMessage,
 		destinationBlockchainID: f.config.DestinationBlockchainID,
 		maxFilterAdresses:       f.config.MaxFilterAdresses,
-		aggregatorsToReplicas:   aggregatorsToReplicas,
-		aggregators:             aggregators,
+		aggregatorsToReplicas:   f.config.AggregatorsToReplicas,
 	}, nil
 }
 
@@ -238,7 +231,20 @@ func (c *ChainlinkMessageHandler) SendMessage(
 	signedMessage *warp.Message,
 	destinationClient vms.DestinationClient,
 ) (common.Hash, error) {
+	var msg ChainlinkMessage
+	if err := json.Unmarshal(signedMessage.Payload, &msg); err != nil {
+		return common.Hash{}, err
+	}
 	destinationBlockchainID := destinationClient.DestinationBlockchainID()
+	teleporterMessageID, err := teleporterUtils.CalculateMessageID(
+		msg.aggregator,
+		signedMessage.SourceChainID,
+		destinationBlockchainID,
+		msg.roundId,
+	)
+	if err != nil {
+		return common.Hash{}, fmt.Errorf("failed to calculate Teleporter message ID: %w", err)
+	}
 
 	c.logger.Info(
 		"Sending message to destination chain",
@@ -253,10 +259,6 @@ func (c *ChainlinkMessageHandler) SendMessage(
 			zap.String("destinationBlockchainID", destinationBlockchainID.String()),
 			zap.String("warpMessageID", signedMessage.ID().String()),
 		)
-		return common.Hash{}, err
-	}
-	var msg ChainlinkMessage
-	if err := json.Unmarshal(signedMessage.Payload, &msg); err != nil {
 		return common.Hash{}, err
 	}
 	callData, err := eventimporter.PackImportEvent(msg.blockHeader, msg.txIndex, msg.receiptProof, msg.logIndex)
@@ -295,7 +297,6 @@ func (c *ChainlinkMessageHandler) SendMessage(
 		return common.Hash{}, err
 	}
 
-	teleporterMessageID := ids.Empty // TODO
 	// Wait for the message to be included in a block before returning
 	err = messages.WaitForReceipt(c.logger, signedMessage, destinationClient, txHash, teleporterMessageID)
 	if err != nil {
