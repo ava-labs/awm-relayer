@@ -11,6 +11,7 @@ import (
 	"github.com/ava-labs/avalanchego/vms/platformvm/warp"
 	"github.com/ava-labs/awm-relayer/abi-bindings/eventimporter"
 	"github.com/ava-labs/awm-relayer/messages"
+	"github.com/ava-labs/awm-relayer/messages/chainlink/proofs"
 	"github.com/ava-labs/awm-relayer/relayer/config"
 	relayerTypes "github.com/ava-labs/awm-relayer/types"
 	"github.com/ava-labs/awm-relayer/utils"
@@ -136,13 +137,25 @@ func NewWarpMessageInfo(
 	if err != nil {
 		return nil, err
 	}
+	memDb, err := proofs.ConstructSubnetEVMReceiptProof(ctx, ethclient, log.BlockHash, log.TxIndex)
+	if err != nil {
+		return nil, err
+	}
+	it := memDb.NewIterator(nil, nil)
+	receiptProof := make([][]byte, 0)
+	for it.Next() {
+		receiptProof = append(receiptProof, it.Value())
+	}
 	msg := ChainlinkMessage{
-		aggregator:  log.Address,
-		blockHeader: blockHeader,
-		current:     log.Topics[1].Big(),
-		roundId:     log.Topics[2].Big(),
-		updatedAt:   log.Topics[3].Big(),
-		data:        log.Data,
+		aggregator:   log.Address,
+		blockHeader:  blockHeader,
+		txIndex:      new(big.Int).SetUint64(uint64(log.TxIndex)),
+		receiptProof: receiptProof,
+		logIndex:     new(big.Int).SetUint64(uint64(log.Index)),
+		current:      log.Topics[1].Big(),
+		roundId:      log.Topics[2].Big(),
+		updatedAt:    log.Topics[3].Big(),
+		data:         log.Data,
 	}
 	unsignedMsg, err := ConvertToUnsignedMessage(&msg)
 	if err != nil {
@@ -282,7 +295,7 @@ func (c *ChainlinkMessageHandler) SendMessage(
 		return common.Hash{}, err
 	}
 
-	teleporterMessageID := ids.Empty
+	teleporterMessageID := ids.Empty // TODO
 	// Wait for the message to be included in a block before returning
 	err = messages.WaitForReceipt(c.logger, signedMessage, destinationClient, txHash, teleporterMessageID)
 	if err != nil {
@@ -326,4 +339,8 @@ func (c *ChainlinkMessageHandler) GetMessageRoutingInfo(warpMessageInfo *relayer
 
 func (c *ChainlinkMessageHandler) GetUnsignedMessage() *warp.UnsignedMessage {
 	return c.unsignedMessage
+}
+
+func GetReceiptProof(blockHash common.Hash, txIndex uint, ethclient subnetEthclient.Client) ([][]byte, error) {
+	return [][]byte{}, nil
 }
