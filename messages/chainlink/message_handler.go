@@ -3,6 +3,7 @@ package chainlink
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math/big"
 	"reflect"
@@ -43,7 +44,7 @@ type ChainlinkMessageHandler struct {
 }
 
 type ChainlinkMessageDecoder struct {
-	aggregators []common.Address
+	aggregators [][]common.Address
 }
 
 type ChainlinkMessage struct {
@@ -67,9 +68,21 @@ func NewMessageDecoder(messageProtocolConfig config.MessageProtocolConfig) (*Cha
 	if err != nil {
 		return nil, err
 	}
-	aggregators := make([]common.Address, len(cfg.AggregatorsToReplicas))
+	if len(cfg.AggregatorsToReplicas) == 0 {
+		return nil, errors.New("no aggregator to replica provided")
+	}
+	aggLen := uint64(len(cfg.AggregatorsToReplicas))
+	chunksLen := (aggLen + cfg.MaxFilterAdresses - 1) / cfg.MaxFilterAdresses // ceil
+	aggregators := make([][]common.Address, chunksLen)
+	var chunkIndex uint64
+	var chunkAggregators []common.Address
 	for aggregator := range cfg.AggregatorsToReplicas {
-		aggregators = append(aggregators, aggregator)
+		chunkAggregators = append(chunkAggregators, aggregator)
+		if chunkIndex%cfg.MaxFilterAdresses == 0 || chunkIndex == aggLen-1 {
+			aggregators = append(aggregators, chunkAggregators)
+			chunkAggregators = make([]common.Address, cfg.MaxFilterAdresses)
+		}
+		chunkIndex++
 	}
 	if err != nil {
 		return nil, err
@@ -95,12 +108,20 @@ func (c ChainlinkMessageDecoder) Decode(
 		logs, err = utils.CallWithRetry[[]subnetTypes.Log](
 			cctx,
 			func() ([]subnetTypes.Log, error) {
-				return ethClient.FilterLogs(context.Background(), subnetInterfaces.FilterQuery{
-					Topics:    [][]common.Hash{{ChainlinkPriceUpdatedFilter}},
-					Addresses: c.aggregators,
-					FromBlock: header.Number,
-					ToBlock:   header.Number,
-				})
+				logs := make([]subnetTypes.Log, 0)
+				for _, aggregators := range c.aggregators {
+					filteredLogs, err := ethClient.FilterLogs(context.Background(), subnetInterfaces.FilterQuery{
+						Topics:    [][]common.Hash{{ChainlinkPriceUpdatedFilter}},
+						Addresses: aggregators,
+						FromBlock: header.Number,
+						ToBlock:   header.Number,
+					})
+					if err != nil {
+						return nil, err
+					}
+					logs = append(logs, filteredLogs...)
+				}
+				return logs, nil
 			})
 		if err != nil {
 			return nil, err
@@ -362,8 +383,4 @@ func (c *ChainlinkMessageHandler) GetMessageRoutingInfo(warpMessageInfo *relayer
 
 func (c *ChainlinkMessageHandler) GetUnsignedMessage() *warp.UnsignedMessage {
 	return c.unsignedMessage
-}
-
-func GetReceiptProof(blockHash common.Hash, txIndex uint, ethclient subnetEthclient.Client) ([][]byte, error) {
-	return [][]byte{}, nil
 }

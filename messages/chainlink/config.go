@@ -41,7 +41,7 @@ func (c *RawConfig) Parse() (*Config, error) {
 	}
 	destinationBlockchainID, err := ids.FromString(c.DestinationBlockchainID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to decode destination-blockchain-id: %w", err)
 	}
 	config := Config{
 		AggregatorsToReplicas:   aggregatorToReplicas,

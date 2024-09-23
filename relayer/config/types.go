@@ -58,6 +58,8 @@ func ParseMessageProtocol(msg string) MessageProtocol {
 		return TELEPORTER
 	case "off-chain-registry":
 		return OFF_CHAIN_REGISTRY
+	case "chainlink":
+		return CHAINLINK_PRICE_FEED
 	default:
 		return UNKNOWN_MESSAGE_PROTOCOL
 	}
