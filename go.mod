@@ -5,7 +5,7 @@ go 1.22.7
 require (
 	github.com/ava-labs/avalanchego v1.11.11
 	github.com/ava-labs/coreth v0.13.8-fixed-genesis-upgrade.0.20240815193440-a96bc921e732
-	github.com/ava-labs/subnet-evm v0.6.9
+	github.com/ava-labs/subnet-evm v0.6.10
 	github.com/ava-labs/teleporter v1.0.7
 	github.com/aws/aws-sdk-go-v2 v1.31.0
 	github.com/aws/aws-sdk-go-v2/config v1.27.9
