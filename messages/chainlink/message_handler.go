@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/big"
+	"reflect"
 
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/utils/logging"
@@ -16,6 +17,8 @@ import (
 	relayerTypes "github.com/ava-labs/awm-relayer/types"
 	"github.com/ava-labs/awm-relayer/utils"
 	"github.com/ava-labs/awm-relayer/vms"
+	"github.com/ava-labs/coreth/ethclient"
+	"github.com/ava-labs/coreth/interfaces"
 	subnetTypes "github.com/ava-labs/subnet-evm/core/types"
 	subnetEthclient "github.com/ava-labs/subnet-evm/ethclient"
 	subnetInterfaces "github.com/ava-labs/subnet-evm/interfaces"
@@ -219,8 +222,25 @@ func (f *factory) NewMessageHandler(unsignedMessage *warp.UnsignedMessage) (mess
 	}, nil
 }
 
-func CalculateImportEventGasLimit() (uint64, error) {
-	return 0, nil
+func CalculateImportEventGasLimit(
+	ctx context.Context,
+	ethClient ethclient.Client,
+	callData []byte,
+	replica common.Address,
+) (uint64, error) {
+	gasPrice, err := ethClient.SuggestGasPrice(ctx)
+	if err != nil {
+		return 0, err
+	}
+
+	return ethClient.EstimateGas(ctx, interfaces.CallMsg{
+		From:     [20]byte{},
+		To:       &replica,
+		Gas:      0,
+		GasPrice: gasPrice,
+		Value:    big.NewInt(0),
+		Data:     callData,
+	})
 }
 
 func (c *ChainlinkMessageHandler) ShouldSendMessage(destinationClient vms.DestinationClient) (bool, error) {
@@ -252,15 +272,6 @@ func (c *ChainlinkMessageHandler) SendMessage(
 		zap.String("warpMessageID", signedMessage.ID().String()),
 	)
 
-	gasLimit, err := CalculateImportEventGasLimit()
-	if err != nil {
-		c.logger.Error(
-			"Failed to calculate gas limit for receiveCrossChainMessage call",
-			zap.String("destinationBlockchainID", destinationBlockchainID.String()),
-			zap.String("warpMessageID", signedMessage.ID().String()),
-		)
-		return common.Hash{}, err
-	}
 	callData, err := eventimporter.PackImportEvent(msg.blockHeader, msg.txIndex, msg.receiptProof, msg.logIndex)
 	if err != nil {
 		c.logger.Error(
@@ -280,6 +291,17 @@ func (c *ChainlinkMessageHandler) SendMessage(
 			zap.Error(err),
 		)
 		return common.Hash{}, fmt.Errorf("failed to find replica for aggregator: %s", msg.aggregator)
+	}
+	subnetClient := destinationClient.Client().(subnetEthclient.Client)
+	client := reflect.ValueOf(subnetClient).Elem().FieldByName("c").Interface().(ethclient.Client)
+	gasLimit, err := CalculateImportEventGasLimit(context.TODO(), client, callData, replica)
+	if err != nil {
+		c.logger.Error(
+			"Failed to calculate gas limit for importEvent call",
+			zap.String("destinationBlockchainID", destinationBlockchainID.String()),
+			zap.String("warpMessageID", signedMessage.ID().String()),
+		)
+		return common.Hash{}, err
 	}
 	txHash, err := destinationClient.SendTx(
 		signedMessage,
