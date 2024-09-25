@@ -43,6 +43,10 @@ type AggregateSignatureResponse struct {
 	SignedMessage string `json:"signed-message"`
 }
 
+type AggregateSignatureErrorResponse struct {
+	Error string `json:"error"`
+}
+
 func HandleAggregateSignaturesByRawMsgRequest(
 	logger logging.Logger,
 	metrics *metrics.SignatureAggregatorMetrics,
@@ -61,9 +65,14 @@ func HandleAggregateSignaturesByRawMsgRequest(
 func writeJSONError(
 	logger logging.Logger,
 	w http.ResponseWriter,
+	httpStatusCode int,
 	errorMsg string,
 ) {
-	resp, err := json.Marshal(struct{ error string }{error: errorMsg})
+	resp, err := json.Marshal(
+		AggregateSignatureErrorResponse{
+			Error: errorMsg,
+		},
+	)
 	if err != nil {
 		msg := "Error marshalling JSON error response"
 		logger.Error(msg, zap.Error(err))
@@ -71,8 +80,9 @@ func writeJSONError(
 	}
 
 	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(httpStatusCode)
 
-	w.Write(resp)
+	_, err = w.Write(resp)
 	if err != nil {
 		logger.Error("Error writing error response", zap.Error(err))
 	}
@@ -92,7 +102,7 @@ func signatureAggregationAPIHandler(
 		if err != nil {
 			msg := "Could not decode request body"
 			logger.Warn(msg, zap.Error(err))
-			writeJSONError(logger, w, msg)
+			writeJSONError(logger, w, http.StatusBadRequest, msg)
 			return
 		}
 		var decodedMessage []byte
@@ -106,14 +116,14 @@ func signatureAggregationAPIHandler(
 				zap.String("msg", req.Message),
 				zap.Error(err),
 			)
-			writeJSONError(logger, w, msg)
+			writeJSONError(logger, w, http.StatusBadRequest, msg)
 			return
 		}
 		message, err := messages.UnpackWarpMessage(decodedMessage)
 		if err != nil {
 			msg := "Error unpacking warp message"
 			logger.Warn(msg, zap.Error(err))
-			writeJSONError(logger, w, msg)
+			writeJSONError(logger, w, http.StatusBadRequest, msg)
 			return
 		}
 
@@ -127,7 +137,7 @@ func signatureAggregationAPIHandler(
 				zap.String("justification", req.Justification),
 				zap.Error(err),
 			)
-			writeJSONError(logger, w, msg)
+			writeJSONError(logger, w, http.StatusBadRequest, msg)
 			return
 		}
 
@@ -135,6 +145,7 @@ func signatureAggregationAPIHandler(
 			writeJSONError(
 				logger,
 				w,
+				http.StatusBadRequest,
 				"Must provide either message or justification",
 			)
 			return
@@ -146,7 +157,7 @@ func signatureAggregationAPIHandler(
 		} else if req.QuorumPercentage > 100 {
 			msg := "Invalid quorum number"
 			logger.Warn(msg, zap.Uint64("quorum-num", req.QuorumPercentage))
-			writeJSONError(logger, w, msg)
+			writeJSONError(logger, w, http.StatusBadRequest, msg)
 			return
 		}
 		var signingSubnetID ids.ID
@@ -161,7 +172,7 @@ func signatureAggregationAPIHandler(
 					zap.Error(err),
 					zap.String("input", req.SigningSubnetID),
 				)
-				writeJSONError(logger, w, msg)
+				writeJSONError(logger, w, http.StatusBadRequest, msg)
 				return
 			}
 		}
@@ -175,7 +186,7 @@ func signatureAggregationAPIHandler(
 		if err != nil {
 			msg := "Failed to aggregate signatures"
 			logger.Warn(msg, zap.Error(err))
-			writeJSONError(logger, w, msg)
+			writeJSONError(logger, w, http.StatusInternalServerError, msg)
 			return
 		}
 		resp, err := json.Marshal(
@@ -189,7 +200,7 @@ func signatureAggregationAPIHandler(
 		if err != nil {
 			msg := "Failed to marshal response"
 			logger.Error(msg, zap.Error(err))
-			writeJSONError(logger, w, msg)
+			writeJSONError(logger, w, http.StatusInternalServerError, msg)
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
