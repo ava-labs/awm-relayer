@@ -20,17 +20,7 @@
         "0x253b2784c75e510dD0fF1da844684a1aC0aa5fcf": {
           "message-format": "teleporter",
           "settings": {
-            "reward-address": "0xE720e048377b9EE3D395A7deBBc45234c26C6463"
-          }
-        },
-        "0xE720e048377b9EE3D395A7deBBc45234c26C6463": {
-          "message-format": "chainlink",
-          "settings": {
-            "aggregators-to-replicas": {
-              "0xE720e048377b9EE3D395A7deBBc45234c26C6463": "0xE720e048377b9EE3D395A7deBBc45234c26C6463"
-            },
-            "max-filter-addresses": "10",
-            "destination-blockchain-id": "2D8RG4UpSXbPbvPCAWppNJyqTG2i2CAXSkTgmTBBvs7GKNZjsY"
+            "reward-address": "0x5072..."
           }
         }
       }
@@ -44,7 +34,7 @@
       "rpc-endpoint": {
         "base-url": "https://subnets.avax.network/dispatch/testnet/rpc"
       },
-      "account-private-key": "0x8d4b777de45d40e60f1cf6436cdd5adba860aa2cd9a6ce4b955a0c68ae0c98e0"
+      "account-private-key": "0x7493..."
     }
   ]
 }
