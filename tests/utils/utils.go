@@ -211,6 +211,113 @@ func CreateDefaultRelayerConfig(
 	}
 }
 
+func CreateDefaultChainlinkConfig(
+	sourceSubnetsInfo []interfaces.SubnetTestInfo,
+	destinationSubnetsInfo []interfaces.SubnetTestInfo,
+	aggregatorContractAddress common.Address,
+	replicaContractAddress common.Address,
+	fundedAddress common.Address,
+	relayerKey *ecdsa.PrivateKey,
+) relayercfg.Config {
+	logLevel, err := logging.ToLevel(os.Getenv("LOG_LEVEL"))
+	if err != nil {
+		logLevel = logging.Info
+	}
+
+	log.Info(
+		"Setting up relayer config",
+		"logLevel", logLevel.LowerString(),
+	)
+	// Construct the config values for each subnet
+	sources := make([]*relayercfg.SourceBlockchain, len(sourceSubnetsInfo))
+	destinations := make([]*relayercfg.DestinationBlockchain, len(destinationSubnetsInfo))
+	for i, subnetInfo := range sourceSubnetsInfo {
+		host, port, err := teleporterTestUtils.GetURIHostAndPort(subnetInfo.NodeURIs[0])
+		Expect(err).Should(BeNil())
+
+		sources[i] = &relayercfg.SourceBlockchain{
+			SubnetID:     subnetInfo.SubnetID.String(),
+			BlockchainID: subnetInfo.BlockchainID.String(),
+			VM:           relayercfg.EVM.String(),
+			RPCEndpoint: config.APIConfig{
+				BaseURL: fmt.Sprintf("http://%s:%d/ext/bc/%s/rpc", host, port, subnetInfo.BlockchainID.String()),
+			},
+			WSEndpoint: config.APIConfig{
+				BaseURL: fmt.Sprintf("ws://%s:%d/ext/bc/%s/ws", host, port, subnetInfo.BlockchainID.String()),
+			},
+
+			MessageContracts: map[string]relayercfg.MessageProtocolConfig{
+				offchainregistry.OffChainRegistrySourceAddress.Hex(): {
+					MessageFormat: relayercfg.OFF_CHAIN_REGISTRY.String(),
+					Settings: map[string]interface{}{
+						"teleporter-registry-address": subnetInfo.TeleporterRegistryAddress.Hex(),
+					},
+				},
+				common.Address{}.Hex(): {
+					MessageFormat: relayercfg.CHAINLINK_PRICE_FEED.String(),
+					Settings: map[string]interface{}{
+						"aggregators-to-replicas": map[common.Address]common.Address{
+							aggregatorContractAddress: replicaContractAddress,
+						},
+						"max-filter-addresses":      10,
+						"destination-blockchain-id": ids.Empty,
+					},
+				},
+			},
+		}
+
+		log.Info(
+			"Creating relayer config for source subnet",
+			"subnetID", subnetInfo.SubnetID.String(),
+			"blockchainID", subnetInfo.BlockchainID.String(),
+			"host", host,
+			"port", port,
+		)
+	}
+
+	for i, subnetInfo := range destinationSubnetsInfo {
+		host, port, err := teleporterTestUtils.GetURIHostAndPort(subnetInfo.NodeURIs[0])
+		Expect(err).Should(BeNil())
+
+		destinations[i] = &relayercfg.DestinationBlockchain{
+			SubnetID:     subnetInfo.SubnetID.String(),
+			BlockchainID: subnetInfo.BlockchainID.String(),
+			VM:           relayercfg.EVM.String(),
+			RPCEndpoint: config.APIConfig{
+				BaseURL: fmt.Sprintf("http://%s:%d/ext/bc/%s/rpc", host, port, subnetInfo.BlockchainID.String()),
+			},
+			AccountPrivateKey: relayerUtils.PrivateKeyToString(relayerKey),
+		}
+
+		log.Info(
+			"Creating relayer config for destination subnet",
+			"subnetID", subnetInfo.SubnetID.String(),
+			"blockchainID", subnetInfo.BlockchainID.String(),
+			"host", host,
+			"port", port,
+		)
+	}
+
+	return relayercfg.Config{
+		LogLevel: logging.Info.LowerString(),
+		PChainAPI: &config.APIConfig{
+			BaseURL: sourceSubnetsInfo[0].NodeURIs[0],
+		},
+		InfoAPI: &config.APIConfig{
+			BaseURL: sourceSubnetsInfo[0].NodeURIs[0],
+		},
+		StorageLocation:        StorageLocation,
+		DBWriteIntervalSeconds: DBUpdateSeconds,
+		ProcessMissedBlocks:    false,
+		MetricsPort:            9090,
+		SourceBlockchains:      sources,
+		DestinationBlockchains: destinations,
+		APIPort:                8080,
+		DeciderURL:             "localhost:50051",
+		SignatureCacheSize:     (1024 * 1024),
+	}
+}
+
 // TODO: convert this function to be just "applySubnetsInfoToConfig" and have
 // callers use the defaults defined in the config package via viper, so that
 // there aren't two sets of "defaults".
@@ -340,6 +447,32 @@ func SendBasicTeleporterMessage(
 }
 
 func RelayBasicMessage(
+	ctx context.Context,
+	source interfaces.SubnetTestInfo,
+	destination interfaces.SubnetTestInfo,
+	teleporterContractAddress common.Address,
+	fundedKey *ecdsa.PrivateKey,
+	destinationAddress common.Address,
+) {
+	newHeadsDest := make(chan *types.Header, 10)
+	sub, err := destination.WSClient.SubscribeNewHead(ctx, newHeadsDest)
+	Expect(err).Should(BeNil())
+	defer sub.Unsubscribe()
+
+	_, _, teleporterMessageID := SendBasicTeleporterMessage(
+		ctx,
+		source,
+		destination,
+		fundedKey,
+		destinationAddress,
+	)
+
+	log.Info("Waiting for Teleporter message delivery")
+	err = utils.WaitTeleporterMessageDelivered(ctx, destination.TeleporterMessenger, teleporterMessageID)
+	Expect(err).Should(BeNil())
+}
+
+func ImportAnswerEvent(
 	ctx context.Context,
 	source interfaces.SubnetTestInfo,
 	destination interfaces.SubnetTestInfo,
