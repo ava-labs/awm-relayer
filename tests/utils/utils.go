@@ -231,6 +231,8 @@ func CreateDefaultChainlinkConfig(
 	// Construct the config values for each subnet
 	sources := make([]*relayercfg.SourceBlockchain, len(sourceSubnetsInfo))
 	destinations := make([]*relayercfg.DestinationBlockchain, len(destinationSubnetsInfo))
+	sampleAddr := common.BytesToAddress([]byte("PriceFeeds")) // TODO this is just a placeholder, may need to adapt the config for that
+	Expect(err).Should(BeNil())
 	for i, subnetInfo := range sourceSubnetsInfo {
 		host, port, err := teleporterTestUtils.GetURIHostAndPort(subnetInfo.NodeURIs[0])
 		Expect(err).Should(BeNil())
@@ -253,7 +255,7 @@ func CreateDefaultChainlinkConfig(
 						"teleporter-registry-address": subnetInfo.TeleporterRegistryAddress.Hex(),
 					},
 				},
-				common.Address{}.Hex(): {
+				sampleAddr.Hex(): {
 					MessageFormat: relayercfg.CHAINLINK_PRICE_FEED.String(),
 					Settings: map[string]interface{}{
 						"aggregators-to-replicas": map[common.Address]common.Address{
