@@ -15,7 +15,10 @@ import (
 	ids "github.com/ava-labs/avalanchego/ids"
 	warp "github.com/ava-labs/avalanchego/vms/platformvm/warp"
 	messages "github.com/ava-labs/awm-relayer/messages"
+	types "github.com/ava-labs/awm-relayer/types"
 	vms "github.com/ava-labs/awm-relayer/vms"
+	types0 "github.com/ava-labs/subnet-evm/core/types"
+	ethclient "github.com/ava-labs/subnet-evm/ethclient"
 	common "github.com/ethereum/go-ethereum/common"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -141,4 +144,42 @@ func (m *MockMessageHandler) ShouldSendMessage(destinationClient vms.Destination
 func (mr *MockMessageHandlerMockRecorder) ShouldSendMessage(destinationClient any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ShouldSendMessage", reflect.TypeOf((*MockMessageHandler)(nil).ShouldSendMessage), destinationClient)
+}
+
+// MockMessageDecoder is a mock of MessageDecoder interface.
+type MockMessageDecoder struct {
+	ctrl     *gomock.Controller
+	recorder *MockMessageDecoderMockRecorder
+}
+
+// MockMessageDecoderMockRecorder is the mock recorder for MockMessageDecoder.
+type MockMessageDecoderMockRecorder struct {
+	mock *MockMessageDecoder
+}
+
+// NewMockMessageDecoder creates a new mock instance.
+func NewMockMessageDecoder(ctrl *gomock.Controller) *MockMessageDecoder {
+	mock := &MockMessageDecoder{ctrl: ctrl}
+	mock.recorder = &MockMessageDecoderMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockMessageDecoder) EXPECT() *MockMessageDecoderMockRecorder {
+	return m.recorder
+}
+
+// Decode mocks base method.
+func (m *MockMessageDecoder) Decode(header *types0.Header, ethClient ethclient.Client) ([]*types.WarpMessageInfo, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Decode", header, ethClient)
+	ret0, _ := ret[0].([]*types.WarpMessageInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Decode indicates an expected call of Decode.
+func (mr *MockMessageDecoderMockRecorder) Decode(header, ethClient any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Decode", reflect.TypeOf((*MockMessageDecoder)(nil).Decode), header, ethClient)
 }

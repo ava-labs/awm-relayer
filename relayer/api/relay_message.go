@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/ava-labs/avalanchego/utils/logging"
+	"github.com/ava-labs/awm-relayer/messages"
 	"github.com/ava-labs/awm-relayer/relayer"
 	"github.com/ava-labs/awm-relayer/types"
 	"github.com/ava-labs/awm-relayer/utils"
@@ -56,7 +57,7 @@ func relayMessageAPIHandler(logger logging.Logger, messageCoordinator *relayer.M
 			return
 		}
 
-		unsignedMessage, err := types.UnpackWarpMessage(req.UnsignedMessageBytes)
+		unsignedMessage, err := messages.UnpackWarpMessage(req.UnsignedMessageBytes)
 		if err != nil {
 			logger.Warn("Error unpacking warp message", zap.Error(err))
 			http.Error(w, err.Error(), http.StatusBadRequest)

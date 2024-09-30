@@ -193,6 +193,7 @@ func (lstnr *Listener) processLogs(ctx context.Context) error {
 			}
 		case blockHeader := <-lstnr.Subscriber.Headers():
 			go lstnr.messageCoordinator.ProcessBlock(
+				ctx,
 				blockHeader,
 				lstnr.sourceBlockchain.GetBlockchainID(),
 				lstnr.ethClient,

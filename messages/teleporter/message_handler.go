@@ -16,10 +16,9 @@ import (
 	"github.com/ava-labs/awm-relayer/messages"
 	pbDecider "github.com/ava-labs/awm-relayer/proto/pb/decider"
 	"github.com/ava-labs/awm-relayer/relayer/config"
-	"github.com/ava-labs/awm-relayer/utils"
+	relayerTypes "github.com/ava-labs/awm-relayer/types"
 	"github.com/ava-labs/awm-relayer/vms"
 	"github.com/ava-labs/subnet-evm/accounts/abi/bind"
-	"github.com/ava-labs/subnet-evm/core/types"
 	"github.com/ava-labs/subnet-evm/ethclient"
 	teleportermessenger "github.com/ava-labs/teleporter/abi-bindings/go/teleporter/TeleporterMessenger"
 	gasUtils "github.com/ava-labs/teleporter/utils/gas-utils"
@@ -136,7 +135,7 @@ func (m *messageHandler) GetUnsignedMessage() *warp.UnsignedMessage {
 	return m.unsignedMessage
 }
 
-func (m *messageHandler) GetMessageRoutingInfo() (
+func (m *messageHandler) GetMessageRoutingInfo(warpMessageInfo *relayerTypes.WarpMessageInfo) (
 	ids.ID,
 	common.Address,
 	ids.ID,
@@ -340,7 +339,7 @@ func (m *messageHandler) SendMessage(
 	}
 
 	// Wait for the message to be included in a block before returning
-	err = m.waitForReceipt(signedMessage, destinationClient, txHash, teleporterMessageID)
+	err = messages.WaitForReceipt(m.logger, signedMessage, destinationClient, txHash, teleporterMessageID)
 	if err != nil {
 		return common.Hash{}, err
 	}
@@ -353,44 +352,6 @@ func (m *messageHandler) SendMessage(
 		zap.String("txHash", txHash.String()),
 	)
 	return txHash, nil
-}
-
-func (m *messageHandler) waitForReceipt(
-	signedMessage *warp.Message,
-	destinationClient vms.DestinationClient,
-	txHash common.Hash,
-	teleporterMessageID ids.ID,
-) error {
-	destinationBlockchainID := destinationClient.DestinationBlockchainID()
-	callCtx, callCtxCancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer callCtxCancel()
-	receipt, err := utils.CallWithRetry[*types.Receipt](
-		callCtx,
-		func() (*types.Receipt, error) {
-			return destinationClient.Client().(ethclient.Client).TransactionReceipt(callCtx, txHash)
-		},
-	)
-	if err != nil {
-		m.logger.Error(
-			"Failed to get transaction receipt",
-			zap.String("destinationBlockchainID", destinationBlockchainID.String()),
-			zap.String("warpMessageID", signedMessage.ID().String()),
-			zap.String("teleporterMessageID", teleporterMessageID.String()),
-			zap.Error(err),
-		)
-		return err
-	}
-	if receipt.Status != types.ReceiptStatusSuccessful {
-		m.logger.Error(
-			"Transaction failed",
-			zap.String("destinationBlockchainID", destinationBlockchainID.String()),
-			zap.String("warpMessageID", signedMessage.ID().String()),
-			zap.String("teleporterMessageID", teleporterMessageID.String()),
-			zap.String("txHash", txHash.String()),
-		)
-		return fmt.Errorf("transaction failed with status: %d", receipt.Status)
-	}
-	return nil
 }
 
 // parseTeleporterMessage returns the Warp message's corresponding Teleporter message from the cache if it exists.
