@@ -11,6 +11,7 @@ import (
 	corethtypes "github.com/ava-labs/coreth/core/types"
 	corethethclient "github.com/ava-labs/coreth/ethclient"
 	corethtrie "github.com/ava-labs/coreth/trie"
+	corethtriedb "github.com/ava-labs/coreth/triedb"
 	subnetevmtypes "github.com/ava-labs/subnet-evm/core/types"
 	subnetevmethclient "github.com/ava-labs/subnet-evm/ethclient"
 	subnetevmtrie "github.com/ava-labs/subnet-evm/trie"
@@ -70,7 +71,7 @@ func ConstructCorethReceiptProof(
 	log.Info("Fetched all receipts for block", "blockHash", blockHash.String(), "numReceipts", len(receipts))
 
 	// Create a trie of the receipts
-	receiptTrie, err := corethtrie.New(corethtrie.StateTrieID(common.Hash{}), corethtrie.NewDatabase(nil, nil))
+	receiptTrie, err := corethtrie.New(corethtrie.StateTrieID(common.Hash{}), corethtriedb.NewDatabase(nil, nil))
 	if err != nil {
 		log.Error("Failed to create receipt trie", "err", err)
 		return nil, err
