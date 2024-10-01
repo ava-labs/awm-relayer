@@ -60,16 +60,16 @@ func (mr *MockAppRequestNetworkMockRecorder) ConnectPeers(nodeIDs any) *gomock.C
 // ConnectToCanonicalValidators mocks base method.
 func (m *MockAppRequestNetwork) ConnectToCanonicalValidators(subnetID ids.ID, height uint64) (*peers.ConnectedCanonicalValidators, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ConnectToCanonicalValidators", subnetID)
+	ret := m.ctrl.Call(m, "ConnectToCanonicalValidators", subnetID, height)
 	ret0, _ := ret[0].(*peers.ConnectedCanonicalValidators)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ConnectToCanonicalValidators indicates an expected call of ConnectToCanonicalValidators.
-func (mr *MockAppRequestNetworkMockRecorder) ConnectToCanonicalValidators(subnetID any) *gomock.Call {
+func (mr *MockAppRequestNetworkMockRecorder) ConnectToCanonicalValidators(subnetID, height any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ConnectToCanonicalValidators", reflect.TypeOf((*MockAppRequestNetwork)(nil).ConnectToCanonicalValidators), subnetID)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ConnectToCanonicalValidators", reflect.TypeOf((*MockAppRequestNetwork)(nil).ConnectToCanonicalValidators), subnetID, height)
 }
 
 // GetSubnetID mocks base method.
