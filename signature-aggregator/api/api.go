@@ -182,6 +182,7 @@ func signatureAggregationAPIHandler(
 			justification,
 			signingSubnetID,
 			quorumPercentage,
+			0,
 		)
 		if err != nil {
 			msg := "Failed to aggregate signatures"

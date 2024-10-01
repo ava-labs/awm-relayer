@@ -101,6 +101,7 @@ func (s *SignatureAggregator) CreateSignedMessage(
 	justification []byte,
 	inputSigningSubnet ids.ID,
 	quorumPercentage uint64,
+	pChainHeight uint64,
 ) (*avalancheWarp.Message, error) {
 	var signingSubnet ids.ID
 	var err error
@@ -118,7 +119,7 @@ func (s *SignatureAggregator) CreateSignedMessage(
 		signingSubnet = inputSigningSubnet
 	}
 
-	connectedValidators, err := s.network.ConnectToCanonicalValidators(signingSubnet)
+	connectedValidators, err := s.network.ConnectToCanonicalValidators(signingSubnet, pChainHeight)
 	if err != nil {
 		msg := "Failed to connect to canonical validators"
 		s.logger.Error(

@@ -142,7 +142,7 @@ func TestCreateSignedMessageFailsWithNoValidators(t *testing.T) {
 		},
 		nil,
 	)
-	_, err = aggregator.CreateSignedMessage(msg, nil, ids.Empty, 80)
+	_, err = aggregator.CreateSignedMessage(msg, nil, ids.Empty, 80, 0)
 	require.ErrorContains(t, err, "no signatures")
 }
 
@@ -159,7 +159,7 @@ func TestCreateSignedMessageFailsWithoutSufficientConnectedStake(t *testing.T) {
 		},
 		nil,
 	)
-	_, err = aggregator.CreateSignedMessage(msg, nil, ids.Empty, 80)
+	_, err = aggregator.CreateSignedMessage(msg, nil, ids.Empty, 80, 0)
 	require.ErrorContains(
 		t,
 		err,
@@ -240,7 +240,7 @@ func TestCreateSignedMessageRetriesAndFailsWithoutP2PResponses(t *testing.T) {
 		subnets.NoOpAllower,
 	).Times(maxRelayerQueryAttempts)
 
-	_, err = aggregator.CreateSignedMessage(msg, nil, subnetID, 80)
+	_, err = aggregator.CreateSignedMessage(msg, nil, subnetID, 80, 0)
 	require.ErrorContains(
 		t,
 		err,
@@ -328,6 +328,7 @@ func TestCreateSignedMessageSucceeds(t *testing.T) {
 		nil,
 		subnetID,
 		quorumPercentage,
+		0,
 	)
 	require.NoError(t, err)
 

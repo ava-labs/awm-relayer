@@ -80,8 +80,6 @@ func (v *CanonicalValidatorClient) GetSubnetID(ctx context.Context, blockchainID
 }
 
 // Gets the validator set of the given subnet at the given P-chain block height.
-// Attempts to use the "getValidatorsAt" API first. If not available, falls back
-// to use "getCurrentValidators", ignoring the specified P-chain block height.
 func (v *CanonicalValidatorClient) GetValidatorSet(
 	ctx context.Context,
 	height uint64,
