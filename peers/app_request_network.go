@@ -222,16 +222,18 @@ func (c *ConnectedCanonicalValidators) GetValidator(nodeID ids.NodeID) (*warp.Va
 
 // ConnectToCanonicalValidators connects to the canonical validators of the given subnet and returns the connected
 // validator information
-func (n *appRequestNetwork) ConnectToCanonicalValidators(subnetID ids.ID, height uint64) (*ConnectedCanonicalValidators, error) {
+func (n *appRequestNetwork) ConnectToCanonicalValidators(
+	subnetID ids.ID,
+	height uint64,
+) (*ConnectedCanonicalValidators, error) {
 	var validatorSet []*warp.Validator
 	var totalValidatorWeight uint64
 	var err error
 
+	startPChainAPICall := time.Now()
 	if height == 0 {
 		// Get the subnet's current canonical validator set
-		startPChainAPICall := time.Now()
 		validatorSet, totalValidatorWeight, err = n.validatorClient.GetCurrentCanonicalValidatorSet(subnetID)
-		n.setPChainAPICallLatencyMS(float64(time.Since(startPChainAPICall).Milliseconds()))
 		if err != nil {
 			return nil, err
 		}
@@ -246,6 +248,8 @@ func (n *appRequestNetwork) ConnectToCanonicalValidators(subnetID ids.ID, height
 			return nil, err
 		}
 	}
+	n.setPChainAPICallLatencyMS(float64(time.Since(startPChainAPICall).Milliseconds()))
+
 	// We make queries to node IDs, not unique validators as represented by a BLS pubkey, so we need this map to track
 	// responses from nodes and populate the signatureMap with the corresponding validator signature
 	// This maps node IDs to the index in the canonical validator set
