@@ -3,7 +3,7 @@ module github.com/ava-labs/awm-relayer
 go 1.22.8
 
 require (
-	github.com/ava-labs/avalanchego v1.11.12-rc.2.0.20241002155128-f0d260f608ab
+	github.com/ava-labs/avalanchego v1.11.12-rc.2.0.20241001211314-a20a2ae18fca
 	github.com/ava-labs/coreth v0.13.8
 	github.com/ava-labs/subnet-evm v0.6.10
 	github.com/ava-labs/teleporter v1.0.7
