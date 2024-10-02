@@ -1,9 +1,9 @@
 module github.com/ava-labs/awm-relayer
 
-go 1.22.7
+go 1.22.8
 
 require (
-	github.com/ava-labs/avalanchego v1.11.12-rc.2.0.20240927200556-89cd2401e0e9
+	github.com/ava-labs/avalanchego v1.11.12-rc.2.0.20241002155128-f0d260f608ab
 	github.com/ava-labs/coreth v0.13.8
 	github.com/ava-labs/subnet-evm v0.6.10
 	github.com/ava-labs/teleporter v1.0.7
@@ -85,7 +85,7 @@ require (
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/mux v1.8.0 // indirect
 	github.com/gorilla/rpc v1.2.0 // indirect
-	github.com/gorilla/websocket v1.4.2 // indirect
+	github.com/gorilla/websocket v1.5.0 // indirect
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0 // indirect
 	github.com/hashicorp/go-bexpr v0.1.10 // indirect
 	github.com/hashicorp/golang-lru v0.5.5-0.20210104140557-80c98217689d // indirect
