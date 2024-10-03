@@ -233,17 +233,17 @@ func (n *appRequestNetwork) ConnectToCanonicalValidators(
 	startPChainAPICall := time.Now()
 	if height == 0 {
 		// Get the subnet's current canonical validator set
-		validatorSet, totalValidatorWeight, err = n.validatorClient.GetCurrentCanonicalValidatorSet(subnetID)
+		height, err = n.validatorClient.GetCurrentHeight(context.Background())
+		if err != nil {
+			return nil, err
+		}
+		validatorSet, totalValidatorWeight, err = n.validatorClient.GetCanonicalValidatorSet(subnetID, height)
 		if err != nil {
 			return nil, err
 		}
 	} else {
 		// Get the subnet's canonical validator set at the given height
-		vdrs, err := n.validatorClient.GetValidatorSet(context.Background(), height, subnetID)
-		if err != nil {
-			return nil, err
-		}
-		validatorSet, totalValidatorWeight, err = warp.FlattenValidatorSet(vdrs)
+		validatorSet, totalValidatorWeight, err = n.validatorClient.GetCanonicalValidatorSet(subnetID, height)
 		if err != nil {
 			return nil, err
 		}
