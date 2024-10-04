@@ -119,7 +119,7 @@ func (s *SignatureAggregator) CreateSignedMessage(
 		signingSubnet = inputSigningSubnet
 	}
 
-	connectedValidators, err := s.network.ConnectToCanonicalValidators(signingSubnet, pChainHeight)
+	connectedValidators, err := s.network.ConnectToCanonicalValidators(pChainHeight, signingSubnet)
 	if err != nil {
 		msg := "Failed to connect to canonical validators"
 		s.logger.Error(

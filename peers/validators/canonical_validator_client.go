@@ -37,8 +37,8 @@ func NewCanonicalValidatorClient(logger logging.Logger, apiConfig *config.APICon
 }
 
 func (v *CanonicalValidatorClient) GetCanonicalValidatorSet(
-	subnetID ids.ID,
 	height uint64,
+	subnetID ids.ID,
 ) ([]*avalancheWarp.Validator, uint64, error) {
 	// Get the current canonical validator set of the source subnet.
 	canonicalSubnetValidators, totalValidatorWeight, err := avalancheWarp.GetCanonicalValidatorSet(
@@ -81,7 +81,7 @@ func (v *CanonicalValidatorClient) GetValidatorSet(
 	// all API nodes, in which case we can fall back to using "getCurrentValidators" if needed.
 	res, err := v.client.GetValidatorsAt(ctx, subnetID, height, v.options...)
 	if err != nil {
-		v.logger.Debug(
+		v.logger.Warn(
 			"P-chain RPC to getValidatorAt returned error. Falling back to getCurrentValidators",
 			zap.String("subnetID", subnetID.String()),
 			zap.Uint64("pChainHeight", height),
