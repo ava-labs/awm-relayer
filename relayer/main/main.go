@@ -11,6 +11,7 @@ import (
 	"os"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/ava-labs/avalanchego/api/metrics"
 	"github.com/ava-labs/avalanchego/ids"
@@ -219,6 +220,17 @@ func main() {
 		panic(err)
 	}
 
+	proposerHeightCache, err := aggregator.NewProposerHeightCache(
+		logger,
+		cfg.GetPChainAPI(),
+		time.Second*2,
+	)
+	if err != nil {
+		logger.Fatal("Failed to create proposer height cache", zap.Error(err))
+		panic(err)
+	}
+	proposerHeightCache.Start(context.Background())
+
 	signatureAggregator, err := aggregator.NewSignatureAggregator(
 		network,
 		logger,
@@ -227,6 +239,7 @@ func main() {
 			prometheus.DefaultRegisterer,
 		),
 		messageCreator,
+		proposerHeightCache,
 		cfg.EtnaTime,
 	)
 	if err != nil {

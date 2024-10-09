@@ -13,12 +13,12 @@ import (
 	"github.com/ava-labs/avalanchego/utils/linked"
 	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/avalanchego/vms/platformvm/block"
+	basecfg "github.com/ava-labs/awm-relayer/config"
 	"github.com/ava-labs/awm-relayer/peers/validators"
 	"go.uber.org/zap"
 )
 
 var (
-	errEmptyProposerHeightCache = errors.New("empty proposer height cache")
 	errFailedToGetCurrentHeight = errors.New("failed to get current P-chain height")
 )
 
@@ -26,36 +26,35 @@ const pChainLookback = 30 * time.Second
 
 type ProposerHeightCache struct {
 	logger       logging.Logger
-	pChainClient validators.CanonicalValidatorClient
+	pChainClient *validators.CanonicalValidatorClient
 	// protected by timeToHeightLock
 	timeToHeight     *linked.Hashmap[time.Time, uint64]
 	updateInterval   time.Duration
 	timeToHeightLock sync.RWMutex
 
-	// value kept separately since we might end up with an empty cache if there have been no new blocks within the pChainLookback period
-	// needs to be accessed in a thread-safe manner
-	currentMaxHeight *uint64
+	// value kept separately since we might end up with an empty cache if there have been
+	// no new blocks within the pChainLookback period needs to be accessed via [atomic]
+	currentMaxHeight uint64
 }
 
-func newProposerHeightCache(
+func NewProposerHeightCache(
 	logger logging.Logger,
-	pChainClient validators.CanonicalValidatorClient,
+	pChainApiConfig *basecfg.APIConfig,
 	updateInterval time.Duration,
 ) (*ProposerHeightCache, error) {
+	pChainClient := validators.NewCanonicalValidatorClient(logger, pChainApiConfig)
 	pHeightCache := &ProposerHeightCache{
 		logger:         logger,
 		pChainClient:   pChainClient,
 		timeToHeight:   linked.NewHashmap[time.Time, uint64](),
 		updateInterval: updateInterval,
 	}
-	// Do an initial update to populate the cache
-	// and set initial [currentMaxHeight] value
-	// TODO: Consider doing specialized initialization that populates cache with values up to [pChainLookback] in the past
-	pHeightCache.updateData()
-	if atomic.LoadUint64(pHeightCache.currentMaxHeight) == 0 {
+	// Initialize [currentMaxHeight] value
+	currentHeight, err := pChainClient.GetCurrentHeight(context.Background())
+	if err != nil {
 		return nil, errFailedToGetCurrentHeight
-
 	}
+	atomic.StoreUint64(&pHeightCache.currentMaxHeight, currentHeight)
 	return pHeightCache, nil
 }
 
@@ -84,7 +83,7 @@ func (p *ProposerHeightCache) updateData() {
 	}
 	// If currentMaxHeight is already in the cache, no need to update
 	// or evict old entries.
-	currentMaxHeight := atomic.LoadUint64(p.currentMaxHeight)
+	currentMaxHeight := atomic.LoadUint64(&p.currentMaxHeight)
 	if currentMaxHeight == height {
 		return
 	}
@@ -138,18 +137,18 @@ func (p *ProposerHeightCache) writeTimeForHeight(height uint64) error {
 	banffBlockTime := banffBlock.Timestamp()
 
 	p.timeToHeight.Put(banffBlockTime, height)
-	atomic.StoreUint64(p.currentMaxHeight, height)
+	atomic.StoreUint64(&p.currentMaxHeight, height)
 	return nil
 }
 
 // GetOptimalHeight returns a best guess for a proposerVM height of the P-chain
 // using the most recent block time that is at least pChainLookback in the past.
-func (p *ProposerHeightCache) GetOptimalHeight() (uint64, error) {
+func (p *ProposerHeightCache) GetOptimalHeight() uint64 {
 	p.timeToHeightLock.RLock()
 	defer p.timeToHeightLock.RUnlock()
 
 	if p.timeToHeight.Len() == 0 {
-		return 0, errEmptyProposerHeightCache
+		return atomic.LoadUint64(&p.currentMaxHeight) - 1
 	}
 	// declaring variables outside of loop to have access to them after the loop
 	// is finished
@@ -160,11 +159,11 @@ func (p *ProposerHeightCache) GetOptimalHeight() (uint64, error) {
 	for it.Next() {
 		t, height = it.Key(), it.Value()
 		if time.Since(t) < pChainLookback {
-			return height - 1, nil
+			return height - 1
 		}
 	}
 
 	// If this is reached the cache only contains entries older than pChainLookback
 	// so we return the parent of the most recent height
-	return atomic.LoadUint64(p.currentMaxHeight) - 1, nil
+	return atomic.LoadUint64(&p.currentMaxHeight) - 1
 }

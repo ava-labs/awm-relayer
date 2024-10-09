@@ -67,6 +67,10 @@ func (v *CanonicalValidatorClient) GetCurrentHeight(ctx context.Context) (uint64
 	return v.client.GetHeight(ctx, v.options...)
 }
 
+func (v *CanonicalValidatorClient) GetBlockByHeight(ctx context.Context, height uint64) ([]byte, error) {
+	return v.client.GetBlockByHeight(ctx, height, v.options...)
+}
+
 func (v *CanonicalValidatorClient) GetSubnetID(ctx context.Context, blockchainID ids.ID) (ids.ID, error) {
 	return v.client.ValidatedBy(ctx, blockchainID, v.options...)
 }

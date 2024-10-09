@@ -237,14 +237,14 @@ func (n *appRequestNetwork) ConnectToCanonicalValidators(
 			)
 			return nil, err
 		}
-		// Get the subnet's current canonical validator set
-		if err != nil {
-			return nil, err
-		}
 	}
 
 	startPChainAPICall := time.Now()
+	// Get the subnet's current canonical validator set at the supplied height
 	validatorSet, totalValidatorWeight, err := n.validatorClient.GetCanonicalValidatorSet(height, subnetID)
+	if err != nil {
+		return nil, err
+	}
 	n.setPChainAPICallLatencyMS(float64(time.Since(startPChainAPICall).Milliseconds()))
 
 	// We make queries to node IDs, not unique validators as represented by a BLS pubkey, so we need this map to track
