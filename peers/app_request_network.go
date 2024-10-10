@@ -11,9 +11,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ava-labs/avalanchego/api/info"
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/message"
 	"github.com/ava-labs/avalanchego/network"
+	"github.com/ava-labs/avalanchego/network/peer"
 	avagoCommon "github.com/ava-labs/avalanchego/snow/engine/common"
 	snowVdrs "github.com/ava-labs/avalanchego/snow/validators"
 	"github.com/ava-labs/avalanchego/subnets"
@@ -58,6 +60,8 @@ type appRequestNetwork struct {
 	lock            *sync.Mutex
 	validatorClient *validators.CanonicalValidatorClient
 	metrics         *AppRequestNetworkMetrics
+	// endpoints for peers otherwise not available on canonical peers
+	extraPeerEndpoints []string
 }
 
 // NewNetwork creates a p2p network client for interacting with validators
@@ -65,6 +69,7 @@ func NewNetwork(
 	logLevel logging.Level,
 	registerer prometheus.Registerer,
 	trackedSubnets set.Set[ids.ID],
+	extraPeerEndpoints []string,
 	cfg Config,
 ) (AppRequestNetwork, error) {
 	logger := logging.NewLogger(
@@ -121,13 +126,14 @@ func NewNetwork(
 	validatorClient := validators.NewCanonicalValidatorClient(logger, cfg.GetPChainAPI())
 
 	arNetwork := &appRequestNetwork{
-		network:         testNetwork,
-		handler:         handler,
-		infoAPI:         infoAPI,
-		logger:          logger,
-		lock:            new(sync.Mutex),
-		validatorClient: validatorClient,
-		metrics:         metrics,
+		network:            testNetwork,
+		handler:            handler,
+		infoAPI:            infoAPI,
+		logger:             logger,
+		lock:               new(sync.Mutex),
+		validatorClient:    validatorClient,
+		metrics:            metrics,
+		extraPeerEndpoints: extraPeerEndpoints,
 	}
 	go logger.RecoverAndPanic(func() {
 		testNetwork.Dispatch()
@@ -163,6 +169,35 @@ func (n *appRequestNetwork) ConnectPeers(nodeIDs set.Set[ids.NodeID]) set.Set[id
 			zap.Error(err),
 		)
 		return nil
+	}
+
+	// Add specific endpoints not available at canonical peers
+	for _, endpoint := range n.extraPeerEndpoints {
+		client := info.NewClient(endpoint)
+		nodeID, _, err := client.GetNodeID(context.Background())
+		if err != nil {
+			n.logger.Error(
+				"Failed to get node ID for extra peer",
+				zap.String("endpoint", endpoint),
+				zap.Error(err),
+			)
+			return nil
+		}
+		IP, err := client.GetNodeIP(context.Background())
+		if err != nil {
+			n.logger.Error(
+				"Failed to get node IP for extra peer",
+				zap.String("endpoint", endpoint),
+				zap.Error(err),
+			)
+			return nil
+		}
+		peers = append(peers, info.Peer{
+			Info: peer.Info{
+				ID:       nodeID,
+				PublicIP: IP,
+			},
+		})
 	}
 
 	// Attempt to connect to each peer

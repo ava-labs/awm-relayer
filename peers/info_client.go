@@ -72,6 +72,6 @@ func (i *InfoAPI) Peers(ctx context.Context) ([]info.Peer, error) {
 	return i.client.Peers(ctx, i.options...)
 }
 
-func (i *InfoAPI) Uptime(ctx context.Context, subnetID ids.ID) (*info.UptimeResponse, error) {
-	return i.client.Uptime(ctx, subnetID, i.options...)
+func (i *InfoAPI) Uptime(ctx context.Context) (*info.UptimeResponse, error) {
+	return i.client.Uptime(ctx, i.options...)
 }
