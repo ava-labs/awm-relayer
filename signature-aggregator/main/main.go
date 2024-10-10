@@ -4,11 +4,13 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/ava-labs/avalanchego/message"
 	"github.com/ava-labs/avalanchego/utils/constants"
@@ -111,12 +113,24 @@ func main() {
 	registry := metrics.Initialize(cfg.MetricsPort)
 	metricsInstance := metrics.NewSignatureAggregatorMetrics(registry)
 
+	proposerHeightCache, err := aggregator.NewProposerHeightCache(
+		logger,
+		cfg.GetPChainAPI(),
+		time.Second*2,
+	)
+	if err != nil {
+		logger.Fatal("Failed to create proposer height cache", zap.Error(err))
+		panic(err)
+	}
+	proposerHeightCache.Start(context.Background())
+
 	signatureAggregator, err := aggregator.NewSignatureAggregator(
 		network,
 		logger,
 		cfg.SignatureCacheSize,
 		metricsInstance,
 		messageCreator,
+		proposerHeightCache,
 		cfg.EtnaTime,
 	)
 	if err != nil {

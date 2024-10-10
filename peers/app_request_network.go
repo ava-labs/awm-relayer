@@ -32,7 +32,7 @@ const (
 
 type AppRequestNetwork interface {
 	ConnectPeers(nodeIDs set.Set[ids.NodeID]) set.Set[ids.NodeID]
-	ConnectToCanonicalValidators(subnetID ids.ID) (
+	ConnectToCanonicalValidators(height uint64, subnetID ids.ID) (
 		*ConnectedCanonicalValidators,
 		error,
 	)
@@ -222,14 +222,31 @@ func (c *ConnectedCanonicalValidators) GetValidator(nodeID ids.NodeID) (*warp.Va
 
 // ConnectToCanonicalValidators connects to the canonical validators of the given subnet and returns the connected
 // validator information
-func (n *appRequestNetwork) ConnectToCanonicalValidators(subnetID ids.ID) (*ConnectedCanonicalValidators, error) {
-	// Get the subnet's current canonical validator set
+func (n *appRequestNetwork) ConnectToCanonicalValidators(
+	height uint64,
+	subnetID ids.ID,
+) (*ConnectedCanonicalValidators, error) {
+	var err error
+
+	if height == 0 {
+		height, err = n.validatorClient.GetCurrentHeight(context.Background())
+		if err != nil {
+			n.logger.Error(
+				"Failed to get P-Chain height",
+				zap.Error(err),
+			)
+			return nil, err
+		}
+	}
+
 	startPChainAPICall := time.Now()
-	validatorSet, totalValidatorWeight, err := n.validatorClient.GetCurrentCanonicalValidatorSet(subnetID)
-	n.setPChainAPICallLatencyMS(float64(time.Since(startPChainAPICall).Milliseconds()))
+	// Get the subnet's current canonical validator set at the supplied height
+	validatorSet, totalValidatorWeight, err := n.validatorClient.GetCanonicalValidatorSet(height, subnetID)
 	if err != nil {
 		return nil, err
 	}
+	n.setPChainAPICallLatencyMS(float64(time.Since(startPChainAPICall).Milliseconds()))
+
 	// We make queries to node IDs, not unique validators as represented by a BLS pubkey, so we need this map to track
 	// responses from nodes and populate the signatureMap with the corresponding validator signature
 	// This maps node IDs to the index in the canonical validator set
