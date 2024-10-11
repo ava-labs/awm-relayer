@@ -61,7 +61,7 @@ type appRequestNetwork struct {
 	metrics         *AppRequestNetworkMetrics
 
 	// Nodes that we should connect to that are not publicly discoverable.
-	// Should only be used for local or custom networks where validators are not
+	// Should only be used for local or custom blockchains where validators are not
 	// publicly discoverable by primary network nodes.
 	manuallyTrackedPeers []info.Peer
 }
