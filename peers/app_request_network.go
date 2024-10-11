@@ -220,8 +220,8 @@ func (c *ConnectedCanonicalValidators) GetValidator(nodeID ids.NodeID) (*warp.Va
 	return c.ValidatorSet[c.NodeValidatorIndexMap[nodeID]], c.NodeValidatorIndexMap[nodeID]
 }
 
-// ConnectToCanonicalValidators connects to the canonical validators of the given subnet and returns the connected
-// validator information
+// ConnectToCanonicalValidators connects to the canonical validators of the given subnet at given P-Chain height
+// and returns the connected validator information. If height is 0, the current P-Chain height is used.
 func (n *appRequestNetwork) ConnectToCanonicalValidators(
 	height uint64,
 	subnetID ids.ID,
@@ -241,7 +241,13 @@ func (n *appRequestNetwork) ConnectToCanonicalValidators(
 
 	startPChainAPICall := time.Now()
 	// Get the subnet's current canonical validator set at the supplied height
-	validatorSet, totalValidatorWeight, err := n.validatorClient.GetCanonicalValidatorSet(height, subnetID)
+	validatorSet, totalValidatorWeight, err := warp.GetCanonicalValidatorSet(
+		context.Background(),
+		n.validatorClient,
+		height,
+		subnetID,
+	)
+
 	if err != nil {
 		return nil, err
 	}

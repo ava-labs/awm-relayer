@@ -11,7 +11,6 @@ import (
 	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/avalanchego/utils/rpc"
 	"github.com/ava-labs/avalanchego/vms/platformvm"
-	avalancheWarp "github.com/ava-labs/avalanchego/vms/platformvm/warp"
 	"github.com/ava-labs/awm-relayer/config"
 	"github.com/ava-labs/awm-relayer/peers/utils"
 	"go.uber.org/zap"
@@ -34,29 +33,6 @@ func NewCanonicalValidatorClient(logger logging.Logger, apiConfig *config.APICon
 		client:  client,
 		options: options,
 	}
-}
-
-func (v *CanonicalValidatorClient) GetCanonicalValidatorSet(
-	height uint64,
-	subnetID ids.ID,
-) ([]*avalancheWarp.Validator, uint64, error) {
-	// Get the current canonical validator set of the source subnet.
-	canonicalSubnetValidators, totalValidatorWeight, err := avalancheWarp.GetCanonicalValidatorSet(
-		context.Background(),
-		v,
-		height,
-		subnetID,
-	)
-	if err != nil {
-		v.logger.Error(
-			"Failed to get the canonical subnet validator set",
-			zap.String("subnetID", subnetID.String()),
-			zap.Error(err),
-		)
-		return nil, 0, err
-	}
-
-	return canonicalSubnetValidators, totalValidatorWeight, nil
 }
 
 func (v *CanonicalValidatorClient) GetMinimumHeight(ctx context.Context) (uint64, error) {
