@@ -15,7 +15,6 @@ import (
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/message"
 	"github.com/ava-labs/avalanchego/network"
-	"github.com/ava-labs/avalanchego/network/peer"
 	avagoCommon "github.com/ava-labs/avalanchego/snow/engine/common"
 	snowVdrs "github.com/ava-labs/avalanchego/snow/validators"
 	"github.com/ava-labs/avalanchego/subnets"
@@ -60,16 +59,19 @@ type appRequestNetwork struct {
 	lock            *sync.Mutex
 	validatorClient *validators.CanonicalValidatorClient
 	metrics         *AppRequestNetworkMetrics
-	// endpoints for peers otherwise not available on canonical peers
-	extraPeerEndpoints []string
+
+	// Nodes that we should connect to that are not publicly discoverable.
+	// Should only be used local or custom networks where validators are not
+	// publicly discoverable to the primary network.
+	manuallyTrackedPeers []info.Peer
 }
 
-// NewNetwork creates a p2p network client for interacting with validators
+// NewNetwork creates a P2P network client for interacting with validators
 func NewNetwork(
 	logLevel logging.Level,
 	registerer prometheus.Registerer,
 	trackedSubnets set.Set[ids.ID],
-	extraPeerEndpoints []string,
+	manuallyTrackedPeers []info.Peer,
 	cfg Config,
 ) (AppRequestNetwork, error) {
 	logger := logging.NewLogger(
@@ -126,14 +128,14 @@ func NewNetwork(
 	validatorClient := validators.NewCanonicalValidatorClient(logger, cfg.GetPChainAPI())
 
 	arNetwork := &appRequestNetwork{
-		network:            testNetwork,
-		handler:            handler,
-		infoAPI:            infoAPI,
-		logger:             logger,
-		lock:               new(sync.Mutex),
-		validatorClient:    validatorClient,
-		metrics:            metrics,
-		extraPeerEndpoints: extraPeerEndpoints,
+		network:              testNetwork,
+		handler:              handler,
+		infoAPI:              infoAPI,
+		logger:               logger,
+		lock:                 new(sync.Mutex),
+		validatorClient:      validatorClient,
+		metrics:              metrics,
+		manuallyTrackedPeers: manuallyTrackedPeers,
 	}
 	go logger.RecoverAndPanic(func() {
 		testNetwork.Dispatch()
@@ -160,7 +162,7 @@ func (n *appRequestNetwork) ConnectPeers(nodeIDs set.Set[ids.NodeID]) set.Set[id
 	// re-adding connections to already tracked peers.
 
 	startInfoAPICall := time.Now()
-	// Get the list of peers
+	// Get the list of publicly discoverable peers
 	peers, err := n.infoAPI.Peers(context.Background())
 	n.setInfoAPICallLatencyMS(float64(time.Since(startInfoAPICall).Milliseconds()))
 	if err != nil {
@@ -171,34 +173,8 @@ func (n *appRequestNetwork) ConnectPeers(nodeIDs set.Set[ids.NodeID]) set.Set[id
 		return nil
 	}
 
-	// Add specific endpoints not available at canonical peers
-	for _, endpoint := range n.extraPeerEndpoints {
-		client := info.NewClient(endpoint)
-		nodeID, _, err := client.GetNodeID(context.Background())
-		if err != nil {
-			n.logger.Error(
-				"Failed to get node ID for extra peer",
-				zap.String("endpoint", endpoint),
-				zap.Error(err),
-			)
-			return nil
-		}
-		IP, err := client.GetNodeIP(context.Background())
-		if err != nil {
-			n.logger.Error(
-				"Failed to get node IP for extra peer",
-				zap.String("endpoint", endpoint),
-				zap.Error(err),
-			)
-			return nil
-		}
-		peers = append(peers, info.Peer{
-			Info: peer.Info{
-				ID:       nodeID,
-				PublicIP: IP,
-			},
-		})
-	}
+	// Add manually tracked peers
+	peers = append(peers, n.manuallyTrackedPeers...)
 
 	// Attempt to connect to each peer
 	var trackedNodes set.Set[ids.NodeID]
