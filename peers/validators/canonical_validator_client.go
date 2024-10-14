@@ -1,6 +1,8 @@
 // Copyright (C) 2023, Ava Labs, Inc. All rights reserved.
 // See the file LICENSE for licensing terms.
 
+//go:generate mockgen -source=$GOFILE -destination=./mocks/mock_canonical_validator_client.go -package=mocks
+
 package validators
 
 import (
@@ -16,43 +18,47 @@ import (
 	"go.uber.org/zap"
 )
 
-var _ validators.State = &CanonicalValidatorClient{}
+type CanonicalValidatorClient interface {
+	validators.State
+
+	GetBlockByHeight(context.Context, uint64) ([]byte, error)
+}
 
 // CanonicalValidatorClient wraps platformvm.Client and implements validators.State
-type CanonicalValidatorClient struct {
+type canonicalValidatorClient struct {
 	logger  logging.Logger
 	client  platformvm.Client
 	options []rpc.Option
 }
 
-func NewCanonicalValidatorClient(logger logging.Logger, apiConfig *config.APIConfig) *CanonicalValidatorClient {
+func NewCanonicalValidatorClient(logger logging.Logger, apiConfig *config.APIConfig) CanonicalValidatorClient {
 	client := platformvm.NewClient(apiConfig.BaseURL)
 	options := utils.InitializeOptions(apiConfig)
-	return &CanonicalValidatorClient{
+	return &canonicalValidatorClient{
 		logger:  logger,
 		client:  client,
 		options: options,
 	}
 }
 
-func (v *CanonicalValidatorClient) GetMinimumHeight(ctx context.Context) (uint64, error) {
+func (v *canonicalValidatorClient) GetMinimumHeight(ctx context.Context) (uint64, error) {
 	return v.client.GetHeight(ctx, v.options...)
 }
 
-func (v *CanonicalValidatorClient) GetCurrentHeight(ctx context.Context) (uint64, error) {
+func (v *canonicalValidatorClient) GetCurrentHeight(ctx context.Context) (uint64, error) {
 	return v.client.GetHeight(ctx, v.options...)
 }
 
-func (v *CanonicalValidatorClient) GetBlockByHeight(ctx context.Context, height uint64) ([]byte, error) {
+func (v *canonicalValidatorClient) GetBlockByHeight(ctx context.Context, height uint64) ([]byte, error) {
 	return v.client.GetBlockByHeight(ctx, height, v.options...)
 }
 
-func (v *CanonicalValidatorClient) GetSubnetID(ctx context.Context, blockchainID ids.ID) (ids.ID, error) {
+func (v *canonicalValidatorClient) GetSubnetID(ctx context.Context, blockchainID ids.ID) (ids.ID, error) {
 	return v.client.ValidatedBy(ctx, blockchainID, v.options...)
 }
 
 // Gets the validator set of the given subnet at the given P-chain block height.
-func (v *CanonicalValidatorClient) GetValidatorSet(
+func (v *canonicalValidatorClient) GetValidatorSet(
 	ctx context.Context,
 	height uint64,
 	subnetID ids.ID,

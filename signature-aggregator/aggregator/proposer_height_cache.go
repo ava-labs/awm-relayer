@@ -26,7 +26,7 @@ const pChainLookback = 30 * time.Second
 
 type ProposerHeightCache struct {
 	logger       logging.Logger
-	pChainClient *validators.CanonicalValidatorClient
+	pChainClient validators.CanonicalValidatorClient
 	// protected by timeToHeightLock
 	timeToHeight     *linked.Hashmap[time.Time, uint64]
 	updateInterval   time.Duration

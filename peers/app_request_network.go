@@ -56,7 +56,7 @@ type appRequestNetwork struct {
 	infoAPI         *InfoAPI
 	logger          logging.Logger
 	lock            *sync.Mutex
-	validatorClient *validators.CanonicalValidatorClient
+	validatorClient validators.CanonicalValidatorClient
 	metrics         *AppRequestNetworkMetrics
 }
 
