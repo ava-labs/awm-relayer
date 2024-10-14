@@ -13,7 +13,6 @@ import (
 	"github.com/ava-labs/avalanchego/utils/linked"
 	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/avalanchego/vms/platformvm/block"
-	basecfg "github.com/ava-labs/awm-relayer/config"
 	"github.com/ava-labs/awm-relayer/peers/validators"
 	"go.uber.org/zap"
 )
@@ -39,10 +38,9 @@ type ProposerHeightCache struct {
 
 func NewProposerHeightCache(
 	logger logging.Logger,
-	pChainApiConfig *basecfg.APIConfig,
+	pChainClient validators.CanonicalValidatorClient,
 	updateInterval time.Duration,
 ) (*ProposerHeightCache, error) {
-	pChainClient := validators.NewCanonicalValidatorClient(logger, pChainApiConfig)
 	pHeightCache := &ProposerHeightCache{
 		logger:         logger,
 		pChainClient:   pChainClient,
@@ -88,7 +86,7 @@ func (p *ProposerHeightCache) updateData() {
 		return
 	}
 
-	for i := currentMaxHeight; i < height; i++ {
+	for i := currentMaxHeight + 1; i <= height; i++ {
 		err := p.writeTimeForHeight(i)
 		if err != nil {
 			// Log the warning and continue

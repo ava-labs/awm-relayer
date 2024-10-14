@@ -24,6 +24,7 @@ import (
 	offchainregistry "github.com/ava-labs/awm-relayer/messages/off-chain-registry"
 	"github.com/ava-labs/awm-relayer/messages/teleporter"
 	"github.com/ava-labs/awm-relayer/peers"
+	"github.com/ava-labs/awm-relayer/peers/validators"
 	"github.com/ava-labs/awm-relayer/relayer"
 	"github.com/ava-labs/awm-relayer/relayer/api"
 	"github.com/ava-labs/awm-relayer/relayer/checkpoint"
@@ -220,9 +221,10 @@ func main() {
 		panic(err)
 	}
 
+	canonicalValidatorClient := validators.NewCanonicalValidatorClient(logger, cfg.GetPChainAPI())
 	proposerHeightCache, err := aggregator.NewProposerHeightCache(
 		logger,
-		cfg.GetPChainAPI(),
+		canonicalValidatorClient,
 		time.Second*2,
 	)
 	if err != nil {

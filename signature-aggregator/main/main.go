@@ -16,6 +16,7 @@ import (
 	"github.com/ava-labs/avalanchego/utils/constants"
 	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/awm-relayer/peers"
+	"github.com/ava-labs/awm-relayer/peers/validators"
 	"github.com/ava-labs/awm-relayer/signature-aggregator/aggregator"
 	"github.com/ava-labs/awm-relayer/signature-aggregator/api"
 	"github.com/ava-labs/awm-relayer/signature-aggregator/config"
@@ -113,9 +114,10 @@ func main() {
 	registry := metrics.Initialize(cfg.MetricsPort)
 	metricsInstance := metrics.NewSignatureAggregatorMetrics(registry)
 
+	canonicalValidatorClient := validators.NewCanonicalValidatorClient(logger, cfg.GetPChainAPI())
 	proposerHeightCache, err := aggregator.NewProposerHeightCache(
 		logger,
-		cfg.GetPChainAPI(),
+		canonicalValidatorClient,
 		time.Second*2,
 	)
 	if err != nil {
