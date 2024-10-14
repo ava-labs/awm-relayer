@@ -150,14 +150,10 @@ func (p *ProposerHeightCache) GetOptimalHeight() uint64 {
 	if p.timeToHeight.Len() == 0 {
 		return atomic.LoadUint64(&p.currentMaxHeight) - 1
 	}
-	// declaring variables outside of loop to have access to them after the loop
-	// is finished
-	var t time.Time
-	var height uint64
 
 	it := p.timeToHeight.NewIterator()
 	for it.Next() {
-		t, height = it.Key(), it.Value()
+		t, height := it.Key(), it.Value()
 		if time.Since(t) < pChainLookback {
 			return height - 1
 		}
