@@ -15,7 +15,6 @@ import (
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/message"
 	"github.com/ava-labs/avalanchego/network"
-	"github.com/ava-labs/avalanchego/network/peer"
 	avagoCommon "github.com/ava-labs/avalanchego/snow/engine/common"
 	snowVdrs "github.com/ava-labs/avalanchego/snow/validators"
 	"github.com/ava-labs/avalanchego/subnets"
@@ -61,7 +60,7 @@ type appRequestNetwork struct {
 	validatorClient *validators.CanonicalValidatorClient
 	metrics         *AppRequestNetworkMetrics
 	// endpoints for peers otherwise not available on canonical peers
-	extraPeerEndpoints []string
+	extraPeerEndpoints []info.Peer
 }
 
 // NewNetwork creates a p2p network client for interacting with validators
@@ -69,7 +68,7 @@ func NewNetwork(
 	logLevel logging.Level,
 	registerer prometheus.Registerer,
 	trackedSubnets set.Set[ids.ID],
-	extraPeerEndpoints []string,
+	extraPeerEndpoints []info.Peer,
 	cfg Config,
 ) (AppRequestNetwork, error) {
 	logger := logging.NewLogger(
@@ -172,33 +171,7 @@ func (n *appRequestNetwork) ConnectPeers(nodeIDs set.Set[ids.NodeID]) set.Set[id
 	}
 
 	// Add specific endpoints not available at canonical peers
-	for _, endpoint := range n.extraPeerEndpoints {
-		client := info.NewClient(endpoint)
-		nodeID, _, err := client.GetNodeID(context.Background())
-		if err != nil {
-			n.logger.Error(
-				"Failed to get node ID for extra peer",
-				zap.String("endpoint", endpoint),
-				zap.Error(err),
-			)
-			return nil
-		}
-		IP, err := client.GetNodeIP(context.Background())
-		if err != nil {
-			n.logger.Error(
-				"Failed to get node IP for extra peer",
-				zap.String("endpoint", endpoint),
-				zap.Error(err),
-			)
-			return nil
-		}
-		peers = append(peers, info.Peer{
-			Info: peer.Info{
-				ID:       nodeID,
-				PublicIP: IP,
-			},
-		})
-	}
+	peers = append(peers, n.extraPeerEndpoints...)
 
 	// Attempt to connect to each peer
 	var trackedNodes set.Set[ids.NodeID]
