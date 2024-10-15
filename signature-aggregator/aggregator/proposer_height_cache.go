@@ -21,7 +21,10 @@ var (
 	errFailedToGetCurrentHeight = errors.New("failed to get current P-chain height")
 )
 
-const pChainLookback = 30 * time.Second
+const (
+	pChainLookback      = 30 * time.Second
+	maxHeightDifference = 30
+)
 
 type ProposerHeightCache struct {
 	logger       logging.Logger
@@ -84,6 +87,13 @@ func (p *ProposerHeightCache) updateData() {
 	currentMaxHeight := atomic.LoadUint64(&p.currentMaxHeight)
 	if currentMaxHeight == height {
 		return
+	}
+
+	// If we are very behind the current height we don't want
+	// to query for every height but start catching up from
+	// [maxHeightdifference] behind the current height.
+	if height-currentMaxHeight > maxHeightDifference {
+		currentMaxHeight = height - maxHeightDifference
 	}
 
 	for i := currentMaxHeight + 1; i <= height; i++ {
