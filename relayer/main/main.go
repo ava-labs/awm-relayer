@@ -231,7 +231,10 @@ func main() {
 		logger.Fatal("Failed to create proposer height cache", zap.Error(err))
 		panic(err)
 	}
-	proposerHeightCache.Start(context.Background())
+
+	proposerHeightCacheCtx, cancelFunc := context.WithCancel(context.Background())
+	defer cancelFunc()
+	proposerHeightCache.Start(proposerHeightCacheCtx)
 
 	signatureAggregator, err := aggregator.NewSignatureAggregator(
 		network,
