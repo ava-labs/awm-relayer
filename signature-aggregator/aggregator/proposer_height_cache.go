@@ -26,6 +26,11 @@ const (
 	maxHeightDifference = 30
 )
 
+// ProposerHeightCache stores a list of recently accepted P-chain block heights and their blockTimes
+// It exposes [GetOptimalHeight] method which returns the best guess for a proposerVM height of the P-chain
+// that will result in a valid aggregated signature.
+// ProposerVM currently uses the most recent block height outside of the 30 seconds lookback window.
+// This struct reconstructs this value by querying for current height and block times for recent chain heights.
 type ProposerHeightCache struct {
 	logger       logging.Logger
 	pChainClient validators.CanonicalValidatorClient
