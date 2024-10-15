@@ -133,7 +133,8 @@ func TestProposerHeightWriteHeightErrors(t *testing.T) {
 	// assert that GetCurrentHeight will be called 3 times for all of the following 3 failing tests
 	mockClient.EXPECT().GetCurrentHeight(gomock.Any()).Return(startCurrentHeight+1, nil).Times(3)
 	// test failing to get a block
-	mockClient.EXPECT().GetBlockByHeight(gomock.Any(), gomock.Any()).Return(nil, errors.New("Failed to get block")).Times(1)
+	mockClient.EXPECT().GetBlockByHeight(gomock.Any(), gomock.Any()).
+		Return(nil, errors.New("Failed to get block")).Times(1)
 
 	proposerHeights.updateData()
 	require.Equal(t, startCurrentHeight, atomic.LoadUint64(&proposerHeights.currentMaxHeight))
