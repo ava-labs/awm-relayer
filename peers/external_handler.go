@@ -53,7 +53,7 @@ func NewRelayerExternalHandler(
 		TimeoutHalflife:    constants.DefaultNetworkTimeoutHalflife,
 	}
 
-	timeoutManager, err := timer.NewAdaptiveTimeoutManager(&cfg, prometheus.DefaultRegisterer)
+	timeoutManager, err := timer.NewAdaptiveTimeoutManager(&cfg, prometheus.NewRegistry())
 	if err != nil {
 		logger.Error(
 			"Failed to create timeout manager",
