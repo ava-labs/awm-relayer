@@ -213,12 +213,12 @@ type ConnectedCanonicalValidators struct {
 	ConnectedWeight       uint64
 	TotalValidatorWeight  uint64
 	ValidatorSet          []*warp.Validator
-	nodeValidatorIndexMap map[ids.NodeID]int
+	NodeValidatorIndexMap map[ids.NodeID]int
 }
 
 // Returns the Warp Validator and its index in the canonical Validator ordering for a given nodeID
 func (c *ConnectedCanonicalValidators) GetValidator(nodeID ids.NodeID) (*warp.Validator, int) {
-	return c.ValidatorSet[c.nodeValidatorIndexMap[nodeID]], c.nodeValidatorIndexMap[nodeID]
+	return c.ValidatorSet[c.NodeValidatorIndexMap[nodeID]], c.NodeValidatorIndexMap[nodeID]
 }
 
 // ConnectToCanonicalValidators connects to the canonical validators of the given subnet and returns the connected
@@ -256,7 +256,7 @@ func (n *appRequestNetwork) ConnectToCanonicalValidators(subnetID ids.ID) (*Conn
 		ConnectedWeight:       connectedWeight,
 		TotalValidatorWeight:  totalValidatorWeight,
 		ValidatorSet:          validatorSet,
-		nodeValidatorIndexMap: nodeValidatorIndexMap,
+		NodeValidatorIndexMap: nodeValidatorIndexMap,
 	}, nil
 }
 
