@@ -250,17 +250,7 @@ func (n *appRequestNetwork) ConnectToCanonicalValidators(subnetID ids.ID) (*Conn
 	connectedNodes := n.ConnectPeers(nodeIDs)
 
 	// Calculate the total weight of connected validators.
-	connectedBLSPubKeys := set.NewSet[string](len(validatorSet))
-	connectedWeight := uint64(0)
-	for node := range connectedNodes {
-		vdr := validatorSet[nodeValidatorIndexMap[node]]
-		blsPubKey := hex.EncodeToString(vdr.PublicKeyBytes)
-		if connectedBLSPubKeys.Contains(blsPubKey) {
-			continue
-		}
-		connectedWeight += vdr.Weight
-		connectedBLSPubKeys.Add(blsPubKey)
-	}
+	connectedWeight := calculateConnectedWeight(validatorSet, nodeValidatorIndexMap, connectedNodes)
 
 	return &ConnectedCanonicalValidators{
 		ConnectedWeight:       connectedWeight,
@@ -299,4 +289,25 @@ func (n *appRequestNetwork) setInfoAPICallLatencyMS(latency float64) {
 
 func (n *appRequestNetwork) setPChainAPICallLatencyMS(latency float64) {
 	n.metrics.pChainAPICallLatencyMS.Observe(latency)
+}
+
+// Non-receiver util functions
+
+func calculateConnectedWeight(
+	validatorSet []*warp.Validator,
+	nodeValidatorIndexMap map[ids.NodeID]int,
+	connectedNodes set.Set[ids.NodeID],
+) uint64 {
+	connectedBLSPubKeys := set.NewSet[string](len(validatorSet))
+	connectedWeight := uint64(0)
+	for node := range connectedNodes {
+		vdr := validatorSet[nodeValidatorIndexMap[node]]
+		blsPubKey := hex.EncodeToString(vdr.PublicKeyBytes)
+		if connectedBLSPubKeys.Contains(blsPubKey) {
+			continue
+		}
+		connectedWeight += vdr.Weight
+		connectedBLSPubKeys.Add(blsPubKey)
+	}
+	return connectedWeight
 }
