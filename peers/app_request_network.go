@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ava-labs/avalanchego/api/info"
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/message"
 	"github.com/ava-labs/avalanchego/network"
@@ -58,6 +59,8 @@ type appRequestNetwork struct {
 	lock            *sync.Mutex
 	validatorClient *validators.CanonicalValidatorClient
 	metrics         *AppRequestNetworkMetrics
+	// endpoints for peers otherwise not available on canonical peers
+	extraPeerEndpoints []info.Peer
 }
 
 // NewNetwork creates a p2p network client for interacting with validators
@@ -65,6 +68,7 @@ func NewNetwork(
 	logLevel logging.Level,
 	registerer prometheus.Registerer,
 	trackedSubnets set.Set[ids.ID],
+	extraPeerEndpoints []info.Peer,
 	cfg Config,
 ) (AppRequestNetwork, error) {
 	logger := logging.NewLogger(
@@ -121,13 +125,14 @@ func NewNetwork(
 	validatorClient := validators.NewCanonicalValidatorClient(logger, cfg.GetPChainAPI())
 
 	arNetwork := &appRequestNetwork{
-		network:         testNetwork,
-		handler:         handler,
-		infoAPI:         infoAPI,
-		logger:          logger,
-		lock:            new(sync.Mutex),
-		validatorClient: validatorClient,
-		metrics:         metrics,
+		network:            testNetwork,
+		handler:            handler,
+		infoAPI:            infoAPI,
+		logger:             logger,
+		lock:               new(sync.Mutex),
+		validatorClient:    validatorClient,
+		metrics:            metrics,
+		extraPeerEndpoints: extraPeerEndpoints,
 	}
 	go logger.RecoverAndPanic(func() {
 		testNetwork.Dispatch()
@@ -164,6 +169,9 @@ func (n *appRequestNetwork) ConnectPeers(nodeIDs set.Set[ids.NodeID]) set.Set[id
 		)
 		return nil
 	}
+
+	// Add specific endpoints not available at canonical peers
+	peers = append(peers, n.extraPeerEndpoints...)
 
 	// Attempt to connect to each peer
 	var trackedNodes set.Set[ids.NodeID]
