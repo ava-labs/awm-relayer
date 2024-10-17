@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ava-labs/avalanchego/api/info"
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/message"
 	"github.com/ava-labs/avalanchego/network"
@@ -58,13 +59,19 @@ type appRequestNetwork struct {
 	lock            *sync.Mutex
 	validatorClient *validators.CanonicalValidatorClient
 	metrics         *AppRequestNetworkMetrics
+
+	// Nodes that we should connect to that are not publicly discoverable.
+	// Should only be used for local or custom blockchains where validators are not
+	// publicly discoverable by primary network nodes.
+	manuallyTrackedPeers []info.Peer
 }
 
-// NewNetwork creates a p2p network client for interacting with validators
+// NewNetwork creates a P2P network client for interacting with validators
 func NewNetwork(
 	logLevel logging.Level,
 	registerer prometheus.Registerer,
 	trackedSubnets set.Set[ids.ID],
+	manuallyTrackedPeers []info.Peer,
 	cfg Config,
 ) (AppRequestNetwork, error) {
 	logger := logging.NewLogger(
@@ -121,13 +128,14 @@ func NewNetwork(
 	validatorClient := validators.NewCanonicalValidatorClient(logger, cfg.GetPChainAPI())
 
 	arNetwork := &appRequestNetwork{
-		network:         testNetwork,
-		handler:         handler,
-		infoAPI:         infoAPI,
-		logger:          logger,
-		lock:            new(sync.Mutex),
-		validatorClient: validatorClient,
-		metrics:         metrics,
+		network:              testNetwork,
+		handler:              handler,
+		infoAPI:              infoAPI,
+		logger:               logger,
+		lock:                 new(sync.Mutex),
+		validatorClient:      validatorClient,
+		metrics:              metrics,
+		manuallyTrackedPeers: manuallyTrackedPeers,
 	}
 	go logger.RecoverAndPanic(func() {
 		testNetwork.Dispatch()
@@ -154,7 +162,7 @@ func (n *appRequestNetwork) ConnectPeers(nodeIDs set.Set[ids.NodeID]) set.Set[id
 	// re-adding connections to already tracked peers.
 
 	startInfoAPICall := time.Now()
-	// Get the list of peers
+	// Get the list of publicly discoverable peers
 	peers, err := n.infoAPI.Peers(context.Background())
 	n.setInfoAPICallLatencyMS(float64(time.Since(startInfoAPICall).Milliseconds()))
 	if err != nil {
@@ -164,6 +172,9 @@ func (n *appRequestNetwork) ConnectPeers(nodeIDs set.Set[ids.NodeID]) set.Set[id
 		)
 		return nil
 	}
+
+	// Add manually tracked peers
+	peers = append(peers, n.manuallyTrackedPeers...)
 
 	// Attempt to connect to each peer
 	var trackedNodes set.Set[ids.NodeID]
