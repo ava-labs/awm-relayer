@@ -8,10 +8,12 @@ set -o pipefail
 
 VERBOSE=
 HELP=
+COVER=
 while [ $# -gt 0 ]; do
     case "$1" in
         -v | --verbose) VERBOSE=-test.v ;;
         -h | --help) HELP=true ;;
+        -c | --cover) COVER="-cover -coverprofile=coverage.txt ";;
     esac
     shift
 done
@@ -23,6 +25,7 @@ if [ "$HELP" = true ]; then
     echo "Options:"
     echo "  -v, --verbose                     Run the test with verbose output"
     echo "  -h, --help                        Print this help message"
+    echo "  -c  --cover                       Generate code coverage report"
     exit 0
 fi
 
@@ -37,4 +40,4 @@ go build -o tests/cmd/decider/decider ./tests/cmd/decider/
 
 "$root"/scripts/generate.sh
 
-go test -tags testing $VERBOSE ./...
+go test -tags testing $VERBOSE $COVER ./...
