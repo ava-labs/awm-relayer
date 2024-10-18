@@ -21,6 +21,7 @@ import (
 type MockRelayerDatabase struct {
 	ctrl     *gomock.Controller
 	recorder *MockRelayerDatabaseMockRecorder
+	isgomock struct{}
 }
 
 // MockRelayerDatabaseMockRecorder is the mock recorder for MockRelayerDatabase.
