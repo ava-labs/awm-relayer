@@ -11,6 +11,7 @@ import (
 	"os"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/ava-labs/avalanchego/api/metrics"
 	"github.com/ava-labs/avalanchego/ids"
@@ -23,6 +24,7 @@ import (
 	offchainregistry "github.com/ava-labs/awm-relayer/messages/off-chain-registry"
 	"github.com/ava-labs/awm-relayer/messages/teleporter"
 	"github.com/ava-labs/awm-relayer/peers"
+	"github.com/ava-labs/awm-relayer/peers/validators"
 	"github.com/ava-labs/awm-relayer/relayer"
 	"github.com/ava-labs/awm-relayer/relayer/api"
 	"github.com/ava-labs/awm-relayer/relayer/checkpoint"
@@ -219,6 +221,21 @@ func main() {
 		panic(err)
 	}
 
+	canonicalValidatorClient := validators.NewCanonicalValidatorClient(logger, cfg.GetPChainAPI())
+	proposerHeightCache, err := aggregator.NewProposerHeightCache(
+		logger,
+		canonicalValidatorClient,
+		time.Second*2,
+	)
+	if err != nil {
+		logger.Fatal("Failed to create proposer height cache", zap.Error(err))
+		panic(err)
+	}
+
+	proposerHeightCacheCtx, cancelFunc := context.WithCancel(context.Background())
+	defer cancelFunc()
+	proposerHeightCache.Start(proposerHeightCacheCtx)
+
 	signatureAggregator, err := aggregator.NewSignatureAggregator(
 		network,
 		logger,
@@ -227,6 +244,7 @@ func main() {
 			prometheus.DefaultRegisterer,
 		),
 		messageCreator,
+		proposerHeightCache,
 		cfg.EtnaTime,
 	)
 	if err != nil {

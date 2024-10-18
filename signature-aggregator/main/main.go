@@ -4,16 +4,19 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/ava-labs/avalanchego/message"
 	"github.com/ava-labs/avalanchego/utils/constants"
 	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/awm-relayer/peers"
+	"github.com/ava-labs/awm-relayer/peers/validators"
 	"github.com/ava-labs/awm-relayer/signature-aggregator/aggregator"
 	"github.com/ava-labs/awm-relayer/signature-aggregator/api"
 	"github.com/ava-labs/awm-relayer/signature-aggregator/config"
@@ -111,12 +114,27 @@ func main() {
 	registry := metrics.Initialize(cfg.MetricsPort)
 	metricsInstance := metrics.NewSignatureAggregatorMetrics(registry)
 
+	canonicalValidatorClient := validators.NewCanonicalValidatorClient(logger, cfg.GetPChainAPI())
+	proposerHeightCache, err := aggregator.NewProposerHeightCache(
+		logger,
+		canonicalValidatorClient,
+		time.Second*2,
+	)
+	if err != nil {
+		logger.Fatal("Failed to create proposer height cache", zap.Error(err))
+		panic(err)
+	}
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	defer cancelFunc()
+	proposerHeightCache.Start(ctx)
+
 	signatureAggregator, err := aggregator.NewSignatureAggregator(
 		network,
 		logger,
 		cfg.SignatureCacheSize,
 		metricsInstance,
 		messageCreator,
+		proposerHeightCache,
 		cfg.EtnaTime,
 	)
 	if err != nil {

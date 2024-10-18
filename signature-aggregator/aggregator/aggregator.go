@@ -64,6 +64,7 @@ type SignatureAggregator struct {
 	subnetsMapLock          sync.RWMutex
 	metrics                 *metrics.SignatureAggregatorMetrics
 	cache                   *cache.Cache
+	proposerHeightCache     *ProposerHeightCache
 	etnaTime                time.Time
 }
 
@@ -73,6 +74,7 @@ func NewSignatureAggregator(
 	signatureCacheSize uint64,
 	metrics *metrics.SignatureAggregatorMetrics,
 	messageCreator message.Creator,
+	proposerHeightCache *ProposerHeightCache,
 	etnaTime time.Time,
 ) (*SignatureAggregator, error) {
 	cache, err := cache.NewCache(signatureCacheSize, logger)
@@ -101,6 +103,7 @@ func (s *SignatureAggregator) CreateSignedMessage(
 	justification []byte,
 	inputSigningSubnet ids.ID,
 	quorumPercentage uint64,
+	pChainHeight uint64,
 ) (*avalancheWarp.Message, error) {
 	var signingSubnet ids.ID
 	var err error
@@ -118,7 +121,12 @@ func (s *SignatureAggregator) CreateSignedMessage(
 		signingSubnet = inputSigningSubnet
 	}
 
-	connectedValidators, err := s.network.ConnectToCanonicalValidators(signingSubnet)
+	// only fetch proposer height if it's not provided and the proposerHeightCache is configured
+	if pChainHeight == 0 && s.proposerHeightCache != nil {
+		pChainHeight = s.proposerHeightCache.GetOptimalHeight()
+	}
+
+	connectedValidators, err := s.network.ConnectToCanonicalValidators(pChainHeight, signingSubnet)
 	if err != nil {
 		msg := "Failed to connect to canonical validators"
 		s.logger.Error(
