@@ -24,6 +24,7 @@ import (
 type MockMessageHandlerFactory struct {
 	ctrl     *gomock.Controller
 	recorder *MockMessageHandlerFactoryMockRecorder
+	isgomock struct{}
 }
 
 // MockMessageHandlerFactoryMockRecorder is the mock recorder for MockMessageHandlerFactory.
@@ -62,6 +63,7 @@ func (mr *MockMessageHandlerFactoryMockRecorder) NewMessageHandler(unsignedMessa
 type MockMessageHandler struct {
 	ctrl     *gomock.Controller
 	recorder *MockMessageHandlerMockRecorder
+	isgomock struct{}
 }
 
 // MockMessageHandlerMockRecorder is the mock recorder for MockMessageHandler.

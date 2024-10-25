@@ -24,6 +24,7 @@ import (
 type MockAppRequestNetwork struct {
 	ctrl     *gomock.Controller
 	recorder *MockAppRequestNetworkMockRecorder
+	isgomock struct{}
 }
 
 // MockAppRequestNetworkMockRecorder is the mock recorder for MockAppRequestNetwork.
