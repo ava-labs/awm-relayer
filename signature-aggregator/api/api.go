@@ -12,9 +12,9 @@ import (
 
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/utils/logging"
+	"github.com/ava-labs/awm-relayer/messages"
 	"github.com/ava-labs/awm-relayer/signature-aggregator/aggregator"
 	"github.com/ava-labs/awm-relayer/signature-aggregator/metrics"
-	"github.com/ava-labs/awm-relayer/types"
 	"github.com/ava-labs/awm-relayer/utils"
 	"go.uber.org/zap"
 )
@@ -119,7 +119,7 @@ func signatureAggregationAPIHandler(
 			writeJSONError(logger, w, http.StatusBadRequest, msg)
 			return
 		}
-		message, err := types.UnpackWarpMessage(decodedMessage)
+		message, err := messages.UnpackWarpMessage(decodedMessage)
 		if err != nil {
 			msg := "Error unpacking warp message"
 			logger.Warn(msg, zap.Error(err))

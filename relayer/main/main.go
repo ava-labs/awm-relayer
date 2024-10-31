@@ -20,6 +20,7 @@ import (
 	"github.com/ava-labs/avalanchego/utils/set"
 	"github.com/ava-labs/awm-relayer/database"
 	"github.com/ava-labs/awm-relayer/messages"
+	"github.com/ava-labs/awm-relayer/messages/chainlink"
 	offchainregistry "github.com/ava-labs/awm-relayer/messages/off-chain-registry"
 	"github.com/ava-labs/awm-relayer/messages/teleporter"
 	"github.com/ava-labs/awm-relayer/peers"
@@ -251,11 +252,17 @@ func main() {
 		logger.Fatal("Failed to create application relayers", zap.Error(err))
 		panic(err)
 	}
+	messagesDecoders, err := createMessageDecoders(logger, &cfg)
+	if err != nil {
+		logger.Fatal("Failed to create application relayers", zap.Error(err))
+		panic(err)
+	}
 	messageCoordinator := relayer.NewMessageCoordinator(
 		logger,
 		messageHandlerFactories,
 		applicationRelayers,
 		sourceClients,
+		messagesDecoders,
 	)
 
 	// Each Listener goroutine will have an atomic bool that it can set to false to indicate an unrecoverable error
@@ -321,6 +328,11 @@ func createMessageHandlerFactories(
 					logger,
 					cfg,
 				)
+			case config.CHAINLINK_PRICE_FEED:
+				m, err = chainlink.NewMessageHandlerFactory(
+					logger,
+					cfg,
+				)
 			default:
 				m, err = nil, fmt.Errorf("invalid message format %s", format)
 			}
@@ -333,6 +345,34 @@ func createMessageHandlerFactories(
 		messageHandlerFactories[sourceBlockchain.GetBlockchainID()] = messageHandlerFactoriesForSource
 	}
 	return messageHandlerFactories, nil
+}
+
+func createMessageDecoders(logger logging.Logger, globalConfig *config.Config) ([]messages.MessageDecoder, error) {
+	messageDecoders := make([]messages.MessageDecoder, 0)
+	for _, sourceBlockchain := range globalConfig.SourceBlockchains {
+		// Create message decoder for each supported message protocol
+		for _, cfg := range sourceBlockchain.MessageContracts {
+			format := cfg.MessageFormat
+			var (
+				m   messages.MessageDecoder
+				err error
+			)
+			switch config.ParseMessageProtocol(format) {
+			case config.TELEPORTER, config.OFF_CHAIN_REGISTRY:
+				m = messages.WarpMessageDecoder{}
+			case config.CHAINLINK_PRICE_FEED:
+				m, err = chainlink.NewMessageDecoder(cfg)
+			default:
+				m, err = nil, fmt.Errorf("invalid message format %s", format)
+			}
+			if err != nil {
+				logger.Error("Failed to create message handler factory", zap.Error(err))
+				return nil, err
+			}
+			messageDecoders = append(messageDecoders, m)
+		}
+	}
+	return messageDecoders, nil
 }
 
 func createSourceClients(

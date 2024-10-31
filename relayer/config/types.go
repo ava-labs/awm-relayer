@@ -37,6 +37,7 @@ const (
 	UNKNOWN_MESSAGE_PROTOCOL MessageProtocol = iota
 	TELEPORTER
 	OFF_CHAIN_REGISTRY
+	CHAINLINK_PRICE_FEED
 )
 
 func (msg MessageProtocol) String() string {
@@ -57,6 +58,8 @@ func ParseMessageProtocol(msg string) MessageProtocol {
 		return TELEPORTER
 	case "off-chain-registry":
 		return OFF_CHAIN_REGISTRY
+	case "chainlink":
+		return CHAINLINK_PRICE_FEED
 	default:
 		return UNKNOWN_MESSAGE_PROTOCOL
 	}

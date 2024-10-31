@@ -31,6 +31,7 @@ type MessageCoordinator struct {
 	messageHandlerFactories map[ids.ID]map[common.Address]messages.MessageHandlerFactory
 	applicationRelayers     map[common.Hash]*ApplicationRelayer
 	sourceClients           map[ids.ID]ethclient.Client
+	messageDecoders         []messages.MessageDecoder
 }
 
 func NewMessageCoordinator(
@@ -38,12 +39,14 @@ func NewMessageCoordinator(
 	messageHandlerFactories map[ids.ID]map[common.Address]messages.MessageHandlerFactory,
 	applicationRelayers map[common.Hash]*ApplicationRelayer,
 	sourceClients map[ids.ID]ethclient.Client,
+	messageDecoders []messages.MessageDecoder,
 ) *MessageCoordinator {
 	return &MessageCoordinator{
 		logger:                  logger,
 		messageHandlerFactories: messageHandlerFactories,
 		applicationRelayers:     applicationRelayers,
 		sourceClients:           sourceClients,
+		messageDecoders:         messageDecoders,
 	}
 }
 
@@ -78,7 +81,7 @@ func (mc *MessageCoordinator) getAppRelayerMessageHandler(
 
 	// Fetch the message delivery data
 	//nolint:lll
-	sourceBlockchainID, originSenderAddress, destinationBlockchainID, destinationAddress, err := messageHandler.GetMessageRoutingInfo()
+	sourceBlockchainID, originSenderAddress, destinationBlockchainID, destinationAddress, err := messageHandler.GetMessageRoutingInfo(warpMessageInfo)
 	if err != nil {
 		mc.logger.Error("Failed to get message routing information", zap.Error(err))
 		return nil, nil, err
@@ -223,17 +226,32 @@ func (mc *MessageCoordinator) ProcessMessageID(
 
 // Meant to be ran asynchronously. Errors should be sent to errChan.
 func (mc *MessageCoordinator) ProcessBlock(
+	ctx context.Context,
 	blockHeader *types.Header,
 	blockchainID ids.ID,
 	ethClient ethclient.Client,
 	errChan chan error,
 ) {
 	// Parse the logs in the block, and group by application relayer
-	block, err := relayerTypes.NewWarpBlockInfo(blockHeader, ethClient)
-	if err != nil {
-		mc.logger.Error("Failed to create Warp block info", zap.Error(err))
-		errChan <- err
-		return
+	number := blockHeader.Number.Uint64()
+	msgs := make([]*relayerTypes.WarpMessageInfo, 0)
+	for _, msgDecoder := range mc.messageDecoders {
+		message, err := msgDecoder.Decode(ctx, blockHeader, ethClient)
+		if err != nil {
+			mc.logger.Error(
+				"Failed to create Warp block info",
+				zap.Uint64("blockNumber", number),
+				zap.String("blockchainID", blockchainID.String()),
+				zap.Error(err),
+			)
+			errChan <- err
+			return
+		}
+		msgs = append(msgs, message...)
+	}
+	block := &relayerTypes.WarpBlockInfo{
+		BlockNumber: number,
+		Messages:    msgs,
 	}
 
 	// Register each message in the block with the appropriate application relayer
@@ -286,5 +304,5 @@ func FetchWarpMessage(
 		return nil, fmt.Errorf("found more than 1 log: %d", len(logs))
 	}
 
-	return relayerTypes.NewWarpMessageInfo(logs[0])
+	return messages.NewWarpMessageInfo(logs[0])
 }
