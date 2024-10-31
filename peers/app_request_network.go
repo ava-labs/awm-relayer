@@ -7,6 +7,7 @@ package peers
 
 import (
 	"context"
+	"encoding/hex"
 	"os"
 	"sync"
 	"time"
@@ -241,30 +242,27 @@ func (n *appRequestNetwork) ConnectToCanonicalValidators(subnetID ids.ID) (*Conn
 	if err != nil {
 		return nil, err
 	}
+
 	// We make queries to node IDs, not unique validators as represented by a BLS pubkey, so we need this map to track
 	// responses from nodes and populate the signatureMap with the corresponding validator signature
 	// This maps node IDs to the index in the canonical validator set
 	nodeValidatorIndexMap := make(map[ids.NodeID]int)
+	nodeIDs := set.NewSet[ids.NodeID](len(nodeValidatorIndexMap))
 	for i, vdr := range validatorSet {
 		for _, node := range vdr.NodeIDs {
 			nodeValidatorIndexMap[node] = i
+			nodeIDs.Add(node)
 		}
 	}
 
 	// Manually connect to all peers in the validator set
 	// If new peers are connected, AppRequests may fail while the handshake is in progress.
 	// In that case, AppRequests to those nodes will be retried in the next iteration of the retry loop.
-	nodeIDs := set.NewSet[ids.NodeID](len(nodeValidatorIndexMap))
-	for node := range nodeValidatorIndexMap {
-		nodeIDs.Add(node)
-	}
 	connectedNodes := n.ConnectPeers(nodeIDs)
 
-	// Check if we've connected to a stake threshold of nodes
-	connectedWeight := uint64(0)
-	for node := range connectedNodes {
-		connectedWeight += validatorSet[nodeValidatorIndexMap[node]].Weight
-	}
+	// Calculate the total weight of connected validators.
+	connectedWeight := calculateConnectedWeight(validatorSet, nodeValidatorIndexMap, connectedNodes)
+
 	return &ConnectedCanonicalValidators{
 		ConnectedWeight:       connectedWeight,
 		TotalValidatorWeight:  totalValidatorWeight,
@@ -302,4 +300,25 @@ func (n *appRequestNetwork) setInfoAPICallLatencyMS(latency float64) {
 
 func (n *appRequestNetwork) setPChainAPICallLatencyMS(latency float64) {
 	n.metrics.pChainAPICallLatencyMS.Observe(latency)
+}
+
+// Non-receiver util functions
+
+func calculateConnectedWeight(
+	validatorSet []*warp.Validator,
+	nodeValidatorIndexMap map[ids.NodeID]int,
+	connectedNodes set.Set[ids.NodeID],
+) uint64 {
+	connectedBLSPubKeys := set.NewSet[string](len(validatorSet))
+	connectedWeight := uint64(0)
+	for node := range connectedNodes {
+		vdr := validatorSet[nodeValidatorIndexMap[node]]
+		blsPubKey := hex.EncodeToString(vdr.PublicKeyBytes)
+		if connectedBLSPubKeys.Contains(blsPubKey) {
+			continue
+		}
+		connectedWeight += vdr.Weight
+		connectedBLSPubKeys.Add(blsPubKey)
+	}
+	return connectedWeight
 }
