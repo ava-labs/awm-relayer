@@ -258,17 +258,6 @@ func TestGetWarpQuorum(t *testing.T) {
 		expectedQuorum      WarpQuorum
 	}{
 		{
-			name:                "primary network",
-			blockchainID:        blockchainID,
-			subnetID:            ids.Empty,
-			getChainConfigCalls: 0,
-			expectedError:       nil,
-			expectedQuorum: WarpQuorum{
-				QuorumNumerator:   warp.WarpDefaultQuorumNumerator,
-				QuorumDenominator: warp.WarpQuorumDenominator,
-			},
-		},
-		{
 			name:                "subnet genesis precompile",
 			blockchainID:        blockchainID,
 			subnetID:            subnetID,
@@ -364,8 +353,9 @@ func TestGetWarpQuorum(t *testing.T) {
 				).Times(testCase.getChainConfigCalls),
 			)
 
-			quorum, err := getWarpQuorum(testCase.subnetID, testCase.blockchainID, client)
+			warpConfig, err := getWarpConfig(client)
 			require.Equal(t, testCase.expectedError, err)
+			quorum := calculateQuorum(warpConfig.QuorumNumerator)
 			require.Equal(t, testCase.expectedQuorum, quorum)
 		})
 	}

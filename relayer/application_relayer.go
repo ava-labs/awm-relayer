@@ -88,10 +88,21 @@ func NewApplicationRelayer(
 		)
 		return nil, err
 	}
+	requirePrimaryNetworkSigners, err := cfg.GetWarpRequirePrimaryNetworkSigners(relayerID.DestinationBlockchainID)
+	// this shouldn't be reachable since if we found a quorum, we should also find the requirePrimaryNetworkSigners
+	// but leaving the check for completeness
+	if err != nil {
+		logger.Error(
+			"Failed to get warp primary network configuration from config.",
+			zap.String("destinationBlockchainID", relayerID.DestinationBlockchainID.String()),
+			zap.Error(err),
+		)
+		return nil, err
+	}
 	var signingSubnet ids.ID
-	if sourceBlockchain.GetSubnetID() == constants.PrimaryNetworkID {
-		// If the message originates from the primary subnet, then we instead "self sign"
-		// the message using the validators of the destination subnet.
+	if sourceBlockchain.GetSubnetID() == constants.PrimaryNetworkID && !requirePrimaryNetworkSigners {
+		// If the message originates from the primary subnet, and the primary network is validated by
+		// the destination change we can "self-sign" the message using the validators of the destination subnet.
 		signingSubnet = cfg.GetSubnetID(relayerID.DestinationBlockchainID)
 	} else {
 		// Otherwise, the source subnet signs the message.

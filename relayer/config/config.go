@@ -14,7 +14,6 @@ import (
 	"github.com/ava-labs/awm-relayer/peers"
 
 	"github.com/ava-labs/avalanchego/ids"
-	"github.com/ava-labs/avalanchego/utils/constants"
 	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/avalanchego/utils/set"
 
@@ -156,31 +155,25 @@ func (c *Config) GetSubnetID(blockchainID ids.ID) ids.ID {
 }
 
 // If the numerator in the Warp config is 0, use the default value
-func calculateQuorumNumerator(cfgNumerator uint64) uint64 {
+func calculateQuorum(cfgNumerator uint64) WarpQuorum {
 	if cfgNumerator == 0 {
-		return warp.WarpDefaultQuorumNumerator
-	}
-	return cfgNumerator
-}
-
-// Helper to retrieve the Warp Quorum from the chain config.
-// Differentiates between subnet-evm and coreth RPC internally
-func getWarpQuorum(
-	subnetID ids.ID,
-	blockchainID ids.ID,
-	client ethclient.Client,
-) (WarpQuorum, error) {
-	if subnetID == constants.PrimaryNetworkID {
 		return WarpQuorum{
 			QuorumNumerator:   warp.WarpDefaultQuorumNumerator,
 			QuorumDenominator: warp.WarpQuorumDenominator,
-		}, nil
+		}
+	} else {
+		return WarpQuorum{
+			QuorumNumerator:   cfgNumerator,
+			QuorumDenominator: warp.WarpQuorumDenominator,
+		}
 	}
+}
 
+func getWarpConfig(client ethclient.Client) (*warp.Config, error) {
 	// Fetch the subnet's chain config
 	chainConfig, err := client.ChainConfig(context.Background())
 	if err != nil {
-		return WarpQuorum{}, fmt.Errorf("failed to fetch chain config for blockchain %s: %w", blockchainID, err)
+		return nil, fmt.Errorf("failed to fetch chain config")
 	}
 
 	// First, check the list of precompile upgrades to get the most up to date Warp config
@@ -202,27 +195,21 @@ func getWarpQuorum(
 		}
 	}
 	if warpConfig != nil {
-		return WarpQuorum{
-			QuorumNumerator:   calculateQuorumNumerator(warpConfig.QuorumNumerator),
-			QuorumDenominator: warp.WarpQuorumDenominator,
-		}, nil
+		return warpConfig, nil
 	}
-
 	// If we didn't find the Warp config in the upgrade precompile list, check the genesis config
 	warpConfig, ok := chainConfig.GenesisPrecompiles[warpConfigKey].(*warp.Config)
-	if ok {
-		return WarpQuorum{
-			QuorumNumerator:   calculateQuorumNumerator(warpConfig.QuorumNumerator),
-			QuorumDenominator: warp.WarpQuorumDenominator,
-		}, nil
+	if !ok {
+		return nil, fmt.Errorf("no Warp config found in chain config")
 	}
-	return WarpQuorum{}, fmt.Errorf("failed to find warp config for blockchain %s", blockchainID)
+	return warpConfig, nil
 }
 
-func (c *Config) InitializeWarpQuorums() error {
+// Initializes Warp configurations (quorum and self-signing settings) for each destination subnet
+func (c *Config) InitializeWarpConfigs() error {
 	// Fetch the Warp quorum values for each destination subnet.
 	for _, destinationSubnet := range c.DestinationBlockchains {
-		err := destinationSubnet.initializeWarpQuorum()
+		err := destinationSubnet.initializeWarpConfigs()
 		if err != nil {
 			return fmt.Errorf(
 				"failed to initialize Warp quorum for destination subnet %s: %w",
@@ -254,6 +241,15 @@ func (c *Config) GetWarpQuorum(blockchainID ids.ID) (WarpQuorum, error) {
 		}
 	}
 	return WarpQuorum{}, errFailedToGetWarpQuorum
+}
+
+func (c *Config) GetWarpRequirePrimaryNetworkSigners(blockchainID ids.ID) (bool, error) {
+	for _, s := range c.DestinationBlockchains {
+		if blockchainID.String() == s.BlockchainID {
+			return s.warpRequirePrimaryNetworkSigners, nil
+		}
+	}
+	return false, errFailedToGetWarpQuorum
 }
 
 var _ peers.Config = &Config{}

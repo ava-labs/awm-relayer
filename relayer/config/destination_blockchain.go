@@ -6,8 +6,10 @@ import (
 	"fmt"
 
 	"github.com/ava-labs/avalanchego/ids"
+	"github.com/ava-labs/avalanchego/utils/constants"
 	basecfg "github.com/ava-labs/awm-relayer/config"
 	"github.com/ava-labs/awm-relayer/utils"
+	"github.com/ava-labs/subnet-evm/precompile/contracts/warp"
 	"github.com/ethereum/go-ethereum/crypto"
 )
 
@@ -23,7 +25,8 @@ type DestinationBlockchain struct {
 	AccountPrivateKey string            `mapstructure:"account-private-key" json:"account-private-key"`
 
 	// Fetched from the chain after startup
-	warpQuorum WarpQuorum
+	warpQuorum                       WarpQuorum
+	warpRequirePrimaryNetworkSigners bool
 
 	// convenience fields to access parsed data after initialization
 	subnetID     ids.ID
@@ -77,7 +80,7 @@ func (s *DestinationBlockchain) GetBlockchainID() ids.ID {
 	return s.blockchainID
 }
 
-func (s *DestinationBlockchain) initializeWarpQuorum() error {
+func (s *DestinationBlockchain) initializeWarpConfigs() error {
 	blockchainID, err := ids.FromString(s.BlockchainID)
 	if err != nil {
 		return fmt.Errorf("invalid blockchainID in configuration. error: %w", err)
@@ -86,6 +89,15 @@ func (s *DestinationBlockchain) initializeWarpQuorum() error {
 	if err != nil {
 		return fmt.Errorf("invalid subnetID in configuration. error: %w", err)
 	}
+	// If the destination blockchain is the primary network, use the default quorum
+	// primary network signers here are irrelevant and can be left at default value
+	if subnetID == constants.PrimaryNetworkID {
+		s.warpQuorum = WarpQuorum{
+			QuorumNumerator:   warp.WarpDefaultQuorumNumerator,
+			QuorumDenominator: warp.WarpQuorumDenominator,
+		}
+		return nil
+	}
 
 	client, err := utils.NewEthClientWithConfig(
 		context.Background(),
@@ -93,16 +105,16 @@ func (s *DestinationBlockchain) initializeWarpQuorum() error {
 		s.RPCEndpoint.HTTPHeaders,
 		s.RPCEndpoint.QueryParams,
 	)
+	defer client.Close()
 	if err != nil {
 		return fmt.Errorf("failed to dial destination blockchain %s: %w", blockchainID, err)
 	}
-	defer client.Close()
-	quorum, err := getWarpQuorum(subnetID, blockchainID, client)
+	warpConfig, err := getWarpConfig(client)
 	if err != nil {
-		return fmt.Errorf("failed to fetch warp quorum for subnet %s: %w", subnetID, err)
+		return fmt.Errorf("failed to fetch warp config for blockchain %s: %w", blockchainID, err)
 	}
-
-	s.warpQuorum = quorum
+	s.warpQuorum = calculateQuorum(warpConfig.QuorumNumerator)
+	s.warpRequirePrimaryNetworkSigners = warpConfig.RequirePrimaryNetworkSigners
 	return nil
 }
 
