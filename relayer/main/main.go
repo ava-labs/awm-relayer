@@ -153,6 +153,7 @@ func main() {
 		networkLogLevel,
 		registerer,
 		trackedSubnets,
+		nil,
 		&cfg,
 	)
 	if err != nil {
