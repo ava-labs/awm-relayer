@@ -21,6 +21,7 @@ import (
 	"github.com/ava-labs/awm-relayer/signature-aggregator/metrics"
 	testUtils "github.com/ava-labs/awm-relayer/tests/utils"
 	"github.com/ava-labs/teleporter/tests/interfaces"
+	"github.com/ava-labs/teleporter/tests/network"
 	"github.com/ava-labs/teleporter/tests/utils"
 	"github.com/ethereum/go-ethereum/log"
 	. "github.com/onsi/gomega"
@@ -35,12 +36,12 @@ import (
 // - Reads the warp message unsigned bytes from the log
 // - Sends the unsigned message to the signature aggregator API
 // - Confirms that the signed message is returned and matches the originally sent message
-func SignatureAggregatorAPI(network interfaces.LocalNetwork) {
+func SignatureAggregatorAPI(network *network.LocalNetwork, teleporter utils.TeleporterTestInfo) {
 	// Begin Setup step
 	ctx := context.Background()
 
 	subnetAInfo := network.GetPrimaryNetworkInfo()
-	subnetBInfo, _ := utils.GetTwoSubnets(network)
+	subnetBInfo, _ := network.GetTwoSubnets()
 	fundedAddress, fundedKey := network.GetFundedAccountInfo()
 
 	signatureAggregatorConfig := testUtils.CreateDefaultSignatureAggregatorConfig(
@@ -71,6 +72,7 @@ func SignatureAggregatorAPI(network interfaces.LocalNetwork) {
 	log.Info("Sending teleporter message")
 	receipt, _, _ := testUtils.SendBasicTeleporterMessage(
 		ctx,
+		teleporter,
 		subnetAInfo,
 		subnetBInfo,
 		fundedKey,
@@ -156,6 +158,7 @@ func SignatureAggregatorAPI(network interfaces.LocalNetwork) {
 		)
 	}
 
+	// TODONOW: Fix this using the new subnet weights post conversion
 	// make a second request, and ensure that the metrics reflect that the
 	// signatures for the second request are retrieved from the cache. note
 	// that even though 4 signatures were requested in the previous

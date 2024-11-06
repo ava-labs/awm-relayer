@@ -11,6 +11,7 @@ package mocks
 
 import (
 	reflect "reflect"
+	time "time"
 
 	ids "github.com/ava-labs/avalanchego/ids"
 	message "github.com/ava-labs/avalanchego/message"
@@ -85,6 +86,21 @@ func (m *MockAppRequestNetwork) GetSubnetID(blockchainID ids.ID) (ids.ID, error)
 func (mr *MockAppRequestNetworkMockRecorder) GetSubnetID(blockchainID any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSubnetID", reflect.TypeOf((*MockAppRequestNetwork)(nil).GetSubnetID), blockchainID)
+}
+
+// Message mocks base method.
+func (m *MockAppRequestNetwork) Message(sourceChainID ids.ID, requestID uint32, timeout time.Duration, request []byte) (message.OutboundMessage, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Message", sourceChainID, requestID, timeout, request)
+	ret0, _ := ret[0].(message.OutboundMessage)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Message indicates an expected call of Message.
+func (mr *MockAppRequestNetworkMockRecorder) Message(sourceChainID, requestID, timeout, request any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Message", reflect.TypeOf((*MockAppRequestNetwork)(nil).Message), sourceChainID, requestID, timeout, request)
 }
 
 // RegisterAppRequest mocks base method.

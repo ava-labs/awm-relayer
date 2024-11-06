@@ -42,6 +42,12 @@ type AppRequestNetwork interface {
 		requestID uint32,
 		numExpectedResponse int,
 	) chan message.InboundMessage
+	Message(
+		sourceChainID ids.ID,
+		requestID uint32,
+		timeout time.Duration,
+		request []byte,
+	) (message.OutboundMessage, error)
 	Send(
 		msg message.OutboundMessage,
 		nodeIDs set.Set[ids.NodeID],
@@ -58,6 +64,7 @@ type appRequestNetwork struct {
 	lock            *sync.Mutex
 	validatorClient *validators.CanonicalValidatorClient
 	metrics         *AppRequestNetworkMetrics
+	messageCreator  message.Creator
 }
 
 // NewNetwork creates a p2p network client for interacting with validators
@@ -65,6 +72,7 @@ func NewNetwork(
 	logLevel logging.Level,
 	registerer prometheus.Registerer,
 	trackedSubnets set.Set[ids.ID],
+	messageCreator message.Creator,
 	cfg Config,
 ) (AppRequestNetwork, error) {
 	logger := logging.NewLogger(
@@ -79,7 +87,7 @@ func NewNetwork(
 	metrics, err := newAppRequestNetworkMetrics(registerer)
 	if err != nil {
 		logger.Fatal("Failed to create app request network metrics", zap.Error(err))
-		panic(err)
+		return nil, err
 	}
 
 	// Create the handler for handling inbound app responses
@@ -128,6 +136,7 @@ func NewNetwork(
 		lock:            new(sync.Mutex),
 		validatorClient: validatorClient,
 		metrics:         metrics,
+		messageCreator:  messageCreator,
 	}
 	go logger.RecoverAndPanic(func() {
 		testNetwork.Dispatch()
@@ -141,6 +150,11 @@ func NewNetwork(
 func (n *appRequestNetwork) ConnectPeers(nodeIDs set.Set[ids.NodeID]) set.Set[ids.NodeID] {
 	n.lock.Lock()
 	defer n.lock.Unlock()
+
+	// TODONOW:
+	// Get primary network validators
+	// Request peers from one of them
+	// Iterate through and manually connect to
 
 	// First, check if we are already connected to all the peers
 	connectedPeers := n.network.PeerInfo(nodeIDs.List())
@@ -260,6 +274,20 @@ func (n *appRequestNetwork) ConnectToCanonicalValidators(subnetID ids.ID) (*Conn
 		ValidatorSet:          validatorSet,
 		NodeValidatorIndexMap: nodeValidatorIndexMap,
 	}, nil
+}
+
+func (n *appRequestNetwork) Message(
+	sourceChainID ids.ID,
+	requestID uint32,
+	timeout time.Duration,
+	request []byte,
+) (message.OutboundMessage, error) {
+	return n.messageCreator.AppRequest(
+		sourceChainID,
+		requestID,
+		timeout,
+		request,
+	)
 }
 
 func (n *appRequestNetwork) Send(

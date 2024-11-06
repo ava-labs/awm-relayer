@@ -149,10 +149,24 @@ func main() {
 		trackedSubnets.Add(sourceBlockchain.GetSubnetID())
 	}
 
+	// Initialize message creator passed down to relayers for creating app requests.
+	// We do not collect metrics for the message creator.
+	messageCreator, err := message.NewCreator(
+		logger,
+		prometheus.DefaultRegisterer,
+		constants.DefaultNetworkCompressionType,
+		constants.DefaultNetworkMaximumInboundTimeout,
+	)
+	if err != nil {
+		logger.Fatal("Failed to create message creator", zap.Error(err))
+		panic(err)
+	}
+
 	network, err := peers.NewNetwork(
 		networkLogLevel,
 		registerer,
 		trackedSubnets,
+		messageCreator,
 		&cfg,
 	)
 	if err != nil {
@@ -171,19 +185,6 @@ func main() {
 	relayerMetrics, err := relayer.NewApplicationRelayerMetrics(registerer)
 	if err != nil {
 		logger.Fatal("Failed to create application relayer metrics", zap.Error(err))
-		panic(err)
-	}
-
-	// Initialize message creator passed down to relayers for creating app requests.
-	// We do not collect metrics for the message creator.
-	messageCreator, err := message.NewCreator(
-		logger,
-		prometheus.DefaultRegisterer,
-		constants.DefaultNetworkCompressionType,
-		constants.DefaultNetworkMaximumInboundTimeout,
-	)
-	if err != nil {
-		logger.Fatal("Failed to create message creator", zap.Error(err))
 		panic(err)
 	}
 
@@ -226,7 +227,6 @@ func main() {
 		sigAggMetrics.NewSignatureAggregatorMetrics(
 			prometheus.DefaultRegisterer,
 		),
-		messageCreator,
 		cfg.EtnaTime,
 	)
 	if err != nil {

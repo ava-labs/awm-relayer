@@ -72,7 +72,6 @@ func NewSignatureAggregator(
 	logger logging.Logger,
 	signatureCacheSize uint64,
 	metrics *metrics.SignatureAggregatorMetrics,
-	messageCreator message.Creator,
 	etnaTime time.Time,
 ) (*SignatureAggregator, error) {
 	cache, err := cache.NewCache(signatureCacheSize, logger)
@@ -87,7 +86,6 @@ func NewSignatureAggregator(
 		subnetIDsByBlockchainID: map[ids.ID]ids.ID{},
 		logger:                  logger,
 		metrics:                 metrics,
-		messageCreator:          messageCreator,
 		currentRequestID:        atomic.Uint32{},
 		cache:                   cache,
 		etnaTime:                etnaTime,
@@ -197,7 +195,7 @@ func (s *SignatureAggregator) CreateSignedMessage(
 
 	// Construct the AppRequest
 	requestID := s.currentRequestID.Add(1)
-	outMsg, err := s.messageCreator.AppRequest(
+	outMsg, err := s.network.Message(
 		unsignedMessage.SourceChainID,
 		requestID,
 		peers.DefaultAppRequestTimeout,
