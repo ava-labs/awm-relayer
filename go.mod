@@ -9,7 +9,7 @@ require (
 	github.com/ava-labs/teleporter v1.0.7
 	github.com/aws/aws-sdk-go-v2 v1.32.4
 	github.com/aws/aws-sdk-go-v2/config v1.28.2
-	github.com/aws/aws-sdk-go-v2/service/kms v1.37.4
+	github.com/aws/aws-sdk-go-v2/service/kms v1.37.5
 	github.com/ethereum/go-ethereum v1.13.14
 	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/onsi/ginkgo/v2 v2.21.0
