@@ -163,5 +163,5 @@ require (
 	github.com/alexliesenfeld/health v0.8.0
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.18.0 // indirect
 	go.uber.org/atomic v1.11.0
-	golang.org/x/sync v0.8.0
+	golang.org/x/sync v0.9.0
 )
