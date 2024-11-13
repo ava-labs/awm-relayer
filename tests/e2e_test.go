@@ -105,6 +105,7 @@ var _ = ginkgo.BeforeSuite(func() {
 				NodeCount:                  2,
 			},
 		},
+		4,
 		0,
 	)
 	teleporterInfo = teleporterTestUtils.NewTeleporterTestInfo(localNetworkInstance.GetAllSubnetsInfo())
