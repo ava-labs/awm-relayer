@@ -13,7 +13,7 @@ import (
 	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/avalanchego/vms/platformvm/warp"
 	warpPayload "github.com/ava-labs/avalanchego/vms/platformvm/warp/payload"
-	"github.com/ava-labs/awm-relayer/relayer/config"
+	"github.com/ava-labs/icm-relayer/relayer/config"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 )
@@ -43,7 +43,7 @@ func createUnsignedMessage() *warp.UnsignedMessage {
 
 func TestUnpack(t *testing.T) {
 	logger := logging.NewLogger(
-		"awm-relayer",
+		"icm-relayer",
 		logging.NewWrappedCore(
 			logging.Error,
 			os.NewFile(uintptr(syscall.Stdout), "/dev/null"), // write all test logs to /dev/null

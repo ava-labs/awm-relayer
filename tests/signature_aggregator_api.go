@@ -17,9 +17,9 @@ import (
 	"time"
 
 	avalancheWarp "github.com/ava-labs/avalanchego/vms/platformvm/warp"
-	"github.com/ava-labs/awm-relayer/signature-aggregator/api"
-	"github.com/ava-labs/awm-relayer/signature-aggregator/metrics"
-	testUtils "github.com/ava-labs/awm-relayer/tests/utils"
+	"github.com/ava-labs/icm-relayer/signature-aggregator/api"
+	"github.com/ava-labs/icm-relayer/signature-aggregator/metrics"
+	testUtils "github.com/ava-labs/icm-relayer/tests/utils"
 	"github.com/ava-labs/teleporter/tests/interfaces"
 	"github.com/ava-labs/teleporter/tests/utils"
 	"github.com/ethereum/go-ethereum/log"

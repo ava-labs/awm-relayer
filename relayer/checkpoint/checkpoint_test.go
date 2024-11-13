@@ -5,9 +5,9 @@ import (
 	"testing"
 
 	"github.com/ava-labs/avalanchego/utils/logging"
-	"github.com/ava-labs/awm-relayer/database"
-	mock_database "github.com/ava-labs/awm-relayer/database/mocks"
-	"github.com/ava-labs/awm-relayer/utils"
+	"github.com/ava-labs/icm-relayer/database"
+	mock_database "github.com/ava-labs/icm-relayer/database/mocks"
+	"github.com/ava-labs/icm-relayer/utils"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/require"

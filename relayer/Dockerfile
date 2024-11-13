@@ -1,7 +1,7 @@
 FROM debian:12-slim
 RUN apt update && apt --yes install ca-certificates
-COPY awm-relayer /usr/bin/awm-relayer
+COPY icm-relayer /usr/bin/icm-relayer
 EXPOSE 8080
 USER 1001
 CMD ["start"]
-ENTRYPOINT [ "/usr/bin/awm-relayer" ]
+ENTRYPOINT [ "/usr/bin/icm-relayer" ]

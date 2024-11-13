@@ -1,4 +1,4 @@
-module github.com/ava-labs/awm-relayer
+module github.com/ava-labs/icm-relayer
 
 go 1.22.8
 

@@ -5,7 +5,7 @@ import (
 	"os"
 	"testing"
 
-	basecfg "github.com/ava-labs/awm-relayer/config"
+	basecfg "github.com/ava-labs/icm-relayer/config"
 
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/require"

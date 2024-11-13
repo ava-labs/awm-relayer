@@ -9,7 +9,7 @@ import (
 	"math/big"
 	"runtime"
 
-	"github.com/ava-labs/awm-relayer/utils"
+	"github.com/ava-labs/icm-relayer/utils"
 	"github.com/ava-labs/subnet-evm/core/types"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"

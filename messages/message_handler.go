@@ -8,7 +8,7 @@ package messages
 import (
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/vms/platformvm/warp"
-	"github.com/ava-labs/awm-relayer/vms"
+	"github.com/ava-labs/icm-relayer/vms"
 	"github.com/ethereum/go-ethereum/common"
 )
 

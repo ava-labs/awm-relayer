@@ -12,9 +12,9 @@ import (
 	"net/http"
 	"time"
 
-	offchainregistry "github.com/ava-labs/awm-relayer/messages/off-chain-registry"
-	"github.com/ava-labs/awm-relayer/relayer/api"
-	testUtils "github.com/ava-labs/awm-relayer/tests/utils"
+	offchainregistry "github.com/ava-labs/icm-relayer/messages/off-chain-registry"
+	"github.com/ava-labs/icm-relayer/relayer/api"
+	testUtils "github.com/ava-labs/icm-relayer/tests/utils"
 	"github.com/ava-labs/subnet-evm/accounts/abi/bind"
 	"github.com/ava-labs/teleporter/tests/interfaces"
 	teleporterTestUtils "github.com/ava-labs/teleporter/tests/utils"

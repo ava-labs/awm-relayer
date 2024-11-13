@@ -21,7 +21,7 @@ SIGNATURE_AGGREGATOR_PATH=$(
 )
 
 # Where binaries go
-relayer_path="$BASE_PATH/build/awm-relayer"
+relayer_path="$BASE_PATH/build/icm-relayer"
 signature_aggregator_path="$BASE_PATH/build/signature-aggregator"
 
 # Set the PATHS
@@ -30,10 +30,10 @@ GOPATH="$(go env GOPATH)"
 TELEPORTER_PATH="$BASE_PATH"/tests/contracts/lib/teleporter
 source $TELEPORTER_PATH/scripts/constants.sh
 
-# Avalabs docker hub repo is avaplatform/awm-relayer.
-# Here we default to the local image (awm-relayer) as to avoid unintentional pushes
-# You should probably set it - export DOCKER_REPO='avaplatform/awm-relayer'
-relayer_dockerhub_repo=${DOCKER_REPO:-"awm-relayer"}
+# Avalabs docker hub repo is avaplatform/icm-relayer.
+# Here we default to the local image (icm-relayer) as to avoid unintentional pushes
+# You should probably set it - export DOCKER_REPO='avaplatform/icm-relayer'
+relayer_dockerhub_repo=${DOCKER_REPO:-"icm-relayer"}
 
 # Current branch
 current_branch=$(git symbolic-ref -q --short HEAD || git describe --tags --exact-match || true)

@@ -68,5 +68,5 @@ Or, for the relayer:
 ```bash
 $ goreleaser release --single-target --clean --snapshot --config relayer/.goreleaser.yml
 ...
-$ docker run -v $(pwd)/sample-relayer-config.json:/config.json avaplatform/awm-relayer:v1.0.4-test12-amd64 --config-file /config.json
+$ docker run -v $(pwd)/sample-relayer-config.json:/config.json avaplatform/icm-relayer:v1.0.4-test12-amd64 --config-file /config.json
 ```

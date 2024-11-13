@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/ava-labs/avalanchego/utils/logging"
-	"github.com/ava-labs/awm-relayer/database"
-	testUtils "github.com/ava-labs/awm-relayer/tests/utils"
+	"github.com/ava-labs/icm-relayer/database"
+	testUtils "github.com/ava-labs/icm-relayer/tests/utils"
 	"github.com/ava-labs/subnet-evm/core/types"
 	"github.com/ava-labs/teleporter/tests/interfaces"
 	"github.com/ava-labs/teleporter/tests/utils"
@@ -107,7 +107,7 @@ func BasicRelay(network interfaces.LocalNetwork) {
 	//
 	log.Info("Test Relaying Already Delivered Message")
 	logger := logging.NewLogger(
-		"awm-relayer",
+		"icm-relayer",
 		logging.NewWrappedCore(
 			logging.Info,
 			os.Stdout,

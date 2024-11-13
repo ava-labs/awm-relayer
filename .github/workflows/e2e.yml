@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-22.04
 
     steps:
-      - name: Checkout awm-relayer repository
+      - name: Checkout icm-relayer repository
         uses: actions/checkout@v4
         with:
           submodules: recursive
@@ -44,7 +44,7 @@ jobs:
       - name: Build Subnet-EVM Plugin Binary
         run: ./scripts/build.sh /tmp/e2e-test/avalanchego/plugins/srEXiWaHuhNyGwPUi444Tu47ZEDwxTWrbQiuD7FmgSAQ6X7Dy
 
-      - name: Checkout awm-relayer repository
+      - name: Checkout icm-relayer repository
         uses: actions/checkout@v4
         with:
           submodules: recursive

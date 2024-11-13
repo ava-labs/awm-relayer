@@ -63,6 +63,6 @@ release:
   # Default is extracted from the origin remote URL or empty if its private hosted.
   github:
     owner: ava-labs
-    name: awm-relayer
+    name: icm-relayer
   # If tag indicates rc, will mark it as prerelease
   prerelease: auto

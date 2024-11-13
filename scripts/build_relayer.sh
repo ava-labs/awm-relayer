@@ -39,7 +39,7 @@ source "$BASE_PATH"/scripts/constants.sh
 go_version_minimum=$GO_VERSION
 
 if version_lt "$(go_version)" "$go_version_minimum"; then
-    echo "awm-relayer requires Go >= $go_version_minimum, Go $(go_version) found." >&2
+    echo "icm-relayer requires Go >= $go_version_minimum, Go $(go_version) found." >&2
     exit 1
 fi
 
@@ -48,7 +48,7 @@ if [[ $# -eq 1 ]]; then
 elif [[ $# -eq 0 ]]; then
     binary_path=$relayer_path
 else
-    echo "Invalid arguments to build awm-relayer. Requires zero (default location) or one argument to specify binary location."
+    echo "Invalid arguments to build icm-relayer. Requires zero (default location) or one argument to specify binary location."
     exit 1
 fi
 

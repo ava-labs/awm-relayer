@@ -6,8 +6,8 @@ import (
 	"fmt"
 
 	"github.com/ava-labs/avalanchego/ids"
-	basecfg "github.com/ava-labs/awm-relayer/config"
-	"github.com/ava-labs/awm-relayer/utils"
+	basecfg "github.com/ava-labs/icm-relayer/config"
+	"github.com/ava-labs/icm-relayer/utils"
 	"github.com/ethereum/go-ethereum/crypto"
 )
 

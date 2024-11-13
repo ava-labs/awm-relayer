@@ -10,8 +10,8 @@ import (
 	"net/url"
 	"time"
 
-	basecfg "github.com/ava-labs/awm-relayer/config"
-	"github.com/ava-labs/awm-relayer/peers"
+	basecfg "github.com/ava-labs/icm-relayer/config"
+	"github.com/ava-labs/icm-relayer/peers"
 
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/utils/constants"
@@ -33,7 +33,7 @@ const (
 )
 
 const (
-	defaultStorageLocation     = "./.awm-relayer-storage"
+	defaultStorageLocation     = "./.icm-relayer-storage"
 	defaultProcessMissedBlocks = true
 	defaultAPIPort             = uint16(8080)
 	defaultMetricsPort         = uint16(9090)
@@ -45,9 +45,9 @@ var defaultLogLevel = logging.Info.String()
 
 const usageText = `
 Usage:
-awm-relayer --config-file path-to-config                Specifies the relayer config file and begin relaying messages.
-awm-relayer --version                                   Display awm-relayer version and exit.
-awm-relayer --help                                      Display awm-relayer usage and exit.
+icm-relayer --config-file path-to-config                Specifies the relayer config file and begin relaying messages.
+icm-relayer --version                                   Display icm-relayer version and exit.
+icm-relayer --help                                      Display icm-relayer usage and exit.
 `
 
 var errFailedToGetWarpQuorum = errors.New("failed to get warp quorum")

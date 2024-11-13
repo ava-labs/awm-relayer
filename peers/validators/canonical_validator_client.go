@@ -12,8 +12,8 @@ import (
 	"github.com/ava-labs/avalanchego/utils/rpc"
 	"github.com/ava-labs/avalanchego/vms/platformvm"
 	avalancheWarp "github.com/ava-labs/avalanchego/vms/platformvm/warp"
-	"github.com/ava-labs/awm-relayer/config"
-	"github.com/ava-labs/awm-relayer/peers/utils"
+	"github.com/ava-labs/icm-relayer/config"
+	"github.com/ava-labs/icm-relayer/peers/utils"
 	"go.uber.org/zap"
 )
 

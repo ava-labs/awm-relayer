@@ -6,9 +6,9 @@ package config
 import "github.com/spf13/pflag"
 
 func BuildFlagSet() *pflag.FlagSet {
-	fs := pflag.NewFlagSet("awm-relayer", pflag.ContinueOnError)
-	fs.String(ConfigFileKey, "", "Specifies the relayer config file")
-	fs.BoolP(VersionKey, "", false, "Display awm-relayer version")
-	fs.BoolP(HelpKey, "", false, "Display awm-relayer usage")
+	fs := pflag.NewFlagSet("icm-relayer", pflag.ContinueOnError)
+	fs.String(ConfigFileKey, "", "Specifies the icm-relayer config file")
+	fs.BoolP(VersionKey, "", false, "Display icm-relayer version")
+	fs.BoolP(HelpKey, "", false, "Display icm-relayer usage")
 	return fs
 }
