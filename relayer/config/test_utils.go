@@ -5,7 +5,7 @@ package config
 import (
 	"fmt"
 
-	basecfg "github.com/ava-labs/icm-relayer/config"
+	basecfg "github.com/ava-labs/icm-offchain-services/config"
 )
 
 var (

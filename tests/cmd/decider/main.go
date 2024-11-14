@@ -9,7 +9,7 @@ import (
 	"log"
 	"net"
 
-	pb "github.com/ava-labs/icm-relayer/proto/pb/decider"
+	pb "github.com/ava-labs/icm-offchain-services/proto/pb/decider"
 	"google.golang.org/grpc"
 )
 

@@ -16,7 +16,7 @@ import (
 	message "github.com/ava-labs/avalanchego/message"
 	subnets "github.com/ava-labs/avalanchego/subnets"
 	set "github.com/ava-labs/avalanchego/utils/set"
-	peers "github.com/ava-labs/icm-relayer/peers"
+	peers "github.com/ava-labs/icm-offchain-services/peers"
 	gomock "go.uber.org/mock/gomock"
 )
 

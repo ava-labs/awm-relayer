@@ -9,8 +9,8 @@ import (
 	"sync"
 
 	"github.com/ava-labs/avalanchego/utils/logging"
-	"github.com/ava-labs/icm-relayer/database"
-	"github.com/ava-labs/icm-relayer/utils"
+	"github.com/ava-labs/icm-offchain-services/database"
+	"github.com/ava-labs/icm-offchain-services/utils"
 	"go.uber.org/zap"
 )
 

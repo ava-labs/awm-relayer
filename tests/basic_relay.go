@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/ava-labs/avalanchego/utils/logging"
-	"github.com/ava-labs/icm-relayer/database"
-	testUtils "github.com/ava-labs/icm-relayer/tests/utils"
+	"github.com/ava-labs/icm-offchain-services/database"
+	testUtils "github.com/ava-labs/icm-offchain-services/tests/utils"
 	"github.com/ava-labs/subnet-evm/core/types"
 	"github.com/ava-labs/teleporter/tests/interfaces"
 	"github.com/ava-labs/teleporter/tests/utils"

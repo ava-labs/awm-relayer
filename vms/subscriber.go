@@ -8,8 +8,8 @@ import (
 
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/utils/logging"
-	"github.com/ava-labs/icm-relayer/relayer/config"
-	"github.com/ava-labs/icm-relayer/vms/evm"
+	"github.com/ava-labs/icm-offchain-services/relayer/config"
+	"github.com/ava-labs/icm-offchain-services/vms/evm"
 	"github.com/ava-labs/subnet-evm/core/types"
 	"github.com/ava-labs/subnet-evm/ethclient"
 )

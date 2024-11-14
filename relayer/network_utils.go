@@ -10,9 +10,9 @@ import (
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/utils/constants"
 	"github.com/ava-labs/avalanchego/utils/logging"
-	"github.com/ava-labs/icm-relayer/peers"
-	"github.com/ava-labs/icm-relayer/relayer/config"
-	"github.com/ava-labs/icm-relayer/utils"
+	"github.com/ava-labs/icm-offchain-services/peers"
+	"github.com/ava-labs/icm-offchain-services/relayer/config"
+	"github.com/ava-labs/icm-offchain-services/utils"
 	"go.uber.org/zap"
 )
 

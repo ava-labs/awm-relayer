@@ -9,9 +9,9 @@ import (
 
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/utils/logging"
-	basecfg "github.com/ava-labs/icm-relayer/config"
-	"github.com/ava-labs/icm-relayer/relayer/config"
-	mock_ethclient "github.com/ava-labs/icm-relayer/vms/evm/mocks"
+	basecfg "github.com/ava-labs/icm-offchain-services/config"
+	"github.com/ava-labs/icm-offchain-services/relayer/config"
+	mock_ethclient "github.com/ava-labs/icm-offchain-services/vms/evm/mocks"
 	"github.com/ava-labs/subnet-evm/core/types"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"

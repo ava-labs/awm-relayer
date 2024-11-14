@@ -15,8 +15,8 @@ import (
 	"testing"
 	"time"
 
-	testUtils "github.com/ava-labs/icm-relayer/tests/utils"
-	"github.com/ava-labs/icm-relayer/utils"
+	testUtils "github.com/ava-labs/icm-offchain-services/tests/utils"
+	"github.com/ava-labs/icm-offchain-services/utils"
 	"github.com/ava-labs/teleporter/tests/local"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"

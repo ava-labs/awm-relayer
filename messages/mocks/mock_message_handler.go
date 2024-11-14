@@ -14,8 +14,8 @@ import (
 
 	ids "github.com/ava-labs/avalanchego/ids"
 	warp "github.com/ava-labs/avalanchego/vms/platformvm/warp"
-	messages "github.com/ava-labs/icm-relayer/messages"
-	vms "github.com/ava-labs/icm-relayer/vms"
+	messages "github.com/ava-labs/icm-offchain-services/messages"
+	vms "github.com/ava-labs/icm-offchain-services/vms"
 	common "github.com/ethereum/go-ethereum/common"
 	gomock "go.uber.org/mock/gomock"
 )

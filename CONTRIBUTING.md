@@ -12,12 +12,12 @@ To start developing on ICM Relayer, you'll need Golang v1.22.8.
 
 ### Making an Issue
 
-- Check that the issue you're filing doesn't already exist by searching under [issues](https://github.com/ava-labs/icm-relayer/issues).
-- If you're unable to find an open issue addressing the problem, [open a new one](https://github.com/ava-labs/icm-relayer/issues/new/choose). Be sure to include a *title and clear description* with as much relevant information as possible.
+- Check that the issue you're filing doesn't already exist by searching under [issues](https://github.com/ava-labs/icm-offchain-services/issues).
+- If you're unable to find an open issue addressing the problem, [open a new one](https://github.com/ava-labs/icm-offchain-services/issues/new/choose). Be sure to include a *title and clear description* with as much relevant information as possible.
 
 ## Features
 
-- If you want to start a discussion about the development of a new feature or the modification of an existing one, start a thread under GitHub [discussions](https://github.com/ava-labs/icm-relayer/discussions/categories/ideas).
+- If you want to start a discussion about the development of a new feature or the modification of an existing one, start a thread under GitHub [discussions](https://github.com/ava-labs/icm-offchain-services/discussions/categories/ideas).
 - Post a thread about your idea and why it should be added to AWM Relayer.
 - Don't start working on a pull request until you've received positive feedback from the maintainers.
 

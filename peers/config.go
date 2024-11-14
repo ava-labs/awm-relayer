@@ -3,7 +3,7 @@
 
 package peers
 
-import "github.com/ava-labs/icm-relayer/config"
+import "github.com/ava-labs/icm-offchain-services/config"
 
 // Config defines a common interface necessary for standing up an AppRequestNetwork.
 type Config interface {

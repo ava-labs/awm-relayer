@@ -6,7 +6,7 @@ package signer
 import (
 	"math/big"
 
-	"github.com/ava-labs/icm-relayer/relayer/config"
+	"github.com/ava-labs/icm-offchain-services/relayer/config"
 	"github.com/ava-labs/subnet-evm/core/types"
 	"github.com/ethereum/go-ethereum/common"
 )

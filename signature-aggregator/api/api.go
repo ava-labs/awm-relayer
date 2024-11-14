@@ -12,10 +12,10 @@ import (
 
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/utils/logging"
-	"github.com/ava-labs/icm-relayer/signature-aggregator/aggregator"
-	"github.com/ava-labs/icm-relayer/signature-aggregator/metrics"
-	"github.com/ava-labs/icm-relayer/types"
-	"github.com/ava-labs/icm-relayer/utils"
+	"github.com/ava-labs/icm-offchain-services/signature-aggregator/aggregator"
+	"github.com/ava-labs/icm-offchain-services/signature-aggregator/metrics"
+	"github.com/ava-labs/icm-offchain-services/types"
+	"github.com/ava-labs/icm-offchain-services/utils"
 	"go.uber.org/zap"
 )
 

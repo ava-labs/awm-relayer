@@ -11,9 +11,9 @@ import (
 
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/utils/logging"
-	"github.com/ava-labs/icm-relayer/database"
-	"github.com/ava-labs/icm-relayer/messages"
-	relayerTypes "github.com/ava-labs/icm-relayer/types"
+	"github.com/ava-labs/icm-offchain-services/database"
+	"github.com/ava-labs/icm-offchain-services/messages"
+	relayerTypes "github.com/ava-labs/icm-offchain-services/types"
 	"github.com/ava-labs/subnet-evm/core/types"
 	"github.com/ava-labs/subnet-evm/ethclient"
 	"github.com/ava-labs/subnet-evm/interfaces"

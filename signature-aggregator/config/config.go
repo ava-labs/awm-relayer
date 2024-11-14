@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/ava-labs/avalanchego/utils/logging"
-	basecfg "github.com/ava-labs/icm-relayer/config"
-	"github.com/ava-labs/icm-relayer/peers"
+	basecfg "github.com/ava-labs/icm-offchain-services/config"
+	"github.com/ava-labs/icm-offchain-services/peers"
 )
 
 const (

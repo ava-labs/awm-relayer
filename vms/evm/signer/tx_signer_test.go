@@ -8,8 +8,8 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/ava-labs/icm-relayer/relayer/config"
-	"github.com/ava-labs/icm-relayer/utils"
+	"github.com/ava-labs/icm-offchain-services/relayer/config"
+	"github.com/ava-labs/icm-offchain-services/utils"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 )

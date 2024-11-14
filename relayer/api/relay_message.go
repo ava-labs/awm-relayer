@@ -6,9 +6,9 @@ import (
 	"net/http"
 
 	"github.com/ava-labs/avalanchego/utils/logging"
-	"github.com/ava-labs/icm-relayer/relayer"
-	"github.com/ava-labs/icm-relayer/types"
-	"github.com/ava-labs/icm-relayer/utils"
+	"github.com/ava-labs/icm-offchain-services/relayer"
+	"github.com/ava-labs/icm-offchain-services/types"
+	"github.com/ava-labs/icm-offchain-services/utils"
 	"github.com/ethereum/go-ethereum/common"
 	"go.uber.org/zap"
 )

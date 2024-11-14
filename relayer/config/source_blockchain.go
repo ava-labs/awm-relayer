@@ -5,8 +5,8 @@ import (
 
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/utils/set"
-	basecfg "github.com/ava-labs/icm-relayer/config"
-	"github.com/ava-labs/icm-relayer/utils"
+	basecfg "github.com/ava-labs/icm-offchain-services/config"
+	"github.com/ava-labs/icm-offchain-services/utils"
 	"github.com/ethereum/go-ethereum/common"
 )
 

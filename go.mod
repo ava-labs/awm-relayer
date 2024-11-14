@@ -1,4 +1,4 @@
-module github.com/ava-labs/icm-relayer
+module github.com/ava-labs/icm-offchain-services
 
 go 1.22.8
 
