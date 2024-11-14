@@ -6,10 +6,13 @@ package tests
 import (
 	"context"
 	"fmt"
+	"net/netip"
 	"os"
 	"time"
+	"url"
 
 	"github.com/ava-labs/avalanchego/utils/logging"
+	"github.com/ava-labs/awm-relayer/config"
 	"github.com/ava-labs/awm-relayer/database"
 	testUtils "github.com/ava-labs/awm-relayer/tests/utils"
 	"github.com/ava-labs/subnet-evm/core/types"
@@ -52,6 +55,21 @@ func BasicRelay(network *network.LocalNetwork, teleporter utils.TeleporterTestIn
 		fundedAddress,
 		relayerKey,
 	)
+
+	// Add primary network validators as manually tracked peers
+	var manuallyTrackedPeers []config.PeerConfig
+	primaryNetworkValidators := network.GetPrimaryNetworkValidators()
+	for _, validator := range primaryNetworkValidators {
+		parsed, err := url.Parse(validator.URI)
+		Expect(err).Should(BeNil())
+		ip, err := netip.ParseAddrPort(parsed.Host)
+		Expect(err).Should(BeNil())
+		manuallyTrackedPeers = append(manuallyTrackedPeers, config.PeerConfig{
+			IP: ip,
+			ID: validator.NodeID,
+		})
+	}
+
 	// The config needs to be validated in order to be passed to database.GetConfigRelayerIDs
 	relayerConfig.Validate()
 
