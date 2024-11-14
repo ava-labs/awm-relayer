@@ -153,7 +153,7 @@ func cleanup() {
 
 var _ = ginkgo.AfterSuite(cleanup)
 
-var _ = ginkgo.Describe("[AWM Relayer Integration Tests", func() {
+var _ = ginkgo.Describe("[ICM Relayer Integration Tests", func() {
 	ginkgo.It("Manually Provided Message", func() {
 		ManualMessage(localNetworkInstance)
 	})

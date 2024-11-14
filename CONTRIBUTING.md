@@ -1,14 +1,14 @@
-# How to Contribute to AWM Relayer
+# How to Contribute to ICM Relayer
 
 ## Setup
 
-To start developing on AWM Relayer, you'll need Golang v1.22.8.
+To start developing on ICM Relayer, you'll need Golang v1.22.8.
 
 ## Issues
 
 ### Security
 
-- Do not open up a GitHub issue if it relates to a security vulnerability in AWM Relayer, and instead refer to our [security policy](./SECURITY.md).
+- Do not open up a GitHub issue if it relates to a security vulnerability in ICM Relayer, and instead refer to our [security policy](./SECURITY.md).
 
 ### Making an Issue
 

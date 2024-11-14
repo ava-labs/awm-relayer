@@ -31,7 +31,7 @@ const (
 )
 
 //
-// AWM Utils
+// ICM Utils
 //
 
 // CheckStakeWeightExceedsThreshold returns true if the accumulated signature weight is at
