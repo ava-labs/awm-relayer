@@ -1,14 +1,14 @@
-# How to Contribute to ICM Relayer
+# How to Contribute to ICM Off-chain Services
 
 ## Setup
 
-To start developing on ICM Relayer, you'll need Golang v1.22.8.
+To start developing on ICM Off-chain services, you'll need Golang v1.22.8.
 
 ## Issues
 
 ### Security
 
-- Do not open up a GitHub issue if it relates to a security vulnerability in ICM Relayer, and instead refer to our [security policy](./SECURITY.md).
+- Do not open up a GitHub issue if it relates to a security vulnerability in ICM Off-chain services, and instead refer to our [security policy](./SECURITY.md).
 
 ### Making an Issue
 
@@ -18,7 +18,7 @@ To start developing on ICM Relayer, you'll need Golang v1.22.8.
 ## Features
 
 - If you want to start a discussion about the development of a new feature or the modification of an existing one, start a thread under GitHub [discussions](https://github.com/ava-labs/icm-offchain-services/discussions/categories/ideas).
-- Post a thread about your idea and why it should be added to AWM Relayer.
+- Post a thread about your idea and why it should be added to ICM Offchain Services.
 - Don't start working on a pull request until you've received positive feedback from the maintainers.
 
 ## Pull Request Guidelines
@@ -47,4 +47,4 @@ To start developing on ICM Relayer, you'll need Golang v1.22.8.
 
 ### Do you have questions about the source code?
 
-- Ask any question about AWM Relayer under GitHub [discussions](https://github.com/ava-labs/teleporter/discussions/categories/q-a).
+- Ask any question about ICM Off-chain Services under GitHub [discussions](https://github.com/ava-labs/icm-offchain-services/discussions/categories/q-a).

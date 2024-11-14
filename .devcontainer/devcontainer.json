@@ -1,15 +1,13 @@
 // For format details, see https://aka.ms/devcontainer.json.
 {
-	"name": "AWM Relayer DevContainer",
-
+	"name": "ICM Off-chain Services DevContainer",
 	"image": "golang:latest",
-	"runArgs": ["--network=host"],
-	
+	"runArgs": [
+		"--network=host"
+	],
 	"remoteUser": "root",
-
 	"remoteEnv": {
 		"PATH": "${containerEnv:PATH}:${containerWorkspaceFolder}/build"
 	},
-
 	"postCreateCommand": "scripts/build.sh"
 }
