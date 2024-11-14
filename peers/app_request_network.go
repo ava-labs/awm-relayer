@@ -7,10 +7,12 @@ package peers
 
 import (
 	"context"
+	"encoding/hex"
 	"os"
 	"sync"
 	"time"
 
+	"github.com/ava-labs/avalanchego/api/info"
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/message"
 	"github.com/ava-labs/avalanchego/network"
@@ -65,14 +67,20 @@ type appRequestNetwork struct {
 	validatorClient *validators.CanonicalValidatorClient
 	metrics         *AppRequestNetworkMetrics
 	messageCreator  message.Creator
+
+	// Nodes that we should connect to that are not publicly discoverable.
+	// Should only be used for local or custom blockchains where validators are not
+	// publicly discoverable by primary network nodes.
+	manuallyTrackedPeers []info.Peer
 }
 
-// NewNetwork creates a p2p network client for interacting with validators
+// NewNetwork creates a P2P network client for interacting with validators
 func NewNetwork(
 	logLevel logging.Level,
 	registerer prometheus.Registerer,
 	trackedSubnets set.Set[ids.ID],
 	messageCreator message.Creator,
+	manuallyTrackedPeers []info.Peer,
 	cfg Config,
 ) (AppRequestNetwork, error) {
 	logger := logging.NewLogger(
@@ -129,14 +137,15 @@ func NewNetwork(
 	validatorClient := validators.NewCanonicalValidatorClient(logger, cfg.GetPChainAPI())
 
 	arNetwork := &appRequestNetwork{
-		network:         testNetwork,
-		handler:         handler,
-		infoAPI:         infoAPI,
-		logger:          logger,
-		lock:            new(sync.Mutex),
-		validatorClient: validatorClient,
-		metrics:         metrics,
-		messageCreator:  messageCreator,
+		network:              testNetwork,
+		handler:              handler,
+		infoAPI:              infoAPI,
+		logger:               logger,
+		lock:                 new(sync.Mutex),
+		validatorClient:      validatorClient,
+		metrics:              metrics,
+		messageCreator:       messageCreator,
+		manuallyTrackedPeers: manuallyTrackedPeers,
 	}
 	go logger.RecoverAndPanic(func() {
 		testNetwork.Dispatch()
@@ -168,7 +177,7 @@ func (n *appRequestNetwork) ConnectPeers(nodeIDs set.Set[ids.NodeID]) set.Set[id
 	// re-adding connections to already tracked peers.
 
 	startInfoAPICall := time.Now()
-	// Get the list of peers
+	// Get the list of publicly discoverable peers
 	peers, err := n.infoAPI.Peers(context.Background(), nil)
 	n.setInfoAPICallLatencyMS(float64(time.Since(startInfoAPICall).Milliseconds()))
 	if err != nil {
@@ -178,6 +187,9 @@ func (n *appRequestNetwork) ConnectPeers(nodeIDs set.Set[ids.NodeID]) set.Set[id
 		)
 		return nil
 	}
+
+	// Add manually tracked peers
+	peers = append(peers, n.manuallyTrackedPeers...)
 
 	// Attempt to connect to each peer
 	var trackedNodes set.Set[ids.NodeID]
@@ -244,30 +256,27 @@ func (n *appRequestNetwork) ConnectToCanonicalValidators(subnetID ids.ID) (*Conn
 	if err != nil {
 		return nil, err
 	}
+
 	// We make queries to node IDs, not unique validators as represented by a BLS pubkey, so we need this map to track
 	// responses from nodes and populate the signatureMap with the corresponding validator signature
 	// This maps node IDs to the index in the canonical validator set
 	nodeValidatorIndexMap := make(map[ids.NodeID]int)
+	nodeIDs := set.NewSet[ids.NodeID](len(nodeValidatorIndexMap))
 	for i, vdr := range validatorSet {
 		for _, node := range vdr.NodeIDs {
 			nodeValidatorIndexMap[node] = i
+			nodeIDs.Add(node)
 		}
 	}
 
 	// Manually connect to all peers in the validator set
 	// If new peers are connected, AppRequests may fail while the handshake is in progress.
 	// In that case, AppRequests to those nodes will be retried in the next iteration of the retry loop.
-	nodeIDs := set.NewSet[ids.NodeID](len(nodeValidatorIndexMap))
-	for node := range nodeValidatorIndexMap {
-		nodeIDs.Add(node)
-	}
 	connectedNodes := n.ConnectPeers(nodeIDs)
 
-	// Check if we've connected to a stake threshold of nodes
-	connectedWeight := uint64(0)
-	for node := range connectedNodes {
-		connectedWeight += validatorSet[nodeValidatorIndexMap[node]].Weight
-	}
+	// Calculate the total weight of connected validators.
+	connectedWeight := calculateConnectedWeight(validatorSet, nodeValidatorIndexMap, connectedNodes)
+
 	return &ConnectedCanonicalValidators{
 		ConnectedWeight:       connectedWeight,
 		TotalValidatorWeight:  totalValidatorWeight,
@@ -319,4 +328,25 @@ func (n *appRequestNetwork) setInfoAPICallLatencyMS(latency float64) {
 
 func (n *appRequestNetwork) setPChainAPICallLatencyMS(latency float64) {
 	n.metrics.pChainAPICallLatencyMS.Observe(latency)
+}
+
+// Non-receiver util functions
+
+func calculateConnectedWeight(
+	validatorSet []*warp.Validator,
+	nodeValidatorIndexMap map[ids.NodeID]int,
+	connectedNodes set.Set[ids.NodeID],
+) uint64 {
+	connectedBLSPubKeys := set.NewSet[string](len(validatorSet))
+	connectedWeight := uint64(0)
+	for node := range connectedNodes {
+		vdr := validatorSet[nodeValidatorIndexMap[node]]
+		blsPubKey := hex.EncodeToString(vdr.PublicKeyBytes)
+		if connectedBLSPubKeys.Contains(blsPubKey) {
+			continue
+		}
+		connectedWeight += vdr.Weight
+		connectedBLSPubKeys.Add(blsPubKey)
+	}
+	return connectedWeight
 }

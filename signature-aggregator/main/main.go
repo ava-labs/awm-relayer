@@ -103,6 +103,7 @@ func main() {
 		prometheus.DefaultRegisterer,
 		nil,
 		messageCreator,
+		nil,
 		&cfg,
 	)
 	if err != nil {

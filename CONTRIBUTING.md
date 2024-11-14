@@ -2,7 +2,7 @@
 
 ## Setup
 
-To start developing on AWM Relayer, you'll need Golang v1.22.7.
+To start developing on AWM Relayer, you'll need Golang v1.22.8.
 
 ## Issues
 
