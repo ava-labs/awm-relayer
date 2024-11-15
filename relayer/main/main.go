@@ -135,10 +135,10 @@ func main() {
 	// The app request network generates P2P networking logs that are verbose at the info level.
 	// Unless the log level is debug or lower, set the network log level to error to avoid spamming the logs.
 	// We do not collect metrics for the network.
-	networkLogLevel := logging.Error
-	if logLevel <= logging.Debug {
-		networkLogLevel = logLevel
-	}
+	// networkLogLevel := logging.Error
+	// if logLevel <= logging.Debug {
+	// 	networkLogLevel = logLevel
+	// }
 	var trackedSubnets set.Set[ids.ID]
 	// trackedSubnets is no longer strictly required but keeping it here for now
 	// to keep full parity with existing AWM relayer for now
@@ -168,18 +168,18 @@ func main() {
 	for _, p := range cfg.ManuallyTrackedPeers {
 		manuallyTrackedPeers = append(manuallyTrackedPeers, info.Peer{
 			Info: peer.Info{
-				PublicIP: p.IP,
-				ID:       p.ID,
+				PublicIP: p.GetIP(),
+				ID:       p.GetID(),
 			},
 		})
 	}
 
 	network, err := peers.NewNetwork(
-		networkLogLevel,
+		logging.Verbo,
 		registerer,
 		trackedSubnets,
 		messageCreator,
-		nil,
+		manuallyTrackedPeers,
 		&cfg,
 	)
 	if err != nil {

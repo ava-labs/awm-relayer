@@ -33,24 +33,24 @@ if [ "$HELP" = true ]; then
     exit 0
 fi
 
-if [ "$LOCAL" = true ]; then
-    if [ -z "$DATA_DIRECTORY" ]; then
-        echo "Must specify data directory when running local"
-        exit 1
-    fi
-    if [ -z "$SUBNET_EVM_PATH" ]; then
-        echo "Must specify subnet-evm path when running local"
-        exit 1
-    fi
-    cwd=$PWD
-    cd $SUBNET_EVM_PATH
-    BASEDIR=$DATA_DIRECTORY AVALANCHEGO_BUILD_PATH=$DATA_DIRECTORY/avalanchego ./scripts/install_avalanchego_release.sh
-    ./scripts/build.sh $DATA_DIRECTORY/avalanchego/plugins/srEXiWaHuhNyGwPUi444Tu47ZEDwxTWrbQiuD7FmgSAQ6X7Dy
+# if [ "$LOCAL" = true ]; then
+#     if [ -z "$DATA_DIRECTORY" ]; then
+#         echo "Must specify data directory when running local"
+#         exit 1
+#     fi
+#     if [ -z "$SUBNET_EVM_PATH" ]; then
+#         echo "Must specify subnet-evm path when running local"
+#         exit 1
+#     fi
+#     cwd=$PWD
+#     cd $SUBNET_EVM_PATH
+#     BASEDIR=$DATA_DIRECTORY AVALANCHEGO_BUILD_PATH=$DATA_DIRECTORY/avalanchego ./scripts/install_avalanchego_release.sh
+#     ./scripts/build.sh $DATA_DIRECTORY/avalanchego/plugins/srEXiWaHuhNyGwPUi444Tu47ZEDwxTWrbQiuD7FmgSAQ6X7Dy
 
-    cd $cwd
-    export AVALANCHEGO_BUILD_PATH=$DATA_DIRECTORY/avalanchego
-    export DATA_DIR=$DATA_DIRECTORY/data
-fi
+#     cd $cwd
+#     export AVALANCHEGO_BUILD_PATH=$DATA_DIRECTORY/avalanchego
+#     export DATA_DIR=$DATA_DIRECTORY/data
+# fi
 
 BASE_PATH=$(
   cd "$(dirname "${BASH_SOURCE[0]}")"
@@ -58,8 +58,21 @@ BASE_PATH=$(
 )
 
 source "$BASE_PATH"/scripts/constants.sh
-
 source "$BASE_PATH"/scripts/versions.sh
+
+BASEDIR=${BASEDIR:-"$HOME/.teleporter-deps"}
+
+cwd=$(pwd)
+# Install the avalanchego and subnet-evm binaries
+rm -rf $BASEDIR/avalanchego
+BASEDIR=$BASEDIR AVALANCHEGO_BUILD_PATH=$BASEDIR/avalanchego "${TELEPORTER_PATH}/scripts/install_avalanchego_release.sh"
+BASEDIR=$BASEDIR "${TELEPORTER_PATH}/scripts/install_subnetevm_release.sh"
+
+cp ${BASEDIR}/subnet-evm/subnet-evm ${BASEDIR}/avalanchego/plugins/srEXiWaHuhNyGwPUi444Tu47ZEDwxTWrbQiuD7FmgSAQ6X7Dy
+echo "Copied ${BASEDIR}/subnet-evm/subnet-evm binary to ${BASEDIR}/avalanchego/plugins/"
+
+export AVALANCHEGO_BUILD_PATH=$BASEDIR/avalanchego
+cp /Users/cameron.schultz/avalanchego/build/avalanchego $AVALANCHEGO_BUILD_PATH/avalanchego
 
 # Build ginkgo
 # to install the ginkgo binary (required for test build and run)

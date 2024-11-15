@@ -101,7 +101,7 @@ func (h *RelayerExternalHandler) HandleInbound(_ context.Context, inboundMessage
 }
 
 func (h *RelayerExternalHandler) Connected(nodeID ids.NodeID, version *version.Application, subnetID ids.ID) {
-	h.log.Debug(
+	h.log.Info(
 		"Connected",
 		zap.Stringer("nodeID", nodeID),
 		zap.Stringer("version", version),

@@ -147,9 +147,26 @@ func NewNetwork(
 		messageCreator:       messageCreator,
 		manuallyTrackedPeers: manuallyTrackedPeers,
 	}
+
+	for _, peer := range manuallyTrackedPeers {
+		logger.Info("Manually Tracking peer (startup)", zap.String("ID", peer.ID.String()), zap.String("IP", peer.PublicIP.String()))
+		arNetwork.network.ManuallyTrack(peer.ID, peer.PublicIP)
+	}
+
 	go logger.RecoverAndPanic(func() {
 		testNetwork.Dispatch()
 	})
+
+	go func() {
+		for {
+			connectedPeers := arNetwork.network.PeerInfo(nil)
+			arNetwork.logger.Info("Startup Connected peers", zap.Int("count", len(connectedPeers)))
+			for _, peer := range connectedPeers {
+				arNetwork.logger.Info("Connected peer", zap.String("ID", peer.ID.String()))
+			}
+			time.Sleep(2 * time.Second)
+		}
+	}()
 
 	return arNetwork, nil
 }
@@ -166,10 +183,14 @@ func (n *appRequestNetwork) ConnectPeers(nodeIDs set.Set[ids.NodeID]) set.Set[id
 	// Iterate through and manually connect to
 
 	// First, check if we are already connected to all the peers
-	connectedPeers := n.network.PeerInfo(nodeIDs.List())
-	if len(connectedPeers) == nodeIDs.Len() {
-		return nodeIDs
+	connectedPeers := n.network.PeerInfo(nil)
+	n.logger.Info("Connected peers", zap.Int("count", len(connectedPeers)))
+	for _, peer := range connectedPeers {
+		n.logger.Info("Connected peer", zap.String("ID", peer.ID.String()))
 	}
+	// if len(connectedPeers) == nodeIDs.Len() {
+	// 	return nodeIDs
+	// }
 
 	// If we are not connected to all the peers already, then we have to iterate
 	// through the full list of peers obtained from the info API. Rather than iterating
@@ -187,20 +208,42 @@ func (n *appRequestNetwork) ConnectPeers(nodeIDs set.Set[ids.NodeID]) set.Set[id
 		)
 		return nil
 	}
+	n.logger.Info("Fetched peers from info API")
+	for _, peer := range peers {
+		n.logger.Info("Peer", zap.String("ID", peer.ID.String()))
+	}
 
 	// Add manually tracked peers
-	peers = append(peers, n.manuallyTrackedPeers...)
+	for _, peer := range n.manuallyTrackedPeers {
+		n.logger.Info("Manually Tracking peer", zap.String("ID", peer.ID.String()), zap.String("IP", peer.PublicIP.String()))
+		n.network.ManuallyTrack(peer.ID, peer.PublicIP)
+	}
 
 	// Attempt to connect to each peer
 	var trackedNodes set.Set[ids.NodeID]
 	for _, peer := range peers {
 		if nodeIDs.Contains(peer.ID) {
 			trackedNodes.Add(peer.ID)
+			n.logger.Info("Tracking peer", zap.String("ID", peer.ID.String()), zap.String("IP", peer.PublicIP.String()))
 			n.network.ManuallyTrack(peer.ID, peer.PublicIP)
+			// TODONOW: length checks are not correct
 			if len(trackedNodes) == nodeIDs.Len() {
+				// DEBUG
+				connectedPeers = n.network.PeerInfo(nil)
+				n.logger.Info("Connected peers", zap.Int("count", len(connectedPeers)))
+				for _, peer := range connectedPeers {
+					n.logger.Info("Connected peer", zap.String("ID", peer.ID.String()))
+				}
 				return trackedNodes
 			}
 		}
+	}
+
+	// DEBUG
+	connectedPeers = n.network.PeerInfo(nil)
+	n.logger.Info("Connected peers", zap.Int("count", len(connectedPeers)))
+	for _, peer := range connectedPeers {
+		n.logger.Info("Connected peer", zap.String("ID", peer.ID.String()))
 	}
 
 	// If the Info API node is in nodeIDs, it will not be reflected in the call to info.Peers.

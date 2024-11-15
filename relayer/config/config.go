@@ -67,7 +67,7 @@ type Config struct {
 	ProcessMissedBlocks    bool                     `mapstructure:"process-missed-blocks" json:"process-missed-blocks"`
 	DeciderURL             string                   `mapstructure:"decider-url" json:"decider-url"`
 	SignatureCacheSize     uint64                   `mapstructure:"signature-cache-size" json:"signature-cache-size"`
-	ManuallyTrackedPeers   []basecfg.PeerConfig     `mapstructure:"manually-tracked-peers" json:"manually-tracked-peers"`
+	ManuallyTrackedPeers   []*basecfg.PeerConfig    `mapstructure:"manually-tracked-peers" json:"manually-tracked-peers"`
 
 	// mapstructure doesn't handle time.Time out of the box so handle it manually
 	EtnaTime time.Time `json:"etna-time"`

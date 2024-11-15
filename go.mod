@@ -2,6 +2,11 @@ module github.com/ava-labs/awm-relayer
 
 go 1.22.8
 
+replace (
+	github.com/ava-labs/avalanchego => /Users/cameron.schultz/avalanchego
+	github.com/ava-labs/teleporter => /Users/cameron.schultz/teleporter
+)
+
 require (
 	github.com/ava-labs/avalanchego v1.12.0-initial-poc.8
 	github.com/ava-labs/coreth v0.13.8

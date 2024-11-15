@@ -6,10 +6,9 @@ package tests
 import (
 	"context"
 	"fmt"
-	"net/netip"
+	"net/url"
 	"os"
 	"time"
-	"url"
 
 	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/awm-relayer/config"
@@ -29,8 +28,16 @@ import (
 // - Relaying an already delivered message
 // - Setting ProcessHistoricalBlocksFromHeight in config
 func BasicRelay(network *network.LocalNetwork, teleporter utils.TeleporterTestInfo) {
+	// Restart the network to attempt to refresh TLS connections
+	{
+		ctx, cancel := context.WithTimeout(context.Background(), time.Duration(60*len(network.Network.Nodes))*time.Second)
+		defer cancel()
+		err := network.Network.Restart(ctx, os.Stdout)
+		Expect(err).Should(BeNil())
+	}
+
 	subnetAInfo := network.GetPrimaryNetworkInfo()
-	subnetBInfo, _ := network.GetTwoSubnets()
+	subnetAInfo, subnetBInfo := network.GetTwoSubnets()
 	fundedAddress, fundedKey := network.GetFundedAccountInfo()
 	err := testUtils.ClearRelayerStorage()
 	Expect(err).Should(BeNil())
@@ -57,18 +64,19 @@ func BasicRelay(network *network.LocalNetwork, teleporter utils.TeleporterTestIn
 	)
 
 	// Add primary network validators as manually tracked peers
-	var manuallyTrackedPeers []config.PeerConfig
+	var manuallyTrackedPeers []*config.PeerConfig
 	primaryNetworkValidators := network.GetPrimaryNetworkValidators()
-	for _, validator := range primaryNetworkValidators {
+	for _, validator := range primaryNetworkValidators[0:1] {
 		parsed, err := url.Parse(validator.URI)
 		Expect(err).Should(BeNil())
-		ip, err := netip.ParseAddrPort(parsed.Host)
-		Expect(err).Should(BeNil())
-		manuallyTrackedPeers = append(manuallyTrackedPeers, config.PeerConfig{
-			IP: ip,
-			ID: validator.NodeID,
+		// ip, err := netip.ParseAddrPort(parsed.Host)
+		// Expect(err).Should(BeNil())
+		manuallyTrackedPeers = append(manuallyTrackedPeers, &config.PeerConfig{
+			IP: parsed.Host,
+			ID: validator.NodeID.String(),
 		})
 	}
+	relayerConfig.ManuallyTrackedPeers = manuallyTrackedPeers
 
 	// The config needs to be validated in order to be passed to database.GetConfigRelayerIDs
 	relayerConfig.Validate()
@@ -89,7 +97,7 @@ func BasicRelay(network *network.LocalNetwork, teleporter utils.TeleporterTestIn
 	defer relayerCleanup()
 
 	// Wait for relayer to start up
-	startupCtx, startupCancel := context.WithTimeout(ctx, 15*time.Second)
+	startupCtx, startupCancel := context.WithTimeout(ctx, 30*time.Second)
 	defer startupCancel()
 	testUtils.WaitForChannelClose(startupCtx, readyChan)
 
@@ -102,6 +110,34 @@ func BasicRelay(network *network.LocalNetwork, teleporter utils.TeleporterTestIn
 		fundedKey,
 		fundedAddress,
 	)
+
+	time.Sleep(10 * time.Second)
+
+	//
+	// Test Relaying from Subnet B to Subnet A
+	//
+	fmt.Println("Test Relaying from Subnet B to Subnet A")
+	testUtils.RelayBasicMessage(
+		ctx,
+		teleporter,
+		subnetBInfo,
+		subnetAInfo,
+		fundedKey,
+		fundedAddress,
+	)
+
+	time.Sleep(10 * time.Second)
+	fmt.Println("Sending transaction from Subnet A to Subnet B")
+	testUtils.RelayBasicMessage(
+		ctx,
+		teleporter,
+		subnetAInfo,
+		subnetBInfo,
+		fundedKey,
+		fundedAddress,
+	)
+
+	time.Sleep(10 * time.Second)
 
 	//
 	// Test Relaying from Subnet B to Subnet A
@@ -175,7 +211,7 @@ func BasicRelay(network *network.LocalNetwork, teleporter utils.TeleporterTestIn
 
 	// Wait for relayer to start up
 	fmt.Println("Waiting for the relayer to start up")
-	startupCtx, startupCancel = context.WithTimeout(ctx, 15*time.Second)
+	startupCtx, startupCancel = context.WithTimeout(ctx, 30*time.Second)
 	defer startupCancel()
 	testUtils.WaitForChannelClose(startupCtx, readyChan)
 

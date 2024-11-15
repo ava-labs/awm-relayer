@@ -414,7 +414,7 @@ func WriteRelayerConfig(relayerConfig relayercfg.Config, fname string) string {
 	Expect(err).Should(BeNil())
 	relayerConfigPath := f.Name()
 
-	log.Info("Created awm-relayer config", "configPath", relayerConfigPath, "config", string(data))
+	fmt.Println("Created awm-relayer config", "configPath", relayerConfigPath, "config", string(data))
 	return relayerConfigPath
 }
 
@@ -548,7 +548,7 @@ func runExecutable(
 	Expect(err).Should(BeNil())
 
 	// Start the command
-	log.Info("Starting executable", "appName", appName)
+	fmt.Println("Starting executable", "appName", appName)
 	err = cmd.Start()
 	Expect(err).Should(BeNil())
 
@@ -558,14 +558,14 @@ func runExecutable(
 	go func() {
 		scanner := bufio.NewScanner(cmdStdOutReader)
 		for scanner.Scan() {
-			log.Info(scanner.Text())
+			fmt.Println(scanner.Text())
 		}
 		cmdOutput <- "Command execution finished"
 	}()
 	go func() {
 		scanner := bufio.NewScanner(cmdStdErrReader)
 		for scanner.Scan() {
-			log.Error(scanner.Text())
+			fmt.Println(scanner.Text())
 		}
 		cmdOutput <- "Command execution finished"
 	}()
@@ -574,7 +574,7 @@ func runExecutable(
 		// Context cancellation is the only expected way for the process to exit, otherwise log an error
 		// Don't panic to allow for easier cleanup
 		if !errors.Is(ctx.Err(), context.Canceled) {
-			log.Error("Executable exited abnormally", "appName", appName, "err", err)
+			fmt.Println("Executable exited abnormally", "appName", appName, "err", err)
 		}
 	}()
 	go func() { // wait for health check to report healthy
