@@ -22,7 +22,7 @@ done
 
 if [ "$HELP" = true ]; then
     echo "Usage: ./scripts/e2e_test.sh [OPTIONS]"
-    echo "Run E2E tests for ICM Relayer."
+    echo "Run E2E tests for ICM Off-chain Services."
     echo ""
     echo "Options:"
     echo "  -l, --local                       Run the test locally. Requires --subnet-evm and --data-dir"
