@@ -556,7 +556,7 @@ func startMetricsServer(logger logging.Logger, gatherer prometheus.Gatherer, por
 }
 
 func initializeMetrics() (prometheus.Gatherer, prometheus.Registerer, error) {
-	gatherer := metrics.NewMultiGatherer()
+	gatherer := metrics.NewPrefixGatherer()
 	registry := prometheus.NewRegistry()
 	if err := gatherer.Register("app", registry); err != nil {
 		return nil, nil, err
