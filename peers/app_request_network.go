@@ -164,7 +164,7 @@ func (n *appRequestNetwork) ConnectPeers(nodeIDs set.Set[ids.NodeID]) set.Set[id
 
 	startInfoAPICall := time.Now()
 	// Get the list of publicly discoverable peers
-	peers, err := n.infoAPI.Peers(context.Background())
+	peers, err := n.infoAPI.Peers(context.Background(), nil)
 	n.setInfoAPICallLatencyMS(float64(time.Since(startInfoAPICall).Milliseconds()))
 	if err != nil {
 		n.logger.Error(

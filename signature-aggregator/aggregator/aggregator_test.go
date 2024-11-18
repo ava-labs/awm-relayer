@@ -397,3 +397,10 @@ func (p pChainStateStub) GetValidatorSet(
 	}
 	return output, nil
 }
+
+func (p pChainStateStub) GetCurrentValidatorSet(
+	_ context.Context,
+	_ ids.ID,
+) (map[ids.ID]*validators.GetCurrentValidatorOutput, uint64, error) {
+	return nil, 0, nil
+}
