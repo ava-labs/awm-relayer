@@ -79,6 +79,15 @@ func (v *CanonicalValidatorClient) GetSubnetID(ctx context.Context, blockchainID
 	return v.client.ValidatedBy(ctx, blockchainID, v.options...)
 }
 
+// Not called directly just defined for interface implementation. see private method getCurrentValidatorSet
+// for actual helper in case [platform.GetValidatorsAt] call fails
+func (v *CanonicalValidatorClient) GetCurrentValidatorSet(
+	_ context.Context,
+	_ ids.ID,
+) (map[ids.ID]*validators.GetCurrentValidatorOutput, uint64, error) {
+	return nil, 0, nil
+}
+
 // Gets the validator set of the given subnet at the given P-chain block height.
 // Attempts to use the "getValidatorsAt" API first. If not available, falls back
 // to use "getCurrentValidators", ignoring the specified P-chain block height.
