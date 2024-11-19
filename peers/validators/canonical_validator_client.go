@@ -72,8 +72,7 @@ func (v *CanonicalValidatorClient) GetSubnetID(ctx context.Context, blockchainID
 	return v.client.ValidatedBy(ctx, blockchainID, v.options...)
 }
 
-// Not called directly just defined for interface implementation. see private method getCurrentValidatorSet
-// for actual helper in case [platform.GetValidatorsAt] call fails
+// Not called directly just defined for interface implementation
 func (v *CanonicalValidatorClient) GetCurrentValidatorSet(
 	_ context.Context,
 	_ ids.ID,
@@ -82,15 +81,13 @@ func (v *CanonicalValidatorClient) GetCurrentValidatorSet(
 }
 
 // Gets the validator set of the given subnet at the given P-chain block height.
-// Attempts to use the "getValidatorsAt" API first. If not available, falls back
-// to use "getCurrentValidators", ignoring the specified P-chain block height.
+// Uses [platform.getValidatorsAt] with "proposed" height to get the validator set that
+// will likely be used for the next block.
 func (v *CanonicalValidatorClient) GetValidatorSet(
 	ctx context.Context,
 	height uint64,
 	subnetID ids.ID,
 ) (map[ids.NodeID]*validators.GetValidatorOutput, error) {
-	// First, attempt to use the "getValidatorsAt" RPC method. This method may not be available on
-	// all API nodes, in which case we can fall back to using "getCurrentValidators" if needed.
 	res, err := v.client.GetValidatorsAt(ctx, subnetID, pchainapi.Height(height), v.options...)
 	if err != nil {
 		v.logger.Debug(
