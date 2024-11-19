@@ -64,8 +64,6 @@ github.com/ava-labs/avalanchego v1.11.13 h1:1lcDZ9ILZgeiv7IwL4TuFTyglgZMr9QBOnpL
 github.com/ava-labs/avalanchego v1.11.13/go.mod h1:yhD5dpZyStIVbxQ550EDi5w5SL7DQ/xGE6TIxosb7U0=
 github.com/ava-labs/coreth v0.13.9-rc.1 h1:qIICpC/OZGYUP37QnLgIqqwGmxnLwLpZaUlqJNI85vU=
 github.com/ava-labs/coreth v0.13.9-rc.1/go.mod h1:7aMsRIo/3GBE44qWZMjnfqdqfcfZ5yShTTm2LObLaYo=
-github.com/ava-labs/subnet-evm v0.6.11 h1:XgIAn9ihPyGjrBFD2rXg2H76HFl6htliHabN0fjciaQ=
-github.com/ava-labs/subnet-evm v0.6.11/go.mod h1:fP46lzBtiniRfpNH+Qu9BFvSsa02YGkAobxinZ78gDU=
 github.com/ava-labs/subnet-evm v0.6.12 h1:jL3FmjdFcNfS0qwbehwN6DkAg9y7zexB1riiGBxRsM0=
 github.com/ava-labs/subnet-evm v0.6.12/go.mod h1:vffwL4UqAh7ibpWjveUuUhamm3a9w75q92bG5vXdX5k=
 github.com/ava-labs/teleporter v1.0.7 h1:9H0wTWhgWeA4u6uxi9KngdBu/LOoYsfAmIZhXNzuvf8=
