@@ -43,8 +43,8 @@ if [ "$LOCAL" = true ]; then
         exit 1
     fi
     cwd=$PWD
-    cd $SUBNET_EVM_PATH
     BASEDIR=$DATA_DIRECTORY AVALANCHEGO_BUILD_PATH=$DATA_DIRECTORY/avalanchego ./scripts/install_avalanchego_release.sh
+    cd $SUBNET_EVM_PATH
     ./scripts/build.sh $DATA_DIRECTORY/avalanchego/plugins/srEXiWaHuhNyGwPUi444Tu47ZEDwxTWrbQiuD7FmgSAQ6X7Dy
 
     cd $cwd
