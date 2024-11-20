@@ -81,8 +81,7 @@ func (v *CanonicalValidatorClient) GetCurrentValidatorSet(
 }
 
 // Gets the validator set of the given subnet at the given P-chain block height.
-// Uses [platform.getValidatorsAt] with "proposed" height to get the validator set that
-// will likely be used for the next block.
+// Uses [platform.getValidatorsAt] with supplied height
 func (v *CanonicalValidatorClient) GetValidatorSet(
 	ctx context.Context,
 	height uint64,
