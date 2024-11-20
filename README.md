@@ -38,7 +38,7 @@ The most complicated example case that can arise above is that a feature depends
 Publishing all of the commits mentioned above to GitHub branches will enable running E2E tests through the CI.
 
 > [!TIP]
-> Running the tests locally doesn't require publishing the `subnet-evm` commit since `./scripts/e2e_test.sh` takes a flag specifying local checkout of `subnet-evm` repository.
+> Running the tests locally doesn't require publishing the `subnet-evm` commit since `./scripts/e2e_test.sh` takes a flag specifying a local checkout of the `subnet-evm` repository.
 
 ## Releases
 GoReleaser is used to build the binaries of the services and also Docker images with those binaries. The monorepo feature of GoReleaser Pro is used to automate the release flow in response to tags like `signature-aggregator/v0.0.0`. The release actions in .github/workflows automate this, but the release build can also be run locally. Be sure to install the "pro" distribution of the command line utility, so that it can parse the `monorepo` key. For example:
