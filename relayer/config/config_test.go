@@ -242,20 +242,21 @@ func TestEitherKMSOrAccountPrivateKey(t *testing.T) {
 	}
 }
 
-func TestGetWarpQuorum(t *testing.T) {
+func TestGetWarpConfig(t *testing.T) {
 	blockchainID, err := ids.FromString("p433wpuXyJiDhyazPYyZMJeaoPSW76CBZ2x7wrVPLgvokotXz")
 	require.NoError(t, err)
 	subnetID, err := ids.FromString("2PsShLjrFFwR51DMcAh8pyuwzLn1Ym3zRhuXLTmLCR1STk2mL6")
 	require.NoError(t, err)
 
 	testCases := []struct {
-		name                string
-		blockchainID        ids.ID
-		subnetID            ids.ID
-		chainConfig         params.ChainConfigWithUpgradesJSON
-		getChainConfigCalls int
-		expectedError       error
-		expectedQuorum      WarpQuorum
+		name                                string
+		blockchainID                        ids.ID
+		subnetID                            ids.ID
+		chainConfig                         params.ChainConfigWithUpgradesJSON
+		getChainConfigCalls                 int
+		expectedError                       error
+		expectedQuorum                      WarpQuorum
+		expectedRequirePrimaryNeworkSigners bool
 	}{
 		{
 			name:                "subnet genesis precompile",
@@ -276,6 +277,7 @@ func TestGetWarpQuorum(t *testing.T) {
 				QuorumNumerator:   warp.WarpDefaultQuorumNumerator,
 				QuorumDenominator: warp.WarpQuorumDenominator,
 			},
+			expectedRequirePrimaryNeworkSigners: false,
 		},
 		{
 			name:                "subnet genesis precompile non-default",
@@ -296,6 +298,7 @@ func TestGetWarpQuorum(t *testing.T) {
 				QuorumNumerator:   50,
 				QuorumDenominator: warp.WarpQuorumDenominator,
 			},
+			expectedRequirePrimaryNeworkSigners: false,
 		},
 		{
 			name:                "subnet upgrade precompile",
@@ -318,6 +321,7 @@ func TestGetWarpQuorum(t *testing.T) {
 				QuorumNumerator:   warp.WarpDefaultQuorumNumerator,
 				QuorumDenominator: warp.WarpQuorumDenominator,
 			},
+			expectedRequirePrimaryNeworkSigners: false,
 		},
 		{
 			name:                "subnet upgrade precompile non-default",
@@ -340,6 +344,51 @@ func TestGetWarpQuorum(t *testing.T) {
 				QuorumNumerator:   50,
 				QuorumDenominator: warp.WarpQuorumDenominator,
 			},
+			expectedRequirePrimaryNeworkSigners: false,
+		},
+		{
+			name:                "require primary network signers",
+			blockchainID:        blockchainID,
+			subnetID:            subnetID,
+			getChainConfigCalls: 1,
+			chainConfig: params.ChainConfigWithUpgradesJSON{
+				ChainConfig: params.ChainConfig{
+					GenesisPrecompiles: params.Precompiles{
+						warpConfigKey: &warp.Config{
+							QuorumNumerator:              0,
+							RequirePrimaryNetworkSigners: true,
+						},
+					},
+				},
+			},
+			expectedError: nil,
+			expectedQuorum: WarpQuorum{
+				QuorumNumerator:   warp.WarpDefaultQuorumNumerator,
+				QuorumDenominator: warp.WarpQuorumDenominator,
+			},
+			expectedRequirePrimaryNeworkSigners: true,
+		},
+		{
+			name:                "require primary network signers explicit false",
+			blockchainID:        blockchainID,
+			subnetID:            subnetID,
+			getChainConfigCalls: 1,
+			chainConfig: params.ChainConfigWithUpgradesJSON{
+				ChainConfig: params.ChainConfig{
+					GenesisPrecompiles: params.Precompiles{
+						warpConfigKey: &warp.Config{
+							QuorumNumerator:              0,
+							RequirePrimaryNetworkSigners: false,
+						},
+					},
+				},
+			},
+			expectedError: nil,
+			expectedQuorum: WarpQuorum{
+				QuorumNumerator:   warp.WarpDefaultQuorumNumerator,
+				QuorumDenominator: warp.WarpQuorumDenominator,
+			},
+			expectedRequirePrimaryNeworkSigners: false,
 		},
 	}
 
@@ -357,6 +406,7 @@ func TestGetWarpQuorum(t *testing.T) {
 			require.Equal(t, testCase.expectedError, err)
 			quorum := calculateQuorum(warpConfig.QuorumNumerator)
 			require.Equal(t, testCase.expectedQuorum, quorum)
+			require.Equal(t, testCase.expectedRequirePrimaryNeworkSigners, warpConfig.RequirePrimaryNetworkSigners)
 		})
 	}
 }
