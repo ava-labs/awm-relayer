@@ -20,13 +20,16 @@ Applications in this repository depend on the following upstream repositories, b
 > [!NOTE]
 > We require any commits referenced in our `main` branch to be present in the default branches of the repositories above, but during active development it might be useful to work against changes in progress that are still on feature branches.
 
-When developing such features that require updates to one or more of the above, care must be taken to understand where the relevant code comes from. The binaries of applications built in this repo are built against versions referenced in the `go.mod` file. The E2E tests run against a simulated network running locally that is started by calling a separately compiled `avalanchego` binary as well as its plugins. These are compiled based on the values of `AVALANCHEGO_VERSION` in the local checkout of `subnet-evm` when running the tests locally and directly in this repository's `./scripts/versions.sh` when running E2E tests remotely through GitHub actions. 
+When developing such features that require updates to one or more of the above, care must be taken to understand where the relevant code comes from. The binaries of applications built in this repo are built against versions referenced in the `go.mod` file. The E2E tests run against a simulated network running locally that is started by calling a separately compiled `avalanchego` binary as well as its plugins. These are compiled based on the values of `AVALANCHEGO_VERSION` in this repository's `./scripts/versions.sh`.
 
 `avalanchego` and `coreth` have a direct circular dependency and this repository is only indirectly dependent on `coreth` but directly dependent on `avalanchego`. Therefore if any updates are required from the `coreth` side, a corresponding `avalanchego` commit referencing those changes is required. On the other hand `subnet-evm` just depends directly on `avalanchego`.
 
+> [!NOTE]
+> It's possible that a `subnet-evm` version is compatible with multiple different `avalanchego` versions and not limited to the one listed in `subnet-evm`'s `/scripts/versions.sh`
+
 ### Example dependency update flow
 
-The most complicated example case that can arise above is that a feature depends on a new change in `coreth`. And the steps below outline the necessary commits:
+The most complicated example case that can arise above is that a feature depends on a new change in `coreth` and all versions are mutually incompatible. The steps below outline the necessary commits:
 
 1. If an `avalanchego` commit referencing this change in its `go.mod` file doesn't exist yet then it needs to be added.
 2. Add a commit in `subnet-evm` that references the `avalanchego` commit from above in both its `go.mod` file as well as its `scripts/versions.sh` file. 
@@ -34,13 +37,8 @@ The most complicated example case that can arise above is that a feature depends
 
 Publishing all of the commits mentioned above to GitHub branches will enable running E2E tests through the CI.
 
-Running the tests locally doesn't require publishing the `subnet-evm` commit since `./scripts/e2e_test.sh` takes a flag specifying local checkout of `subnet-evm` repository.
-
-> [!NOTE]
-> Locally running E2E tests using local checkout of `subnet-evm` will install `avalanchego` version specified by the `AVALANCHEGO_VERSION` in that working tree's `./scripts/versions.sh`.
-
 > [!TIP]
-> Using the local checkout it's possible to run tests against a `tmpnet` consisting of nodes using a different version of `avalanchego` than the application being tested which might be helpful when troubleshooting.
+> Running the tests locally doesn't require publishing the `subnet-evm` commit since `./scripts/e2e_test.sh` takes a flag specifying local checkout of `subnet-evm` repository.
 
 ## Releases
 GoReleaser is used to build the binaries of the services and also Docker images with those binaries. The monorepo feature of GoReleaser Pro is used to automate the release flow in response to tags like `signature-aggregator/v0.0.0`. The release actions in .github/workflows automate this, but the release build can also be run locally. Be sure to install the "pro" distribution of the command line utility, so that it can parse the `monorepo` key. For example:
