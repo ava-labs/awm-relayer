@@ -199,6 +199,7 @@ func (n *appRequestNetwork) TrackSubnet(subnetID ids.ID) {
 	defer n.lock.Unlock()
 	n.logger.Debug("Tracking subnet", zap.String("subnetID", subnetID.String()))
 	n.trackedSubnets.Add(subnetID)
+	updateValidatorSet(context.Background(), n.logger, subnetID, n.manager, n.validatorClient)
 }
 
 func (n *appRequestNetwork) startUpdateValidators() {
@@ -208,16 +209,16 @@ func (n *appRequestNetwork) startUpdateValidators() {
 		for ; true; <-ticker.C {
 			n.lock.Lock()
 
-			updatePrimaryNetworkValidators(context.Background(), n.logger, constants.PrimaryNetworkID, n.manager, n.validatorClient)
+			updateValidatorSet(context.Background(), n.logger, constants.PrimaryNetworkID, n.manager, n.validatorClient)
 			for _, subnet := range n.trackedSubnets.List() {
-				updatePrimaryNetworkValidators(context.Background(), n.logger, subnet, n.manager, n.validatorClient)
+				updateValidatorSet(context.Background(), n.logger, subnet, n.manager, n.validatorClient)
 			}
 			n.lock.Unlock()
 		}
 	}()
 }
 
-func updatePrimaryNetworkValidators(ctx context.Context, logger logging.Logger, subnetID ids.ID, manager vdrs.Manager, client *validators.CanonicalValidatorClient) error {
+func updateValidatorSet(ctx context.Context, logger logging.Logger, subnetID ids.ID, manager vdrs.Manager, client *validators.CanonicalValidatorClient) error {
 	logger.Debug("Fetching validators for subnet ID", zap.Stringer("subnetID", subnetID))
 
 	// Fetch the primary network validators from the P-Chain
