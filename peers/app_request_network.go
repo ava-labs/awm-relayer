@@ -287,6 +287,9 @@ func (c *ConnectedCanonicalValidators) GetValidator(nodeID ids.NodeID) (*warp.Va
 // ConnectToCanonicalValidators connects to the canonical validators of the given subnet and returns the connected
 // validator information
 func (n *appRequestNetwork) ConnectToCanonicalValidators(subnetID ids.ID) (*ConnectedCanonicalValidators, error) {
+	// Track the subnet
+	n.TrackSubnet(subnetID)
+
 	// Get the subnet's current canonical validator set
 	startPChainAPICall := time.Now()
 	validatorSet, totalValidatorWeight, err := n.validatorClient.GetCurrentCanonicalValidatorSet(subnetID)
