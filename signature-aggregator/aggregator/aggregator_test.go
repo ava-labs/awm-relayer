@@ -241,10 +241,10 @@ func TestCreateSignedMessageRetriesAndFailsWithoutP2PResponses(t *testing.T) {
 	).Times(maxRelayerQueryAttempts)
 
 	_, err = aggregator.CreateSignedMessage(msg, nil, subnetID, 80)
-	require.ErrorContains(
+	require.ErrorIs(
 		t,
 		err,
-		"failed to collect a threshold of signatures",
+		errNotEnoughSignatures,
 	)
 }
 
@@ -398,9 +398,9 @@ func (p pChainStateStub) GetValidatorSet(
 	return output, nil
 }
 
-func (v *pChainStateStub) GetCurrentValidatorSet(
-	context.Context,
-	ids.ID,
+func (p pChainStateStub) GetCurrentValidatorSet(
+	_ context.Context,
+	_ ids.ID,
 ) (map[ids.ID]*validators.GetCurrentValidatorOutput, uint64, error) {
 	return nil, 0, nil
 }

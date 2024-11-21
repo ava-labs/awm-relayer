@@ -68,8 +68,13 @@ func (i *InfoAPI) IsBootstrapped(ctx context.Context, chainID string) (bool, err
 	return i.client.IsBootstrapped(ctx, chainID, i.options...)
 }
 
+<<<<<<< HEAD
 func (i *InfoAPI) Peers(ctx context.Context, nodes []ids.NodeID) ([]info.Peer, error) {
 	return i.client.Peers(ctx, nodes, i.options...)
+=======
+func (i *InfoAPI) Peers(ctx context.Context, nodeIDs []ids.NodeID) ([]info.Peer, error) {
+	return i.client.Peers(ctx, nodeIDs, i.options...)
+>>>>>>> main
 }
 
 func (i *InfoAPI) Uptime(ctx context.Context) (*info.UptimeResponse, error) {
