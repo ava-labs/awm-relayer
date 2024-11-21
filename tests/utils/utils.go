@@ -110,9 +110,9 @@ func ReadHexTextFile(filename string) string {
 
 // Constructs a relayer config with all subnets as sources and destinations
 func CreateDefaultRelayerConfig(
+	teleporter teleporterTestUtils.TeleporterTestInfo,
 	sourceSubnetsInfo []interfaces.SubnetTestInfo,
 	destinationSubnetsInfo []interfaces.SubnetTestInfo,
-	teleporterContractAddress common.Address,
 	fundedAddress common.Address,
 	relayerKey *ecdsa.PrivateKey,
 ) relayercfg.Config {
@@ -144,7 +144,7 @@ func CreateDefaultRelayerConfig(
 			},
 
 			MessageContracts: map[string]relayercfg.MessageProtocolConfig{
-				teleporterContractAddress.Hex(): {
+				teleporter.TeleporterMessengerAddress(subnetInfo).Hex(): {
 					MessageFormat: relayercfg.TELEPORTER.String(),
 					Settings: map[string]interface{}{
 						"reward-address": fundedAddress.Hex(),
@@ -153,7 +153,7 @@ func CreateDefaultRelayerConfig(
 				offchainregistry.OffChainRegistrySourceAddress.Hex(): {
 					MessageFormat: relayercfg.OFF_CHAIN_REGISTRY.String(),
 					Settings: map[string]interface{}{
-						"teleporter-registry-address": subnetInfo.TeleporterRegistryAddress.Hex(),
+						"teleporter-registry-address": teleporter.TeleporterRegistryAddress(subnetInfo).Hex(),
 					},
 				},
 			},
@@ -264,6 +264,7 @@ func FundRelayers(
 
 func SendBasicTeleporterMessageAsync(
 	ctx context.Context,
+	teleporter teleporterTestUtils.TeleporterTestInfo,
 	source interfaces.SubnetTestInfo,
 	destination interfaces.SubnetTestInfo,
 	fundedKey *ecdsa.PrivateKey,
@@ -290,6 +291,7 @@ func SendBasicTeleporterMessageAsync(
 	)
 	_, teleporterMessageID := teleporterTestUtils.SendCrossChainMessageAndWaitForAcceptance(
 		ctx,
+		teleporter.TeleporterMessenger(source),
 		source,
 		destination,
 		input,
@@ -300,6 +302,7 @@ func SendBasicTeleporterMessageAsync(
 
 func SendBasicTeleporterMessage(
 	ctx context.Context,
+	teleporter teleporterTestUtils.TeleporterTestInfo,
 	source interfaces.SubnetTestInfo,
 	destination interfaces.SubnetTestInfo,
 	fundedKey *ecdsa.PrivateKey,
@@ -325,6 +328,7 @@ func SendBasicTeleporterMessage(
 	)
 	receipt, teleporterMessageID := teleporterTestUtils.SendCrossChainMessageAndWaitForAcceptance(
 		ctx,
+		teleporter.TeleporterMessenger(source),
 		source,
 		destination,
 		input,
@@ -332,7 +336,7 @@ func SendBasicTeleporterMessage(
 	)
 	sendEvent, err := teleporterTestUtils.GetEventFromLogs(
 		receipt.Logs,
-		source.TeleporterMessenger.ParseSendCrossChainMessage,
+		teleporter.TeleporterMessenger(source).ParseSendCrossChainMessage,
 	)
 	Expect(err).Should(BeNil())
 
@@ -341,9 +345,9 @@ func SendBasicTeleporterMessage(
 
 func RelayBasicMessage(
 	ctx context.Context,
+	teleporter teleporterTestUtils.TeleporterTestInfo,
 	source interfaces.SubnetTestInfo,
 	destination interfaces.SubnetTestInfo,
-	teleporterContractAddress common.Address,
 	fundedKey *ecdsa.PrivateKey,
 	destinationAddress common.Address,
 ) {
@@ -354,6 +358,7 @@ func RelayBasicMessage(
 
 	_, _, teleporterMessageID := SendBasicTeleporterMessage(
 		ctx,
+		teleporter,
 		source,
 		destination,
 		fundedKey,
@@ -361,8 +366,41 @@ func RelayBasicMessage(
 	)
 
 	log.Info("Waiting for Teleporter message delivery")
-	err = utils.WaitTeleporterMessageDelivered(ctx, destination.TeleporterMessenger, teleporterMessageID)
+	err = WaitTeleporterMessageDelivered(ctx, teleporter.TeleporterMessenger(destination), teleporterMessageID)
 	Expect(err).Should(BeNil())
+}
+
+// Blocks until the given teleporter message is delivered to the specified TeleporterMessenger
+// before the timeout, or if an error occurred.
+func WaitTeleporterMessageDelivered(
+	ctx context.Context,
+	teleporterMessenger *teleportermessenger.TeleporterMessenger,
+	teleporterMessageID ids.ID,
+) error {
+	cctx, cancel := context.WithTimeout(ctx, 60*time.Second)
+	defer cancel()
+
+	queryTicker := time.NewTicker(200 * time.Millisecond)
+	defer queryTicker.Stop()
+	for {
+		delivered, err := teleporterMessenger.MessageReceived(
+			&bind.CallOpts{}, teleporterMessageID,
+		)
+		if err != nil {
+			return err
+		}
+
+		if delivered {
+			return nil
+		}
+
+		// Wait for the next round.
+		select {
+		case <-cctx.Done():
+			return cctx.Err()
+		case <-queryTicker.C:
+		}
+	}
 }
 
 func WriteRelayerConfig(relayerConfig relayercfg.Config, fname string) string {
@@ -398,6 +436,7 @@ func WriteSignatureAggregatorConfig(signatureAggregatorConfig signatureaggregato
 
 func TriggerProcessMissedBlocks(
 	ctx context.Context,
+	teleporter teleporterTestUtils.TeleporterTestInfo,
 	sourceSubnetInfo interfaces.SubnetTestInfo,
 	destinationSubnetInfo interfaces.SubnetTestInfo,
 	currRelayerCleanup context.CancelFunc,
@@ -416,9 +455,9 @@ func TriggerProcessMissedBlocks(
 
 	// Send three Teleporter messages from subnet A to subnet B
 	log.Info("Sending three Teleporter messages from subnet A to subnet B")
-	_, _, id1 := SendBasicTeleporterMessage(ctx, sourceSubnetInfo, destinationSubnetInfo, fundedKey, fundedAddress)
-	_, _, id2 := SendBasicTeleporterMessage(ctx, sourceSubnetInfo, destinationSubnetInfo, fundedKey, fundedAddress)
-	_, _, id3 := SendBasicTeleporterMessage(ctx, sourceSubnetInfo, destinationSubnetInfo, fundedKey, fundedAddress)
+	_, _, id1 := SendBasicTeleporterMessage(ctx, teleporter, sourceSubnetInfo, destinationSubnetInfo, fundedKey, fundedAddress)
+	_, _, id2 := SendBasicTeleporterMessage(ctx, teleporter, sourceSubnetInfo, destinationSubnetInfo, fundedKey, fundedAddress)
+	_, _, id3 := SendBasicTeleporterMessage(ctx, teleporter, sourceSubnetInfo, destinationSubnetInfo, fundedKey, fundedAddress)
 
 	currHeight, err := sourceSubnetInfo.RPCClient.BlockNumber(ctx)
 	Expect(err).Should(BeNil())
@@ -442,7 +481,7 @@ func TriggerProcessMissedBlocks(
 	defer relayerCleanup()
 
 	// Wait for relayer to start up
-	startupCtx, startupCancel := context.WithTimeout(ctx, 15*time.Second)
+	startupCtx, startupCancel := context.WithTimeout(ctx, 60*time.Second)
 	defer startupCancel()
 	WaitForChannelClose(startupCtx, readyChan)
 
@@ -450,18 +489,18 @@ func TriggerProcessMissedBlocks(
 	<-newHeads
 
 	log.Info("Waiting for Teleporter message delivery")
-	err = utils.WaitTeleporterMessageDelivered(ctx, destinationSubnetInfo.TeleporterMessenger, id3)
+	err = WaitTeleporterMessageDelivered(ctx, teleporter.TeleporterMessenger(destinationSubnetInfo), id3)
 	Expect(err).Should(BeNil())
 
-	delivered1, err := destinationSubnetInfo.TeleporterMessenger.MessageReceived(
+	delivered1, err := teleporter.TeleporterMessenger(destinationSubnetInfo).MessageReceived(
 		&bind.CallOpts{}, id1,
 	)
 	Expect(err).Should(BeNil())
-	delivered2, err := destinationSubnetInfo.TeleporterMessenger.MessageReceived(
+	delivered2, err := teleporter.TeleporterMessenger(destinationSubnetInfo).MessageReceived(
 		&bind.CallOpts{}, id2,
 	)
 	Expect(err).Should(BeNil())
-	delivered3, err := destinationSubnetInfo.TeleporterMessenger.MessageReceived(
+	delivered3, err := teleporter.TeleporterMessenger(destinationSubnetInfo).MessageReceived(
 		&bind.CallOpts{}, id3,
 	)
 	Expect(err).Should(BeNil())
@@ -473,6 +512,7 @@ func TriggerProcessMissedBlocks(
 func DeployBatchCrossChainMessenger(
 	ctx context.Context,
 	senderKey *ecdsa.PrivateKey,
+	teleporter teleporterTestUtils.TeleporterTestInfo,
 	teleporterManager common.Address,
 	subnet interfaces.SubnetTestInfo,
 ) (common.Address, *batchcrosschainmessenger.BatchCrossChainMessenger) {
@@ -482,7 +522,7 @@ func DeployBatchCrossChainMessenger(
 	address, tx, exampleMessenger, err := batchcrosschainmessenger.DeployBatchCrossChainMessenger(
 		opts,
 		subnet.RPCClient,
-		subnet.TeleporterRegistryAddress,
+		teleporter.TeleporterRegistryAddress(subnet),
 		teleporterManager,
 	)
 	Expect(err).Should(BeNil())
@@ -518,14 +558,14 @@ func runExecutable(
 	go func() {
 		scanner := bufio.NewScanner(cmdStdOutReader)
 		for scanner.Scan() {
-			log.Info(scanner.Text())
+			fmt.Println(scanner.Text())
 		}
 		cmdOutput <- "Command execution finished"
 	}()
 	go func() {
 		scanner := bufio.NewScanner(cmdStdErrReader)
 		for scanner.Scan() {
-			log.Error(scanner.Text())
+			fmt.Println(scanner.Text())
 		}
 		cmdOutput <- "Command execution finished"
 	}()
