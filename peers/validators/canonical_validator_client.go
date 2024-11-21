@@ -15,6 +15,8 @@ import (
 	"github.com/ava-labs/awm-relayer/config"
 	"github.com/ava-labs/awm-relayer/peers/utils"
 	"go.uber.org/zap"
+
+	pchainapi "github.com/ava-labs/avalanchego/vms/platformvm/api"
 )
 
 var _ validators.State = &CanonicalValidatorClient{}
@@ -89,7 +91,7 @@ func (v *CanonicalValidatorClient) GetValidatorSet(
 ) (map[ids.NodeID]*validators.GetValidatorOutput, error) {
 	// First, attempt to use the "getValidatorsAt" RPC method. This method may not be available on
 	// all API nodes, in which case we can fall back to using "getCurrentValidators" if needed.
-	res, err := v.client.GetValidatorsAt(ctx, subnetID, height, v.options...)
+	res, err := v.client.GetValidatorsAt(ctx, subnetID, pchainapi.Height(height), v.options...)
 	if err != nil {
 		v.logger.Debug(
 			"P-chain RPC to getValidatorAt returned error. Falling back to getCurrentValidators",
