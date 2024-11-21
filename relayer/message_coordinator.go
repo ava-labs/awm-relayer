@@ -228,6 +228,7 @@ func (mc *MessageCoordinator) ProcessBlock(
 	ethClient ethclient.Client,
 	errChan chan error,
 ) {
+	mc.logger.Debug("Processing block", zap.Uint64("blockNumber", blockHeader.Number.Uint64()), zap.String("blockchainID", blockchainID.String()))
 	// Parse the logs in the block, and group by application relayer
 	block, err := relayerTypes.NewWarpBlockInfo(blockHeader, ethClient)
 	if err != nil {
@@ -263,7 +264,7 @@ func (mc *MessageCoordinator) ProcessBlock(
 		// Dispatch all messages in the block to the appropriate application relayer.
 		// An empty slice is still a valid argument to ProcessHeight; in this case the height is immediately committed.
 		handlers := messageHandlers[appRelayer.relayerID.ID]
-
+		mc.logger.Debug("Dispatching to app relayer", zap.String("relayerID", appRelayer.relayerID.ID.String()), zap.Int("numMessages", len(handlers)))
 		go appRelayer.ProcessHeight(block.BlockNumber, handlers, errChan)
 	}
 }

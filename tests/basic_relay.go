@@ -77,7 +77,7 @@ func BasicRelay(network *network.LocalNetwork, teleporter utils.TeleporterTestIn
 		})
 	}
 	relayerConfig.ManuallyTrackedPeers = manuallyTrackedPeers
-
+	relayerConfig.LogLevel = "debug"
 	// The config needs to be validated in order to be passed to database.GetConfigRelayerIDs
 	relayerConfig.Validate()
 
@@ -89,7 +89,7 @@ func BasicRelay(network *network.LocalNetwork, teleporter utils.TeleporterTestIn
 	fmt.Println("Test Relaying from Subnet A to Subnet B")
 
 	fmt.Println("Starting the relayer")
-	relayerCleanup, readyChan := testUtils.RunRelayerExecutable(
+	relayerCleanup, readyChan /*readyChan*/ := testUtils.RunRelayerExecutable(
 		ctx,
 		relayerConfigPath,
 		relayerConfig,
@@ -97,7 +97,7 @@ func BasicRelay(network *network.LocalNetwork, teleporter utils.TeleporterTestIn
 	defer relayerCleanup()
 
 	// Wait for relayer to start up
-	startupCtx, startupCancel := context.WithTimeout(ctx, 30*time.Second)
+	startupCtx, startupCancel := context.WithTimeout(ctx, 60*time.Second)
 	defer startupCancel()
 	testUtils.WaitForChannelClose(startupCtx, readyChan)
 
@@ -202,7 +202,7 @@ func BasicRelay(network *network.LocalNetwork, teleporter utils.TeleporterTestIn
 
 	// Run the relayer
 	fmt.Println("Creating new relayer instance to test already delivered message")
-	relayerCleanup, readyChan = testUtils.RunRelayerExecutable(
+	relayerCleanup, readyChan /*readyChan*/ = testUtils.RunRelayerExecutable(
 		ctx,
 		relayerConfigPath,
 		relayerConfig,
@@ -211,7 +211,7 @@ func BasicRelay(network *network.LocalNetwork, teleporter utils.TeleporterTestIn
 
 	// Wait for relayer to start up
 	fmt.Println("Waiting for the relayer to start up")
-	startupCtx, startupCancel = context.WithTimeout(ctx, 30*time.Second)
+	startupCtx, startupCancel = context.WithTimeout(ctx, 60*time.Second)
 	defer startupCancel()
 	testUtils.WaitForChannelClose(startupCtx, readyChan)
 

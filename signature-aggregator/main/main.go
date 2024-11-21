@@ -84,6 +84,7 @@ func main() {
 	if logLevel <= logging.Debug {
 		networkLogLevel = logLevel
 	}
+	networkLogLevel = logging.Verbo
 
 	// Initialize message creator passed down to relayers for creating app requests.
 	// We do not collect metrics for the message creator.
@@ -99,6 +100,7 @@ func main() {
 	}
 
 	network, err := peers.NewNetwork(
+		"aggregator",
 		networkLogLevel,
 		prometheus.DefaultRegisterer,
 		nil,
@@ -110,6 +112,7 @@ func main() {
 		logger.Fatal("Failed to create app request network", zap.Error(err))
 		panic(err)
 	}
+	defer network.Shutdown()
 
 	registry := metrics.Initialize(cfg.MetricsPort)
 	metricsInstance := metrics.NewSignatureAggregatorMetrics(registry)

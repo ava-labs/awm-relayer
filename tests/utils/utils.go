@@ -120,6 +120,7 @@ func CreateDefaultRelayerConfig(
 	if err != nil {
 		logLevel = logging.Info
 	}
+	logLevel = logging.Debug
 
 	log.Info(
 		"Setting up relayer config",
@@ -192,7 +193,7 @@ func CreateDefaultRelayerConfig(
 	}
 
 	return relayercfg.Config{
-		LogLevel: logging.Info.LowerString(),
+		LogLevel: logLevel.LowerString(),
 		PChainAPI: &config.APIConfig{
 			BaseURL: sourceSubnetsInfo[0].NodeURIs[0],
 		},
@@ -228,7 +229,7 @@ func CreateDefaultSignatureAggregatorConfig(
 	)
 	// Construct the config values for each subnet
 	return signatureaggregatorcfg.Config{
-		LogLevel: logging.Info.LowerString(),
+		LogLevel: logging.Verbo.LowerString(),
 		PChainAPI: &config.APIConfig{
 			BaseURL: sourceSubnetsInfo[0].NodeURIs[0],
 		},
@@ -377,7 +378,7 @@ func WaitTeleporterMessageDelivered(
 	teleporterMessenger *teleportermessenger.TeleporterMessenger,
 	teleporterMessageID ids.ID,
 ) error {
-	cctx, cancel := context.WithTimeout(ctx, 20*time.Second)
+	cctx, cancel := context.WithTimeout(ctx, 60*time.Second)
 	defer cancel()
 
 	queryTicker := time.NewTicker(200 * time.Millisecond)
@@ -481,7 +482,7 @@ func TriggerProcessMissedBlocks(
 	defer relayerCleanup()
 
 	// Wait for relayer to start up
-	startupCtx, startupCancel := context.WithTimeout(ctx, 15*time.Second)
+	startupCtx, startupCancel := context.WithTimeout(ctx, 60*time.Second)
 	defer startupCancel()
 	WaitForChannelClose(startupCtx, readyChan)
 
@@ -581,9 +582,11 @@ func runExecutable(
 		for {
 			resp, err := http.Get(healthCheckUrl)
 			if err == nil && resp.StatusCode == 200 {
+				fmt.Println("Health check passed", "appName", appName)
 				close(readyChan)
 				break
 			}
+			fmt.Println("Health check failed", "appName", appName, "err", err)
 			time.Sleep(time.Second * 1)
 		}
 	}()

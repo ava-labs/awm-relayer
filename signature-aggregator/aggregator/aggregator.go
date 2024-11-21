@@ -39,10 +39,10 @@ type blsSignatureBuf [bls.SignatureLen]byte
 
 const (
 	// Number of retries to collect signatures from validators
-	maxRelayerQueryAttempts = 5
+	maxRelayerQueryAttempts = 10
 	// Maximum amount of time to spend waiting (in addition to network round trip time per attempt)
 	// during relayer signature query routine
-	signatureRequestRetryWaitPeriodMs = 10_000
+	signatureRequestRetryWaitPeriodMs = 20_000
 )
 
 var (
@@ -94,19 +94,24 @@ func NewSignatureAggregator(
 	return &sa, nil
 }
 
+func (s *SignatureAggregator) Shutdown() {
+	s.network.Shutdown()
+}
+
 func (s *SignatureAggregator) CreateSignedMessage(
 	unsignedMessage *avalancheWarp.UnsignedMessage,
 	justification []byte,
 	inputSigningSubnet ids.ID,
 	quorumPercentage uint64,
 ) (*avalancheWarp.Message, error) {
+	s.logger.Debug("Creating signed message", zap.String("warpMessageID", unsignedMessage.ID().String()))
 	var signingSubnet ids.ID
 	var err error
 	// If signingSubnet is not set we default to the subnet of the source blockchain
 	sourceSubnet, err := s.getSubnetID(unsignedMessage.SourceChainID)
 	if err != nil {
 		return nil, fmt.Errorf(
-			"Source message subnet not found for chainID %s",
+			"source message subnet not found for chainID %s",
 			unsignedMessage.SourceChainID,
 		)
 	}
@@ -115,7 +120,10 @@ func (s *SignatureAggregator) CreateSignedMessage(
 	} else {
 		signingSubnet = inputSigningSubnet
 	}
+	s.logger.Debug("Creating signed message with signing subnet", zap.String("warpMessageID", unsignedMessage.ID().String()), zap.Stringer("signingSubnet", signingSubnet))
 
+	s.network.TrackSubnet(signingSubnet)
+	s.logger.Debug("tracked subnet")
 	connectedValidators, err := s.network.ConnectToCanonicalValidators(signingSubnet)
 	if err != nil {
 		msg := "Failed to connect to canonical validators"
@@ -127,6 +135,7 @@ func (s *SignatureAggregator) CreateSignedMessage(
 		s.metrics.FailuresToGetValidatorSet.Inc()
 		return nil, fmt.Errorf("%s: %w", msg, err)
 	}
+	s.logger.Debug("Connected to canonical validators", zap.String("warpMessageID", unsignedMessage.ID().String()))
 	s.metrics.ConnectedStakeWeightPercentage.WithLabelValues(
 		signingSubnet.String(),
 	).Set(

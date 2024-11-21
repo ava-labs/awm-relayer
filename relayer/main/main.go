@@ -19,7 +19,6 @@ import (
 	"github.com/ava-labs/avalanchego/network/peer"
 	"github.com/ava-labs/avalanchego/utils/constants"
 	"github.com/ava-labs/avalanchego/utils/logging"
-	"github.com/ava-labs/avalanchego/utils/set"
 	"github.com/ava-labs/awm-relayer/database"
 	"github.com/ava-labs/awm-relayer/messages"
 	offchainregistry "github.com/ava-labs/awm-relayer/messages/off-chain-registry"
@@ -135,20 +134,9 @@ func main() {
 	// The app request network generates P2P networking logs that are verbose at the info level.
 	// Unless the log level is debug or lower, set the network log level to error to avoid spamming the logs.
 	// We do not collect metrics for the network.
-	// networkLogLevel := logging.Error
-	// if logLevel <= logging.Debug {
-	// 	networkLogLevel = logLevel
-	// }
-	var trackedSubnets set.Set[ids.ID]
-	// trackedSubnets is no longer strictly required but keeping it here for now
-	// to keep full parity with existing AWM relayer for now
-	// TODO: remove this from here once trackedSubnets are no longer referenced
-	// by ping messages in avalanchego
-	for _, sourceBlockchain := range cfg.SourceBlockchains {
-		if sourceBlockchain.GetSubnetID() == constants.PrimaryNetworkID {
-			continue
-		}
-		trackedSubnets.Add(sourceBlockchain.GetSubnetID())
+	networkLogLevel := logging.Error
+	if logLevel <= logging.Debug {
+		networkLogLevel = logLevel
 	}
 
 	// Initialize message creator passed down to relayers for creating app requests.
@@ -175,9 +163,10 @@ func main() {
 	}
 
 	network, err := peers.NewNetwork(
-		logging.Verbo,
+		"relayer",
+		networkLogLevel,
 		registerer,
-		trackedSubnets,
+		nil,
 		messageCreator,
 		manuallyTrackedPeers,
 		&cfg,
@@ -186,6 +175,7 @@ func main() {
 		logger.Fatal("Failed to create app request network", zap.Error(err))
 		panic(err)
 	}
+	defer network.Shutdown()
 
 	err = relayer.InitializeConnectionsAndCheckStake(logger, network, &cfg)
 	if err != nil {

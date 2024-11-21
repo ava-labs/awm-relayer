@@ -8,9 +8,9 @@ replace (
 )
 
 require (
-	github.com/ava-labs/avalanchego v1.12.0-initial-poc.8
-	github.com/ava-labs/coreth v0.13.8
-	github.com/ava-labs/subnet-evm v0.6.11
+	github.com/ava-labs/avalanchego v1.12.0-fuji
+	github.com/ava-labs/coreth v0.13.9-rc.1
+	github.com/ava-labs/subnet-evm v0.6.12
 	github.com/ava-labs/teleporter v1.0.8-0.20241113215352-fdd3e578a507
 	github.com/aws/aws-sdk-go-v2 v1.32.4
 	github.com/aws/aws-sdk-go-v2/config v1.27.9
