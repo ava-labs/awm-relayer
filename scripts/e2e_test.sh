@@ -4,16 +4,10 @@
 
 set -e
 
-SUBNET_EVM_PATH=
-LOCAL=
-DATA_DIRECTORY=
 HELP=
 LOG_LEVEL=
 while [ $# -gt 0 ]; do
     case "$1" in
-        -l | --local) LOCAL=true ;;
-        -s | --subnet-evm) SUBNET_EVM_PATH=$2 ;;
-        -d | --data-dir) DATA_DIRECTORY=$2 ;;
         -v | --verbose) LOG_LEVEL=debug ;;
         -h | --help) HELP=true ;;
     esac
@@ -25,32 +19,10 @@ if [ "$HELP" = true ]; then
     echo "Run E2E tests for AWM Relayer."
     echo ""
     echo "Options:"
-    echo "  -l, --local                       Run the test locally. Requires --subnet-evm and --data-dir"
-    echo "  -s, --subnet-evm <path>           Path to subnet-evm repo"
-    echo "  -d, --data-dir <path>             Path to data directory"
     echo "  -v, --verbose                     Enable debug logs"
     echo "  -h, --help                        Print this help message"
     exit 0
 fi
-
-# if [ "$LOCAL" = true ]; then
-#     if [ -z "$DATA_DIRECTORY" ]; then
-#         echo "Must specify data directory when running local"
-#         exit 1
-#     fi
-#     if [ -z "$SUBNET_EVM_PATH" ]; then
-#         echo "Must specify subnet-evm path when running local"
-#         exit 1
-#     fi
-#     cwd=$PWD
-#     cd $SUBNET_EVM_PATH
-#     BASEDIR=$DATA_DIRECTORY AVALANCHEGO_BUILD_PATH=$DATA_DIRECTORY/avalanchego ./scripts/install_avalanchego_release.sh
-#     ./scripts/build.sh $DATA_DIRECTORY/avalanchego/plugins/srEXiWaHuhNyGwPUi444Tu47ZEDwxTWrbQiuD7FmgSAQ6X7Dy
-
-#     cd $cwd
-#     export AVALANCHEGO_BUILD_PATH=$DATA_DIRECTORY/avalanchego
-#     export DATA_DIR=$DATA_DIRECTORY/data
-# fi
 
 BASE_PATH=$(
   cd "$(dirname "${BASH_SOURCE[0]}")"
@@ -72,6 +44,7 @@ cp ${BASEDIR}/subnet-evm/subnet-evm ${BASEDIR}/avalanchego/plugins/srEXiWaHuhNyG
 echo "Copied ${BASEDIR}/subnet-evm/subnet-evm binary to ${BASEDIR}/avalanchego/plugins/"
 
 export AVALANCHEGO_BUILD_PATH=$BASEDIR/avalanchego
+# TODO: Remove this once we have tagged dependencies
 cp /Users/cameron.schultz/avalanchego/build/avalanchego $AVALANCHEGO_BUILD_PATH/avalanchego
 
 # Build ginkgo

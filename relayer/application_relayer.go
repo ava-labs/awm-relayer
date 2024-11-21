@@ -183,7 +183,6 @@ func (r *ApplicationRelayer) ProcessMessage(handler messages.MessageHandler) (co
 		zap.String("relayerID", r.relayerID.ID.String()),
 	)
 	shouldSend, err := handler.ShouldSendMessage(r.destinationClient)
-	r.logger.Debug("called should send", zap.String("relayerID", r.relayerID.ID.String()))
 	if err != nil {
 		r.logger.Error(
 			"Failed to check if message should be sent",
@@ -197,7 +196,6 @@ func (r *ApplicationRelayer) ProcessMessage(handler messages.MessageHandler) (co
 		return common.Hash{}, nil
 	}
 	unsignedMessage := handler.GetUnsignedMessage()
-	r.logger.Debug("got unsigned message", zap.String("relayerID", r.relayerID.ID.String()))
 
 	startCreateSignedMessageTime := time.Now()
 	// Query nodes on the origin chain for signatures, and construct the signed warp message.
@@ -205,7 +203,6 @@ func (r *ApplicationRelayer) ProcessMessage(handler messages.MessageHandler) (co
 
 	// sourceWarpSignatureClient is nil iff the source blockchain is configured to fetch signatures via AppRequest
 	if r.sourceWarpSignatureClient == nil {
-		r.logger.Debug("creating signed message 1", zap.String("relayerID", r.relayerID.ID.String()))
 		signedMessage, err = r.signatureAggregator.CreateSignedMessage(
 			unsignedMessage,
 			nil,
@@ -223,7 +220,6 @@ func (r *ApplicationRelayer) ProcessMessage(handler messages.MessageHandler) (co
 		}
 	} else {
 		r.incFetchSignatureRPCCount()
-		r.logger.Debug("creating signed message 2", zap.String("relayerID", r.relayerID.ID.String()))
 		signedMessage, err = r.createSignedMessage(unsignedMessage)
 		if err != nil {
 			r.logger.Error(
@@ -238,7 +234,6 @@ func (r *ApplicationRelayer) ProcessMessage(handler messages.MessageHandler) (co
 	// create signed message latency (ms)
 	r.setCreateSignedMessageLatencyMS(float64(time.Since(startCreateSignedMessageTime).Milliseconds()))
 
-	r.logger.Debug("sending message", zap.String("relayerID", r.relayerID.ID.String()))
 	txHash, err := handler.SendMessage(signedMessage, r.destinationClient)
 	if err != nil {
 		r.logger.Error(

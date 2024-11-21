@@ -57,14 +57,6 @@ func (cm *CheckpointManager) Run() {
 	go cm.listenForWriteSignal()
 }
 
-func (cm *CheckpointManager) RLock() {
-	cm.lock.RLock()
-}
-
-func (cm *CheckpointManager) RUnlock() {
-	cm.lock.RUnlock()
-}
-
 func (cm *CheckpointManager) writeToDatabase() {
 	cm.lock.RLock()
 	defer cm.lock.RUnlock()
@@ -114,7 +106,7 @@ func (cm *CheckpointManager) listenForWriteSignal() {
 // Heights are committed in sequence, so if height is not exactly one
 // greater than the current committedHeight, it is instead cached in memory
 // to potentially be committed later.
-// TODONOW: We should only stage heights once all app relayers for a given source chain have staged
+// TODO: We should only stage heights once all app relayers for a given source chain have staged
 func (cm *CheckpointManager) StageCommittedHeight(height uint64) {
 	cm.lock.Lock()
 	defer cm.lock.Unlock()

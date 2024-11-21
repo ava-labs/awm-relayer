@@ -84,7 +84,6 @@ func main() {
 	if logLevel <= logging.Debug {
 		networkLogLevel = logLevel
 	}
-	networkLogLevel = logging.Verbo
 
 	// Initialize message creator passed down to relayers for creating app requests.
 	// We do not collect metrics for the message creator.
@@ -100,11 +99,9 @@ func main() {
 	}
 
 	network, err := peers.NewNetwork(
-		"aggregator",
 		networkLogLevel,
 		prometheus.DefaultRegisterer,
 		nil,
-		messageCreator,
 		nil,
 		&cfg,
 	)
@@ -120,6 +117,7 @@ func main() {
 	signatureAggregator, err := aggregator.NewSignatureAggregator(
 		network,
 		logger,
+		messageCreator,
 		cfg.SignatureCacheSize,
 		metricsInstance,
 		cfg.EtnaTime,

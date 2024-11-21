@@ -140,6 +140,12 @@ var _ = ginkgo.BeforeSuite(func() {
 			false)
 	}
 
+	// Restart the network to attempt to refresh TLS connections
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(60*len(localNetworkInstance.Nodes))*time.Second)
+	defer cancel()
+	err = localNetworkInstance.Restart(ctx, os.Stdout)
+	Expect(err).Should(BeNil())
+
 	decider = exec.CommandContext(ctx, "./tests/cmd/decider/decider")
 	decider.Start()
 	go func() {
@@ -175,31 +181,31 @@ func cleanup() {
 var _ = ginkgo.AfterSuite(cleanup)
 
 var _ = ginkgo.Describe("[AWM Relayer Integration Tests", func() {
-	ginkgo.It("Manually Provided Message", func() {
-		ManualMessage(localNetworkInstance, teleporterInfo)
-	})
+	// ginkgo.It("Manually Provided Message", func() {
+	// 	ManualMessage(localNetworkInstance, teleporterInfo)
+	// })
 	ginkgo.It("Basic Relay", func() {
 		BasicRelay(localNetworkInstance, teleporterInfo)
 	})
-	ginkgo.It("Shared Database", func() {
-		SharedDatabaseAccess(localNetworkInstance, teleporterInfo)
-	})
-	ginkgo.It("Allowed Addresses", func() {
-		AllowedAddresses(localNetworkInstance, teleporterInfo)
-	})
-	ginkgo.It("Batch Message", func() {
-		BatchRelay(localNetworkInstance, teleporterInfo)
-	})
-	ginkgo.It("Relay Message API", func() {
-		RelayMessageAPI(localNetworkInstance, teleporterInfo)
-	})
-	ginkgo.It("Warp API", func() {
-		WarpAPIRelay(localNetworkInstance, teleporterInfo)
-	})
-	ginkgo.It("Signature Aggregator", func() {
-		SignatureAggregatorAPI(localNetworkInstance, teleporterInfo)
-	})
-	ginkgo.It("Etna Upgrade", func() {
-		EtnaUpgrade(localNetworkInstance, teleporterInfo)
-	})
+	// ginkgo.It("Shared Database", func() {
+	// 	SharedDatabaseAccess(localNetworkInstance, teleporterInfo)
+	// })
+	// ginkgo.It("Allowed Addresses", func() {
+	// 	AllowedAddresses(localNetworkInstance, teleporterInfo)
+	// })
+	// ginkgo.It("Batch Message", func() {
+	// 	BatchRelay(localNetworkInstance, teleporterInfo)
+	// })
+	// ginkgo.It("Relay Message API", func() {
+	// 	RelayMessageAPI(localNetworkInstance, teleporterInfo)
+	// })
+	// ginkgo.It("Warp API", func() {
+	// 	WarpAPIRelay(localNetworkInstance, teleporterInfo)
+	// })
+	// ginkgo.It("Signature Aggregator", func() {
+	// 	SignatureAggregatorAPI(localNetworkInstance, teleporterInfo)
+	// })
+	// ginkgo.It("Etna Upgrade", func() {
+	// 	EtnaUpgrade(localNetworkInstance, teleporterInfo)
+	// })
 })

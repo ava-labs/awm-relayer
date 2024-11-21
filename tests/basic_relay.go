@@ -5,13 +5,10 @@ package tests
 
 import (
 	"context"
-	"fmt"
-	"net/url"
 	"os"
 	"time"
 
 	"github.com/ava-labs/avalanchego/utils/logging"
-	"github.com/ava-labs/awm-relayer/config"
 	"github.com/ava-labs/awm-relayer/database"
 	testUtils "github.com/ava-labs/awm-relayer/tests/utils"
 	"github.com/ava-labs/subnet-evm/core/types"
@@ -19,6 +16,7 @@ import (
 	"github.com/ava-labs/teleporter/tests/network"
 	"github.com/ava-labs/teleporter/tests/utils"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/log"
 	. "github.com/onsi/gomega"
 )
 
@@ -28,16 +26,8 @@ import (
 // - Relaying an already delivered message
 // - Setting ProcessHistoricalBlocksFromHeight in config
 func BasicRelay(network *network.LocalNetwork, teleporter utils.TeleporterTestInfo) {
-	// Restart the network to attempt to refresh TLS connections
-	{
-		ctx, cancel := context.WithTimeout(context.Background(), time.Duration(60*len(network.Network.Nodes))*time.Second)
-		defer cancel()
-		err := network.Network.Restart(ctx, os.Stdout)
-		Expect(err).Should(BeNil())
-	}
-
 	subnetAInfo := network.GetPrimaryNetworkInfo()
-	subnetAInfo, subnetBInfo := network.GetTwoSubnets()
+	subnetBInfo, _ := network.GetTwoSubnets()
 	fundedAddress, fundedKey := network.GetFundedAccountInfo()
 	err := testUtils.ClearRelayerStorage()
 	Expect(err).Should(BeNil())
@@ -47,7 +37,7 @@ func BasicRelay(network *network.LocalNetwork, teleporter utils.TeleporterTestIn
 	//
 	ctx := context.Background()
 
-	fmt.Println("Funding relayer address on all subnets")
+	log.Info("Funding relayer address on all subnets")
 	relayerKey, err := crypto.GenerateKey()
 	Expect(err).Should(BeNil())
 	testUtils.FundRelayers(ctx, []interfaces.SubnetTestInfo{subnetAInfo, subnetBInfo}, fundedKey, relayerKey)
@@ -63,21 +53,6 @@ func BasicRelay(network *network.LocalNetwork, teleporter utils.TeleporterTestIn
 		relayerKey,
 	)
 
-	// Add primary network validators as manually tracked peers
-	var manuallyTrackedPeers []*config.PeerConfig
-	primaryNetworkValidators := network.GetPrimaryNetworkValidators()
-	for _, validator := range primaryNetworkValidators[0:1] {
-		parsed, err := url.Parse(validator.URI)
-		Expect(err).Should(BeNil())
-		// ip, err := netip.ParseAddrPort(parsed.Host)
-		// Expect(err).Should(BeNil())
-		manuallyTrackedPeers = append(manuallyTrackedPeers, &config.PeerConfig{
-			IP: parsed.Host,
-			ID: validator.NodeID.String(),
-		})
-	}
-	relayerConfig.ManuallyTrackedPeers = manuallyTrackedPeers
-	relayerConfig.LogLevel = "debug"
 	// The config needs to be validated in order to be passed to database.GetConfigRelayerIDs
 	relayerConfig.Validate()
 
@@ -86,9 +61,9 @@ func BasicRelay(network *network.LocalNetwork, teleporter utils.TeleporterTestIn
 	//
 	// Test Relaying from Subnet A to Subnet B
 	//
-	fmt.Println("Test Relaying from Subnet A to Subnet B")
+	log.Info("Test Relaying from Subnet A to Subnet B")
 
-	fmt.Println("Starting the relayer")
+	log.Info("Starting the relayer")
 	relayerCleanup, readyChan /*readyChan*/ := testUtils.RunRelayerExecutable(
 		ctx,
 		relayerConfigPath,
@@ -101,7 +76,7 @@ func BasicRelay(network *network.LocalNetwork, teleporter utils.TeleporterTestIn
 	defer startupCancel()
 	testUtils.WaitForChannelClose(startupCtx, readyChan)
 
-	fmt.Println("Sending transaction from Subnet A to Subnet B")
+	log.Info("Sending transaction from Subnet A to Subnet B")
 	testUtils.RelayBasicMessage(
 		ctx,
 		teleporter,
@@ -116,7 +91,7 @@ func BasicRelay(network *network.LocalNetwork, teleporter utils.TeleporterTestIn
 	//
 	// Test Relaying from Subnet B to Subnet A
 	//
-	fmt.Println("Test Relaying from Subnet B to Subnet A")
+	log.Info("Test Relaying from Subnet B to Subnet A")
 	testUtils.RelayBasicMessage(
 		ctx,
 		teleporter,
@@ -126,40 +101,14 @@ func BasicRelay(network *network.LocalNetwork, teleporter utils.TeleporterTestIn
 		fundedAddress,
 	)
 
-	time.Sleep(10 * time.Second)
-	fmt.Println("Sending transaction from Subnet A to Subnet B")
-	testUtils.RelayBasicMessage(
-		ctx,
-		teleporter,
-		subnetAInfo,
-		subnetBInfo,
-		fundedKey,
-		fundedAddress,
-	)
-
-	time.Sleep(10 * time.Second)
-
-	//
-	// Test Relaying from Subnet B to Subnet A
-	//
-	fmt.Println("Test Relaying from Subnet B to Subnet A")
-	testUtils.RelayBasicMessage(
-		ctx,
-		teleporter,
-		subnetBInfo,
-		subnetAInfo,
-		fundedKey,
-		fundedAddress,
-	)
-
-	fmt.Println("Finished sending warp message, closing down output channel")
+	log.Info("Finished sending warp message, closing down output channel")
 	// Cancel the command and stop the relayer
 	relayerCleanup()
 
 	//
 	// Try Relaying Already Delivered Message
 	//
-	fmt.Println("Test Relaying Already Delivered Message")
+	log.Info("Test Relaying Already Delivered Message")
 	logger := logging.NewLogger(
 		"awm-relayer",
 		logging.NewWrappedCore(
@@ -201,7 +150,7 @@ func BasicRelay(network *network.LocalNetwork, teleporter utils.TeleporterTestIn
 	defer sub.Unsubscribe()
 
 	// Run the relayer
-	fmt.Println("Creating new relayer instance to test already delivered message")
+	log.Info("Creating new relayer instance to test already delivered message")
 	relayerCleanup, readyChan /*readyChan*/ = testUtils.RunRelayerExecutable(
 		ctx,
 		relayerConfigPath,
@@ -210,20 +159,20 @@ func BasicRelay(network *network.LocalNetwork, teleporter utils.TeleporterTestIn
 	defer relayerCleanup()
 
 	// Wait for relayer to start up
-	fmt.Println("Waiting for the relayer to start up")
+	log.Info("Waiting for the relayer to start up")
 	startupCtx, startupCancel = context.WithTimeout(ctx, 60*time.Second)
 	defer startupCancel()
 	testUtils.WaitForChannelClose(startupCtx, readyChan)
 
 	// We should not receive a new block on subnet B, since the relayer should have
 	// seen the Teleporter message was already delivered.
-	fmt.Println("Waiting for 10s to ensure no new block confirmations on destination chain")
+	log.Info("Waiting for 10s to ensure no new block confirmations on destination chain")
 	Consistently(newHeadsB, 10*time.Second, 500*time.Millisecond).ShouldNot(Receive())
 
 	//
 	// Set ProcessHistoricalBlocksFromHeight in config
 	//
-	fmt.Println("Test Setting ProcessHistoricalBlocksFromHeight in config")
+	log.Info("Test Setting ProcessHistoricalBlocksFromHeight in config")
 	testUtils.TriggerProcessMissedBlocks(
 		ctx,
 		teleporter,

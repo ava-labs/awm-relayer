@@ -49,7 +49,7 @@ const (
 func BuildAllExecutables(ctx context.Context) {
 	cmd := exec.Command("./scripts/build.sh")
 	out, err := cmd.CombinedOutput()
-	fmt.Println(string(out))
+	log.Info(string(out))
 	Expect(err).Should(BeNil())
 }
 
@@ -120,7 +120,6 @@ func CreateDefaultRelayerConfig(
 	if err != nil {
 		logLevel = logging.Info
 	}
-	logLevel = logging.Debug
 
 	log.Info(
 		"Setting up relayer config",
@@ -229,7 +228,7 @@ func CreateDefaultSignatureAggregatorConfig(
 	)
 	// Construct the config values for each subnet
 	return signatureaggregatorcfg.Config{
-		LogLevel: logging.Verbo.LowerString(),
+		LogLevel: logLevel.LowerString(),
 		PChainAPI: &config.APIConfig{
 			BaseURL: sourceSubnetsInfo[0].NodeURIs[0],
 		},
@@ -415,7 +414,7 @@ func WriteRelayerConfig(relayerConfig relayercfg.Config, fname string) string {
 	Expect(err).Should(BeNil())
 	relayerConfigPath := f.Name()
 
-	fmt.Println("Created awm-relayer config", "configPath", relayerConfigPath, "config", string(data))
+	log.Info("Created awm-relayer config", "configPath", relayerConfigPath, "config", string(data))
 	return relayerConfigPath
 }
 
@@ -549,7 +548,7 @@ func runExecutable(
 	Expect(err).Should(BeNil())
 
 	// Start the command
-	fmt.Println("Starting executable", "appName", appName)
+	log.Info("Starting executable", "appName", appName)
 	err = cmd.Start()
 	Expect(err).Should(BeNil())
 
@@ -559,14 +558,14 @@ func runExecutable(
 	go func() {
 		scanner := bufio.NewScanner(cmdStdOutReader)
 		for scanner.Scan() {
-			fmt.Println(scanner.Text())
+			log.Info(scanner.Text())
 		}
 		cmdOutput <- "Command execution finished"
 	}()
 	go func() {
 		scanner := bufio.NewScanner(cmdStdErrReader)
 		for scanner.Scan() {
-			fmt.Println(scanner.Text())
+			log.Error(scanner.Text())
 		}
 		cmdOutput <- "Command execution finished"
 	}()
@@ -575,18 +574,18 @@ func runExecutable(
 		// Context cancellation is the only expected way for the process to exit, otherwise log an error
 		// Don't panic to allow for easier cleanup
 		if !errors.Is(ctx.Err(), context.Canceled) {
-			fmt.Println("Executable exited abnormally", "appName", appName, "err", err)
+			log.Error("Executable exited abnormally", "appName", appName, "err", err)
 		}
 	}()
 	go func() { // wait for health check to report healthy
 		for {
 			resp, err := http.Get(healthCheckUrl)
 			if err == nil && resp.StatusCode == 200 {
-				fmt.Println("Health check passed", "appName", appName)
+				log.Info("Health check passed", "appName", appName)
 				close(readyChan)
 				break
 			}
-			fmt.Println("Health check failed", "appName", appName, "err", err)
+			log.Info("Health check failed", "appName", appName, "err", err)
 			time.Sleep(time.Second * 1)
 		}
 	}()

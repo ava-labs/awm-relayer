@@ -69,7 +69,7 @@ func SignatureAggregatorAPI(network *network.LocalNetwork, teleporter utils.Tele
 	// End setup step
 	// Begin Test Case 1
 
-	log.Info("Sending teleporter message")
+	log.Info("Sending teleporter message from A -> B")
 	receipt, _, _ := testUtils.SendBasicTeleporterMessage(
 		ctx,
 		teleporter,
@@ -122,62 +122,8 @@ func SignatureAggregatorAPI(network *network.LocalNetwork, teleporter utils.Tele
 
 	sendRequestToAPI()
 
-	// Check metrics
-	// metricsSample := sampleMetrics(signatureAggregatorConfig.MetricsPort)
-	// for _, m := range []struct {
-	// 	name  string
-	// 	op    string
-	// 	value int
-	// }{
-	// 	{metrics.Opts.AggregateSignaturesRequestCount.Name, "==", 1},
-	// 	{metrics.Opts.AggregateSignaturesLatencyMS.Name, ">", 0},
-	// 	{metrics.Opts.AppRequestCount.Name, "<=", 5},
-	// 	{metrics.Opts.FailuresToGetValidatorSet.Name, "==", 0},
-	// 	{metrics.Opts.FailuresToConnectToSufficientStake.Name, "==", 0},
-	// 	{metrics.Opts.FailuresSendingToNode.Name, "<", 5},
-	// 	{metrics.Opts.ValidatorTimeouts.Name, "==", 0},
-	// 	{metrics.Opts.InvalidSignatureResponses.Name, "==", 0},
-	// 	{metrics.Opts.SignatureCacheHits.Name, "==", 0},
-	// 	{metrics.Opts.SignatureCacheMisses.Name, "==", 0},
-	// 	{
-	// 		fmt.Sprintf(
-	// 			"%s{subnetID=\"%s\"}",
-	// 			metrics.Opts.ConnectedStakeWeightPercentage.Name,
-	// 			subnetAInfo.SubnetID.String(),
-	// 		),
-	// 		"==",
-	// 		100,
-	// 	},
-	// } {
-	// 	Expect(metricsSample[m.name]).Should(
-	// 		BeNumerically(m.op, m.value),
-	// 		"Expected metric %s %s %d",
-	// 		m.name,
-	// 		m.op,
-	// 		m.value,
-	// 	)
-	// }
-
-	// // TODONOW: Fix this using the new subnet weights post conversion
-	// // make a second request, and ensure that the metrics reflect that the
-	// // signatures for the second request are retrieved from the cache. note
-	// // that even though 4 signatures were requested in the previous
-	// // request, only 3 will be cached, because that's all that was required
-	// // to reach a quorum, so that's all that were handled.
-	// sendRequestToAPI()
-	// metricsSample2 := sampleMetrics(signatureAggregatorConfig.MetricsPort)
-	// Expect(
-	// 	metricsSample2[metrics.Opts.AppRequestCount.Name],
-	// ).Should(Equal(metricsSample[metrics.Opts.AppRequestCount.Name]))
-	// Expect(
-	// 	metricsSample2[metrics.Opts.SignatureCacheHits.Name],
-	// ).Should(BeNumerically("==", 3))
-	// Expect(
-	// 	metricsSample2[metrics.Opts.SignatureCacheMisses.Name],
-	// ).Should(Equal(metricsSample[metrics.Opts.SignatureCacheMisses.Name]))
-
 	// Try in the other direction
-	log.Info("Sending teleporter message")
+	log.Info("Sending teleporter message from B -> A")
 	receipt, _, _ = testUtils.SendBasicTeleporterMessage(
 		ctx,
 		teleporter,

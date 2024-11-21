@@ -70,6 +70,7 @@ type SignatureAggregator struct {
 func NewSignatureAggregator(
 	network peers.AppRequestNetwork,
 	logger logging.Logger,
+	messageCreator message.Creator,
 	signatureCacheSize uint64,
 	metrics *metrics.SignatureAggregatorMetrics,
 	etnaTime time.Time,
@@ -89,6 +90,7 @@ func NewSignatureAggregator(
 		currentRequestID:        atomic.Uint32{},
 		cache:                   cache,
 		etnaTime:                etnaTime,
+		messageCreator:          messageCreator,
 	}
 	sa.currentRequestID.Store(rand.Uint32())
 	return &sa, nil
@@ -123,7 +125,6 @@ func (s *SignatureAggregator) CreateSignedMessage(
 	s.logger.Debug("Creating signed message with signing subnet", zap.String("warpMessageID", unsignedMessage.ID().String()), zap.Stringer("signingSubnet", signingSubnet))
 
 	s.network.TrackSubnet(signingSubnet)
-	s.logger.Debug("tracked subnet")
 	connectedValidators, err := s.network.ConnectToCanonicalValidators(signingSubnet)
 	if err != nil {
 		msg := "Failed to connect to canonical validators"
@@ -204,7 +205,7 @@ func (s *SignatureAggregator) CreateSignedMessage(
 
 	// Construct the AppRequest
 	requestID := s.currentRequestID.Add(1)
-	outMsg, err := s.network.Message(
+	outMsg, err := s.messageCreator.AppRequest(
 		unsignedMessage.SourceChainID,
 		requestID,
 		peers.DefaultAppRequestTimeout,
