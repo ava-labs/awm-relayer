@@ -62,7 +62,7 @@ type ApplicationRelayer struct {
 	signingSubnetID           ids.ID
 	destinationClient         vms.DestinationClient
 	relayerID                 database.RelayerID
-	warpQuorum                config.WarpQuorum
+	warpConfig                config.WarpConfig
 	checkpointManager         CheckpointManager
 	sourceWarpSignatureClient *rpc.Client // nil if configured to fetch signatures via AppRequest for the source blockchain
 	signatureAggregator       *aggregator.SignatureAggregator
@@ -79,19 +79,20 @@ func NewApplicationRelayer(
 	cfg *config.Config,
 	signatureAggregator *aggregator.SignatureAggregator,
 ) (*ApplicationRelayer, error) {
-	quorum, err := cfg.GetWarpQuorum(relayerID.DestinationBlockchainID)
+	warpConfig, err := cfg.GetWarpConfig(relayerID.DestinationBlockchainID)
 	if err != nil {
 		logger.Error(
-			"Failed to get warp quorum from config. Relayer may not be configured to deliver to the destination chain.",
+			"Failed to get warp config. Relayer may not be configured to deliver to the destination chain.",
 			zap.String("destinationBlockchainID", relayerID.DestinationBlockchainID.String()),
 			zap.Error(err),
 		)
 		return nil, err
 	}
+
 	var signingSubnet ids.ID
-	if sourceBlockchain.GetSubnetID() == constants.PrimaryNetworkID {
-		// If the message originates from the primary subnet, then we instead "self sign"
-		// the message using the validators of the destination subnet.
+	if sourceBlockchain.GetSubnetID() == constants.PrimaryNetworkID && !warpConfig.RequirePrimaryNetworkSigners {
+		// If the message originates from the primary network, and the primary network is validated by
+		// the destination subnet we can "self-sign" the message using the validators of the destination subnet.
 		signingSubnet = cfg.GetSubnetID(relayerID.DestinationBlockchainID)
 	} else {
 		// Otherwise, the source subnet signs the message.
@@ -128,7 +129,7 @@ func NewApplicationRelayer(
 		destinationClient:         destinationClient,
 		relayerID:                 relayerID,
 		signingSubnetID:           signingSubnet,
-		warpQuorum:                quorum,
+		warpConfig:                warpConfig,
 		checkpointManager:         checkpointManager,
 		sourceWarpSignatureClient: warpClient,
 		signatureAggregator:       signatureAggregator,
@@ -207,7 +208,7 @@ func (r *ApplicationRelayer) ProcessMessage(handler messages.MessageHandler) (co
 			unsignedMessage,
 			nil,
 			r.signingSubnetID,
-			r.warpQuorum.QuorumNumerator,
+			r.warpConfig.QuorumNumerator,
 		)
 		r.incFetchSignatureAppRequestCount()
 		if err != nil {
@@ -283,7 +284,7 @@ func (r *ApplicationRelayer) createSignedMessage(
 			&signedWarpMessageBytes,
 			"warp_getMessageAggregateSignature",
 			unsignedMessage.ID(),
-			r.warpQuorum.QuorumNumerator,
+			r.warpConfig.QuorumNumerator,
 			r.signingSubnetID.String(),
 		)
 		if err == nil {

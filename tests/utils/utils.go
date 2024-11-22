@@ -455,9 +455,30 @@ func TriggerProcessMissedBlocks(
 
 	// Send three Teleporter messages from subnet A to subnet B
 	log.Info("Sending three Teleporter messages from subnet A to subnet B")
-	_, _, id1 := SendBasicTeleporterMessage(ctx, teleporter, sourceSubnetInfo, destinationSubnetInfo, fundedKey, fundedAddress)
-	_, _, id2 := SendBasicTeleporterMessage(ctx, teleporter, sourceSubnetInfo, destinationSubnetInfo, fundedKey, fundedAddress)
-	_, _, id3 := SendBasicTeleporterMessage(ctx, teleporter, sourceSubnetInfo, destinationSubnetInfo, fundedKey, fundedAddress)
+	_, _, id1 := SendBasicTeleporterMessage(
+		ctx,
+		teleporter,
+		sourceSubnetInfo,
+		destinationSubnetInfo,
+		fundedKey,
+		fundedAddress,
+	)
+	_, _, id2 := SendBasicTeleporterMessage(
+		ctx,
+		teleporter,
+		sourceSubnetInfo,
+		destinationSubnetInfo,
+		fundedKey,
+		fundedAddress,
+	)
+	_, _, id3 := SendBasicTeleporterMessage(
+		ctx,
+		teleporter,
+		sourceSubnetInfo,
+		destinationSubnetInfo,
+		fundedKey,
+		fundedAddress,
+	)
 
 	currHeight, err := sourceSubnetInfo.RPCClient.BlockNumber(ctx)
 	Expect(err).Should(BeNil())
@@ -558,14 +579,14 @@ func runExecutable(
 	go func() {
 		scanner := bufio.NewScanner(cmdStdOutReader)
 		for scanner.Scan() {
-			log.Info(scanner.Text())
+			fmt.Println(scanner.Text())
 		}
 		cmdOutput <- "Command execution finished"
 	}()
 	go func() {
 		scanner := bufio.NewScanner(cmdStdErrReader)
 		for scanner.Scan() {
-			log.Error(scanner.Text())
+			fmt.Println(scanner.Text())
 		}
 		cmdOutput <- "Command execution finished"
 	}()

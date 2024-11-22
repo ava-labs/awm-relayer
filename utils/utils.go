@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/ava-labs/avalanchego/ids"
+	"github.com/ava-labs/subnet-evm/precompile/contracts/warp"
 	"github.com/ethereum/go-ethereum/common"
 )
 
@@ -40,7 +41,6 @@ func CheckStakeWeightExceedsThreshold(
 	accumulatedSignatureWeight *big.Int,
 	totalWeight uint64,
 	quorumNumerator uint64,
-	quorumDenominator uint64,
 ) bool {
 	if accumulatedSignatureWeight == nil {
 		return false
@@ -49,18 +49,9 @@ func CheckStakeWeightExceedsThreshold(
 	// Verifies that quorumNum * totalWeight <= quorumDen * sigWeight
 	totalWeightBI := new(big.Int).SetUint64(totalWeight)
 	scaledTotalWeight := new(big.Int).Mul(totalWeightBI, new(big.Int).SetUint64(quorumNumerator))
-	scaledSigWeight := new(big.Int).Mul(accumulatedSignatureWeight, new(big.Int).SetUint64(quorumDenominator))
+	scaledSigWeight := new(big.Int).Mul(accumulatedSignatureWeight, new(big.Int).SetUint64(warp.WarpQuorumDenominator))
 
 	return scaledTotalWeight.Cmp(scaledSigWeight) != 1
-}
-
-// Wrapper for CheckStakeWeightExceedThreshold with a quorumDen of 100.
-func CheckStakeWeightPercentageExceedsThreshold(
-	accumulatedSignatureWeight *big.Int,
-	totalWeight uint64,
-	stakeWeightPercentage uint64,
-) bool {
-	return CheckStakeWeightExceedsThreshold(accumulatedSignatureWeight, totalWeight, stakeWeightPercentage, 100)
 }
 
 //

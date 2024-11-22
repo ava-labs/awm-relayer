@@ -143,7 +143,7 @@ func (s *SignatureAggregator) CreateSignedMessage(
 			float64(connectedValidators.TotalValidatorWeight) * 100,
 	)
 
-	if !utils.CheckStakeWeightPercentageExceedsThreshold(
+	if !utils.CheckStakeWeightExceedsThreshold(
 		big.NewInt(0).SetUint64(connectedValidators.ConnectedWeight),
 		connectedValidators.TotalValidatorWeight,
 		quorumPercentage,
@@ -460,7 +460,7 @@ func (s *SignatureAggregator) aggregateIfSufficientWeight(
 	quorumPercentage uint64,
 ) (*avalancheWarp.Message, error) {
 	// As soon as the signatures exceed the stake weight threshold we try to aggregate and send the transaction.
-	if !utils.CheckStakeWeightPercentageExceedsThreshold(
+	if !utils.CheckStakeWeightExceedsThreshold(
 		accumulatedSignatureWeight,
 		connectedValidators.TotalValidatorWeight,
 		quorumPercentage,

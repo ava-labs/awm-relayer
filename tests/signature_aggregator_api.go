@@ -41,7 +41,7 @@ func SignatureAggregatorAPI(network *network.LocalNetwork, teleporter utils.Tele
 	ctx := context.Background()
 
 	subnetAInfo := network.GetPrimaryNetworkInfo()
-	subnetAInfo, subnetBInfo := network.GetTwoSubnets()
+	subnetBInfo, _ := network.GetTwoSubnets()
 	fundedAddress, fundedKey := network.GetFundedAccountInfo()
 
 	signatureAggregatorConfig := testUtils.CreateDefaultSignatureAggregatorConfig(
