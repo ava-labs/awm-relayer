@@ -11,7 +11,6 @@ package mocks
 
 import (
 	reflect "reflect"
-	time "time"
 
 	ids "github.com/ava-labs/avalanchego/ids"
 	message "github.com/ava-labs/avalanchego/message"
@@ -45,20 +44,6 @@ func (m *MockAppRequestNetwork) EXPECT() *MockAppRequestNetworkMockRecorder {
 	return m.recorder
 }
 
-// ConnectPeers mocks base method.
-func (m *MockAppRequestNetwork) ConnectPeers(nodeIDs set.Set[ids.NodeID]) set.Set[ids.NodeID] {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ConnectPeers", nodeIDs)
-	ret0, _ := ret[0].(set.Set[ids.NodeID])
-	return ret0
-}
-
-// ConnectPeers indicates an expected call of ConnectPeers.
-func (mr *MockAppRequestNetworkMockRecorder) ConnectPeers(nodeIDs any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ConnectPeers", reflect.TypeOf((*MockAppRequestNetwork)(nil).ConnectPeers), nodeIDs)
-}
-
 // ConnectToCanonicalValidators mocks base method.
 func (m *MockAppRequestNetwork) ConnectToCanonicalValidators(subnetID ids.ID) (*peers.ConnectedCanonicalValidators, error) {
 	m.ctrl.T.Helper()
@@ -87,21 +72,6 @@ func (m *MockAppRequestNetwork) GetSubnetID(blockchainID ids.ID) (ids.ID, error)
 func (mr *MockAppRequestNetworkMockRecorder) GetSubnetID(blockchainID any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSubnetID", reflect.TypeOf((*MockAppRequestNetwork)(nil).GetSubnetID), blockchainID)
-}
-
-// Message mocks base method.
-func (m *MockAppRequestNetwork) Message(sourceChainID ids.ID, requestID uint32, timeout time.Duration, request []byte) (message.OutboundMessage, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Message", sourceChainID, requestID, timeout, request)
-	ret0, _ := ret[0].(message.OutboundMessage)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Message indicates an expected call of Message.
-func (mr *MockAppRequestNetworkMockRecorder) Message(sourceChainID, requestID, timeout, request any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Message", reflect.TypeOf((*MockAppRequestNetwork)(nil).Message), sourceChainID, requestID, timeout, request)
 }
 
 // RegisterAppRequest mocks base method.
@@ -142,4 +112,28 @@ func (m *MockAppRequestNetwork) Send(msg message.OutboundMessage, nodeIDs set.Se
 func (mr *MockAppRequestNetworkMockRecorder) Send(msg, nodeIDs, subnetID, allower any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Send", reflect.TypeOf((*MockAppRequestNetwork)(nil).Send), msg, nodeIDs, subnetID, allower)
+}
+
+// Shutdown mocks base method.
+func (m *MockAppRequestNetwork) Shutdown() {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "Shutdown")
+}
+
+// Shutdown indicates an expected call of Shutdown.
+func (mr *MockAppRequestNetworkMockRecorder) Shutdown() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Shutdown", reflect.TypeOf((*MockAppRequestNetwork)(nil).Shutdown))
+}
+
+// TrackSubnet mocks base method.
+func (m *MockAppRequestNetwork) TrackSubnet(subnetID ids.ID) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "TrackSubnet", subnetID)
+}
+
+// TrackSubnet indicates an expected call of TrackSubnet.
+func (mr *MockAppRequestNetworkMockRecorder) TrackSubnet(subnetID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TrackSubnet", reflect.TypeOf((*MockAppRequestNetwork)(nil).TrackSubnet), subnetID)
 }

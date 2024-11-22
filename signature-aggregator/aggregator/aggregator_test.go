@@ -64,6 +64,7 @@ func instantiateAggregator(t *testing.T) (
 				),
 			),
 		),
+		messageCreator,
 		1024,
 		sigAggMetrics,
 		// Setting the etnaTime to a minute ago so that the post-etna code path is used in the test
