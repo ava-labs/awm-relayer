@@ -17,6 +17,8 @@ import (
 	testUtils "github.com/ava-labs/icm-services/tests/utils"
 	"github.com/ava-labs/subnet-evm/accounts/abi/bind"
 	"github.com/ava-labs/teleporter/tests/interfaces"
+	"github.com/ava-labs/teleporter/tests/network"
+	"github.com/ava-labs/teleporter/tests/utils"
 	teleporterTestUtils "github.com/ava-labs/teleporter/tests/utils"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -27,18 +29,17 @@ import (
 // Tests relayer support for off-chain Teleporter Registry updates
 // - Configures the relayer to send an off-chain message to the Teleporter Registry
 // - Verifies that the Teleporter Registry is updated
-func ManualMessage(network interfaces.LocalNetwork) {
+func ManualMessage(network *network.LocalNetwork, teleporter utils.TeleporterTestInfo) {
 	cChainInfo := network.GetPrimaryNetworkInfo()
-	subnetAInfo, subnetBInfo := teleporterTestUtils.GetTwoSubnets(network)
+	subnetAInfo, subnetBInfo := network.GetTwoSubnets()
 	fundedAddress, fundedKey := network.GetFundedAccountInfo()
-	teleporterContractAddress := network.GetTeleporterContractAddress()
 	err := testUtils.ClearRelayerStorage()
 	Expect(err).Should(BeNil())
 
 	//
 	// Get the current Teleporter Registry version
 	//
-	currentVersion, err := cChainInfo.TeleporterRegistry.LatestVersion(&bind.CallOpts{})
+	currentVersion, err := teleporter.TeleporterRegistry(cChainInfo).LatestVersion(&bind.CallOpts{})
 	Expect(err).Should(BeNil())
 	expectedNewVersion := currentVersion.Add(currentVersion, big.NewInt(1))
 
@@ -66,18 +67,21 @@ func ManualMessage(network interfaces.LocalNetwork) {
 	unsignedMessage, warpEnabledChainConfigC := teleporterTestUtils.InitOffChainMessageChainConfig(
 		networkID,
 		cChainInfo,
+		teleporter.TeleporterRegistryAddress(cChainInfo),
 		newProtocolAddress,
 		2,
 	)
 	_, warpEnabledChainConfigA := teleporterTestUtils.InitOffChainMessageChainConfig(
 		networkID,
 		subnetAInfo,
+		teleporter.TeleporterRegistryAddress(subnetAInfo),
 		newProtocolAddress,
 		2,
 	)
 	_, warpEnabledChainConfigB := teleporterTestUtils.InitOffChainMessageChainConfig(
 		networkID,
 		subnetBInfo,
+		teleporter.TeleporterRegistryAddress(subnetBInfo),
 		newProtocolAddress,
 		2,
 	)
@@ -89,10 +93,9 @@ func ManualMessage(network interfaces.LocalNetwork) {
 	chainConfigs.Add(subnetAInfo, warpEnabledChainConfigA)
 
 	// Restart nodes with new chain config
-	nodeIDs := network.GetAllNodeIDs()
 	log.Info("Restarting nodes with new chain config")
 	network.SetChainConfigs(chainConfigs)
-	network.RestartNodes(ctx, nodeIDs)
+
 	// Refresh the subnet info to get the new clients
 	cChainInfo = network.GetPrimaryNetworkInfo()
 
@@ -100,9 +103,9 @@ func ManualMessage(network interfaces.LocalNetwork) {
 	// Set up relayer config
 	//
 	relayerConfig := testUtils.CreateDefaultRelayerConfig(
+		teleporter,
 		[]interfaces.SubnetTestInfo{cChainInfo},
 		[]interfaces.SubnetTestInfo{cChainInfo},
-		teleporterContractAddress,
 		fundedAddress,
 		relayerKey,
 	)
@@ -150,7 +153,7 @@ func ManualMessage(network interfaces.LocalNetwork) {
 		// Wait for all nodes to see new transaction
 		time.Sleep(1 * time.Second)
 
-		newVersion, err := cChainInfo.TeleporterRegistry.LatestVersion(&bind.CallOpts{})
+		newVersion, err := teleporter.TeleporterRegistry(cChainInfo).LatestVersion(&bind.CallOpts{})
 		Expect(err).Should(BeNil())
 		Expect(newVersion.Uint64()).Should(Equal(expectedNewVersion.Uint64()))
 	}

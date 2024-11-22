@@ -69,13 +69,13 @@ func connectToNonPrimaryNetworkPeers(
 	}
 	for _, destination := range sourceBlockchain.SupportedDestinations {
 		blockchainID := destination.GetBlockchainID()
-		if ok, quorum, err := checkForSufficientConnectedStake(logger, cfg, connectedValidators, blockchainID); !ok {
+		if ok, warpConfig, err := checkForSufficientConnectedStake(logger, cfg, connectedValidators, blockchainID); !ok {
 			logger.Warn(
 				"Failed to connect to a threshold of stake",
 				zap.String("destinationBlockchainID", blockchainID.String()),
 				zap.Uint64("connectedWeight", connectedValidators.ConnectedWeight),
 				zap.Uint64("totalValidatorWeight", connectedValidators.TotalValidatorWeight),
-				zap.Any("warpQuorum", quorum),
+				zap.Any("WarpConfig", warpConfig),
 			)
 			return err
 		}
@@ -104,13 +104,13 @@ func connectToPrimaryNetworkPeers(
 			return err
 		}
 
-		if ok, quorum, err := checkForSufficientConnectedStake(logger, cfg, connectedValidators, blockchainID); !ok {
+		if ok, warpConfig, err := checkForSufficientConnectedStake(logger, cfg, connectedValidators, blockchainID); !ok {
 			logger.Warn(
 				"Failed to connect to a threshold of stake",
 				zap.String("destinationBlockchainID", blockchainID.String()),
 				zap.Uint64("connectedWeight", connectedValidators.ConnectedWeight),
 				zap.Uint64("totalValidatorWeight", connectedValidators.TotalValidatorWeight),
-				zap.Any("warpQuorum", quorum),
+				zap.Any("WarpConfig", warpConfig),
 			)
 			return err
 		}
@@ -118,17 +118,17 @@ func connectToPrimaryNetworkPeers(
 	return nil
 }
 
-// Fetch the warp quorum from the config and check if the connected stake exceeds the threshold
+// Fetch the warp config from the destination chain config and check if the connected stake exceeds the threshold
 func checkForSufficientConnectedStake(
 	logger logging.Logger,
 	cfg *config.Config,
 	connectedValidators *peers.ConnectedCanonicalValidators,
 	destinationBlockchainID ids.ID,
-) (bool, *config.WarpQuorum, error) {
-	quorum, err := cfg.GetWarpQuorum(destinationBlockchainID)
+) (bool, *config.WarpConfig, error) {
+	warpConfig, err := cfg.GetWarpConfig(destinationBlockchainID)
 	if err != nil {
 		logger.Error(
-			"Failed to get warp quorum from config",
+			"Failed to get warp config from chain config",
 			zap.String("destinationBlockchainID", destinationBlockchainID.String()),
 			zap.Error(err),
 		)
@@ -137,7 +137,6 @@ func checkForSufficientConnectedStake(
 	return utils.CheckStakeWeightExceedsThreshold(
 		big.NewInt(0).SetUint64(connectedValidators.ConnectedWeight),
 		connectedValidators.TotalValidatorWeight,
-		quorum.QuorumNumerator,
-		quorum.QuorumDenominator,
-	), &quorum, nil
+		warpConfig.QuorumNumerator,
+	), &warpConfig, nil
 }

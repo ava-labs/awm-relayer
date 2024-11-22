@@ -12,6 +12,7 @@ import (
 	"github.com/ava-labs/subnet-evm/accounts/abi/bind"
 	"github.com/ava-labs/subnet-evm/core/types"
 	"github.com/ava-labs/teleporter/tests/interfaces"
+	"github.com/ava-labs/teleporter/tests/network"
 	"github.com/ava-labs/teleporter/tests/utils"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -20,10 +21,9 @@ import (
 )
 
 // Processes multiple Warp messages contained in the same block
-func BatchRelay(network interfaces.LocalNetwork) {
-	subnetAInfo, subnetBInfo := utils.GetTwoSubnets(network)
+func BatchRelay(network *network.LocalNetwork, teleporter utils.TeleporterTestInfo) {
+	subnetAInfo, subnetBInfo := network.GetTwoSubnets()
 	fundedAddress, fundedKey := network.GetFundedAccountInfo()
-	teleporterContractAddress := network.GetTeleporterContractAddress()
 	err := testUtils.ClearRelayerStorage()
 	Expect(err).Should(BeNil())
 
@@ -34,12 +34,14 @@ func BatchRelay(network interfaces.LocalNetwork) {
 	_, batchMessengerA := testUtils.DeployBatchCrossChainMessenger(
 		ctx,
 		fundedKey,
+		teleporter,
 		fundedAddress,
 		subnetAInfo,
 	)
 	batchMessengerAddressB, batchMessengerB := testUtils.DeployBatchCrossChainMessenger(
 		ctx,
 		fundedKey,
+		teleporter,
 		fundedAddress,
 		subnetBInfo,
 	)
@@ -57,9 +59,9 @@ func BatchRelay(network interfaces.LocalNetwork) {
 	// Set up relayer config
 	//
 	relayerConfig := testUtils.CreateDefaultRelayerConfig(
+		teleporter,
 		[]interfaces.SubnetTestInfo{subnetAInfo, subnetBInfo},
 		[]interfaces.SubnetTestInfo{subnetAInfo, subnetBInfo},
-		teleporterContractAddress,
 		fundedAddress,
 		relayerKey,
 	)

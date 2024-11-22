@@ -17,7 +17,8 @@ import (
 
 	testUtils "github.com/ava-labs/icm-services/tests/utils"
 	"github.com/ava-labs/icm-services/utils"
-	"github.com/ava-labs/teleporter/tests/local"
+	"github.com/ava-labs/teleporter/tests/network"
+	teleporterTestUtils "github.com/ava-labs/teleporter/tests/utils"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/onsi/ginkgo/v2"
@@ -29,7 +30,8 @@ const (
 )
 
 var (
-	localNetworkInstance *local.LocalNetwork
+	localNetworkInstance *network.LocalNetwork
+	teleporterInfo       teleporterTestUtils.TeleporterTestInfo
 
 	decider  *exec.Cmd
 	cancelFn context.CancelFunc
@@ -81,11 +83,11 @@ var _ = ginkgo.BeforeSuite(func() {
 	Expect(err).Should(BeNil())
 	networkStartCtx, networkStartCancel := context.WithTimeout(ctx, 120*time.Second)
 	defer networkStartCancel()
-	localNetworkInstance = local.NewLocalNetwork(
+	localNetworkInstance = network.NewLocalNetwork(
 		networkStartCtx,
 		"icm-off-chain-services-e2e-test",
 		warpGenesisTemplateFile,
-		[]local.SubnetSpec{
+		[]network.SubnetSpec{
 			{
 				Name:                       "A",
 				EVMChainID:                 12345,
@@ -103,21 +105,28 @@ var _ = ginkgo.BeforeSuite(func() {
 				NodeCount:                  2,
 			},
 		},
+		4,
 		0,
 	)
+	teleporterInfo = teleporterTestUtils.NewTeleporterTestInfo(localNetworkInstance.GetAllSubnetsInfo())
 
+	// Only need to deploy Teleporter on the C-Chain since it is included in the genesis of the subnet chains.
 	_, fundedKey := localNetworkInstance.GetFundedAccountInfo()
-	log.Info("Deployed Teleporter contracts")
-	localNetworkInstance.DeployTeleporterContractToCChain(
+	teleporterInfo.DeployTeleporterMessenger(
+		networkStartCtx,
+		localNetworkInstance.GetPrimaryNetworkInfo(),
 		teleporterDeployerTransaction,
 		teleporterDeployerAddress,
 		teleporterContractAddress,
 		fundedKey,
 	)
-	localNetworkInstance.SetTeleporterContractAddress(teleporterContractAddress)
 
 	// Deploy the Teleporter registry contracts to all subnets and the C-Chain.
-	localNetworkInstance.DeployTeleporterRegistryContracts(teleporterContractAddress, fundedKey)
+	for _, subnet := range localNetworkInstance.GetAllSubnetsInfo() {
+		teleporterInfo.SetTeleporter(teleporterContractAddress, subnet)
+		teleporterInfo.InitializeBlockchainID(subnet, fundedKey)
+		teleporterInfo.DeployTeleporterRegistry(subnet, fundedKey)
+	}
 
 	decider = exec.CommandContext(ctx, "./tests/cmd/decider/decider")
 	decider.Start()
@@ -155,30 +164,30 @@ var _ = ginkgo.AfterSuite(cleanup)
 
 var _ = ginkgo.Describe("[ICM Relayer Integration Tests", func() {
 	ginkgo.It("Manually Provided Message", func() {
-		ManualMessage(localNetworkInstance)
+		ManualMessage(localNetworkInstance, teleporterInfo)
 	})
 	ginkgo.It("Basic Relay", func() {
-		BasicRelay(localNetworkInstance)
+		BasicRelay(localNetworkInstance, teleporterInfo)
 	})
 	ginkgo.It("Shared Database", func() {
-		SharedDatabaseAccess(localNetworkInstance)
+		SharedDatabaseAccess(localNetworkInstance, teleporterInfo)
 	})
 	ginkgo.It("Allowed Addresses", func() {
-		AllowedAddresses(localNetworkInstance)
+		AllowedAddresses(localNetworkInstance, teleporterInfo)
 	})
 	ginkgo.It("Batch Message", func() {
-		BatchRelay(localNetworkInstance)
+		BatchRelay(localNetworkInstance, teleporterInfo)
 	})
 	ginkgo.It("Relay Message API", func() {
-		RelayMessageAPI(localNetworkInstance)
+		RelayMessageAPI(localNetworkInstance, teleporterInfo)
 	})
 	ginkgo.It("Warp API", func() {
-		WarpAPIRelay(localNetworkInstance)
+		WarpAPIRelay(localNetworkInstance, teleporterInfo)
 	})
 	ginkgo.It("Signature Aggregator", func() {
-		SignatureAggregatorAPI(localNetworkInstance)
+		SignatureAggregatorAPI(localNetworkInstance, teleporterInfo)
 	})
 	ginkgo.It("Etna Upgrade", func() {
-		EtnaUpgrade(localNetworkInstance)
+		EtnaUpgrade(localNetworkInstance, teleporterInfo)
 	})
 })

@@ -13,6 +13,7 @@ import (
 	testUtils "github.com/ava-labs/icm-services/tests/utils"
 	"github.com/ava-labs/subnet-evm/accounts/abi/bind"
 	"github.com/ava-labs/teleporter/tests/interfaces"
+	"github.com/ava-labs/teleporter/tests/network"
 	"github.com/ava-labs/teleporter/tests/utils"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -36,11 +37,10 @@ const numKeys = 4
 // -  Deliver from a specific source address to a specific destination address
 // Then, checks that each relayer instance is able to properly catch up on missed messages that
 // match its particular configuration.
-func AllowedAddresses(network interfaces.LocalNetwork) {
+func AllowedAddresses(network *network.LocalNetwork, teleporter utils.TeleporterTestInfo) {
 	subnetAInfo := network.GetPrimaryNetworkInfo()
-	subnetBInfo, _ := utils.GetTwoSubnets(network)
+	subnetBInfo, _ := network.GetTwoSubnets()
 	fundedAddress, fundedKey := network.GetFundedAccountInfo()
-	teleporterContractAddress := network.GetTeleporterContractAddress()
 	err := testUtils.ClearRelayerStorage()
 	Expect(err).Should(BeNil())
 
@@ -84,9 +84,9 @@ func AllowedAddresses(network interfaces.LocalNetwork) {
 	// All sources -> All destinations
 	// Will send from allowed Address 0 -> 0
 	relayerConfig1 := testUtils.CreateDefaultRelayerConfig(
+		teleporter,
 		[]interfaces.SubnetTestInfo{subnetAInfo, subnetBInfo},
 		[]interfaces.SubnetTestInfo{subnetAInfo, subnetBInfo},
-		teleporterContractAddress,
 		fundedAddress,
 		relayerKey,
 	)
@@ -94,9 +94,9 @@ func AllowedAddresses(network interfaces.LocalNetwork) {
 	// Specific source -> All destinations
 	// Will send from allowed Address 1 -> 0
 	relayerConfig2 := testUtils.CreateDefaultRelayerConfig(
+		teleporter,
 		[]interfaces.SubnetTestInfo{subnetAInfo, subnetBInfo},
 		[]interfaces.SubnetTestInfo{subnetAInfo, subnetBInfo},
-		teleporterContractAddress,
 		fundedAddress,
 		relayerKey,
 	)
@@ -109,9 +109,9 @@ func AllowedAddresses(network interfaces.LocalNetwork) {
 	// All sources -> Specific destination
 	// Will send from allowed Address 2 -> 0
 	relayerConfig3 := testUtils.CreateDefaultRelayerConfig(
+		teleporter,
 		[]interfaces.SubnetTestInfo{subnetAInfo, subnetBInfo},
 		[]interfaces.SubnetTestInfo{subnetAInfo, subnetBInfo},
-		teleporterContractAddress,
 		fundedAddress,
 		relayerKey,
 	)
@@ -135,9 +135,9 @@ func AllowedAddresses(network interfaces.LocalNetwork) {
 	// Specific source -> Specific destination
 	// Will send from allowed Address 3 -> 0
 	relayerConfig4 := testUtils.CreateDefaultRelayerConfig(
+		teleporter,
 		[]interfaces.SubnetTestInfo{subnetAInfo, subnetBInfo},
 		[]interfaces.SubnetTestInfo{subnetAInfo, subnetBInfo},
-		teleporterContractAddress,
 		fundedAddress,
 		relayerKey,
 	)
@@ -188,9 +188,9 @@ func AllowedAddresses(network interfaces.LocalNetwork) {
 	// Allowed by Relayer 1
 	testUtils.RelayBasicMessage(
 		ctx,
+		teleporter,
 		subnetAInfo,
 		subnetBInfo,
-		teleporterContractAddress,
 		allowedKeys[generalAllowedAddressIdx],
 		allowedAddresses[generalAllowedAddressIdx],
 	)
@@ -218,13 +218,14 @@ func AllowedAddresses(network interfaces.LocalNetwork) {
 	// Disallowed by Relayer 2
 	_, _, id := testUtils.SendBasicTeleporterMessage(
 		ctx,
+		teleporter,
 		subnetAInfo,
 		subnetBInfo,
 		allowedKeys[generalAllowedAddressIdx], // not allowed
 		allowedAddresses[generalAllowedAddressIdx],
 	)
 	Consistently(func() bool {
-		delivered, err := subnetBInfo.TeleporterMessenger.MessageReceived(
+		delivered, err := teleporter.TeleporterMessenger(subnetBInfo).MessageReceived(
 			&bind.CallOpts{}, id,
 		)
 		Expect(err).Should(BeNil())
@@ -234,9 +235,9 @@ func AllowedAddresses(network interfaces.LocalNetwork) {
 	// Allowed by Relayer 2
 	testUtils.RelayBasicMessage(
 		ctx,
+		teleporter,
 		subnetAInfo,
 		subnetBInfo,
-		teleporterContractAddress,
 		allowedKeys[relayer2AllowedSrcAddressIdx],
 		allowedAddresses[generalAllowedAddressIdx],
 	)
@@ -264,13 +265,14 @@ func AllowedAddresses(network interfaces.LocalNetwork) {
 	// Disallowed by Relayer 3
 	_, _, id = testUtils.SendBasicTeleporterMessage(
 		ctx,
+		teleporter,
 		subnetAInfo,
 		subnetBInfo,
 		allowedKeys[generalAllowedAddressIdx],
 		allowedAddresses[generalAllowedAddressIdx], // not allowed
 	)
 	Consistently(func() bool {
-		delivered, err := subnetBInfo.TeleporterMessenger.MessageReceived(
+		delivered, err := teleporter.TeleporterMessenger(subnetBInfo).MessageReceived(
 			&bind.CallOpts{}, id,
 		)
 		Expect(err).Should(BeNil())
@@ -280,9 +282,9 @@ func AllowedAddresses(network interfaces.LocalNetwork) {
 	// Allowed by Relayer 3
 	testUtils.RelayBasicMessage(
 		ctx,
+		teleporter,
 		subnetAInfo,
 		subnetBInfo,
-		teleporterContractAddress,
 		allowedKeys[generalAllowedAddressIdx],
 		allowedAddresses[relayer3AllowedDstAddressIdx],
 	)
@@ -309,13 +311,14 @@ func AllowedAddresses(network interfaces.LocalNetwork) {
 	// Disallowed by Relayer 4
 	_, _, id = testUtils.SendBasicTeleporterMessage(
 		ctx,
+		teleporter,
 		subnetAInfo,
 		subnetBInfo,
 		allowedKeys[generalAllowedAddressIdx], // not allowed
 		allowedAddresses[generalAllowedAddressIdx],
 	)
 	Consistently(func() bool {
-		delivered, err := subnetBInfo.TeleporterMessenger.MessageReceived(
+		delivered, err := teleporter.TeleporterMessenger(subnetBInfo).MessageReceived(
 			&bind.CallOpts{}, id,
 		)
 		Expect(err).Should(BeNil())
@@ -325,9 +328,9 @@ func AllowedAddresses(network interfaces.LocalNetwork) {
 	// Allowed by Relayer 4
 	testUtils.RelayBasicMessage(
 		ctx,
+		teleporter,
 		subnetAInfo,
 		subnetBInfo,
-		teleporterContractAddress,
 		allowedKeys[relayer4AllowedSrcAddressIdx],
 		allowedAddresses[relayer4AllowedDstAddressIdx],
 	)

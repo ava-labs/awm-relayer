@@ -20,6 +20,7 @@ import (
 	subnetEvmInterfaces "github.com/ava-labs/subnet-evm/interfaces"
 	"github.com/ava-labs/subnet-evm/precompile/contracts/warp"
 	"github.com/ava-labs/teleporter/tests/interfaces"
+	"github.com/ava-labs/teleporter/tests/network"
 	"github.com/ava-labs/teleporter/tests/utils"
 	teleporterTestUtils "github.com/ava-labs/teleporter/tests/utils"
 	"github.com/ethereum/go-ethereum/common"
@@ -28,12 +29,11 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func RelayMessageAPI(network interfaces.LocalNetwork) {
+func RelayMessageAPI(network *network.LocalNetwork, teleporter utils.TeleporterTestInfo) {
 	ctx := context.Background()
 	subnetAInfo := network.GetPrimaryNetworkInfo()
-	subnetBInfo, _ := utils.GetTwoSubnets(network)
+	subnetBInfo, _ := network.GetTwoSubnets()
 	fundedAddress, fundedKey := network.GetFundedAccountInfo()
-	teleporterContractAddress := network.GetTeleporterContractAddress()
 	err := testUtils.ClearRelayerStorage()
 	Expect(err).Should(BeNil())
 
@@ -45,6 +45,7 @@ func RelayMessageAPI(network interfaces.LocalNetwork) {
 	log.Info("Sending teleporter message")
 	receipt, _, teleporterMessageID := testUtils.SendBasicTeleporterMessage(
 		ctx,
+		teleporter,
 		subnetAInfo,
 		subnetBInfo,
 		fundedKey,
@@ -54,9 +55,9 @@ func RelayMessageAPI(network interfaces.LocalNetwork) {
 
 	// Set up relayer config
 	relayerConfig := testUtils.CreateDefaultRelayerConfig(
+		teleporter,
 		[]interfaces.SubnetTestInfo{subnetAInfo, subnetBInfo},
 		[]interfaces.SubnetTestInfo{subnetAInfo, subnetBInfo},
-		teleporterContractAddress,
 		fundedAddress,
 		relayerKey,
 	)
@@ -117,7 +118,7 @@ func RelayMessageAPI(network interfaces.LocalNetwork) {
 		Expect(err).Should(BeNil())
 		receiveEvent, err := teleporterTestUtils.GetEventFromLogs(
 			receipt.Logs,
-			subnetBInfo.TeleporterMessenger.ParseReceiveCrossChainMessage,
+			teleporter.TeleporterMessenger(subnetBInfo).ParseReceiveCrossChainMessage,
 		)
 		Expect(err).Should(BeNil())
 		Expect(ids.ID(receiveEvent.MessageID)).Should(Equal(teleporterMessageID))

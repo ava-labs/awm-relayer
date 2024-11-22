@@ -9,6 +9,7 @@ import (
 
 	testUtils "github.com/ava-labs/icm-services/tests/utils"
 	"github.com/ava-labs/teleporter/tests/interfaces"
+	"github.com/ava-labs/teleporter/tests/network"
 	"github.com/ava-labs/teleporter/tests/utils"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
@@ -20,11 +21,10 @@ import (
 // to the config  and therefore are testing the pre-etna case
 // - Relaying from Subnet A to Subnet B
 // - Relaying from Subnet B to Subnet A
-func EtnaUpgrade(network interfaces.LocalNetwork) {
+func EtnaUpgrade(network *network.LocalNetwork, teleporter utils.TeleporterTestInfo) {
 	subnetAInfo := network.GetPrimaryNetworkInfo()
-	subnetBInfo, _ := utils.GetTwoSubnets(network)
+	subnetBInfo, _ := network.GetTwoSubnets()
 	fundedAddress, fundedKey := network.GetFundedAccountInfo()
-	teleporterContractAddress := network.GetTeleporterContractAddress()
 	err := testUtils.ClearRelayerStorage()
 	Expect(err).Should(BeNil())
 	//
@@ -41,9 +41,9 @@ func EtnaUpgrade(network interfaces.LocalNetwork) {
 	// Set up relayer config
 	//
 	relayerConfig := testUtils.CreateDefaultRelayerConfig(
+		teleporter,
 		[]interfaces.SubnetTestInfo{subnetAInfo, subnetBInfo},
 		[]interfaces.SubnetTestInfo{subnetAInfo, subnetBInfo},
-		teleporterContractAddress,
 		fundedAddress,
 		relayerKey,
 	)
@@ -75,9 +75,9 @@ func EtnaUpgrade(network interfaces.LocalNetwork) {
 	log.Info("Sending transaction from Subnet A to Subnet B")
 	testUtils.RelayBasicMessage(
 		ctx,
+		teleporter,
 		subnetAInfo,
 		subnetBInfo,
-		teleporterContractAddress,
 		fundedKey,
 		fundedAddress,
 	)
@@ -85,9 +85,9 @@ func EtnaUpgrade(network interfaces.LocalNetwork) {
 	log.Info("Test Relaying from Subnet B to Subnet A")
 	testUtils.RelayBasicMessage(
 		ctx,
+		teleporter,
 		subnetBInfo,
 		subnetAInfo,
-		teleporterContractAddress,
 		fundedKey,
 		fundedAddress,
 	)

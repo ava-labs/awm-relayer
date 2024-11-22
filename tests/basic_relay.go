@@ -13,6 +13,7 @@ import (
 	testUtils "github.com/ava-labs/icm-services/tests/utils"
 	"github.com/ava-labs/subnet-evm/core/types"
 	"github.com/ava-labs/teleporter/tests/interfaces"
+	"github.com/ava-labs/teleporter/tests/network"
 	"github.com/ava-labs/teleporter/tests/utils"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
@@ -24,11 +25,10 @@ import (
 // - Relaying from Subnet B to Subnet A
 // - Relaying an already delivered message
 // - Setting ProcessHistoricalBlocksFromHeight in config
-func BasicRelay(network interfaces.LocalNetwork) {
+func BasicRelay(network *network.LocalNetwork, teleporter utils.TeleporterTestInfo) {
 	subnetAInfo := network.GetPrimaryNetworkInfo()
-	subnetBInfo, _ := utils.GetTwoSubnets(network)
+	subnetBInfo, _ := network.GetTwoSubnets()
 	fundedAddress, fundedKey := network.GetFundedAccountInfo()
-	teleporterContractAddress := network.GetTeleporterContractAddress()
 	err := testUtils.ClearRelayerStorage()
 	Expect(err).Should(BeNil())
 
@@ -46,9 +46,9 @@ func BasicRelay(network interfaces.LocalNetwork) {
 	// Set up relayer config
 	//
 	relayerConfig := testUtils.CreateDefaultRelayerConfig(
+		teleporter,
 		[]interfaces.SubnetTestInfo{subnetAInfo, subnetBInfo},
 		[]interfaces.SubnetTestInfo{subnetAInfo, subnetBInfo},
-		teleporterContractAddress,
 		fundedAddress,
 		relayerKey,
 	)
@@ -78,9 +78,9 @@ func BasicRelay(network interfaces.LocalNetwork) {
 	log.Info("Sending transaction from Subnet A to Subnet B")
 	testUtils.RelayBasicMessage(
 		ctx,
+		teleporter,
 		subnetAInfo,
 		subnetBInfo,
-		teleporterContractAddress,
 		fundedKey,
 		fundedAddress,
 	)
@@ -91,9 +91,9 @@ func BasicRelay(network interfaces.LocalNetwork) {
 	log.Info("Test Relaying from Subnet B to Subnet A")
 	testUtils.RelayBasicMessage(
 		ctx,
+		teleporter,
 		subnetBInfo,
 		subnetAInfo,
-		teleporterContractAddress,
 		fundedKey,
 		fundedAddress,
 	)
@@ -172,6 +172,7 @@ func BasicRelay(network interfaces.LocalNetwork) {
 	log.Info("Test Setting ProcessHistoricalBlocksFromHeight in config")
 	testUtils.TriggerProcessMissedBlocks(
 		ctx,
+		teleporter,
 		subnetAInfo,
 		subnetBInfo,
 		relayerCleanup,
