@@ -25,8 +25,7 @@ type DestinationBlockchain struct {
 	AccountPrivateKey string            `mapstructure:"account-private-key" json:"account-private-key"`
 
 	// Fetched from the chain after startup
-	warpQuorum                       WarpQuorum
-	warpRequirePrimaryNetworkSigners bool
+	warpConfig WarpConfig
 
 	// convenience fields to access parsed data after initialization
 	subnetID     ids.ID
@@ -92,9 +91,8 @@ func (s *DestinationBlockchain) initializeWarpConfigs() error {
 	// If the destination blockchain is the primary network, use the default quorum
 	// primary network signers here are irrelevant and can be left at default value
 	if subnetID == constants.PrimaryNetworkID {
-		s.warpQuorum = WarpQuorum{
-			QuorumNumerator:   warp.WarpDefaultQuorumNumerator,
-			QuorumDenominator: warp.WarpQuorumDenominator,
+		s.warpConfig = WarpConfig{
+			QuorumNumerator: warp.WarpDefaultQuorumNumerator,
 		}
 		return nil
 	}
@@ -109,17 +107,16 @@ func (s *DestinationBlockchain) initializeWarpConfigs() error {
 	if err != nil {
 		return fmt.Errorf("failed to dial destination blockchain %s: %w", blockchainID, err)
 	}
-	warpConfig, err := getWarpConfig(client)
+	subnetWarpConfig, err := getWarpConfig(client)
 	if err != nil {
 		return fmt.Errorf("failed to fetch warp config for blockchain %s: %w", blockchainID, err)
 	}
-	s.warpQuorum = calculateQuorum(warpConfig.QuorumNumerator)
-	s.warpRequirePrimaryNetworkSigners = warpConfig.RequirePrimaryNetworkSigners
+	s.warpConfig = warpConfigFromSubnetWarpConfig(*subnetWarpConfig)
 	return nil
 }
 
-// Warp Quorum configuration, fetched from the chain config
-type WarpQuorum struct {
-	QuorumNumerator   uint64
-	QuorumDenominator uint64
+// Warp Configuration, fetched from the chain config
+type WarpConfig struct {
+	QuorumNumerator              uint64
+	RequirePrimaryNetworkSigners bool
 }

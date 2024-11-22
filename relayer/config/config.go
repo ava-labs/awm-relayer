@@ -49,7 +49,7 @@ awm-relayer --version                                   Display awm-relayer vers
 awm-relayer --help                                      Display awm-relayer usage and exit.
 `
 
-var errFailedToGetWarpQuorum = errors.New("failed to get warp quorum")
+var errFailedToGetWarpConfig = errors.New("failed to get warp config")
 
 // Top-level configuration
 type Config struct {
@@ -155,17 +155,16 @@ func (c *Config) GetSubnetID(blockchainID ids.ID) ids.ID {
 }
 
 // If the numerator in the Warp config is 0, use the default value
-func calculateQuorum(cfgNumerator uint64) WarpQuorum {
-	if cfgNumerator == 0 {
-		return WarpQuorum{
-			QuorumNumerator:   warp.WarpDefaultQuorumNumerator,
-			QuorumDenominator: warp.WarpQuorumDenominator,
+func warpConfigFromSubnetWarpConfig(inputConfig warp.Config) WarpConfig {
+	if inputConfig.QuorumNumerator == 0 {
+		return WarpConfig{
+			QuorumNumerator:              warp.WarpDefaultQuorumNumerator,
+			RequirePrimaryNetworkSigners: inputConfig.RequirePrimaryNetworkSigners,
 		}
-	} else {
-		return WarpQuorum{
-			QuorumNumerator:   cfgNumerator,
-			QuorumDenominator: warp.WarpQuorumDenominator,
-		}
+	}
+	return WarpConfig{
+		QuorumNumerator:              inputConfig.QuorumNumerator,
+		RequirePrimaryNetworkSigners: inputConfig.RequirePrimaryNetworkSigners,
 	}
 }
 
@@ -207,12 +206,12 @@ func getWarpConfig(client ethclient.Client) (*warp.Config, error) {
 
 // Initializes Warp configurations (quorum and self-signing settings) for each destination subnet
 func (c *Config) InitializeWarpConfigs() error {
-	// Fetch the Warp quorum values for each destination subnet.
+	// Fetch the Warp config values for each destination subnet.
 	for _, destinationSubnet := range c.DestinationBlockchains {
 		err := destinationSubnet.initializeWarpConfigs()
 		if err != nil {
 			return fmt.Errorf(
-				"failed to initialize Warp quorum for destination subnet %s: %w",
+				"failed to initialize Warp config for destination subnet %s: %w",
 				destinationSubnet.SubnetID,
 				err,
 			)
@@ -234,22 +233,13 @@ func (c *Config) GetOverwrittenOptions() []string {
 // Top-level config getters
 //
 
-func (c *Config) GetWarpQuorum(blockchainID ids.ID) (WarpQuorum, error) {
+func (c *Config) GetWarpConfig(blockchainID ids.ID) (WarpConfig, error) {
 	for _, s := range c.DestinationBlockchains {
 		if blockchainID.String() == s.BlockchainID {
-			return s.warpQuorum, nil
+			return s.warpConfig, nil
 		}
 	}
-	return WarpQuorum{}, errFailedToGetWarpQuorum
-}
-
-func (c *Config) GetWarpRequirePrimaryNetworkSigners(blockchainID ids.ID) (bool, error) {
-	for _, s := range c.DestinationBlockchains {
-		if blockchainID.String() == s.BlockchainID {
-			return s.warpRequirePrimaryNetworkSigners, nil
-		}
-	}
-	return false, errFailedToGetWarpQuorum
+	return WarpConfig{}, errFailedToGetWarpConfig
 }
 
 var _ peers.Config = &Config{}

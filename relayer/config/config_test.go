@@ -249,14 +249,13 @@ func TestGetWarpConfig(t *testing.T) {
 	require.NoError(t, err)
 
 	testCases := []struct {
-		name                                string
-		blockchainID                        ids.ID
-		subnetID                            ids.ID
-		chainConfig                         params.ChainConfigWithUpgradesJSON
-		getChainConfigCalls                 int
-		expectedError                       error
-		expectedQuorum                      WarpQuorum
-		expectedRequirePrimaryNeworkSigners bool
+		name                string
+		blockchainID        ids.ID
+		subnetID            ids.ID
+		chainConfig         params.ChainConfigWithUpgradesJSON
+		getChainConfigCalls int
+		expectedError       error
+		expectedWarpConfig  WarpConfig
 	}{
 		{
 			name:                "subnet genesis precompile",
@@ -273,11 +272,10 @@ func TestGetWarpConfig(t *testing.T) {
 				},
 			},
 			expectedError: nil,
-			expectedQuorum: WarpQuorum{
-				QuorumNumerator:   warp.WarpDefaultQuorumNumerator,
-				QuorumDenominator: warp.WarpQuorumDenominator,
+			expectedWarpConfig: WarpConfig{
+				QuorumNumerator:              warp.WarpDefaultQuorumNumerator,
+				RequirePrimaryNetworkSigners: false,
 			},
-			expectedRequirePrimaryNeworkSigners: false,
 		},
 		{
 			name:                "subnet genesis precompile non-default",
@@ -294,11 +292,10 @@ func TestGetWarpConfig(t *testing.T) {
 				},
 			},
 			expectedError: nil,
-			expectedQuorum: WarpQuorum{
-				QuorumNumerator:   50,
-				QuorumDenominator: warp.WarpQuorumDenominator,
+			expectedWarpConfig: WarpConfig{
+				QuorumNumerator:              50,
+				RequirePrimaryNetworkSigners: false,
 			},
-			expectedRequirePrimaryNeworkSigners: false,
 		},
 		{
 			name:                "subnet upgrade precompile",
@@ -317,11 +314,10 @@ func TestGetWarpConfig(t *testing.T) {
 				},
 			},
 			expectedError: nil,
-			expectedQuorum: WarpQuorum{
-				QuorumNumerator:   warp.WarpDefaultQuorumNumerator,
-				QuorumDenominator: warp.WarpQuorumDenominator,
+			expectedWarpConfig: WarpConfig{
+				QuorumNumerator:              warp.WarpDefaultQuorumNumerator,
+				RequirePrimaryNetworkSigners: false,
 			},
-			expectedRequirePrimaryNeworkSigners: false,
 		},
 		{
 			name:                "subnet upgrade precompile non-default",
@@ -340,11 +336,10 @@ func TestGetWarpConfig(t *testing.T) {
 				},
 			},
 			expectedError: nil,
-			expectedQuorum: WarpQuorum{
-				QuorumNumerator:   50,
-				QuorumDenominator: warp.WarpQuorumDenominator,
+			expectedWarpConfig: WarpConfig{
+				QuorumNumerator:              50,
+				RequirePrimaryNetworkSigners: false,
 			},
-			expectedRequirePrimaryNeworkSigners: false,
 		},
 		{
 			name:                "require primary network signers",
@@ -362,11 +357,10 @@ func TestGetWarpConfig(t *testing.T) {
 				},
 			},
 			expectedError: nil,
-			expectedQuorum: WarpQuorum{
-				QuorumNumerator:   warp.WarpDefaultQuorumNumerator,
-				QuorumDenominator: warp.WarpQuorumDenominator,
+			expectedWarpConfig: WarpConfig{
+				QuorumNumerator:              warp.WarpDefaultQuorumNumerator,
+				RequirePrimaryNetworkSigners: true,
 			},
-			expectedRequirePrimaryNeworkSigners: true,
 		},
 		{
 			name:                "require primary network signers explicit false",
@@ -384,11 +378,10 @@ func TestGetWarpConfig(t *testing.T) {
 				},
 			},
 			expectedError: nil,
-			expectedQuorum: WarpQuorum{
-				QuorumNumerator:   warp.WarpDefaultQuorumNumerator,
-				QuorumDenominator: warp.WarpQuorumDenominator,
+			expectedWarpConfig: WarpConfig{
+				QuorumNumerator:              warp.WarpDefaultQuorumNumerator,
+				RequirePrimaryNetworkSigners: false,
 			},
-			expectedRequirePrimaryNeworkSigners: false,
 		},
 	}
 
@@ -402,11 +395,10 @@ func TestGetWarpConfig(t *testing.T) {
 				).Times(testCase.getChainConfigCalls),
 			)
 
-			warpConfig, err := getWarpConfig(client)
+			subnetWarpConfig, err := getWarpConfig(client)
 			require.Equal(t, testCase.expectedError, err)
-			quorum := calculateQuorum(warpConfig.QuorumNumerator)
-			require.Equal(t, testCase.expectedQuorum, quorum)
-			require.Equal(t, testCase.expectedRequirePrimaryNeworkSigners, warpConfig.RequirePrimaryNetworkSigners)
+			expectedWarpConfig := warpConfigFromSubnetWarpConfig(*subnetWarpConfig)
+			require.Equal(t, testCase.expectedWarpConfig, expectedWarpConfig)
 		})
 	}
 }
