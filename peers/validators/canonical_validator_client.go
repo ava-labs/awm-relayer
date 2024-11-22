@@ -12,8 +12,8 @@ import (
 	"github.com/ava-labs/avalanchego/utils/rpc"
 	"github.com/ava-labs/avalanchego/vms/platformvm"
 	avalancheWarp "github.com/ava-labs/avalanchego/vms/platformvm/warp"
-	"github.com/ava-labs/icm-offchain-services/config"
-	"github.com/ava-labs/icm-offchain-services/peers/utils"
+	"github.com/ava-labs/icm-services/config"
+	"github.com/ava-labs/icm-services/peers/utils"
 	"go.uber.org/zap"
 )
 

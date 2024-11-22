@@ -1,4 +1,4 @@
-module github.com/ava-labs/icm-offchain-services
+module github.com/ava-labs/icm-services
 
 go 1.22.8
 

@@ -12,7 +12,7 @@ package mocks
 import (
 	reflect "reflect"
 
-	database "github.com/ava-labs/icm-offchain-services/database"
+	database "github.com/ava-labs/icm-services/database"
 	common "github.com/ethereum/go-ethereum/common"
 	gomock "go.uber.org/mock/gomock"
 )

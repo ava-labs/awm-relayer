@@ -1,6 +1,6 @@
 ---
 name: Feature specification
-about: Discussion on design and implementation of new features for icm-offchain-services.
+about: Discussion on design and implementation of new features for icm-services.
 title: ''
 labels: enhancement
 assignees: ''

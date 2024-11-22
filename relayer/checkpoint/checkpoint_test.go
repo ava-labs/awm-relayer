@@ -5,9 +5,9 @@ import (
 	"testing"
 
 	"github.com/ava-labs/avalanchego/utils/logging"
-	"github.com/ava-labs/icm-offchain-services/database"
-	mock_database "github.com/ava-labs/icm-offchain-services/database/mocks"
-	"github.com/ava-labs/icm-offchain-services/utils"
+	"github.com/ava-labs/icm-services/database"
+	mock_database "github.com/ava-labs/icm-services/database/mocks"
+	"github.com/ava-labs/icm-services/utils"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/require"

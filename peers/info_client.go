@@ -11,8 +11,8 @@ import (
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/utils/rpc"
 	"github.com/ava-labs/avalanchego/vms/platformvm/signer"
-	"github.com/ava-labs/icm-offchain-services/config"
-	"github.com/ava-labs/icm-offchain-services/peers/utils"
+	"github.com/ava-labs/icm-services/config"
+	"github.com/ava-labs/icm-services/peers/utils"
 )
 
 // InfoAPI is a wrapper around the info.Client,

@@ -10,8 +10,8 @@ import (
 	"net/url"
 	"time"
 
-	basecfg "github.com/ava-labs/icm-offchain-services/config"
-	"github.com/ava-labs/icm-offchain-services/peers"
+	basecfg "github.com/ava-labs/icm-services/config"
+	"github.com/ava-labs/icm-services/peers"
 
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/utils/constants"

@@ -1,6 +1,6 @@
 // For format details, see https://aka.ms/devcontainer.json.
 {
-	"name": "ICM Off-chain Services DevContainer",
+	"name": "ICM Services DevContainer",
 	"image": "golang:latest",
 	"runArgs": [
 		"--network=host"

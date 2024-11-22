@@ -1,4 +1,4 @@
-# Avalanche ICM Off-chain Services
+# Avalanche ICM Services
 
 This repository contains off-chain services that help support Avalanche Interchain Messaging (ICM).
 

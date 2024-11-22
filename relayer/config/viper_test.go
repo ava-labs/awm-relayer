@@ -5,7 +5,7 @@ import (
 	"os"
 	"testing"
 
-	basecfg "github.com/ava-labs/icm-offchain-services/config"
+	basecfg "github.com/ava-labs/icm-services/config"
 
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/require"

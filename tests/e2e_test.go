@@ -15,8 +15,8 @@ import (
 	"testing"
 	"time"
 
-	testUtils "github.com/ava-labs/icm-offchain-services/tests/utils"
-	"github.com/ava-labs/icm-offchain-services/utils"
+	testUtils "github.com/ava-labs/icm-services/tests/utils"
+	"github.com/ava-labs/icm-services/utils"
 	"github.com/ava-labs/teleporter/tests/local"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
@@ -59,7 +59,7 @@ var _ = ginkgo.BeforeSuite(func() {
 	var ctx context.Context
 	ctx, cancelFn = context.WithCancel(context.Background())
 
-	log.Info("Building all ICM off-chain service executables")
+	log.Info("Building all ICM service executables")
 	testUtils.BuildAllExecutables(ctx)
 
 	// Generate the Teleporter deployment values

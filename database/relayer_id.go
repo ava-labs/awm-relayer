@@ -7,8 +7,8 @@ import (
 	"strings"
 
 	"github.com/ava-labs/avalanchego/ids"
-	"github.com/ava-labs/icm-offchain-services/relayer/config"
-	"github.com/ava-labs/icm-offchain-services/utils"
+	"github.com/ava-labs/icm-services/relayer/config"
+	"github.com/ava-labs/icm-services/utils"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 )

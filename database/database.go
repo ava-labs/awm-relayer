@@ -7,7 +7,7 @@ package database
 
 import (
 	"github.com/ava-labs/avalanchego/utils/logging"
-	"github.com/ava-labs/icm-offchain-services/relayer/config"
+	"github.com/ava-labs/icm-services/relayer/config"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"

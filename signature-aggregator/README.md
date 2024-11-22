@@ -10,7 +10,7 @@ To build the application run `scripts/build_signature_aggregator.sh` which will 
 ## Running
 
 To run the binary you must supply a config file via `./signature-aggregator --config-file`
-Currently required configurations are a small subset of the [`icm-relayer` configuration](https://github.com/ava-labs/icm-offchain-services?tab=readme-ov-file#configuration).
+Currently required configurations are a small subset of the [`icm-relayer` configuration](https://github.com/ava-labs/icm-services?tab=readme-ov-file#configuration).
 
 Namely:
 - `LogLevel`: string
