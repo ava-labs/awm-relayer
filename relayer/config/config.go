@@ -49,8 +49,6 @@ awm-relayer --version                                   Display awm-relayer vers
 awm-relayer --help                                      Display awm-relayer usage and exit.
 `
 
-var errFailedToGetWarpConfig = errors.New("failed to get warp config")
-
 // Top-level configuration
 type Config struct {
 	LogLevel               string                   `mapstructure:"log-level" json:"log-level"`
@@ -239,7 +237,7 @@ func (c *Config) GetWarpConfig(blockchainID ids.ID) (WarpConfig, error) {
 			return s.warpConfig, nil
 		}
 	}
-	return WarpConfig{}, errFailedToGetWarpConfig
+	return WarpConfig{}, fmt.Errorf("blockchain %s not configured as a destination", blockchainID)
 }
 
 var _ peers.Config = &Config{}
