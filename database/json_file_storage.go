@@ -125,7 +125,12 @@ func (s *JSONFileStorage) getCurrentState(relayerID common.Hash) (chainState, bo
 // Put the value into the JSON database. Read the current chain state and overwrite the key, if it exists
 // If the file corresponding to {relayerID} does not exist, then it will be created
 func (s *JSONFileStorage) Put(relayerID common.Hash, dataKey DataKey, value []byte) error {
-	s.logger.Debug("db put", zap.Stringer("relayerID", relayerID), zap.Stringer("key", dataKey), zap.String("value", string(value)))
+	s.logger.Debug(
+		"db put",
+		zap.Stringer("relayerID", relayerID),
+		zap.Stringer("key", dataKey),
+		zap.String("value", string(value)),
+	)
 	mutex, ok := s.mutexes[relayerID]
 	if !ok {
 		return errors.Wrap(

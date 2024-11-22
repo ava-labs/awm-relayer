@@ -147,7 +147,13 @@ func (r *ApplicationRelayer) ProcessHeight(
 	handlers []messages.MessageHandler,
 	errChan chan error,
 ) {
-	r.logger.Debug("Processing block", zap.Uint64("height", height), zap.String("relayerID", r.relayerID.ID.String()), zap.Stringer("blockchainID", r.relayerID.SourceBlockchainID), zap.Int("numMessages", len(handlers)))
+	r.logger.Debug(
+		"Processing block",
+		zap.Uint64("height", height),
+		zap.Stringer("relayerID", r.relayerID.ID),
+		zap.Stringer("blockchainID", r.relayerID.SourceBlockchainID),
+		zap.Int("numMessages", len(handlers)),
+	)
 	var eg errgroup.Group
 	for _, handler := range handlers {
 		eg.Go(func() error {

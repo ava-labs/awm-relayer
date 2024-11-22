@@ -134,7 +134,11 @@ func NewNetwork(
 	}
 
 	for _, peer := range manuallyTrackedPeers {
-		logger.Info("Manually Tracking peer (startup)", zap.String("ID", peer.ID.String()), zap.String("IP", peer.PublicIP.String()))
+		logger.Info(
+			"Manually Tracking peer (startup)",
+			zap.String("ID", peer.ID.String()),
+			zap.String("IP", peer.PublicIP.String()),
+		)
 		testNetwork.ManuallyTrack(peer.ID, peer.PublicIP)
 	}
 
@@ -158,7 +162,11 @@ func NewNetwork(
 		if len(vdrs) == 0 {
 			continue
 		}
-		logger.Info("Manually tracking bootstrap node", zap.String("ID", peer.ID.String()), zap.String("IP", peer.PublicIP.String()))
+		logger.Info(
+			"Manually tracking bootstrap node",
+			zap.String("ID", peer.ID.String()),
+			zap.String("IP", peer.PublicIP.String()),
+		)
 		testNetwork.ManuallyTrack(peer.ID, peer.PublicIP)
 		numConnected++
 		if numConnected >= NumBootstrapNodes {
@@ -218,7 +226,13 @@ func (n *appRequestNetwork) startUpdateValidators() {
 	}()
 }
 
-func updateValidatorSet(ctx context.Context, logger logging.Logger, subnetID ids.ID, manager vdrs.Manager, client *validators.CanonicalValidatorClient) error {
+func updateValidatorSet(
+	ctx context.Context,
+	logger logging.Logger,
+	subnetID ids.ID,
+	manager vdrs.Manager,
+	client *validators.CanonicalValidatorClient,
+) error {
 	logger.Debug("Fetching validators for subnet ID", zap.Stringer("subnetID", subnetID))
 
 	// Fetch the primary network validators from the P-Chain
@@ -344,10 +358,6 @@ func (n *appRequestNetwork) GetSubnetID(blockchainID ids.ID) (ids.ID, error) {
 //
 // Metrics
 //
-
-func (n *appRequestNetwork) setInfoAPICallLatencyMS(latency float64) {
-	n.metrics.infoAPICallLatencyMS.Observe(latency)
-}
 
 func (n *appRequestNetwork) setPChainAPICallLatencyMS(latency float64) {
 	n.metrics.pChainAPICallLatencyMS.Observe(latency)

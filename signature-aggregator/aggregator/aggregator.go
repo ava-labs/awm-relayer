@@ -122,7 +122,11 @@ func (s *SignatureAggregator) CreateSignedMessage(
 	} else {
 		signingSubnet = inputSigningSubnet
 	}
-	s.logger.Debug("Creating signed message with signing subnet", zap.String("warpMessageID", unsignedMessage.ID().String()), zap.Stringer("signingSubnet", signingSubnet))
+	s.logger.Debug(
+		"Creating signed message with signing subnet",
+		zap.String("warpMessageID", unsignedMessage.ID().String()),
+		zap.Stringer("signingSubnet", signingSubnet),
+	)
 
 	connectedValidators, err := s.network.ConnectToCanonicalValidators(signingSubnet)
 	if err != nil {
