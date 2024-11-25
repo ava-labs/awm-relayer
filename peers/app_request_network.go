@@ -207,11 +207,9 @@ func (n *appRequestNetwork) TrackSubnet(subnetID ids.ID) {
 		return
 	}
 
-	n.lock.Lock()
-	defer n.lock.Unlock()
 	n.logger.Debug("Tracking subnet", zap.String("subnetID", subnetID.String()))
 	n.trackedSubnets.Add(subnetID)
-	updateValidatorSet(context.Background(), n.logger, subnetID, n.manager, n.validatorClient)
+	n.updateValidatorSet(context.Background(), subnetID)
 }
 
 func (n *appRequestNetwork) startUpdateValidators() {
@@ -219,32 +217,29 @@ func (n *appRequestNetwork) startUpdateValidators() {
 		// Fetch validators immediately when called, and refresh every ValidatorRefreshPeriod
 		ticker := time.NewTicker(ValidatorRefreshPeriod)
 		for ; true; <-ticker.C {
-			n.lock.Lock()
-
-			updateValidatorSet(context.Background(), n.logger, constants.PrimaryNetworkID, n.manager, n.validatorClient)
+			n.updateValidatorSet(context.Background(), constants.PrimaryNetworkID)
 			for _, subnet := range n.trackedSubnets.List() {
-				updateValidatorSet(context.Background(), n.logger, subnet, n.manager, n.validatorClient)
+				n.updateValidatorSet(context.Background(), subnet)
 			}
-			n.lock.Unlock()
 		}
 	}()
 }
 
-func updateValidatorSet(
+func (n *appRequestNetwork) updateValidatorSet(
 	ctx context.Context,
-	logger logging.Logger,
 	subnetID ids.ID,
-	manager vdrs.Manager,
-	client *validators.CanonicalValidatorClient,
 ) error {
-	logger.Debug("Fetching validators for subnet ID", zap.Stringer("subnetID", subnetID))
+	n.lock.Lock()
+	defer n.lock.Unlock()
+
+	n.logger.Debug("Fetching validators for subnet ID", zap.Stringer("subnetID", subnetID))
 
 	// Fetch the primary network validators from the P-Chain
-	height, err := client.GetCurrentHeight(ctx)
+	height, err := n.validatorClient.GetCurrentHeight(ctx)
 	if err != nil {
 		return err
 	}
-	validators, err := client.GetValidatorSet(ctx, height, subnetID)
+	validators, err := n.validatorClient.GetValidatorSet(ctx, height, subnetID)
 	if err != nil {
 		return err
 	}
@@ -255,12 +250,12 @@ func updateValidatorSet(
 	}
 
 	// Remove any elements from the manager that are not in the new validator set
-	currentVdrs := manager.GetValidatorIDs(subnetID)
+	currentVdrs := n.manager.GetValidatorIDs(subnetID)
 	for _, nodeID := range currentVdrs {
 		if _, ok := validatorsMap[nodeID]; !ok {
-			logger.Debug("Removing validator", zap.Stringer("nodeID", nodeID), zap.Stringer("subnetID", subnetID))
-			weight := manager.GetWeight(subnetID, nodeID)
-			if err := manager.RemoveWeight(subnetID, nodeID, weight); err != nil {
+			n.logger.Debug("Removing validator", zap.Stringer("nodeID", nodeID), zap.Stringer("subnetID", subnetID))
+			weight := n.manager.GetWeight(subnetID, nodeID)
+			if err := n.manager.RemoveWeight(subnetID, nodeID, weight); err != nil {
 				return err
 			}
 		}
@@ -268,9 +263,9 @@ func updateValidatorSet(
 
 	// Add any elements from the new validator set that are not in the manager
 	for _, vdr := range validators {
-		if _, ok := manager.GetValidator(subnetID, vdr.NodeID); !ok {
-			logger.Debug("Adding validator", zap.Stringer("nodeID", vdr.NodeID), zap.Stringer("subnetID", subnetID))
-			if err := manager.AddStaker(
+		if _, ok := n.manager.GetValidator(subnetID, vdr.NodeID); !ok {
+			n.logger.Debug("Adding validator", zap.Stringer("nodeID", vdr.NodeID), zap.Stringer("subnetID", subnetID))
+			if err := n.manager.AddStaker(
 				subnetID,
 				vdr.NodeID,
 				vdr.PublicKey,
