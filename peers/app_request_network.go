@@ -90,7 +90,7 @@ func NewNetwork(
 
 	metrics, err := newAppRequestNetworkMetrics(registerer)
 	if err != nil {
-		logger.Fatal("Failed to create app request network metrics", zap.Error(err))
+		logger.Error("Failed to create app request network metrics", zap.Error(err))
 		return nil, err
 	}
 
