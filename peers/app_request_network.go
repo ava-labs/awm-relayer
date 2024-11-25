@@ -195,13 +195,17 @@ func NewNetwork(
 	return arNetwork, nil
 }
 
-func (n *appRequestNetwork) TrackSubnet(subnetID ids.ID) {
+// Helper to scope read lock acquisition
+func (n *appRequestNetwork) containsSubnet(subnetID ids.ID) bool {
 	n.lock.RLock()
-	if n.trackedSubnets.Contains(subnetID) {
-		n.lock.RUnlock()
+	defer n.lock.RUnlock()
+	return n.trackedSubnets.Contains(subnetID)
+}
+
+func (n *appRequestNetwork) TrackSubnet(subnetID ids.ID) {
+	if n.containsSubnet(subnetID) {
 		return
 	}
-	n.lock.RUnlock()
 
 	n.lock.Lock()
 	defer n.lock.Unlock()
