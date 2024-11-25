@@ -8,8 +8,8 @@ require (
 	github.com/ava-labs/subnet-evm v0.6.12
 	github.com/ava-labs/teleporter v1.0.8-0.20241122194201-a6e92843c3b1
 	github.com/aws/aws-sdk-go-v2 v1.32.5
-	github.com/aws/aws-sdk-go-v2/config v1.27.9
-	github.com/aws/aws-sdk-go-v2/service/kms v1.37.2
+	github.com/aws/aws-sdk-go-v2/config v1.28.5
+	github.com/aws/aws-sdk-go-v2/service/kms v1.37.6
 	github.com/ethereum/go-ethereum v1.13.14
 	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/onsi/ginkgo/v2 v2.22.0
