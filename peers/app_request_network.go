@@ -153,10 +153,11 @@ func NewNetwork(
 	}
 	pClient := platformvm.NewClient(cfg.GetPChainAPI().BaseURL)
 	numConnected := 0
-	for _, peer := range peers {
+	for i, peer := range peers {
 		vdrs, err := pClient.GetCurrentValidators(context.Background(), constants.PrimaryNetworkID, []ids.NodeID{peer.ID})
 		if err != nil {
-			panic(err)
+			logger.Error("Failed to get current validators", zap.Error(err))
+			return nil, err
 		}
 		// Only track the peer if it is a primary network validator
 		if len(vdrs) == 0 {
@@ -171,6 +172,14 @@ func NewNetwork(
 		numConnected++
 		if numConnected >= NumBootstrapNodes {
 			break
+		}
+		if i == len(peers)-1 {
+			logger.Warn(
+				"Failed to connect to enough bootstrap nodes",
+				zap.Int("targetBootstrapNodes", NumBootstrapNodes),
+				zap.Int("numAvailablePeers", len(peers)),
+				zap.Int("connectedBootstrapNodes", numConnected),
+			)
 		}
 	}
 
