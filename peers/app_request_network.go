@@ -8,6 +8,7 @@ package peers
 import (
 	"context"
 	"encoding/hex"
+	"fmt"
 	"os"
 	"sync"
 	"time"
@@ -22,6 +23,7 @@ import (
 	"github.com/ava-labs/avalanchego/subnets"
 	"github.com/ava-labs/avalanchego/utils/constants"
 	"github.com/ava-labs/avalanchego/utils/logging"
+	"github.com/ava-labs/avalanchego/utils/sampler"
 	"github.com/ava-labs/avalanchego/utils/set"
 	"github.com/ava-labs/avalanchego/vms/platformvm"
 	"github.com/ava-labs/avalanchego/vms/platformvm/warp"
@@ -142,7 +144,8 @@ func NewNetwork(
 		testNetwork.ManuallyTrack(peer.ID, peer.PublicIP)
 	}
 
-	// Connect to a sample of the primary network validators
+	// Connect to a sample of the primary network validators, with connection
+	// info pulled from the info API
 	peers, err := infoAPI.Peers(context.Background(), nil)
 	if err != nil {
 		logger.Error(
@@ -151,35 +154,43 @@ func NewNetwork(
 		)
 		return nil, err
 	}
+	peersMap := make(map[ids.NodeID]info.Peer)
+	for _, peer := range peers {
+		peersMap[peer.ID] = peer
+	}
+
 	pClient := platformvm.NewClient(cfg.GetPChainAPI().BaseURL)
+	vdrs, err := pClient.GetCurrentValidators(context.Background(), constants.PrimaryNetworkID, nil)
+	if err != nil {
+		logger.Error("Failed to get current validators", zap.Error(err))
+		return nil, err
+	}
+
+	// Sample until we've connected to the target number of bootstrap nodes
+	s := sampler.NewUniform()
+	s.Initialize(uint64(len(vdrs)))
 	numConnected := 0
-	for i, peer := range peers {
-		vdrs, err := pClient.GetCurrentValidators(context.Background(), constants.PrimaryNetworkID, []ids.NodeID{peer.ID})
-		if err != nil {
-			logger.Error("Failed to get current validators", zap.Error(err))
-			return nil, err
-		}
-		// Only track the peer if it is a primary network validator
-		if len(vdrs) == 0 {
-			continue
-		}
-		logger.Info(
-			"Manually tracking bootstrap node",
-			zap.String("ID", peer.ID.String()),
-			zap.String("IP", peer.PublicIP.String()),
-		)
-		testNetwork.ManuallyTrack(peer.ID, peer.PublicIP)
-		numConnected++
-		if numConnected >= NumBootstrapNodes {
-			break
-		}
-		if i == len(peers)-1 {
+	for numConnected < NumBootstrapNodes {
+		if i, ok := s.Next(); ok {
+			if peer, ok := peersMap[vdrs[i].NodeID]; ok {
+				logger.Info(
+					"Manually tracking bootstrap node",
+					zap.Stringer("ID", peer.ID),
+					zap.Stringer("IP", peer.PublicIP),
+				)
+				testNetwork.ManuallyTrack(peer.ID, peer.PublicIP)
+				numConnected++
+			}
+		} else {
 			logger.Warn(
 				"Failed to connect to enough bootstrap nodes",
 				zap.Int("targetBootstrapNodes", NumBootstrapNodes),
 				zap.Int("numAvailablePeers", len(peers)),
 				zap.Int("connectedBootstrapNodes", numConnected),
 			)
+			if numConnected == 0 {
+				return nil, fmt.Errorf("failed to connect to any bootstrap nodes")
+			}
 		}
 	}
 
