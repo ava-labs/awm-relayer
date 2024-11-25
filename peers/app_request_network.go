@@ -138,8 +138,8 @@ func NewNetwork(
 	for _, peer := range manuallyTrackedPeers {
 		logger.Info(
 			"Manually Tracking peer (startup)",
-			zap.String("ID", peer.ID.String()),
-			zap.String("IP", peer.PublicIP.String()),
+			zap.Stringer("ID", peer.ID),
+			zap.Stringer("IP", peer.PublicIP),
 		)
 		testNetwork.ManuallyTrack(peer.ID, peer.PublicIP)
 	}
@@ -227,7 +227,7 @@ func (n *appRequestNetwork) TrackSubnet(subnetID ids.ID) {
 		return
 	}
 
-	n.logger.Debug("Tracking subnet", zap.String("subnetID", subnetID.String()))
+	n.logger.Debug("Tracking subnet", zap.Stringer("subnetID", subnetID))
 	n.trackedSubnets.Add(subnetID)
 	n.updateValidatorSet(context.Background(), subnetID)
 }
@@ -255,11 +255,7 @@ func (n *appRequestNetwork) updateValidatorSet(
 	n.logger.Debug("Fetching validators for subnet ID", zap.Stringer("subnetID", subnetID))
 
 	// Fetch the primary network validators from the P-Chain
-	height, err := n.validatorClient.GetCurrentHeight(ctx)
-	if err != nil {
-		return err
-	}
-	validators, err := n.validatorClient.GetValidatorSet(ctx, height, subnetID)
+	validators, err := n.validatorClient.GetProposedValidators(ctx, subnetID)
 	if err != nil {
 		return err
 	}
