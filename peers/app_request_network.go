@@ -117,7 +117,7 @@ func NewNetwork(
 		return nil, err
 	}
 
-	testNetwork, err := network.NewTestNetwork(logger, networkID, snowVdrs.NewManager(), trackedSubnets, handler)
+	testNetwork, err := network.NewTestNetwork(logger, networkID, snowVdrs.NewManager(), trackedSubnets, handler, len(manuallyTrackedPeers) > 0)
 	if err != nil {
 		logger.Error(
 			"Failed to create test network",
