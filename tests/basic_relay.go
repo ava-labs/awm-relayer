@@ -64,7 +64,7 @@ func BasicRelay(network *network.LocalNetwork, teleporter utils.TeleporterTestIn
 	log.Info("Test Relaying from Subnet A to Subnet B")
 
 	log.Info("Starting the relayer")
-	relayerCleanup, readyChan /*readyChan*/ := testUtils.RunRelayerExecutable(
+	relayerCleanup, readyChan := testUtils.RunRelayerExecutable(
 		ctx,
 		relayerConfigPath,
 		relayerConfig,
@@ -85,8 +85,6 @@ func BasicRelay(network *network.LocalNetwork, teleporter utils.TeleporterTestIn
 		fundedKey,
 		fundedAddress,
 	)
-
-	time.Sleep(10 * time.Second)
 
 	//
 	// Test Relaying from Subnet B to Subnet A
@@ -151,7 +149,7 @@ func BasicRelay(network *network.LocalNetwork, teleporter utils.TeleporterTestIn
 
 	// Run the relayer
 	log.Info("Creating new relayer instance to test already delivered message")
-	relayerCleanup, readyChan /*readyChan*/ = testUtils.RunRelayerExecutable(
+	relayerCleanup, readyChan = testUtils.RunRelayerExecutable(
 		ctx,
 		relayerConfigPath,
 		relayerConfig,
