@@ -171,17 +171,8 @@ func NewNetwork(
 	s.Initialize(uint64(len(vdrs)))
 	numConnected := 0
 	for numConnected < NumBootstrapNodes {
-		if i, ok := s.Next(); ok {
-			if peer, ok := peersMap[vdrs[i].NodeID]; ok {
-				logger.Info(
-					"Manually tracking bootstrap node",
-					zap.Stringer("ID", peer.ID),
-					zap.Stringer("IP", peer.PublicIP),
-				)
-				testNetwork.ManuallyTrack(peer.ID, peer.PublicIP)
-				numConnected++
-			}
-		} else {
+		i, ok := s.Next()
+		if !ok {
 			// If we've sampled all the nodes and still haven't connected to the target number of bootstrap nodes,
 			// then warn and stop sampling by either returning an error or breaking
 			logger.Warn(
@@ -194,6 +185,15 @@ func NewNetwork(
 				return nil, fmt.Errorf("failed to connect to any bootstrap nodes")
 			}
 			break
+		}
+		if peer, ok := peersMap[vdrs[i].NodeID]; ok {
+			logger.Info(
+				"Manually tracking bootstrap node",
+				zap.Stringer("ID", peer.ID),
+				zap.Stringer("IP", peer.PublicIP),
+			)
+			testNetwork.ManuallyTrack(peer.ID, peer.PublicIP)
+			numConnected++
 		}
 	}
 
