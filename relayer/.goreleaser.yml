@@ -1,5 +1,6 @@
 # ref. https://goreleaser.com/customization/build/
 project_name: awm-relayer
+version: 2
 monorepo:
   tag_prefix: awm-relayer/
 builds:
