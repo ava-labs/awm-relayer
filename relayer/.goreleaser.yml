@@ -12,6 +12,7 @@ builds:
     # contains linux and darwin
     goos:
       - linux
+      - darwin
     goarch:
       - amd64
       - arm64
@@ -23,6 +24,10 @@ builds:
         goarch: arm64
         env:
           - CC=aarch64-linux-gnu-gcc
+      - goos: darwin
+        goarch: arm64
+        env:
+          - CC=oa64-clang
     ignore:
       - goos: darwin
         goarch: amd64
