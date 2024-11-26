@@ -25,7 +25,6 @@ import (
 	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/avalanchego/utils/sampler"
 	"github.com/ava-labs/avalanchego/utils/set"
-	"github.com/ava-labs/avalanchego/vms/platformvm"
 	"github.com/ava-labs/avalanchego/vms/platformvm/warp"
 	"github.com/ava-labs/awm-relayer/peers/validators"
 	"github.com/prometheus/client_golang/prometheus"
@@ -106,14 +105,7 @@ func NewNetwork(
 		return nil, err
 	}
 
-	infoAPI, err := NewInfoAPI(cfg.GetInfoAPI())
-	if err != nil {
-		logger.Error(
-			"Failed to create info API",
-			zap.Error(err),
-		)
-		return nil, err
-	}
+	infoAPI := NewInfoAPI(cfg.GetInfoAPI())
 	networkID, err := infoAPI.GetNetworkID(context.Background())
 	if err != nil {
 		logger.Error(
@@ -159,7 +151,7 @@ func NewNetwork(
 		peersMap[peer.ID] = peer
 	}
 
-	pClient := platformvm.NewClient(cfg.GetPChainAPI().BaseURL)
+	pClient := NewPChainAPI(cfg.GetPChainAPI())
 	vdrs, err := pClient.GetCurrentValidators(context.Background(), constants.PrimaryNetworkID, nil)
 	if err != nil {
 		logger.Error("Failed to get current validators", zap.Error(err))
