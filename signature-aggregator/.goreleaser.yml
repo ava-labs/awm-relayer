@@ -1,5 +1,6 @@
 # ref. https://goreleaser.com/customization/build/
 project_name: signature-aggregator
+version: 2
 monorepo:
   tag_prefix: signature-aggregator/
 builds:
