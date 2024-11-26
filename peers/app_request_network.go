@@ -27,6 +27,7 @@ import (
 	"github.com/ava-labs/avalanchego/utils/set"
 	"github.com/ava-labs/avalanchego/vms/platformvm"
 	"github.com/ava-labs/avalanchego/vms/platformvm/warp"
+	"github.com/ava-labs/awm-relayer/peers/utils"
 	"github.com/ava-labs/awm-relayer/peers/validators"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
@@ -160,7 +161,8 @@ func NewNetwork(
 	}
 
 	pClient := platformvm.NewClient(cfg.GetPChainAPI().BaseURL)
-	vdrs, err := pClient.GetCurrentValidators(context.Background(), constants.PrimaryNetworkID, nil)
+	options := utils.InitializeOptions(cfg.GetPChainAPI())
+	vdrs, err := pClient.GetCurrentValidators(context.Background(), constants.PrimaryNetworkID, nil, options...)
 	if err != nil {
 		logger.Error("Failed to get current validators", zap.Error(err))
 		return nil, err
