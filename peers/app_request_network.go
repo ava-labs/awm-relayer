@@ -182,6 +182,8 @@ func NewNetwork(
 				numConnected++
 			}
 		} else {
+			// If we've sampled all the nodes and still haven't connected to the target number of bootstrap nodes,
+			// then warn and stop sampling by either returning an error or breaking
 			logger.Warn(
 				"Failed to connect to enough bootstrap nodes",
 				zap.Int("targetBootstrapNodes", NumBootstrapNodes),
@@ -191,6 +193,7 @@ func NewNetwork(
 			if numConnected == 0 {
 				return nil, fmt.Errorf("failed to connect to any bootstrap nodes")
 			}
+			break
 		}
 	}
 
