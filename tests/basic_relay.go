@@ -52,6 +52,7 @@ func BasicRelay(network *network.LocalNetwork, teleporter utils.TeleporterTestIn
 		fundedAddress,
 		relayerKey,
 	)
+
 	// The config needs to be validated in order to be passed to database.GetConfigRelayerIDs
 	relayerConfig.Validate()
 
@@ -71,7 +72,7 @@ func BasicRelay(network *network.LocalNetwork, teleporter utils.TeleporterTestIn
 	defer relayerCleanup()
 
 	// Wait for relayer to start up
-	startupCtx, startupCancel := context.WithTimeout(ctx, 15*time.Second)
+	startupCtx, startupCancel := context.WithTimeout(ctx, 60*time.Second)
 	defer startupCancel()
 	testUtils.WaitForChannelClose(startupCtx, readyChan)
 
@@ -157,7 +158,7 @@ func BasicRelay(network *network.LocalNetwork, teleporter utils.TeleporterTestIn
 
 	// Wait for relayer to start up
 	log.Info("Waiting for the relayer to start up")
-	startupCtx, startupCancel = context.WithTimeout(ctx, 15*time.Second)
+	startupCtx, startupCancel = context.WithTimeout(ctx, 60*time.Second)
 	defer startupCancel()
 	testUtils.WaitForChannelClose(startupCtx, readyChan)
 

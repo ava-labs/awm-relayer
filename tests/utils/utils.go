@@ -49,7 +49,7 @@ const (
 func BuildAllExecutables(ctx context.Context) {
 	cmd := exec.Command("./scripts/build.sh")
 	out, err := cmd.CombinedOutput()
-	fmt.Println(string(out))
+	log.Info(string(out))
 	Expect(err).Should(BeNil())
 }
 
@@ -192,7 +192,7 @@ func CreateDefaultRelayerConfig(
 	}
 
 	return relayercfg.Config{
-		LogLevel: logging.Info.LowerString(),
+		LogLevel: logLevel.LowerString(),
 		PChainAPI: &config.APIConfig{
 			BaseURL: sourceSubnetsInfo[0].NodeURIs[0],
 		},
@@ -228,7 +228,7 @@ func CreateDefaultSignatureAggregatorConfig(
 	)
 	// Construct the config values for each subnet
 	return signatureaggregatorcfg.Config{
-		LogLevel: logging.Info.LowerString(),
+		LogLevel: logLevel.LowerString(),
 		PChainAPI: &config.APIConfig{
 			BaseURL: sourceSubnetsInfo[0].NodeURIs[0],
 		},
@@ -602,9 +602,11 @@ func runExecutable(
 		for {
 			resp, err := http.Get(healthCheckUrl)
 			if err == nil && resp.StatusCode == 200 {
+				log.Info("Health check passed", "appName", appName)
 				close(readyChan)
 				break
 			}
+			log.Info("Health check failed", "appName", appName, "err", err)
 			time.Sleep(time.Second * 1)
 		}
 	}()

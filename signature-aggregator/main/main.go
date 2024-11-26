@@ -84,17 +84,6 @@ func main() {
 	if logLevel <= logging.Debug {
 		networkLogLevel = logLevel
 	}
-	network, err := peers.NewNetwork(
-		networkLogLevel,
-		prometheus.DefaultRegisterer,
-		nil,
-		nil,
-		&cfg,
-	)
-	if err != nil {
-		logger.Fatal("Failed to create app request network", zap.Error(err))
-		panic(err)
-	}
 
 	// Initialize message creator passed down to relayers for creating app requests.
 	// We do not collect metrics for the message creator.
@@ -109,15 +98,28 @@ func main() {
 		panic(err)
 	}
 
+	network, err := peers.NewNetwork(
+		networkLogLevel,
+		prometheus.DefaultRegisterer,
+		nil,
+		nil,
+		&cfg,
+	)
+	if err != nil {
+		logger.Fatal("Failed to create app request network", zap.Error(err))
+		panic(err)
+	}
+	defer network.Shutdown()
+
 	registry := metrics.Initialize(cfg.MetricsPort)
 	metricsInstance := metrics.NewSignatureAggregatorMetrics(registry)
 
 	signatureAggregator, err := aggregator.NewSignatureAggregator(
 		network,
 		logger,
+		messageCreator,
 		cfg.SignatureCacheSize,
 		metricsInstance,
-		messageCreator,
 		cfg.EtnaTime,
 	)
 	if err != nil {
