@@ -257,7 +257,7 @@ func (n *appRequestNetwork) updateValidatorSet(
 
 	n.logger.Debug("Fetching validators for subnet ID", zap.Stringer("subnetID", subnetID))
 
-	// Fetch the primary network validators from the P-Chain
+	// Fetch the subnet validators from the P-Chain
 	validators, err := n.validatorClient.GetProposedValidators(ctx, subnetID)
 	if err != nil {
 		return err
