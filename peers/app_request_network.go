@@ -65,6 +65,7 @@ type appRequestNetwork struct {
 	// Should only be used for local or custom blockchains where validators are not
 	// publicly discoverable by primary network nodes.
 	manuallyTrackedPeers []info.Peer
+	allowPrivatePeers    bool
 }
 
 // NewNetwork creates a P2P network client for interacting with validators
@@ -72,6 +73,7 @@ func NewNetwork(
 	logLevel logging.Level,
 	registerer prometheus.Registerer,
 	trackedSubnets set.Set[ids.ID],
+	allowPrivatePeers bool,
 	manuallyTrackedPeers []info.Peer,
 	cfg Config,
 ) (AppRequestNetwork, error) {
@@ -117,7 +119,14 @@ func NewNetwork(
 		return nil, err
 	}
 
-	testNetwork, err := network.NewTestNetwork(logger, networkID, snowVdrs.NewManager(), trackedSubnets, handler, len(manuallyTrackedPeers) > 0)
+	testNetwork, err := network.NewTestNetwork(
+		logger,
+		networkID,
+		snowVdrs.NewManager(),
+		trackedSubnets,
+		handler,
+		len(manuallyTrackedPeers) > 0 || allowPrivatePeers,
+	)
 	if err != nil {
 		logger.Error(
 			"Failed to create test network",
@@ -137,6 +146,7 @@ func NewNetwork(
 		validatorClient:      validatorClient,
 		metrics:              metrics,
 		manuallyTrackedPeers: manuallyTrackedPeers,
+		allowPrivatePeers:    allowPrivatePeers,
 	}
 	go logger.RecoverAndPanic(func() {
 		testNetwork.Dispatch()

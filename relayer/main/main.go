@@ -153,6 +153,7 @@ func main() {
 		networkLogLevel,
 		registerer,
 		trackedSubnets,
+		false,
 		nil,
 		&cfg,
 	)

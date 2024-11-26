@@ -88,6 +88,7 @@ func main() {
 		networkLogLevel,
 		prometheus.DefaultRegisterer,
 		nil,
+		false,
 		nil,
 		&cfg,
 	)
