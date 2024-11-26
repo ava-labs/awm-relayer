@@ -106,6 +106,7 @@ func (cm *CheckpointManager) listenForWriteSignal() {
 // Heights are committed in sequence, so if height is not exactly one
 // greater than the current committedHeight, it is instead cached in memory
 // to potentially be committed later.
+// TODO: We should only stage heights once all app relayers for a given source chain have staged
 func (cm *CheckpointManager) StageCommittedHeight(height uint64) {
 	cm.lock.Lock()
 	defer cm.lock.Unlock()

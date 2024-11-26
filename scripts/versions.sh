@@ -18,6 +18,8 @@ export GO_VERSION=${GO_VERSION:-$(getDepVersion go)}
 
 # Don't export them as they're used in the context of other calls
 AVALANCHEGO_VERSION=${AVALANCHEGO_VERSION:-$(getDepVersion github.com/ava-labs/avalanchego)}
+# Temporarily hardcode the Avalanchego version until outbound networking relaxation is available
+AVALANCHEGO_VERSION=v1.12.0-fuji
 GINKGO_VERSION=${GINKGO_VERSION:-$(getDepVersion github.com/onsi/ginkgo/v2)}
 
 SUBNET_EVM_VERSION=${SUBNET_EVM_VERSION:-$(getDepVersion github.com/ava-labs/subnet-evm)}

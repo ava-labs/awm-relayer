@@ -3,10 +3,11 @@ module github.com/ava-labs/awm-relayer
 go 1.22.8
 
 require (
-	github.com/ava-labs/avalanchego v1.12.0-fuji
+	github.com/alexliesenfeld/health v0.8.0
+	github.com/ava-labs/avalanchego v1.12.0-initial-poc.9.0.20241122192639-7c3ad181c928
 	github.com/ava-labs/coreth v0.13.9-rc.1
 	github.com/ava-labs/subnet-evm v0.6.12
-	github.com/ava-labs/teleporter v1.0.8-0.20241121223552-226937a967e8
+	github.com/ava-labs/teleporter v1.0.8-0.20241122194201-a6e92843c3b1
 	github.com/aws/aws-sdk-go-v2 v1.32.5
 	github.com/aws/aws-sdk-go-v2/config v1.28.5
 	github.com/aws/aws-sdk-go-v2/service/kms v1.37.6
@@ -17,12 +18,14 @@ require (
 	github.com/pingcap/errors v0.11.4
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.20.5
-	github.com/redis/go-redis/v9 v9.7.0
+	github.com/redis/go-redis/v9 v9.6.1
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.16.0
 	github.com/stretchr/testify v1.9.0
+	go.uber.org/atomic v1.11.0
 	go.uber.org/mock v0.5.0
 	go.uber.org/zap v1.27.0
+	golang.org/x/sync v0.9.0
 	google.golang.org/grpc v1.68.0
 	google.golang.org/protobuf v1.35.2
 )
@@ -93,6 +96,7 @@ require (
 	github.com/gorilla/rpc v1.2.0 // indirect
 	github.com/gorilla/websocket v1.5.0 // indirect
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0 // indirect
+	github.com/grpc-ecosystem/grpc-gateway/v2 v2.18.0 // indirect
 	github.com/hashicorp/go-bexpr v0.1.10 // indirect
 	github.com/hashicorp/golang-lru v0.5.5-0.20210104140557-80c98217689d // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
@@ -183,11 +187,4 @@ require (
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.4.1 // indirect
 	sigs.k8s.io/yaml v1.3.0 // indirect
-)
-
-require (
-	github.com/alexliesenfeld/health v0.8.0
-	github.com/grpc-ecosystem/grpc-gateway/v2 v2.18.0 // indirect
-	go.uber.org/atomic v1.11.0
-	golang.org/x/sync v0.9.0
 )

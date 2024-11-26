@@ -64,6 +64,7 @@ type Config struct {
 	ProcessMissedBlocks    bool                     `mapstructure:"process-missed-blocks" json:"process-missed-blocks"`
 	DeciderURL             string                   `mapstructure:"decider-url" json:"decider-url"`
 	SignatureCacheSize     uint64                   `mapstructure:"signature-cache-size" json:"signature-cache-size"`
+	ManuallyTrackedPeers   []*basecfg.PeerConfig    `mapstructure:"manually-tracked-peers" json:"manually-tracked-peers"`
 
 	// mapstructure doesn't handle time.Time out of the box so handle it manually
 	EtnaTime time.Time `json:"etna-time"`
@@ -106,6 +107,11 @@ func (c *Config) Validate() error {
 	}
 	if c.DBWriteIntervalSeconds == 0 || c.DBWriteIntervalSeconds > 600 {
 		return errors.New("db-write-interval-seconds must be between 1 and 600")
+	}
+	for _, p := range c.ManuallyTrackedPeers {
+		if err := p.Validate(); err != nil {
+			return err
+		}
 	}
 
 	blockchainIDToSubnetID := make(map[ids.ID]ids.ID)
