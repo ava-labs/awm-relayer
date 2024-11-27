@@ -8,7 +8,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/ava-labs/awm-relayer/utils"
+	"github.com/ava-labs/icm-services/utils"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 )

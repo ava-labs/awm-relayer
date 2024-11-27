@@ -1,7 +1,7 @@
 # Signature Aggregator
 
 This directory contains a lightweight stand-alone API for requesting signatures for a Warp message from Subnet validators.
-It is also used by `awm-relayer` for gathering signatures when configured to use AppRequest instead of the Warp signature RPC client.
+It is also used by `icm-relayer` for gathering signatures when configured to use AppRequest instead of the Warp signature RPC client.
 
 ## Building
 
@@ -10,7 +10,7 @@ To build the application run `scripts/build_signature_aggregator.sh` which will 
 ## Running
 
 To run the binary you must supply a config file via `./signature-aggregator --config-file`
-Currently required configurations are a small subset of the [`awm-relayer` configuration](https://github.com/ava-labs/awm-relayer?tab=readme-ov-file#configuration).
+Currently required configurations are a small subset of the [`icm-relayer` configuration](https://github.com/ava-labs/icm-services?tab=readme-ov-file#configuration).
 
 Namely:
 - `LogLevel`: string

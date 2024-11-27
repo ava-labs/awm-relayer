@@ -19,19 +19,19 @@ import (
 	"github.com/ava-labs/avalanchego/network/peer"
 	"github.com/ava-labs/avalanchego/utils/constants"
 	"github.com/ava-labs/avalanchego/utils/logging"
-	"github.com/ava-labs/awm-relayer/database"
-	"github.com/ava-labs/awm-relayer/messages"
-	offchainregistry "github.com/ava-labs/awm-relayer/messages/off-chain-registry"
-	"github.com/ava-labs/awm-relayer/messages/teleporter"
-	"github.com/ava-labs/awm-relayer/peers"
-	"github.com/ava-labs/awm-relayer/relayer"
-	"github.com/ava-labs/awm-relayer/relayer/api"
-	"github.com/ava-labs/awm-relayer/relayer/checkpoint"
-	"github.com/ava-labs/awm-relayer/relayer/config"
-	"github.com/ava-labs/awm-relayer/signature-aggregator/aggregator"
-	sigAggMetrics "github.com/ava-labs/awm-relayer/signature-aggregator/metrics"
-	"github.com/ava-labs/awm-relayer/utils"
-	"github.com/ava-labs/awm-relayer/vms"
+	"github.com/ava-labs/icm-services/database"
+	"github.com/ava-labs/icm-services/messages"
+	offchainregistry "github.com/ava-labs/icm-services/messages/off-chain-registry"
+	"github.com/ava-labs/icm-services/messages/teleporter"
+	"github.com/ava-labs/icm-services/peers"
+	"github.com/ava-labs/icm-services/relayer"
+	"github.com/ava-labs/icm-services/relayer/api"
+	"github.com/ava-labs/icm-services/relayer/checkpoint"
+	"github.com/ava-labs/icm-services/relayer/config"
+	"github.com/ava-labs/icm-services/signature-aggregator/aggregator"
+	sigAggMetrics "github.com/ava-labs/icm-services/signature-aggregator/metrics"
+	"github.com/ava-labs/icm-services/utils"
+	"github.com/ava-labs/icm-services/vms"
 	"github.com/ava-labs/subnet-evm/ethclient"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/prometheus/client_golang/prometheus"
@@ -91,7 +91,7 @@ func main() {
 	}
 
 	logger := logging.NewLogger(
-		"awm-relayer",
+		"icm-relayer",
 		logging.NewWrappedCore(
 			logLevel,
 			os.Stdout,
@@ -99,7 +99,7 @@ func main() {
 		),
 	)
 
-	logger.Info("Initializing awm-relayer")
+	logger.Info("Initializing icm-relayer")
 	overwrittenLog := ""
 	if cfg.HasOverwrittenOptions() {
 		overwrittenLog = fmt.Sprintf(" Some options were overwritten: %s", strings.Join(cfg.GetOverwrittenOptions(), ", "))

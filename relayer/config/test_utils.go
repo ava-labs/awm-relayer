@@ -5,7 +5,7 @@ package config
 import (
 	"fmt"
 
-	basecfg "github.com/ava-labs/awm-relayer/config"
+	basecfg "github.com/ava-labs/icm-services/config"
 )
 
 var (

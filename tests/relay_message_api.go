@@ -14,8 +14,8 @@ import (
 
 	"github.com/ava-labs/avalanchego/ids"
 	avalancheWarp "github.com/ava-labs/avalanchego/vms/platformvm/warp"
-	"github.com/ava-labs/awm-relayer/relayer/api"
-	testUtils "github.com/ava-labs/awm-relayer/tests/utils"
+	"github.com/ava-labs/icm-services/relayer/api"
+	testUtils "github.com/ava-labs/icm-services/tests/utils"
 	"github.com/ava-labs/subnet-evm/core/types"
 	subnetEvmInterfaces "github.com/ava-labs/subnet-evm/interfaces"
 	"github.com/ava-labs/subnet-evm/precompile/contracts/warp"

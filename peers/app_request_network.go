@@ -27,8 +27,8 @@ import (
 	"github.com/ava-labs/avalanchego/utils/set"
 	"github.com/ava-labs/avalanchego/vms/platformvm"
 	"github.com/ava-labs/avalanchego/vms/platformvm/warp"
-	"github.com/ava-labs/awm-relayer/peers/utils"
-	"github.com/ava-labs/awm-relayer/peers/validators"
+	"github.com/ava-labs/icm-services/peers/utils"
+	"github.com/ava-labs/icm-services/peers/validators"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 )

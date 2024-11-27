@@ -4,13 +4,13 @@
 
 set -e
 
-AWM_RELAYER_PATH=$(
+ICM_RELAYER_PATH=$(
   cd "$(dirname "${BASH_SOURCE[0]}")"
   cd .. && pwd
 )
 
-source $AWM_RELAYER_PATH/scripts/constants.sh
-source $AWM_RELAYER_PATH/scripts/versions.sh
+source $ICM_RELAYER_PATH/scripts/constants.sh
+source $ICM_RELAYER_PATH/scripts/versions.sh
 source $TELEPORTER_PATH/scripts/utils.sh
 
 setARCH
@@ -49,7 +49,7 @@ go install github.com/ava-labs/subnet-evm/cmd/abigen@${SUBNET_EVM_VERSION}
 # Force recompile of all contracts to prevent against using previous
 # compilations that did not generate new ABI files.
 echo "Building Contracts"
-cd $AWM_RELAYER_PATH/tests/contracts
+cd $ICM_RELAYER_PATH/tests/contracts
 forge build --force --extra-output-files abi bin
 
 contract_names=($CONTRACT_LIST)
@@ -59,23 +59,23 @@ if [[ -z "${CONTRACT_LIST}" ]]; then
     contract_names=($DEFAULT_CONTRACT_LIST)
 fi
 
-cd $AWM_RELAYER_PATH/tests/contracts/src
+cd $ICM_RELAYER_PATH/tests/contracts/src
 for contract_name in "${contract_names[@]}"
 do
     path=$(find . -name $contract_name.sol)
     dir=$(dirname $path)
-    abi_file=$AWM_RELAYER_PATH/tests/contracts/out/$contract_name.sol/$contract_name.abi.json
+    abi_file=$ICM_RELAYER_PATH/tests/contracts/out/$contract_name.sol/$contract_name.abi.json
     if ! [ -f $abi_file ]; then
         echo "Error: Contract $contract_name abi file not found"
         exit 1
     fi
 
     echo "Generating Go bindings for $contract_name..."
-    gen_path=$AWM_RELAYER_PATH/tests/abi-bindings/go/$dir/$contract_name
+    gen_path=$ICM_RELAYER_PATH/tests/abi-bindings/go/$dir/$contract_name
     mkdir -p $gen_path
     $GOPATH/bin/abigen --abi $abi_file \
                        --pkg $(convertToLower $contract_name) \
-                       --bin $AWM_RELAYER_PATH/tests/contracts/out/$contract_name.sol/$contract_name.bin \
+                       --bin $ICM_RELAYER_PATH/tests/contracts/out/$contract_name.sol/$contract_name.bin \
                        --type $contract_name \
                        --out $gen_path/$contract_name.go
     echo "Done generating Go bindings for $contract_name."

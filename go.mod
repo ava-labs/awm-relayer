@@ -1,4 +1,4 @@
-module github.com/ava-labs/awm-relayer
+module github.com/ava-labs/icm-services
 
 go 1.22.8
 
@@ -34,6 +34,7 @@ require (
 	github.com/DataDog/zstd v1.5.2 // indirect
 	github.com/NYTimes/gziphandler v1.1.1 // indirect
 	github.com/VictoriaMetrics/fastcache v1.12.1 // indirect
+	github.com/ava-labs/awm-relayer v1.4.1-0.20241122193929-3dae643932ee // indirect
 	github.com/aws/aws-sdk-go-v2/credentials v1.17.46 // indirect
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.16.20 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/configsources v1.3.24 // indirect

@@ -16,7 +16,7 @@ done
 
 if [ "$HELP" = true ]; then
     echo "Usage: ./scripts/e2e_test.sh [OPTIONS]"
-    echo "Run E2E tests for AWM Relayer."
+    echo "Run E2E tests for ICM Services."
     echo ""
     echo "Options:"
     echo "  -v, --verbose                     Enable debug logs"

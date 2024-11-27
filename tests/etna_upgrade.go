@@ -7,7 +7,7 @@ import (
 	"context"
 	"time"
 
-	testUtils "github.com/ava-labs/awm-relayer/tests/utils"
+	testUtils "github.com/ava-labs/icm-services/tests/utils"
 	"github.com/ava-labs/teleporter/tests/interfaces"
 	"github.com/ava-labs/teleporter/tests/network"
 	"github.com/ava-labs/teleporter/tests/utils"

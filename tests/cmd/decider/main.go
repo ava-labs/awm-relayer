@@ -1,4 +1,4 @@
-// a CLI command to serve as a gRPC provider of awm-relayer/proto/decider
+// a CLI command to serve as a gRPC provider of icm-relayer/proto/decider
 
 package main
 
@@ -9,7 +9,7 @@ import (
 	"log"
 	"net"
 
-	pb "github.com/ava-labs/awm-relayer/proto/pb/decider"
+	pb "github.com/ava-labs/icm-services/proto/pb/decider"
 	"google.golang.org/grpc"
 )
 

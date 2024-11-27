@@ -12,9 +12,9 @@ import (
 
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/utils/set"
-	basecfg "github.com/ava-labs/awm-relayer/config"
-	"github.com/ava-labs/awm-relayer/utils"
-	mock_ethclient "github.com/ava-labs/awm-relayer/vms/evm/mocks"
+	basecfg "github.com/ava-labs/icm-services/config"
+	"github.com/ava-labs/icm-services/utils"
+	mock_ethclient "github.com/ava-labs/icm-services/vms/evm/mocks"
 	"github.com/ava-labs/subnet-evm/params"
 	"github.com/ava-labs/subnet-evm/precompile/contracts/warp"
 	"github.com/stretchr/testify/require"

@@ -126,7 +126,7 @@ func TestConcurrentWriteReadMultipleChains(t *testing.T) {
 
 func setupJsonStorage(t *testing.T, relayerIDs []RelayerID) *JSONFileStorage {
 	logger := logging.NewLogger(
-		"awm-relayer-test",
+		"icm-relayer-test",
 		logging.NewWrappedCore(
 			logging.Info,
 			os.Stdout,

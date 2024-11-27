@@ -1,12 +1,12 @@
 # ref. https://goreleaser.com/customization/build/
-project_name: awm-relayer
+project_name: icm-relayer
 version: 2
 monorepo:
-  tag_prefix: awm-relayer/
+  tag_prefix: icm-relayer/
 builds:
-  - id: awm-relayer
+  - id: icm-relayer
     main: ./relayer/main/main.go
-    binary: awm-relayer
+    binary: icm-relayer
     flags:
       - -v
     # windows is ignored by default, as the `goos` field by default only
@@ -36,14 +36,14 @@ builds:
         goarch: amd64
 dockers:
   - image_templates:
-    - 'avaplatform/awm-relayer:{{ .Tag }}-amd64'
+    - 'avaplatform/icm-relayer:{{ .Tag }}-amd64'
     use: buildx
     build_flag_templates:
     - "--pull"
     - "--platform=linux/amd64"
     dockerfile: "relayer/Dockerfile"
   - image_templates:
-    - 'avaplatform/awm-relayer:{{ .Tag }}-arm64'
+    - 'avaplatform/icm-relayer:{{ .Tag }}-arm64'
     use: buildx
     build_flag_templates:
     - "--pull"
@@ -51,14 +51,14 @@ dockers:
     dockerfile: "relayer/Dockerfile"
     goarch: arm64
 docker_manifests:
-  - name_template: 'avaplatform/awm-relayer:{{ .Tag }}'
+  - name_template: 'avaplatform/icm-relayer:{{ .Tag }}'
     image_templates:
-    - 'avaplatform/awm-relayer:{{ .Tag }}-amd64'
-    - 'avaplatform/awm-relayer:{{ .Tag }}-arm64'
-  - name_template: 'avaplatform/awm-relayer:latest'
+    - 'avaplatform/icm-relayer:{{ .Tag }}-amd64'
+    - 'avaplatform/icm-relayer:{{ .Tag }}-arm64'
+  - name_template: 'avaplatform/icm-relayer:latest'
     image_templates:
-    - 'avaplatform/awm-relayer:{{ .Tag }}-amd64'
-    - 'avaplatform/awm-relayer:{{ .Tag }}-arm64'
+    - 'avaplatform/icm-relayer:{{ .Tag }}-amd64'
+    - 'avaplatform/icm-relayer:{{ .Tag }}-arm64'
     # If tag is an rc, do not push the latest tag
     skip_push: auto
 release:
@@ -66,6 +66,6 @@ release:
   # Default is extracted from the origin remote URL or empty if its private hosted.
   github:
     owner: ava-labs
-    name: awm-relayer
+    name: icm-relayer
   # If tag indicates rc, will mark it as prerelease
   prerelease: auto

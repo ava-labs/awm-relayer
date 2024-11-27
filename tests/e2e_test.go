@@ -16,8 +16,8 @@ import (
 	"time"
 
 	"github.com/ava-labs/avalanchego/utils/units"
-	testUtils "github.com/ava-labs/awm-relayer/tests/utils"
-	"github.com/ava-labs/awm-relayer/utils"
+	testUtils "github.com/ava-labs/icm-services/tests/utils"
+	"github.com/ava-labs/icm-services/utils"
 	"github.com/ava-labs/teleporter/tests/network"
 	teleporterTestUtils "github.com/ava-labs/teleporter/tests/utils"
 	"github.com/ethereum/go-ethereum/common"
@@ -62,7 +62,7 @@ var _ = ginkgo.BeforeSuite(func() {
 	var ctx context.Context
 	ctx, cancelFn = context.WithCancel(context.Background())
 
-	log.Info("Building all ICM off-chain service executables")
+	log.Info("Building all ICM service executables")
 	testUtils.BuildAllExecutables(ctx)
 
 	// Generate the Teleporter deployment values
@@ -180,7 +180,7 @@ func cleanup() {
 
 var _ = ginkgo.AfterSuite(cleanup)
 
-var _ = ginkgo.Describe("[AWM Relayer Integration Tests", func() {
+var _ = ginkgo.Describe("[ICM Relayer Integration Tests", func() {
 	ginkgo.It("Manually Provided Message", func() {
 		ManualMessage(localNetworkInstance, teleporterInfo)
 	})

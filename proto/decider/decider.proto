@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package decider;
 
-option go_package = "github.com/ava-labs/awm-relayer/proto/pb/decider";
+option go_package = "github.com/ava-labs/icm-services/proto/pb/decider";
 
 service DeciderService {
   rpc ShouldSendMessage(ShouldSendMessageRequest) returns (ShouldSendMessageResponse);

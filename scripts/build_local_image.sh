@@ -20,7 +20,7 @@ full_commit_hash="$(git --git-dir="$RELAYER_PATH/.git" rev-parse HEAD)"
 commit_hash="${full_commit_hash::8}"
 
 ./scripts/build.sh
-cp $RELAYER_PATH/build/awm-relayer $RELAYER_PATH/awm-relayer
+cp $RELAYER_PATH/build/icm-relayer $RELAYER_PATH/icm-relayer
 
 echo "Building Docker Image with tags: $relayer_dockerhub_repo:$commit_hash , $relayer_dockerhub_repo:$current_branch"
 docker build -t "$relayer_dockerhub_repo:$commit_hash" \
@@ -28,4 +28,4 @@ docker build -t "$relayer_dockerhub_repo:$commit_hash" \
         "$RELAYER_PATH" -f "$RELAYER_PATH/Dockerfile" \
         --build-arg GO_VERSION=$GO_VERSION
 
-rm $RELAYER_PATH/awm-relayer
+rm $RELAYER_PATH/icm-relayer

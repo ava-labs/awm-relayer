@@ -5,7 +5,7 @@ package utils
 
 import (
 	"github.com/ava-labs/avalanchego/utils/rpc"
-	"github.com/ava-labs/awm-relayer/config"
+	"github.com/ava-labs/icm-services/config"
 )
 
 // InitializeOptions initializes the rpc options for an API

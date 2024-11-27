@@ -1,6 +1,6 @@
 ---
 name: Feature specification
-about: Discussion on design and implementation of new features for awm-relayer.
+about: Discussion on design and implementation of new features for icm-services.
 title: ''
 labels: enhancement
 assignees: ''

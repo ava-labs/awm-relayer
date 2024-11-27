@@ -11,10 +11,10 @@ import (
 
 	"github.com/ava-labs/avalanchego/utils/logging"
 	avalancheWarp "github.com/ava-labs/avalanchego/vms/platformvm/warp"
-	basecfg "github.com/ava-labs/awm-relayer/config"
-	"github.com/ava-labs/awm-relayer/relayer/config"
-	mock_ethclient "github.com/ava-labs/awm-relayer/vms/evm/mocks"
-	"github.com/ava-labs/awm-relayer/vms/evm/signer"
+	basecfg "github.com/ava-labs/icm-services/config"
+	"github.com/ava-labs/icm-services/relayer/config"
+	mock_ethclient "github.com/ava-labs/icm-services/vms/evm/mocks"
+	"github.com/ava-labs/icm-services/vms/evm/signer"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 )

@@ -19,12 +19,12 @@ import (
 
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/utils/logging"
-	"github.com/ava-labs/awm-relayer/config"
-	offchainregistry "github.com/ava-labs/awm-relayer/messages/off-chain-registry"
-	relayercfg "github.com/ava-labs/awm-relayer/relayer/config"
-	signatureaggregatorcfg "github.com/ava-labs/awm-relayer/signature-aggregator/config"
-	batchcrosschainmessenger "github.com/ava-labs/awm-relayer/tests/abi-bindings/go/BatchCrossChainMessenger"
-	relayerUtils "github.com/ava-labs/awm-relayer/utils"
+	"github.com/ava-labs/icm-services/config"
+	offchainregistry "github.com/ava-labs/icm-services/messages/off-chain-registry"
+	relayercfg "github.com/ava-labs/icm-services/relayer/config"
+	signatureaggregatorcfg "github.com/ava-labs/icm-services/signature-aggregator/config"
+	batchcrosschainmessenger "github.com/ava-labs/icm-services/tests/abi-bindings/go/BatchCrossChainMessenger"
+	relayerUtils "github.com/ava-labs/icm-services/utils"
 	"github.com/ava-labs/subnet-evm/accounts/abi/bind"
 	"github.com/ava-labs/subnet-evm/core/types"
 	teleportermessenger "github.com/ava-labs/teleporter/abi-bindings/go/teleporter/TeleporterMessenger"
@@ -38,7 +38,7 @@ import (
 )
 
 // Write the test database to /tmp since the data is not needed after the test
-var StorageLocation = fmt.Sprintf("%s/.awm-relayer-storage", os.TempDir())
+var StorageLocation = fmt.Sprintf("%s/.icm-relayer-storage", os.TempDir())
 
 const (
 	DefaultRelayerCfgFname             = "relayer-config.json"
@@ -59,14 +59,14 @@ func RunRelayerExecutable(
 	relayerConfig relayercfg.Config,
 ) (context.CancelFunc, chan struct{}) {
 	relayerCtx, relayerCancel := context.WithCancel(ctx)
-	relayerCmd := exec.CommandContext(relayerCtx, "./build/awm-relayer", "--config-file", relayerConfigPath)
+	relayerCmd := exec.CommandContext(relayerCtx, "./build/icm-relayer", "--config-file", relayerConfigPath)
 
 	healthCheckURL := fmt.Sprintf("http://localhost:%d/health", relayerConfig.APIPort)
 
 	readyChan := runExecutable(
 		relayerCmd,
 		relayerCtx,
-		"awm-relayer",
+		"icm-relayer",
 		healthCheckURL,
 	)
 	return func() {
@@ -414,7 +414,7 @@ func WriteRelayerConfig(relayerConfig relayercfg.Config, fname string) string {
 	Expect(err).Should(BeNil())
 	relayerConfigPath := f.Name()
 
-	log.Info("Created awm-relayer config", "configPath", relayerConfigPath, "config", string(data))
+	log.Info("Created icm-relayer config", "configPath", relayerConfigPath, "config", string(data))
 	return relayerConfigPath
 }
 

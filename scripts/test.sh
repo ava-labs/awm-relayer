@@ -18,7 +18,7 @@ done
 
 if [ "$HELP" = true ]; then
     echo "Usage: ./scripts/test.sh [OPTIONS]"
-    echo "Run unit tests for AWM Relayer."
+    echo "Run unit tests for ICM Services."
     echo ""
     echo "Options:"
     echo "  -v, --verbose                     Run the test with verbose output"
