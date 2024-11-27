@@ -1,5 +1,5 @@
 version: v1
-name: buf.build/ava-labs/icm-relayer
+name: buf.build/ava-labs/icm-services
 breaking:
   use:
     - FILE
