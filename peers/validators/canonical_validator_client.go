@@ -80,6 +80,21 @@ func (v *CanonicalValidatorClient) GetCurrentValidatorSet(
 	return nil, 0, nil
 }
 
+func (v *CanonicalValidatorClient) GetProposedValidators(
+	ctx context.Context,
+	subnetID ids.ID,
+) (map[ids.NodeID]*validators.GetValidatorOutput, error) {
+	res, err := v.client.GetValidatorsAt(ctx, subnetID, pchainapi.ProposedHeight, v.options...)
+	if err != nil {
+		v.logger.Debug(
+			"Error fetching proposed validators",
+			zap.String("subnetID", subnetID.String()),
+			zap.Error(err))
+		return nil, err
+	}
+	return res, nil
+}
+
 // Gets the validator set of the given subnet at the given P-chain block height.
 // Uses [platform.getValidatorsAt] with supplied height
 func (v *CanonicalValidatorClient) GetValidatorSet(
@@ -90,7 +105,7 @@ func (v *CanonicalValidatorClient) GetValidatorSet(
 	res, err := v.client.GetValidatorsAt(ctx, subnetID, pchainapi.Height(height), v.options...)
 	if err != nil {
 		v.logger.Debug(
-			"P-chain RPC to getValidatorAt returned error. Falling back to getCurrentValidators",
+			"Error fetching validators at height",
 			zap.String("subnetID", subnetID.String()),
 			zap.Uint64("pChainHeight", height),
 			zap.Error(err))

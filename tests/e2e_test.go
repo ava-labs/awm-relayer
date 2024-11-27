@@ -15,6 +15,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ava-labs/avalanchego/utils/units"
 	testUtils "github.com/ava-labs/icm-services/tests/utils"
 	"github.com/ava-labs/icm-services/utils"
 	"github.com/ava-labs/teleporter/tests/network"
@@ -81,7 +82,7 @@ var _ = ginkgo.BeforeSuite(func() {
 		utils.SanitizeHexString(teleporterDeployerTransactionStr),
 	)
 	Expect(err).Should(BeNil())
-	networkStartCtx, networkStartCancel := context.WithTimeout(ctx, 120*time.Second)
+	networkStartCtx, networkStartCancel := context.WithTimeout(ctx, 240*2*time.Second)
 	defer networkStartCancel()
 	localNetworkInstance = network.NewLocalNetwork(
 		networkStartCtx,
@@ -127,6 +128,23 @@ var _ = ginkgo.BeforeSuite(func() {
 		teleporterInfo.InitializeBlockchainID(subnet, fundedKey)
 		teleporterInfo.DeployTeleporterRegistry(subnet, fundedKey)
 	}
+
+	// Convert the subnets to sovereign L1s
+	for _, subnet := range localNetworkInstance.GetSubnetsInfo() {
+		localNetworkInstance.ConvertSubnet(
+			networkStartCtx,
+			subnet,
+			teleporterTestUtils.PoAValidatorManager,
+			[]uint64{units.Schmeckle, units.Schmeckle},
+			fundedKey,
+			false)
+	}
+
+	// Restart the network to attempt to refresh TLS connections
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(60*len(localNetworkInstance.Nodes))*time.Second)
+	defer cancel()
+	err = localNetworkInstance.Restart(ctx, os.Stdout)
+	Expect(err).Should(BeNil())
 
 	decider = exec.CommandContext(ctx, "./tests/cmd/decider/decider")
 	decider.Start()

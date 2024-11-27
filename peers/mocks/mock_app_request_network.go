@@ -44,20 +44,6 @@ func (m *MockAppRequestNetwork) EXPECT() *MockAppRequestNetworkMockRecorder {
 	return m.recorder
 }
 
-// ConnectPeers mocks base method.
-func (m *MockAppRequestNetwork) ConnectPeers(nodeIDs set.Set[ids.NodeID]) set.Set[ids.NodeID] {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ConnectPeers", nodeIDs)
-	ret0, _ := ret[0].(set.Set[ids.NodeID])
-	return ret0
-}
-
-// ConnectPeers indicates an expected call of ConnectPeers.
-func (mr *MockAppRequestNetworkMockRecorder) ConnectPeers(nodeIDs any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ConnectPeers", reflect.TypeOf((*MockAppRequestNetwork)(nil).ConnectPeers), nodeIDs)
-}
-
 // ConnectToCanonicalValidators mocks base method.
 func (m *MockAppRequestNetwork) ConnectToCanonicalValidators(subnetID ids.ID) (*peers.ConnectedCanonicalValidators, error) {
 	m.ctrl.T.Helper()
@@ -126,4 +112,28 @@ func (m *MockAppRequestNetwork) Send(msg message.OutboundMessage, nodeIDs set.Se
 func (mr *MockAppRequestNetworkMockRecorder) Send(msg, nodeIDs, subnetID, allower any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Send", reflect.TypeOf((*MockAppRequestNetwork)(nil).Send), msg, nodeIDs, subnetID, allower)
+}
+
+// Shutdown mocks base method.
+func (m *MockAppRequestNetwork) Shutdown() {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "Shutdown")
+}
+
+// Shutdown indicates an expected call of Shutdown.
+func (mr *MockAppRequestNetworkMockRecorder) Shutdown() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Shutdown", reflect.TypeOf((*MockAppRequestNetwork)(nil).Shutdown))
+}
+
+// TrackSubnet mocks base method.
+func (m *MockAppRequestNetwork) TrackSubnet(subnetID ids.ID) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "TrackSubnet", subnetID)
+}
+
+// TrackSubnet indicates an expected call of TrackSubnet.
+func (mr *MockAppRequestNetworkMockRecorder) TrackSubnet(subnetID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TrackSubnet", reflect.TypeOf((*MockAppRequestNetwork)(nil).TrackSubnet), subnetID)
 }

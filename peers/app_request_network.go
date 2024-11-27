@@ -8,6 +8,7 @@ package peers
 import (
 	"context"
 	"encoding/hex"
+	"fmt"
 	"os"
 	"sync"
 	"time"
@@ -18,10 +19,15 @@ import (
 	"github.com/ava-labs/avalanchego/network"
 	avagoCommon "github.com/ava-labs/avalanchego/snow/engine/common"
 	snowVdrs "github.com/ava-labs/avalanchego/snow/validators"
+	vdrs "github.com/ava-labs/avalanchego/snow/validators"
 	"github.com/ava-labs/avalanchego/subnets"
+	"github.com/ava-labs/avalanchego/utils/constants"
 	"github.com/ava-labs/avalanchego/utils/logging"
+	"github.com/ava-labs/avalanchego/utils/sampler"
 	"github.com/ava-labs/avalanchego/utils/set"
+	"github.com/ava-labs/avalanchego/vms/platformvm"
 	"github.com/ava-labs/avalanchego/vms/platformvm/warp"
+	"github.com/ava-labs/icm-services/peers/utils"
 	"github.com/ava-labs/icm-services/peers/validators"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
@@ -30,10 +36,11 @@ import (
 const (
 	InboundMessageChannelSize = 1000
 	DefaultAppRequestTimeout  = time.Second * 2
+	ValidatorRefreshPeriod    = time.Second * 5
+	NumBootstrapNodes         = 5
 )
 
 type AppRequestNetwork interface {
-	ConnectPeers(nodeIDs set.Set[ids.NodeID]) set.Set[ids.NodeID]
 	ConnectToCanonicalValidators(subnetID ids.ID) (
 		*ConnectedCanonicalValidators,
 		error,
@@ -50,6 +57,8 @@ type AppRequestNetwork interface {
 		subnetID ids.ID,
 		allower subnets.Allower,
 	) set.Set[ids.NodeID]
+	Shutdown()
+	TrackSubnet(subnetID ids.ID)
 }
 
 type appRequestNetwork struct {
@@ -57,14 +66,12 @@ type appRequestNetwork struct {
 	handler         *RelayerExternalHandler
 	infoAPI         *InfoAPI
 	logger          logging.Logger
-	lock            *sync.Mutex
+	lock            *sync.RWMutex
 	validatorClient *validators.CanonicalValidatorClient
 	metrics         *AppRequestNetworkMetrics
 
-	// Nodes that we should connect to that are not publicly discoverable.
-	// Should only be used for local or custom blockchains where validators are not
-	// publicly discoverable by primary network nodes.
-	manuallyTrackedPeers []info.Peer
+	trackedSubnets set.Set[ids.ID]
+	manager        vdrs.Manager
 }
 
 // NewNetwork creates a P2P network client for interacting with validators
@@ -86,8 +93,8 @@ func NewNetwork(
 
 	metrics, err := newAppRequestNetworkMetrics(registerer)
 	if err != nil {
-		logger.Fatal("Failed to create app request network metrics", zap.Error(err))
-		panic(err)
+		logger.Error("Failed to create app request network metrics", zap.Error(err))
+		return nil, err
 	}
 
 	// Create the handler for handling inbound app responses
@@ -117,7 +124,10 @@ func NewNetwork(
 		return nil, err
 	}
 
-	testNetwork, err := network.NewTestNetwork(logger, networkID, snowVdrs.NewManager(), trackedSubnets, handler)
+	validatorClient := validators.NewCanonicalValidatorClient(logger, cfg.GetPChainAPI())
+	manager := snowVdrs.NewManager()
+
+	testNetwork, err := network.NewTestNetwork(logger, networkID, manager, trackedSubnets, handler)
 	if err != nil {
 		logger.Error(
 			"Failed to create test network",
@@ -126,95 +136,172 @@ func NewNetwork(
 		return nil, err
 	}
 
-	validatorClient := validators.NewCanonicalValidatorClient(logger, cfg.GetPChainAPI())
-
-	arNetwork := &appRequestNetwork{
-		network:              testNetwork,
-		handler:              handler,
-		infoAPI:              infoAPI,
-		logger:               logger,
-		lock:                 new(sync.Mutex),
-		validatorClient:      validatorClient,
-		metrics:              metrics,
-		manuallyTrackedPeers: manuallyTrackedPeers,
+	for _, peer := range manuallyTrackedPeers {
+		logger.Info(
+			"Manually Tracking peer (startup)",
+			zap.Stringer("ID", peer.ID),
+			zap.Stringer("IP", peer.PublicIP),
+		)
+		testNetwork.ManuallyTrack(peer.ID, peer.PublicIP)
 	}
+
+	// Connect to a sample of the primary network validators, with connection
+	// info pulled from the info API
+	peers, err := infoAPI.Peers(context.Background(), nil)
+	if err != nil {
+		logger.Error(
+			"Failed to get peers",
+			zap.Error(err),
+		)
+		return nil, err
+	}
+	peersMap := make(map[ids.NodeID]info.Peer)
+	for _, peer := range peers {
+		peersMap[peer.ID] = peer
+	}
+
+	pClient := platformvm.NewClient(cfg.GetPChainAPI().BaseURL)
+	options := utils.InitializeOptions(cfg.GetPChainAPI())
+	vdrs, err := pClient.GetCurrentValidators(context.Background(), constants.PrimaryNetworkID, nil, options...)
+	if err != nil {
+		logger.Error("Failed to get current validators", zap.Error(err))
+		return nil, err
+	}
+
+	// Sample until we've connected to the target number of bootstrap nodes
+	s := sampler.NewUniform()
+	s.Initialize(uint64(len(vdrs)))
+	numConnected := 0
+	for numConnected < NumBootstrapNodes {
+		i, ok := s.Next()
+		if !ok {
+			// If we've sampled all the nodes and still haven't connected to the target number of bootstrap nodes,
+			// then warn and stop sampling by either returning an error or breaking
+			logger.Warn(
+				"Failed to connect to enough bootstrap nodes",
+				zap.Int("targetBootstrapNodes", NumBootstrapNodes),
+				zap.Int("numAvailablePeers", len(peers)),
+				zap.Int("connectedBootstrapNodes", numConnected),
+			)
+			if numConnected == 0 {
+				return nil, fmt.Errorf("failed to connect to any bootstrap nodes")
+			}
+			break
+		}
+		if peer, ok := peersMap[vdrs[i].NodeID]; ok {
+			logger.Info(
+				"Manually tracking bootstrap node",
+				zap.Stringer("ID", peer.ID),
+				zap.Stringer("IP", peer.PublicIP),
+			)
+			testNetwork.ManuallyTrack(peer.ID, peer.PublicIP)
+			numConnected++
+		}
+	}
+
 	go logger.RecoverAndPanic(func() {
 		testNetwork.Dispatch()
 	})
 
+	arNetwork := &appRequestNetwork{
+		network:         testNetwork,
+		handler:         handler,
+		infoAPI:         infoAPI,
+		logger:          logger,
+		lock:            new(sync.RWMutex),
+		validatorClient: validatorClient,
+		metrics:         metrics,
+		trackedSubnets:  trackedSubnets,
+		manager:         manager,
+	}
+
+	arNetwork.startUpdateValidators()
+
 	return arNetwork, nil
 }
 
-// ConnectPeers connects the network to peers with the given nodeIDs.
-// Returns the set of nodeIDs that were successfully connected to.
-func (n *appRequestNetwork) ConnectPeers(nodeIDs set.Set[ids.NodeID]) set.Set[ids.NodeID] {
+// Helper to scope read lock acquisition
+func (n *appRequestNetwork) containsSubnet(subnetID ids.ID) bool {
+	n.lock.RLock()
+	defer n.lock.RUnlock()
+	return n.trackedSubnets.Contains(subnetID)
+}
+
+func (n *appRequestNetwork) TrackSubnet(subnetID ids.ID) {
+	if n.containsSubnet(subnetID) {
+		return
+	}
+
+	n.logger.Debug("Tracking subnet", zap.Stringer("subnetID", subnetID))
+	n.trackedSubnets.Add(subnetID)
+	n.updateValidatorSet(context.Background(), subnetID)
+}
+
+func (n *appRequestNetwork) startUpdateValidators() {
+	go func() {
+		// Fetch validators immediately when called, and refresh every ValidatorRefreshPeriod
+		ticker := time.NewTicker(ValidatorRefreshPeriod)
+		for ; true; <-ticker.C {
+			n.updateValidatorSet(context.Background(), constants.PrimaryNetworkID)
+			for _, subnet := range n.trackedSubnets.List() {
+				n.updateValidatorSet(context.Background(), subnet)
+			}
+		}
+	}()
+}
+
+func (n *appRequestNetwork) updateValidatorSet(
+	ctx context.Context,
+	subnetID ids.ID,
+) error {
 	n.lock.Lock()
 	defer n.lock.Unlock()
 
-	// First, check if we are already connected to all the peers
-	connectedPeers := n.network.PeerInfo(nodeIDs.List())
-	if len(connectedPeers) == nodeIDs.Len() {
-		return nodeIDs
-	}
+	n.logger.Debug("Fetching validators for subnet ID", zap.Stringer("subnetID", subnetID))
 
-	// If we are not connected to all the peers already, then we have to iterate
-	// through the full list of peers obtained from the info API. Rather than iterating
-	// through connectedPeers for already tracked peers, just iterate through the full list,
-	// re-adding connections to already tracked peers.
-
-	startInfoAPICall := time.Now()
-	// Get the list of publicly discoverable peers
-	peers, err := n.infoAPI.Peers(context.Background(), nil)
-	n.setInfoAPICallLatencyMS(float64(time.Since(startInfoAPICall).Milliseconds()))
+	// Fetch the subnet validators from the P-Chain
+	validators, err := n.validatorClient.GetProposedValidators(ctx, subnetID)
 	if err != nil {
-		n.logger.Error(
-			"Failed to get peers",
-			zap.Error(err),
-		)
-		return nil
+		return err
 	}
 
-	// Add manually tracked peers
-	peers = append(peers, n.manuallyTrackedPeers...)
+	validatorsMap := make(map[ids.NodeID]*vdrs.GetValidatorOutput)
+	for _, vdr := range validators {
+		validatorsMap[vdr.NodeID] = vdr
+	}
 
-	// Attempt to connect to each peer
-	var trackedNodes set.Set[ids.NodeID]
-	for _, peer := range peers {
-		if nodeIDs.Contains(peer.ID) {
-			trackedNodes.Add(peer.ID)
-			n.network.ManuallyTrack(peer.ID, peer.PublicIP)
-			if len(trackedNodes) == nodeIDs.Len() {
-				return trackedNodes
+	// Remove any elements from the manager that are not in the new validator set
+	currentVdrs := n.manager.GetValidatorIDs(subnetID)
+	for _, nodeID := range currentVdrs {
+		if _, ok := validatorsMap[nodeID]; !ok {
+			n.logger.Debug("Removing validator", zap.Stringer("nodeID", nodeID), zap.Stringer("subnetID", subnetID))
+			weight := n.manager.GetWeight(subnetID, nodeID)
+			if err := n.manager.RemoveWeight(subnetID, nodeID, weight); err != nil {
+				return err
 			}
 		}
 	}
 
-	// If the Info API node is in nodeIDs, it will not be reflected in the call to info.Peers.
-	// In this case, we need to manually track the API node.
-	startInfoAPICall = time.Now()
-	apiNodeID, _, err := n.infoAPI.GetNodeID(context.Background())
-	n.setInfoAPICallLatencyMS(float64(time.Since(startInfoAPICall).Milliseconds()))
-	if err != nil {
-		n.logger.Error(
-			"Failed to get API Node ID",
-			zap.Error(err),
-		)
-	} else if nodeIDs.Contains(apiNodeID) {
-		startInfoAPICall = time.Now()
-		apiNodeIPPort, err := n.infoAPI.GetNodeIP(context.Background())
-		n.setInfoAPICallLatencyMS(float64(time.Since(startInfoAPICall).Milliseconds()))
-		if err != nil {
-			n.logger.Error(
-				"Failed to get API Node IP",
-				zap.Error(err),
-			)
-		} else {
-			trackedNodes.Add(apiNodeID)
-			n.network.ManuallyTrack(apiNodeID, apiNodeIPPort)
+	// Add any elements from the new validator set that are not in the manager
+	for _, vdr := range validators {
+		if _, ok := n.manager.GetValidator(subnetID, vdr.NodeID); !ok {
+			n.logger.Debug("Adding validator", zap.Stringer("nodeID", vdr.NodeID), zap.Stringer("subnetID", subnetID))
+			if err := n.manager.AddStaker(
+				subnetID,
+				vdr.NodeID,
+				vdr.PublicKey,
+				ids.Empty,
+				vdr.Weight,
+			); err != nil {
+				return err
+			}
 		}
 	}
+	return nil
+}
 
-	return trackedNodes
+func (n *appRequestNetwork) Shutdown() {
+	n.network.StartClose()
 }
 
 // Helper struct to hold connected validator information
@@ -235,6 +322,9 @@ func (c *ConnectedCanonicalValidators) GetValidator(nodeID ids.NodeID) (*warp.Va
 // ConnectToCanonicalValidators connects to the canonical validators of the given subnet and returns the connected
 // validator information
 func (n *appRequestNetwork) ConnectToCanonicalValidators(subnetID ids.ID) (*ConnectedCanonicalValidators, error) {
+	// Track the subnet
+	n.TrackSubnet(subnetID)
+
 	// Get the subnet's current canonical validator set
 	startPChainAPICall := time.Now()
 	validatorSet, totalValidatorWeight, err := n.validatorClient.GetCurrentCanonicalValidatorSet(subnetID)
@@ -255,13 +345,8 @@ func (n *appRequestNetwork) ConnectToCanonicalValidators(subnetID ids.ID) (*Conn
 		}
 	}
 
-	// Manually connect to all peers in the validator set
-	// If new peers are connected, AppRequests may fail while the handshake is in progress.
-	// In that case, AppRequests to those nodes will be retried in the next iteration of the retry loop.
-	connectedNodes := n.ConnectPeers(nodeIDs)
-
 	// Calculate the total weight of connected validators.
-	connectedWeight := calculateConnectedWeight(validatorSet, nodeValidatorIndexMap, connectedNodes)
+	connectedWeight := calculateConnectedWeight(validatorSet, nodeValidatorIndexMap, nodeIDs)
 
 	return &ConnectedCanonicalValidators{
 		ConnectedWeight:       connectedWeight,
@@ -293,10 +378,6 @@ func (n *appRequestNetwork) GetSubnetID(blockchainID ids.ID) (ids.ID, error) {
 //
 // Metrics
 //
-
-func (n *appRequestNetwork) setInfoAPICallLatencyMS(latency float64) {
-	n.metrics.infoAPICallLatencyMS.Observe(latency)
-}
 
 func (n *appRequestNetwork) setPChainAPICallLatencyMS(latency float64) {
 	n.metrics.pChainAPICallLatencyMS.Observe(latency)

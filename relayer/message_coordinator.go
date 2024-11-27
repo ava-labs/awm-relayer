@@ -66,7 +66,7 @@ func (mc *MessageCoordinator) getAppRelayerMessageHandler(
 		// than just the ones supported by a single listener instance.
 		mc.logger.Debug(
 			"Warp message from unsupported message protocol address. Not relaying.",
-			zap.String("protocolAddress", warpMessageInfo.SourceAddress.Hex()),
+			zap.Stringer("protocolAddress", warpMessageInfo.SourceAddress),
 		)
 		return nil, nil, nil
 	}
@@ -86,11 +86,11 @@ func (mc *MessageCoordinator) getAppRelayerMessageHandler(
 
 	mc.logger.Info(
 		"Unpacked warp message",
-		zap.String("sourceBlockchainID", sourceBlockchainID.String()),
-		zap.String("originSenderAddress", originSenderAddress.String()),
-		zap.String("destinationBlockchainID", destinationBlockchainID.String()),
-		zap.String("destinationAddress", destinationAddress.String()),
-		zap.String("warpMessageID", warpMessageInfo.UnsignedMessage.ID().String()),
+		zap.Stringer("sourceBlockchainID", sourceBlockchainID),
+		zap.Stringer("originSenderAddress", originSenderAddress),
+		zap.Stringer("destinationBlockchainID", destinationBlockchainID),
+		zap.Stringer("destinationAddress", destinationAddress),
+		zap.Stringer("warpMessageID", warpMessageInfo.UnsignedMessage.ID()),
 	)
 
 	appRelayer := mc.getApplicationRelayer(
@@ -168,10 +168,10 @@ func (mc *MessageCoordinator) getApplicationRelayer(
 	}
 	mc.logger.Debug(
 		"Application relayer not found. Skipping message relay.",
-		zap.String("blockchainID", sourceBlockchainID.String()),
-		zap.String("destinationBlockchainID", destinationBlockchainID.String()),
-		zap.String("originSenderAddress", originSenderAddress.String()),
-		zap.String("destinationAddress", destinationAddress.String()),
+		zap.Stringer("blockchainID", sourceBlockchainID),
+		zap.Stringer("destinationBlockchainID", destinationBlockchainID),
+		zap.Stringer("originSenderAddress", originSenderAddress),
+		zap.Stringer("destinationAddress", destinationAddress),
 	)
 	return nil
 }
@@ -182,7 +182,7 @@ func (mc *MessageCoordinator) ProcessWarpMessage(warpMessage *relayerTypes.WarpM
 		mc.logger.Error(
 			"Failed to parse Warp message.",
 			zap.Error(err),
-			zap.String("warpMessageID", warpMessage.UnsignedMessage.ID().String()),
+			zap.Stringer("warpMessageID", warpMessage.UnsignedMessage.ID()),
 		)
 		return common.Hash{}, err
 	}
@@ -203,7 +203,7 @@ func (mc *MessageCoordinator) ProcessMessageID(
 	if !ok {
 		mc.logger.Error(
 			"Source client not found",
-			zap.String("blockchainID", blockchainID.String()),
+			zap.Stringer("blockchainID", blockchainID),
 		)
 		return common.Hash{}, fmt.Errorf("source client not set for blockchain: %s", blockchainID.String())
 	}
@@ -212,7 +212,7 @@ func (mc *MessageCoordinator) ProcessMessageID(
 	if err != nil {
 		mc.logger.Error(
 			"Failed to fetch warp from blockchain",
-			zap.String("blockchainID", blockchainID.String()),
+			zap.Stringer("blockchainID", blockchainID),
 			zap.Error(err),
 		)
 		return common.Hash{}, fmt.Errorf("could not fetch warp message from ID: %w", err)
@@ -228,6 +228,11 @@ func (mc *MessageCoordinator) ProcessBlock(
 	ethClient ethclient.Client,
 	errChan chan error,
 ) {
+	mc.logger.Debug(
+		"Processing block",
+		zap.Uint64("blockNumber", blockHeader.Number.Uint64()),
+		zap.Stringer("blockchainID", blockchainID),
+	)
 	// Parse the logs in the block, and group by application relayer
 	block, err := relayerTypes.NewWarpBlockInfo(blockHeader, ethClient)
 	if err != nil {
@@ -243,8 +248,8 @@ func (mc *MessageCoordinator) ProcessBlock(
 		if err != nil {
 			mc.logger.Error(
 				"Failed to parse message",
-				zap.String("blockchainID", warpLogInfo.UnsignedMessage.SourceChainID.String()),
-				zap.String("protocolAddress", warpLogInfo.SourceAddress.String()),
+				zap.Stringer("blockchainID", warpLogInfo.UnsignedMessage.SourceChainID),
+				zap.Stringer("protocolAddress", warpLogInfo.SourceAddress),
 				zap.Error(err),
 			)
 			continue
@@ -263,7 +268,11 @@ func (mc *MessageCoordinator) ProcessBlock(
 		// Dispatch all messages in the block to the appropriate application relayer.
 		// An empty slice is still a valid argument to ProcessHeight; in this case the height is immediately committed.
 		handlers := messageHandlers[appRelayer.relayerID.ID]
-
+		mc.logger.Debug(
+			"Dispatching to app relayer",
+			zap.Stringer("relayerID", appRelayer.relayerID.ID),
+			zap.Int("numMessages", len(handlers)),
+		)
 		go appRelayer.ProcessHeight(block.BlockNumber, handlers, errChan)
 	}
 }

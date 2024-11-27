@@ -11,25 +11,12 @@ var (
 )
 
 type AppRequestNetworkMetrics struct {
-	infoAPICallLatencyMS   prometheus.Histogram
 	pChainAPICallLatencyMS prometheus.Histogram
 	connects               prometheus.Counter
 	disconnects            prometheus.Counter
 }
 
 func newAppRequestNetworkMetrics(registerer prometheus.Registerer) (*AppRequestNetworkMetrics, error) {
-	infoAPICallLatencyMS := prometheus.NewHistogram(
-		prometheus.HistogramOpts{
-			Name:    "info_api_call_latency_ms",
-			Help:    "Latency of calling info api in milliseconds",
-			Buckets: prometheus.ExponentialBucketsRange(100, 10000, 10),
-		},
-	)
-	if infoAPICallLatencyMS == nil {
-		return nil, ErrFailedToCreateAppRequestNetworkMetrics
-	}
-	registerer.MustRegister(infoAPICallLatencyMS)
-
 	pChainAPICallLatencyMS := prometheus.NewHistogram(
 		prometheus.HistogramOpts{
 			Name:    "p_chain_api_call_latency_ms",
@@ -65,7 +52,6 @@ func newAppRequestNetworkMetrics(registerer prometheus.Registerer) (*AppRequestN
 	registerer.MustRegister(disconnects)
 
 	return &AppRequestNetworkMetrics{
-		infoAPICallLatencyMS:   infoAPICallLatencyMS,
 		pChainAPICallLatencyMS: pChainAPICallLatencyMS,
 		connects:               connects,
 		disconnects:            disconnects,
