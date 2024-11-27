@@ -66,6 +66,6 @@ release:
   # Default is extracted from the origin remote URL or empty if its private hosted.
   github:
     owner: ava-labs
-    name: icm-relayer
+    name: icm-services
   # If tag indicates rc, will mark it as prerelease
   prerelease: auto
