@@ -17,7 +17,7 @@ type AppRequestNetworkMetrics struct {
 	disconnects            prometheus.Counter
 }
 
-func newAppRequestNetworkMetrics(registerer prometheus.Registerer) (*AppRequestNetworkMetrics, error) {
+func NewAppRequestNetworkMetrics(registerer prometheus.Registerer) (*AppRequestNetworkMetrics, error) {
 	infoAPICallLatencyMS := prometheus.NewHistogram(
 		prometheus.HistogramOpts{
 			Name:    "info_api_call_latency_ms",

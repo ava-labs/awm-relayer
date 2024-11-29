@@ -71,6 +71,29 @@ func NewNetwork(
 	extraPeerEndpoints []info.Peer,
 	cfg Config,
 ) (AppRequestNetwork, error) {
+	metrics, err := NewAppRequestNetworkMetrics(registerer)
+	if err != nil {
+		panic(err)
+	}
+
+	return NewNetworkWithMetrics(
+		logLevel,
+		registerer,
+		trackedSubnets,
+		extraPeerEndpoints,
+		cfg,
+		metrics,
+	)
+}
+
+func NewNetworkWithMetrics(
+	logLevel logging.Level,
+	registerer prometheus.Registerer,
+	trackedSubnets set.Set[ids.ID],
+	extraPeerEndpoints []info.Peer,
+	cfg Config,
+	metrics *AppRequestNetworkMetrics,
+) (AppRequestNetwork, error) {
 	logger := logging.NewLogger(
 		"p2p-network",
 		logging.NewWrappedCore(
@@ -79,12 +102,6 @@ func NewNetwork(
 			logging.JSON.ConsoleEncoder(),
 		),
 	)
-
-	metrics, err := newAppRequestNetworkMetrics(registerer)
-	if err != nil {
-		logger.Fatal("Failed to create app request network metrics", zap.Error(err))
-		panic(err)
-	}
 
 	// Create the handler for handling inbound app responses
 	handler, err := NewRelayerExternalHandler(logger, metrics)
