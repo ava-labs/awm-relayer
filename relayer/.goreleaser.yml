@@ -2,7 +2,7 @@
 project_name: icm-relayer
 version: 2
 monorepo:
-  tag_prefix: icm-relayer/
+  tag_prefix: icm-relayer-
 builds:
   - id: icm-relayer
     main: ./relayer/main/main.go

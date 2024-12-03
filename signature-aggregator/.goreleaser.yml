@@ -2,7 +2,7 @@
 project_name: signature-aggregator
 version: 2
 monorepo:
-  tag_prefix: signature-aggregator/
+  tag_prefix: signature-aggregator-
 builds:
   - id: signature-aggregator
     main: ./signature-aggregator/main/main.go
