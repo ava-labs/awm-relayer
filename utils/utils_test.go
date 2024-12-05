@@ -79,7 +79,6 @@ func TestCheckStakeWeightExceedsThreshold(t *testing.T) {
 		accumulatedSignatureWeight uint64
 		totalWeight                uint64
 		quorumNumerator            uint64
-		quorumDenominator          uint64
 		expectedResult             bool
 	}{
 		{
@@ -87,7 +86,6 @@ func TestCheckStakeWeightExceedsThreshold(t *testing.T) {
 			accumulatedSignatureWeight: 0,
 			totalWeight:                0,
 			quorumNumerator:            0,
-			quorumDenominator:          0,
 			expectedResult:             true,
 		},
 		{
@@ -95,7 +93,6 @@ func TestCheckStakeWeightExceedsThreshold(t *testing.T) {
 			accumulatedSignatureWeight: 67_000_000,
 			totalWeight:                100_000_000,
 			quorumNumerator:            67,
-			quorumDenominator:          100,
 			expectedResult:             true,
 		},
 		{
@@ -103,7 +100,6 @@ func TestCheckStakeWeightExceedsThreshold(t *testing.T) {
 			accumulatedSignatureWeight: 66_999_999,
 			totalWeight:                100_000_000,
 			quorumNumerator:            67,
-			quorumDenominator:          100,
 			expectedResult:             false,
 		},
 		{
@@ -111,7 +107,6 @@ func TestCheckStakeWeightExceedsThreshold(t *testing.T) {
 			accumulatedSignatureWeight: 67_000_000,
 			totalWeight:                67_000_000,
 			quorumNumerator:            100,
-			quorumDenominator:          100,
 			expectedResult:             true,
 		},
 		{
@@ -119,7 +114,6 @@ func TestCheckStakeWeightExceedsThreshold(t *testing.T) {
 			accumulatedSignatureWeight: 66_999_999,
 			totalWeight:                67_000_000,
 			quorumNumerator:            100,
-			quorumDenominator:          100,
 			expectedResult:             false,
 		},
 	}
@@ -129,7 +123,6 @@ func TestCheckStakeWeightExceedsThreshold(t *testing.T) {
 				new(big.Int).SetUint64(testCase.accumulatedSignatureWeight),
 				testCase.totalWeight,
 				testCase.quorumNumerator,
-				testCase.quorumDenominator,
 			)
 			require.Equal(t, testCase.expectedResult, actualResult)
 		})

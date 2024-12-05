@@ -78,9 +78,9 @@ func main() {
 	if err != nil {
 		panic(fmt.Errorf("couldn't build config: %w", err))
 	}
-	// Initialize the Warp Quorum values by fetching via RPC
+	// Initialize the Warp Config values by fetching via RPC
 	// We do this here so that BuildConfig doesn't need to make RPC calls
-	if err = cfg.InitializeWarpQuorums(); err != nil {
+	if err = cfg.InitializeWarpConfigs(); err != nil {
 		panic(fmt.Errorf("couldn't initialize warp quorums: %w", err))
 	}
 
@@ -153,6 +153,7 @@ func main() {
 		networkLogLevel,
 		registerer,
 		trackedSubnets,
+		false,
 		nil,
 		&cfg,
 	)
@@ -556,7 +557,7 @@ func startMetricsServer(logger logging.Logger, gatherer prometheus.Gatherer, por
 }
 
 func initializeMetrics() (prometheus.Gatherer, prometheus.Registerer, error) {
-	gatherer := metrics.NewMultiGatherer()
+	gatherer := metrics.NewPrefixGatherer()
 	registry := prometheus.NewRegistry()
 	if err := gatherer.Register("app", registry); err != nil {
 		return nil, nil, err
