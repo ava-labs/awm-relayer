@@ -1,6 +1,6 @@
 module github.com/ava-labs/icm-services
 
-go 1.22.8
+go 1.22.10
 
 require (
 	github.com/alexliesenfeld/health v0.8.0
@@ -10,7 +10,7 @@ require (
 	github.com/ava-labs/teleporter v1.0.8-0.20241122194201-a6e92843c3b1
 	github.com/aws/aws-sdk-go-v2 v1.32.6
 	github.com/aws/aws-sdk-go-v2/config v1.28.6
-	github.com/aws/aws-sdk-go-v2/service/kms v1.37.6
+	github.com/aws/aws-sdk-go-v2/service/kms v1.37.7
 	github.com/ethereum/go-ethereum v1.13.14
 	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/onsi/ginkgo/v2 v2.22.0
@@ -25,8 +25,8 @@ require (
 	go.uber.org/atomic v1.11.0
 	go.uber.org/mock v0.5.0
 	go.uber.org/zap v1.27.0
-	golang.org/x/sync v0.9.0
-	google.golang.org/grpc v1.68.0
+	golang.org/x/sync v0.10.0
+	google.golang.org/grpc v1.68.1
 	google.golang.org/protobuf v1.35.2
 )
 

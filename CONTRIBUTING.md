@@ -2,7 +2,7 @@
 
 ## Setup
 
-To start developing on ICM Services, you'll need Golang v1.22.8.
+To start developing on ICM Services, you'll need Golang v1.22.10.
 
 ## Issues
 
