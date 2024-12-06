@@ -62,6 +62,8 @@ github.com/armon/go-socks5 v0.0.0-20160902184237-e75332964ef5 h1:0CwZNZbxp69SHPd
 github.com/armon/go-socks5 v0.0.0-20160902184237-e75332964ef5/go.mod h1:wHh0iHkYZB8zMSxRWpUBQtwG5a7fFgvEO+odwuTv2gs=
 github.com/ava-labs/avalanchego v1.12.0-initial-poc.9.0.20241122192639-7c3ad181c928 h1:th+K+wWgAYL/NsrFJyO+/sThLRdEDE0+I4vgbPLoWQQ=
 github.com/ava-labs/avalanchego v1.12.0-initial-poc.9.0.20241122192639-7c3ad181c928/go.mod h1:yhD5dpZyStIVbxQ550EDi5w5SL7DQ/xGE6TIxosb7U0=
+github.com/ava-labs/avalanchego v1.12.1-0.20241203223023-13e07a1b3a1e h1:pJJYryEedoOobUPuRNUYBwQgsaQXMqBkeMq28lRDpSo=
+github.com/ava-labs/avalanchego v1.12.1-0.20241203223023-13e07a1b3a1e/go.mod h1:yhD5dpZyStIVbxQ550EDi5w5SL7DQ/xGE6TIxosb7U0=
 github.com/ava-labs/awm-relayer v1.4.1-0.20241122193929-3dae643932ee h1:Op1rpuqFo28RnurIfQRCgMmjpRzCcXmbRoCC0I3+NOo=
 github.com/ava-labs/awm-relayer v1.4.1-0.20241122193929-3dae643932ee/go.mod h1:2/GCie3ccW/rVJfOJmJyiGDjtZILWujpB/r/KcVV8/s=
 github.com/ava-labs/coreth v0.13.9-rc.1 h1:qIICpC/OZGYUP37QnLgIqqwGmxnLwLpZaUlqJNI85vU=
