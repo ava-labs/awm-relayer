@@ -199,16 +199,14 @@ func (lstnr *Listener) processLogs(ctx context.Context) error {
 				errChan,
 			)
 		case err := <-lstnr.Subscriber.Err():
-			lstnr.healthStatus.Store(false)
 			lstnr.logger.Error(
 				"Received error from subscribed node",
 				zap.String("sourceBlockchainID", lstnr.sourceBlockchain.GetBlockchainID().String()),
 				zap.Error(err),
 			)
-			// TODO try to resubscribe in perpetuity once we have a mechanism for refreshing state
-			// variables such as Quorum values and processing missed blocks.
 			err = lstnr.reconnectToSubscriber()
 			if err != nil {
+				lstnr.healthStatus.Store(false)
 				lstnr.logger.Error(
 					"Relayer goroutine exiting.",
 					zap.String("sourceBlockchainID", lstnr.sourceBlockchain.GetBlockchainID().String()),
