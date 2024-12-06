@@ -81,6 +81,7 @@ func NewNetwork(
 	trackedSubnets set.Set[ids.ID],
 	manuallyTrackedPeers []info.Peer,
 	cfg Config,
+	allowPrivateIPs bool,
 ) (AppRequestNetwork, error) {
 	logger := logging.NewLogger(
 		"p2p-network",
@@ -127,7 +128,17 @@ func NewNetwork(
 	validatorClient := validators.NewCanonicalValidatorClient(logger, cfg.GetPChainAPI())
 	manager := snowVdrs.NewManager()
 
-	testNetwork, err := network.NewTestNetwork(logger, networkID, manager, trackedSubnets, handler)
+	testNetworkConfig, err := network.NewTestNetworkConfig(registerer, networkID, manager, trackedSubnets)
+	if err != nil {
+		logger.Error(
+			"Failed to create test network config",
+			zap.Error(err),
+		)
+		return nil, err
+	}
+	testNetworkConfig.AllowPrivateIPs = allowPrivateIPs
+
+	testNetwork, err := network.NewTestNetwork(logger, registerer, testNetworkConfig, handler)
 	if err != nil {
 		logger.Error(
 			"Failed to create test network",

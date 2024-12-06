@@ -104,6 +104,7 @@ func main() {
 		nil,
 		nil,
 		&cfg,
+		cfg.AllowPrivateIPs,
 	)
 	if err != nil {
 		logger.Fatal("Failed to create app request network", zap.Error(err))
