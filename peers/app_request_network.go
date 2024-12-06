@@ -128,7 +128,9 @@ func NewNetwork(
 	validatorClient := validators.NewCanonicalValidatorClient(logger, cfg.GetPChainAPI())
 	manager := snowVdrs.NewManager()
 
-	testNetworkConfig, err := network.NewTestNetworkConfig(registerer, networkID, manager, trackedSubnets)
+	testNetworkRegisterer := prometheus.NewRegistry()
+
+	testNetworkConfig, err := network.NewTestNetworkConfig(testNetworkRegisterer, networkID, manager, trackedSubnets)
 	if err != nil {
 		logger.Error(
 			"Failed to create test network config",
@@ -138,7 +140,7 @@ func NewNetwork(
 	}
 	testNetworkConfig.AllowPrivateIPs = allowPrivateIPs
 
-	testNetwork, err := network.NewTestNetwork(logger, registerer, testNetworkConfig, handler)
+	testNetwork, err := network.NewTestNetwork(logger, testNetworkRegisterer, testNetworkConfig, handler)
 	if err != nil {
 		logger.Error(
 			"Failed to create test network",
