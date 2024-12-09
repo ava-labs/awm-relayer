@@ -31,9 +31,6 @@ builds:
         goarm64: v8.0
         env:
           - CC=oa64-clang
-    ignore:
-      - goos: darwin
-        goarch: amd64
 dockers:
   - image_templates:
     - 'avaplatform/icm-relayer:{{ .Tag }}-amd64'
