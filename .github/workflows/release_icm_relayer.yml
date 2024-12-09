@@ -6,7 +6,7 @@ name: Release icm-relayer
 on:
   push:
     tags:
-      - "icm-relayer/*"
+      - "icm-relayer-*"
 
 jobs:
   release:
