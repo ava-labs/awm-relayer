@@ -4,7 +4,7 @@ go 1.22.10
 
 require (
 	github.com/alexliesenfeld/health v0.8.0
-	github.com/ava-labs/avalanchego v1.12.1-0.20241203223023-13e07a1b3a1e
+	github.com/ava-labs/avalanchego v1.12.1-0.20241209145704-f9d5d20b11ef
 	github.com/ava-labs/coreth v0.13.9-rc.1
 	github.com/ava-labs/subnet-evm v0.6.12
 	github.com/ava-labs/teleporter v1.0.8-0.20241122194201-a6e92843c3b1

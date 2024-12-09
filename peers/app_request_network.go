@@ -81,7 +81,6 @@ func NewNetwork(
 	trackedSubnets set.Set[ids.ID],
 	manuallyTrackedPeers []info.Peer,
 	cfg Config,
-	allowPrivateIPs bool,
 ) (AppRequestNetwork, error) {
 	logger := logging.NewLogger(
 		"p2p-network",
@@ -138,7 +137,7 @@ func NewNetwork(
 		)
 		return nil, err
 	}
-	testNetworkConfig.AllowPrivateIPs = allowPrivateIPs
+	testNetworkConfig.AllowPrivateIPs = cfg.GetAllowPrivateIPs()
 
 	testNetwork, err := network.NewTestNetwork(logger, testNetworkRegisterer, testNetworkConfig, handler)
 	if err != nil {

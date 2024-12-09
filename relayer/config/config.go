@@ -256,3 +256,7 @@ func (c *Config) GetPChainAPI() *basecfg.APIConfig {
 func (c *Config) GetInfoAPI() *basecfg.APIConfig {
 	return c.InfoAPI
 }
+
+func (c *Config) GetAllowPrivateIPs() bool {
+	return c.AllowPrivateIPs
+}
