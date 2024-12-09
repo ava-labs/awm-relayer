@@ -16,10 +16,10 @@ import (
 	"time"
 
 	"github.com/ava-labs/avalanchego/utils/units"
+	"github.com/ava-labs/icm-contracts/tests/network"
+	teleporterTestUtils "github.com/ava-labs/icm-contracts/tests/utils"
 	testUtils "github.com/ava-labs/icm-services/tests/utils"
 	"github.com/ava-labs/icm-services/utils"
-	"github.com/ava-labs/teleporter/tests/network"
-	teleporterTestUtils "github.com/ava-labs/teleporter/tests/utils"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/onsi/ginkgo/v2"
