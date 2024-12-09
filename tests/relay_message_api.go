@@ -31,8 +31,8 @@ import (
 
 func RelayMessageAPI(network *network.LocalNetwork, teleporter utils.TeleporterTestInfo) {
 	ctx := context.Background()
-	subnetAInfo := network.GetPrimaryNetworkInfo()
-	subnetBInfo, _ := network.GetTwoSubnets()
+	l1AInfo := network.GetPrimaryNetworkInfo()
+	l1BInfo, _ := network.GetTwoL1s()
 	fundedAddress, fundedKey := network.GetFundedAccountInfo()
 	err := testUtils.ClearRelayerStorage()
 	Expect(err).Should(BeNil())
@@ -40,24 +40,24 @@ func RelayMessageAPI(network *network.LocalNetwork, teleporter utils.TeleporterT
 	log.Info("Funding relayer address on all subnets")
 	relayerKey, err := crypto.GenerateKey()
 	Expect(err).Should(BeNil())
-	testUtils.FundRelayers(ctx, []interfaces.SubnetTestInfo{subnetAInfo, subnetBInfo}, fundedKey, relayerKey)
+	testUtils.FundRelayers(ctx, []interfaces.L1TestInfo{l1AInfo, l1BInfo}, fundedKey, relayerKey)
 
 	log.Info("Sending teleporter message")
 	receipt, _, teleporterMessageID := testUtils.SendBasicTeleporterMessage(
 		ctx,
 		teleporter,
-		subnetAInfo,
-		subnetBInfo,
+		l1AInfo,
+		l1BInfo,
 		fundedKey,
 		fundedAddress,
 	)
-	warpMessage := getWarpMessageFromLog(ctx, receipt, subnetAInfo)
+	warpMessage := getWarpMessageFromLog(ctx, receipt, l1AInfo)
 
 	// Set up relayer config
 	relayerConfig := testUtils.CreateDefaultRelayerConfig(
 		teleporter,
-		[]interfaces.SubnetTestInfo{subnetAInfo, subnetBInfo},
-		[]interfaces.SubnetTestInfo{subnetAInfo, subnetBInfo},
+		[]interfaces.L1TestInfo{l1AInfo, l1BInfo},
+		[]interfaces.L1TestInfo{l1AInfo, l1BInfo},
 		fundedAddress,
 		relayerKey,
 	)
@@ -81,7 +81,7 @@ func RelayMessageAPI(network *network.LocalNetwork, teleporter utils.TeleporterT
 	testUtils.WaitForChannelClose(startupCtx, readyChan)
 
 	reqBody := api.RelayMessageRequest{
-		BlockchainID: subnetAInfo.BlockchainID.String(),
+		BlockchainID: l1AInfo.BlockchainID.String(),
 		MessageID:    warpMessage.ID().String(),
 		BlockNum:     receipt.BlockNumber.Uint64(),
 	}
@@ -114,11 +114,11 @@ func RelayMessageAPI(network *network.LocalNetwork, teleporter utils.TeleporterT
 		err = json.Unmarshal(body, &response)
 		Expect(err).Should(BeNil())
 
-		receipt, err := subnetBInfo.RPCClient.TransactionReceipt(ctx, common.HexToHash(response.TransactionHash))
+		receipt, err := l1BInfo.RPCClient.TransactionReceipt(ctx, common.HexToHash(response.TransactionHash))
 		Expect(err).Should(BeNil())
 		receiveEvent, err := teleporterTestUtils.GetEventFromLogs(
 			receipt.Logs,
-			teleporter.TeleporterMessenger(subnetBInfo).ParseReceiveCrossChainMessage,
+			teleporter.TeleporterMessenger(l1BInfo).ParseReceiveCrossChainMessage,
 		)
 		Expect(err).Should(BeNil())
 		Expect(ids.ID(receiveEvent.MessageID)).Should(Equal(teleporterMessageID))
@@ -157,7 +157,7 @@ func RelayMessageAPI(network *network.LocalNetwork, teleporter utils.TeleporterT
 func getWarpMessageFromLog(
 	ctx context.Context,
 	receipt *types.Receipt,
-	source interfaces.SubnetTestInfo,
+	source interfaces.L1TestInfo,
 ) *avalancheWarp.UnsignedMessage {
 	log.Info("Fetching relevant warp logs from the newly produced block")
 	logs, err := source.RPCClient.FilterLogs(ctx, subnetEvmInterfaces.FilterQuery{

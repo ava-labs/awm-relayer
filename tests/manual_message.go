@@ -31,7 +31,7 @@ import (
 // - Verifies that the Teleporter Registry is updated
 func ManualMessage(network *network.LocalNetwork, teleporter utils.TeleporterTestInfo) {
 	cChainInfo := network.GetPrimaryNetworkInfo()
-	subnetAInfo, subnetBInfo := network.GetTwoSubnets()
+	l1AInfo, l1BInfo := network.GetTwoL1s()
 	fundedAddress, fundedKey := network.GetFundedAccountInfo()
 	err := testUtils.ClearRelayerStorage()
 	Expect(err).Should(BeNil())
@@ -51,7 +51,7 @@ func ManualMessage(network *network.LocalNetwork, teleporter utils.TeleporterTes
 	log.Info("Funding relayer address on all subnets")
 	relayerKey, err := crypto.GenerateKey()
 	Expect(err).Should(BeNil())
-	testUtils.FundRelayers(ctx, []interfaces.SubnetTestInfo{cChainInfo}, fundedKey, relayerKey)
+	testUtils.FundRelayers(ctx, []interfaces.L1TestInfo{cChainInfo}, fundedKey, relayerKey)
 
 	//
 	// Define the off-chain Warp message
@@ -73,15 +73,15 @@ func ManualMessage(network *network.LocalNetwork, teleporter utils.TeleporterTes
 	)
 	_, warpEnabledChainConfigA := teleporterTestUtils.InitOffChainMessageChainConfig(
 		networkID,
-		subnetAInfo,
-		teleporter.TeleporterRegistryAddress(subnetAInfo),
+		l1AInfo,
+		teleporter.TeleporterRegistryAddress(l1AInfo),
 		newProtocolAddress,
 		2,
 	)
 	_, warpEnabledChainConfigB := teleporterTestUtils.InitOffChainMessageChainConfig(
 		networkID,
-		subnetBInfo,
-		teleporter.TeleporterRegistryAddress(subnetBInfo),
+		l1BInfo,
+		teleporter.TeleporterRegistryAddress(l1BInfo),
 		newProtocolAddress,
 		2,
 	)
@@ -89,8 +89,8 @@ func ManualMessage(network *network.LocalNetwork, teleporter utils.TeleporterTes
 	// Create chain config with off chain messages
 	chainConfigs := make(teleporterTestUtils.ChainConfigMap)
 	chainConfigs.Add(cChainInfo, warpEnabledChainConfigC)
-	chainConfigs.Add(subnetBInfo, warpEnabledChainConfigB)
-	chainConfigs.Add(subnetAInfo, warpEnabledChainConfigA)
+	chainConfigs.Add(l1BInfo, warpEnabledChainConfigB)
+	chainConfigs.Add(l1AInfo, warpEnabledChainConfigA)
 
 	// Restart nodes with new chain config
 	log.Info("Restarting nodes with new chain config")
@@ -104,8 +104,8 @@ func ManualMessage(network *network.LocalNetwork, teleporter utils.TeleporterTes
 	//
 	relayerConfig := testUtils.CreateDefaultRelayerConfig(
 		teleporter,
-		[]interfaces.SubnetTestInfo{cChainInfo},
-		[]interfaces.SubnetTestInfo{cChainInfo},
+		[]interfaces.L1TestInfo{cChainInfo},
+		[]interfaces.L1TestInfo{cChainInfo},
 		fundedAddress,
 		relayerKey,
 	)

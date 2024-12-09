@@ -36,12 +36,12 @@ func SignatureAggregatorAPI(network *network.LocalNetwork, teleporter utils.Tele
 	// Begin Setup step
 	ctx := context.Background()
 
-	subnetAInfo := network.GetPrimaryNetworkInfo()
-	subnetBInfo, _ := network.GetTwoSubnets()
+	l1AInfo := network.GetPrimaryNetworkInfo()
+	l1BInfo, _ := network.GetTwoL1s()
 	fundedAddress, fundedKey := network.GetFundedAccountInfo()
 
 	signatureAggregatorConfig := testUtils.CreateDefaultSignatureAggregatorConfig(
-		[]interfaces.SubnetTestInfo{subnetAInfo, subnetBInfo},
+		[]interfaces.L1TestInfo{l1AInfo, l1BInfo},
 	)
 
 	signatureAggregatorConfigPath := testUtils.WriteSignatureAggregatorConfig(
@@ -69,12 +69,12 @@ func SignatureAggregatorAPI(network *network.LocalNetwork, teleporter utils.Tele
 	receipt, _, _ := testUtils.SendBasicTeleporterMessage(
 		ctx,
 		teleporter,
-		subnetAInfo,
-		subnetBInfo,
+		l1AInfo,
+		l1BInfo,
 		fundedKey,
 		fundedAddress,
 	)
-	warpMessage := getWarpMessageFromLog(ctx, receipt, subnetAInfo)
+	warpMessage := getWarpMessageFromLog(ctx, receipt, l1AInfo)
 
 	reqBody := api.AggregateSignatureRequest{
 		Message: "0x" + hex.EncodeToString(warpMessage.Bytes()),
@@ -123,12 +123,12 @@ func SignatureAggregatorAPI(network *network.LocalNetwork, teleporter utils.Tele
 	receipt, _, _ = testUtils.SendBasicTeleporterMessage(
 		ctx,
 		teleporter,
-		subnetBInfo,
-		subnetAInfo,
+		l1BInfo,
+		l1AInfo,
 		fundedKey,
 		fundedAddress,
 	)
-	warpMessage = getWarpMessageFromLog(ctx, receipt, subnetBInfo)
+	warpMessage = getWarpMessageFromLog(ctx, receipt, l1BInfo)
 
 	reqBody = api.AggregateSignatureRequest{
 		Message: "0x" + hex.EncodeToString(warpMessage.Bytes()),
