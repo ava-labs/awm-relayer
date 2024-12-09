@@ -19,6 +19,10 @@ import (
 
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/utils/logging"
+	teleportermessenger "github.com/ava-labs/icm-contracts/abi-bindings/go/teleporter/TeleporterMessenger"
+	"github.com/ava-labs/icm-contracts/tests/interfaces"
+	"github.com/ava-labs/icm-contracts/tests/utils"
+	teleporterTestUtils "github.com/ava-labs/icm-contracts/tests/utils"
 	"github.com/ava-labs/icm-services/config"
 	offchainregistry "github.com/ava-labs/icm-services/messages/off-chain-registry"
 	relayercfg "github.com/ava-labs/icm-services/relayer/config"
@@ -27,10 +31,6 @@ import (
 	relayerUtils "github.com/ava-labs/icm-services/utils"
 	"github.com/ava-labs/subnet-evm/accounts/abi/bind"
 	"github.com/ava-labs/subnet-evm/core/types"
-	teleportermessenger "github.com/ava-labs/teleporter/abi-bindings/go/teleporter/TeleporterMessenger"
-	"github.com/ava-labs/teleporter/tests/interfaces"
-	"github.com/ava-labs/teleporter/tests/utils"
-	teleporterTestUtils "github.com/ava-labs/teleporter/tests/utils"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
@@ -111,8 +111,8 @@ func ReadHexTextFile(filename string) string {
 // Constructs a relayer config with all subnets as sources and destinations
 func CreateDefaultRelayerConfig(
 	teleporter teleporterTestUtils.TeleporterTestInfo,
-	sourceSubnetsInfo []interfaces.SubnetTestInfo,
-	destinationSubnetsInfo []interfaces.SubnetTestInfo,
+	sourceL1sInfo []interfaces.L1TestInfo,
+	destinationL1sInfo []interfaces.L1TestInfo,
 	fundedAddress common.Address,
 	relayerKey *ecdsa.PrivateKey,
 ) relayercfg.Config {
@@ -126,25 +126,25 @@ func CreateDefaultRelayerConfig(
 		"logLevel", logLevel.LowerString(),
 	)
 	// Construct the config values for each subnet
-	sources := make([]*relayercfg.SourceBlockchain, len(sourceSubnetsInfo))
-	destinations := make([]*relayercfg.DestinationBlockchain, len(destinationSubnetsInfo))
-	for i, subnetInfo := range sourceSubnetsInfo {
-		host, port, err := teleporterTestUtils.GetURIHostAndPort(subnetInfo.NodeURIs[0])
+	sources := make([]*relayercfg.SourceBlockchain, len(sourceL1sInfo))
+	destinations := make([]*relayercfg.DestinationBlockchain, len(destinationL1sInfo))
+	for i, l1Info := range sourceL1sInfo {
+		host, port, err := teleporterTestUtils.GetURIHostAndPort(l1Info.NodeURIs[0])
 		Expect(err).Should(BeNil())
 
 		sources[i] = &relayercfg.SourceBlockchain{
-			SubnetID:     subnetInfo.SubnetID.String(),
-			BlockchainID: subnetInfo.BlockchainID.String(),
+			SubnetID:     l1Info.L1ID.String(),
+			BlockchainID: l1Info.BlockchainID.String(),
 			VM:           relayercfg.EVM.String(),
 			RPCEndpoint: config.APIConfig{
-				BaseURL: fmt.Sprintf("http://%s:%d/ext/bc/%s/rpc", host, port, subnetInfo.BlockchainID.String()),
+				BaseURL: fmt.Sprintf("http://%s:%d/ext/bc/%s/rpc", host, port, l1Info.BlockchainID.String()),
 			},
 			WSEndpoint: config.APIConfig{
-				BaseURL: fmt.Sprintf("ws://%s:%d/ext/bc/%s/ws", host, port, subnetInfo.BlockchainID.String()),
+				BaseURL: fmt.Sprintf("ws://%s:%d/ext/bc/%s/ws", host, port, l1Info.BlockchainID.String()),
 			},
 
 			MessageContracts: map[string]relayercfg.MessageProtocolConfig{
-				teleporter.TeleporterMessengerAddress(subnetInfo).Hex(): {
+				teleporter.TeleporterMessengerAddress(l1Info).Hex(): {
 					MessageFormat: relayercfg.TELEPORTER.String(),
 					Settings: map[string]interface{}{
 						"reward-address": fundedAddress.Hex(),
@@ -153,7 +153,7 @@ func CreateDefaultRelayerConfig(
 				offchainregistry.OffChainRegistrySourceAddress.Hex(): {
 					MessageFormat: relayercfg.OFF_CHAIN_REGISTRY.String(),
 					Settings: map[string]interface{}{
-						"teleporter-registry-address": teleporter.TeleporterRegistryAddress(subnetInfo).Hex(),
+						"teleporter-registry-address": teleporter.TeleporterRegistryAddress(l1Info).Hex(),
 					},
 				},
 			},
@@ -161,31 +161,31 @@ func CreateDefaultRelayerConfig(
 
 		log.Info(
 			"Creating relayer config for source subnet",
-			"subnetID", subnetInfo.SubnetID.String(),
-			"blockchainID", subnetInfo.BlockchainID.String(),
+			"subnetID", l1Info.L1ID.String(),
+			"blockchainID", l1Info.BlockchainID.String(),
 			"host", host,
 			"port", port,
 		)
 	}
 
-	for i, subnetInfo := range destinationSubnetsInfo {
-		host, port, err := teleporterTestUtils.GetURIHostAndPort(subnetInfo.NodeURIs[0])
+	for i, l1Info := range destinationL1sInfo {
+		host, port, err := teleporterTestUtils.GetURIHostAndPort(l1Info.NodeURIs[0])
 		Expect(err).Should(BeNil())
 
 		destinations[i] = &relayercfg.DestinationBlockchain{
-			SubnetID:     subnetInfo.SubnetID.String(),
-			BlockchainID: subnetInfo.BlockchainID.String(),
+			SubnetID:     l1Info.L1ID.String(),
+			BlockchainID: l1Info.BlockchainID.String(),
 			VM:           relayercfg.EVM.String(),
 			RPCEndpoint: config.APIConfig{
-				BaseURL: fmt.Sprintf("http://%s:%d/ext/bc/%s/rpc", host, port, subnetInfo.BlockchainID.String()),
+				BaseURL: fmt.Sprintf("http://%s:%d/ext/bc/%s/rpc", host, port, l1Info.BlockchainID.String()),
 			},
 			AccountPrivateKey: relayerUtils.PrivateKeyToString(relayerKey),
 		}
 
 		log.Info(
 			"Creating relayer config for destination subnet",
-			"subnetID", subnetInfo.SubnetID.String(),
-			"blockchainID", subnetInfo.BlockchainID.String(),
+			"subnetID", l1Info.L1ID.String(),
+			"blockchainID", l1Info.BlockchainID.String(),
 			"host", host,
 			"port", port,
 		)
@@ -194,10 +194,10 @@ func CreateDefaultRelayerConfig(
 	return relayercfg.Config{
 		LogLevel: logLevel.LowerString(),
 		PChainAPI: &config.APIConfig{
-			BaseURL: sourceSubnetsInfo[0].NodeURIs[0],
+			BaseURL: sourceL1sInfo[0].NodeURIs[0],
 		},
 		InfoAPI: &config.APIConfig{
-			BaseURL: sourceSubnetsInfo[0].NodeURIs[0],
+			BaseURL: sourceL1sInfo[0].NodeURIs[0],
 		},
 		StorageLocation:        StorageLocation,
 		DBWriteIntervalSeconds: DBUpdateSeconds,
@@ -215,7 +215,7 @@ func CreateDefaultRelayerConfig(
 // callers use the defaults defined in the config package via viper, so that
 // there aren't two sets of "defaults".
 func CreateDefaultSignatureAggregatorConfig(
-	sourceSubnetsInfo []interfaces.SubnetTestInfo,
+	sourceL1Info []interfaces.L1TestInfo,
 ) signatureaggregatorcfg.Config {
 	logLevel, err := logging.ToLevel(os.Getenv("LOG_LEVEL"))
 	if err != nil {
@@ -230,10 +230,10 @@ func CreateDefaultSignatureAggregatorConfig(
 	return signatureaggregatorcfg.Config{
 		LogLevel: logLevel.LowerString(),
 		PChainAPI: &config.APIConfig{
-			BaseURL: sourceSubnetsInfo[0].NodeURIs[0],
+			BaseURL: sourceL1Info[0].NodeURIs[0],
 		},
 		InfoAPI: &config.APIConfig{
-			BaseURL: sourceSubnetsInfo[0].NodeURIs[0],
+			BaseURL: sourceL1Info[0].NodeURIs[0],
 		},
 		APIPort:            8080,
 		MetricsPort:        8081,
@@ -247,7 +247,7 @@ func ClearRelayerStorage() error {
 
 func FundRelayers(
 	ctx context.Context,
-	subnetsInfo []interfaces.SubnetTestInfo,
+	subnetsInfo []interfaces.L1TestInfo,
 	fundedKey *ecdsa.PrivateKey,
 	relayerKey *ecdsa.PrivateKey,
 ) {
@@ -265,8 +265,8 @@ func FundRelayers(
 func SendBasicTeleporterMessageAsync(
 	ctx context.Context,
 	teleporter teleporterTestUtils.TeleporterTestInfo,
-	source interfaces.SubnetTestInfo,
-	destination interfaces.SubnetTestInfo,
+	source interfaces.L1TestInfo,
+	destination interfaces.L1TestInfo,
 	fundedKey *ecdsa.PrivateKey,
 	destinationAddress common.Address,
 	ids chan<- ids.ID,
@@ -303,8 +303,8 @@ func SendBasicTeleporterMessageAsync(
 func SendBasicTeleporterMessage(
 	ctx context.Context,
 	teleporter teleporterTestUtils.TeleporterTestInfo,
-	source interfaces.SubnetTestInfo,
-	destination interfaces.SubnetTestInfo,
+	source interfaces.L1TestInfo,
+	destination interfaces.L1TestInfo,
 	fundedKey *ecdsa.PrivateKey,
 	destinationAddress common.Address,
 ) (*types.Receipt, teleportermessenger.TeleporterMessage, ids.ID) {
@@ -346,8 +346,8 @@ func SendBasicTeleporterMessage(
 func RelayBasicMessage(
 	ctx context.Context,
 	teleporter teleporterTestUtils.TeleporterTestInfo,
-	source interfaces.SubnetTestInfo,
-	destination interfaces.SubnetTestInfo,
+	source interfaces.L1TestInfo,
+	destination interfaces.L1TestInfo,
 	fundedKey *ecdsa.PrivateKey,
 	destinationAddress common.Address,
 ) {
@@ -437,8 +437,8 @@ func WriteSignatureAggregatorConfig(signatureAggregatorConfig signatureaggregato
 func TriggerProcessMissedBlocks(
 	ctx context.Context,
 	teleporter teleporterTestUtils.TeleporterTestInfo,
-	sourceSubnetInfo interfaces.SubnetTestInfo,
-	destinationSubnetInfo interfaces.SubnetTestInfo,
+	sourceL1Info interfaces.L1TestInfo,
+	destinationSubnetInfo interfaces.L1TestInfo,
 	currRelayerCleanup context.CancelFunc,
 	currentRelayerConfig relayercfg.Config,
 	fundedAddress common.Address,
@@ -458,7 +458,7 @@ func TriggerProcessMissedBlocks(
 	_, _, id1 := SendBasicTeleporterMessage(
 		ctx,
 		teleporter,
-		sourceSubnetInfo,
+		sourceL1Info,
 		destinationSubnetInfo,
 		fundedKey,
 		fundedAddress,
@@ -466,7 +466,7 @@ func TriggerProcessMissedBlocks(
 	_, _, id2 := SendBasicTeleporterMessage(
 		ctx,
 		teleporter,
-		sourceSubnetInfo,
+		sourceL1Info,
 		destinationSubnetInfo,
 		fundedKey,
 		fundedAddress,
@@ -474,13 +474,13 @@ func TriggerProcessMissedBlocks(
 	_, _, id3 := SendBasicTeleporterMessage(
 		ctx,
 		teleporter,
-		sourceSubnetInfo,
+		sourceL1Info,
 		destinationSubnetInfo,
 		fundedKey,
 		fundedAddress,
 	)
 
-	currHeight, err := sourceSubnetInfo.RPCClient.BlockNumber(ctx)
+	currHeight, err := sourceL1Info.RPCClient.BlockNumber(ctx)
 	Expect(err).Should(BeNil())
 	log.Info("Current block height", "height", currHeight)
 
@@ -535,21 +535,21 @@ func DeployBatchCrossChainMessenger(
 	senderKey *ecdsa.PrivateKey,
 	teleporter teleporterTestUtils.TeleporterTestInfo,
 	teleporterManager common.Address,
-	subnet interfaces.SubnetTestInfo,
+	l1 interfaces.L1TestInfo,
 ) (common.Address, *batchcrosschainmessenger.BatchCrossChainMessenger) {
 	opts, err := bind.NewKeyedTransactorWithChainID(
-		senderKey, subnet.EVMChainID)
+		senderKey, l1.EVMChainID)
 	Expect(err).Should(BeNil())
 	address, tx, exampleMessenger, err := batchcrosschainmessenger.DeployBatchCrossChainMessenger(
 		opts,
-		subnet.RPCClient,
-		teleporter.TeleporterRegistryAddress(subnet),
+		l1.RPCClient,
+		teleporter.TeleporterRegistryAddress(l1),
 		teleporterManager,
 	)
 	Expect(err).Should(BeNil())
 
 	// Wait for the transaction to be mined
-	utils.WaitForTransactionSuccess(ctx, subnet, tx.Hash())
+	utils.WaitForTransactionSuccess(ctx, l1, tx.Hash())
 
 	return address, exampleMessenger
 }

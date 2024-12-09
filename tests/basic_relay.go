@@ -9,12 +9,12 @@ import (
 	"time"
 
 	"github.com/ava-labs/avalanchego/utils/logging"
+	"github.com/ava-labs/icm-contracts/tests/interfaces"
+	"github.com/ava-labs/icm-contracts/tests/network"
+	"github.com/ava-labs/icm-contracts/tests/utils"
 	"github.com/ava-labs/icm-services/database"
 	testUtils "github.com/ava-labs/icm-services/tests/utils"
 	"github.com/ava-labs/subnet-evm/core/types"
-	"github.com/ava-labs/teleporter/tests/interfaces"
-	"github.com/ava-labs/teleporter/tests/network"
-	"github.com/ava-labs/teleporter/tests/utils"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	. "github.com/onsi/gomega"
@@ -26,8 +26,8 @@ import (
 // - Relaying an already delivered message
 // - Setting ProcessHistoricalBlocksFromHeight in config
 func BasicRelay(network *network.LocalNetwork, teleporter utils.TeleporterTestInfo) {
-	subnetAInfo := network.GetPrimaryNetworkInfo()
-	subnetBInfo, _ := network.GetTwoSubnets()
+	l1AInfo := network.GetPrimaryNetworkInfo()
+	l1BInfo, _ := network.GetTwoL1s()
 	fundedAddress, fundedKey := network.GetFundedAccountInfo()
 	err := testUtils.ClearRelayerStorage()
 	Expect(err).Should(BeNil())
@@ -40,15 +40,15 @@ func BasicRelay(network *network.LocalNetwork, teleporter utils.TeleporterTestIn
 	log.Info("Funding relayer address on all subnets")
 	relayerKey, err := crypto.GenerateKey()
 	Expect(err).Should(BeNil())
-	testUtils.FundRelayers(ctx, []interfaces.SubnetTestInfo{subnetAInfo, subnetBInfo}, fundedKey, relayerKey)
+	testUtils.FundRelayers(ctx, []interfaces.L1TestInfo{l1AInfo, l1BInfo}, fundedKey, relayerKey)
 
 	//
 	// Set up relayer config
 	//
 	relayerConfig := testUtils.CreateDefaultRelayerConfig(
 		teleporter,
-		[]interfaces.SubnetTestInfo{subnetAInfo, subnetBInfo},
-		[]interfaces.SubnetTestInfo{subnetAInfo, subnetBInfo},
+		[]interfaces.L1TestInfo{l1AInfo, l1BInfo},
+		[]interfaces.L1TestInfo{l1AInfo, l1BInfo},
 		fundedAddress,
 		relayerKey,
 	)
@@ -80,8 +80,8 @@ func BasicRelay(network *network.LocalNetwork, teleporter utils.TeleporterTestIn
 	testUtils.RelayBasicMessage(
 		ctx,
 		teleporter,
-		subnetAInfo,
-		subnetBInfo,
+		l1AInfo,
+		l1BInfo,
 		fundedKey,
 		fundedAddress,
 	)
@@ -93,8 +93,8 @@ func BasicRelay(network *network.LocalNetwork, teleporter utils.TeleporterTestIn
 	testUtils.RelayBasicMessage(
 		ctx,
 		teleporter,
-		subnetBInfo,
-		subnetAInfo,
+		l1BInfo,
+		l1AInfo,
 		fundedKey,
 		fundedAddress,
 	)
@@ -124,14 +124,14 @@ func BasicRelay(network *network.LocalNetwork, teleporter utils.TeleporterTestIn
 
 	// Create relayer keys that allow all source and destination addresses
 	relayerIDA := database.CalculateRelayerID(
-		subnetAInfo.BlockchainID,
-		subnetBInfo.BlockchainID,
+		l1AInfo.BlockchainID,
+		l1BInfo.BlockchainID,
 		database.AllAllowedAddress,
 		database.AllAllowedAddress,
 	)
 	relayerIDB := database.CalculateRelayerID(
-		subnetBInfo.BlockchainID,
-		subnetAInfo.BlockchainID,
+		l1BInfo.BlockchainID,
+		l1AInfo.BlockchainID,
 		database.AllAllowedAddress,
 		database.AllAllowedAddress,
 	)
@@ -143,7 +143,7 @@ func BasicRelay(network *network.LocalNetwork, teleporter utils.TeleporterTestIn
 
 	// Subscribe to the destination chain
 	newHeadsB := make(chan *types.Header, 10)
-	sub, err := subnetBInfo.WSClient.SubscribeNewHead(ctx, newHeadsB)
+	sub, err := l1BInfo.WSClient.SubscribeNewHead(ctx, newHeadsB)
 	Expect(err).Should(BeNil())
 	defer sub.Unsubscribe()
 
@@ -174,8 +174,8 @@ func BasicRelay(network *network.LocalNetwork, teleporter utils.TeleporterTestIn
 	testUtils.TriggerProcessMissedBlocks(
 		ctx,
 		teleporter,
-		subnetAInfo,
-		subnetBInfo,
+		l1AInfo,
+		l1BInfo,
 		relayerCleanup,
 		relayerConfig,
 		fundedAddress,

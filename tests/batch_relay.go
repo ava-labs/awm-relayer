@@ -8,12 +8,12 @@ import (
 	"time"
 
 	"github.com/ava-labs/avalanchego/utils/set"
+	"github.com/ava-labs/icm-contracts/tests/interfaces"
+	"github.com/ava-labs/icm-contracts/tests/network"
+	"github.com/ava-labs/icm-contracts/tests/utils"
 	testUtils "github.com/ava-labs/icm-services/tests/utils"
 	"github.com/ava-labs/subnet-evm/accounts/abi/bind"
 	"github.com/ava-labs/subnet-evm/core/types"
-	"github.com/ava-labs/teleporter/tests/interfaces"
-	"github.com/ava-labs/teleporter/tests/network"
-	"github.com/ava-labs/teleporter/tests/utils"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
@@ -22,7 +22,7 @@ import (
 
 // Processes multiple Warp messages contained in the same block
 func BatchRelay(network *network.LocalNetwork, teleporter utils.TeleporterTestInfo) {
-	subnetAInfo, subnetBInfo := network.GetTwoSubnets()
+	l1AInfo, l1BInfo := network.GetTwoL1s()
 	fundedAddress, fundedKey := network.GetFundedAccountInfo()
 	err := testUtils.ClearRelayerStorage()
 	Expect(err).Should(BeNil())
@@ -36,14 +36,14 @@ func BatchRelay(network *network.LocalNetwork, teleporter utils.TeleporterTestIn
 		fundedKey,
 		teleporter,
 		fundedAddress,
-		subnetAInfo,
+		l1AInfo,
 	)
 	batchMessengerAddressB, batchMessengerB := testUtils.DeployBatchCrossChainMessenger(
 		ctx,
 		fundedKey,
 		teleporter,
 		fundedAddress,
-		subnetBInfo,
+		l1BInfo,
 	)
 
 	//
@@ -53,15 +53,15 @@ func BatchRelay(network *network.LocalNetwork, teleporter utils.TeleporterTestIn
 	log.Info("Funding relayer address on all subnets")
 	relayerKey, err := crypto.GenerateKey()
 	Expect(err).Should(BeNil())
-	testUtils.FundRelayers(ctx, []interfaces.SubnetTestInfo{subnetAInfo, subnetBInfo}, fundedKey, relayerKey)
+	testUtils.FundRelayers(ctx, []interfaces.L1TestInfo{l1AInfo, l1BInfo}, fundedKey, relayerKey)
 
 	//
 	// Set up relayer config
 	//
 	relayerConfig := testUtils.CreateDefaultRelayerConfig(
 		teleporter,
-		[]interfaces.SubnetTestInfo{subnetAInfo, subnetBInfo},
-		[]interfaces.SubnetTestInfo{subnetAInfo, subnetBInfo},
+		[]interfaces.L1TestInfo{l1AInfo, l1BInfo},
+		[]interfaces.L1TestInfo{l1AInfo, l1BInfo},
 		fundedAddress,
 		relayerKey,
 	)
@@ -87,7 +87,7 @@ func BatchRelay(network *network.LocalNetwork, teleporter utils.TeleporterTestIn
 	//
 
 	newHeadsDest := make(chan *types.Header, 10)
-	sub, err := subnetBInfo.WSClient.SubscribeNewHead(ctx, newHeadsDest)
+	sub, err := l1BInfo.WSClient.SubscribeNewHead(ctx, newHeadsDest)
 	Expect(err).Should(BeNil())
 	defer sub.Unsubscribe()
 
@@ -97,11 +97,11 @@ func BatchRelay(network *network.LocalNetwork, teleporter utils.TeleporterTestIn
 		sentMessages.Add(strconv.Itoa(i))
 	}
 
-	optsA, err := bind.NewKeyedTransactorWithChainID(fundedKey, subnetAInfo.EVMChainID)
+	optsA, err := bind.NewKeyedTransactorWithChainID(fundedKey, l1AInfo.EVMChainID)
 	Expect(err).Should(BeNil())
 	tx, err := batchMessengerA.SendMessages(
 		optsA,
-		subnetBInfo.BlockchainID,
+		l1BInfo.BlockchainID,
 		batchMessengerAddressB,
 		common.Address{},
 		big.NewInt(0),
@@ -110,14 +110,14 @@ func BatchRelay(network *network.LocalNetwork, teleporter utils.TeleporterTestIn
 	)
 	Expect(err).Should(BeNil())
 
-	utils.WaitForTransactionSuccess(ctx, subnetAInfo, tx.Hash())
+	utils.WaitForTransactionSuccess(ctx, l1AInfo, tx.Hash())
 
 	// Wait for the message on the destination
 	maxWait := 30
 	currWait := 0
 	log.Info("Waiting to receive all messages on destination...")
 	for {
-		receivedMessages, err := batchMessengerB.GetCurrentMessages(&bind.CallOpts{}, subnetAInfo.BlockchainID)
+		receivedMessages, err := batchMessengerB.GetCurrentMessages(&bind.CallOpts{}, l1AInfo.BlockchainID)
 		Expect(err).Should(BeNil())
 
 		// Remove the received messages from the set of sent messages
