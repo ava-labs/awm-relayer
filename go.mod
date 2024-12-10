@@ -4,10 +4,10 @@ go 1.22.10
 
 require (
 	github.com/alexliesenfeld/health v0.8.0
-	github.com/ava-labs/avalanchego v1.12.0-initial-poc.9.0.20241122192639-7c3ad181c928
+	github.com/ava-labs/avalanchego v1.12.1-0.20241210035517-714dfa0c3942
 	github.com/ava-labs/coreth v0.13.9-rc.1
-	github.com/ava-labs/icm-contracts v1.0.8
-	github.com/ava-labs/subnet-evm v0.6.12
+	github.com/ava-labs/icm-contracts v1.0.9-0.20241210131047-74f89f0f9331
+	github.com/ava-labs/subnet-evm v0.6.13-0.20241205165027-6c98da796f35
 	github.com/aws/aws-sdk-go-v2 v1.32.6
 	github.com/aws/aws-sdk-go-v2/config v1.28.6
 	github.com/aws/aws-sdk-go-v2/service/kms v1.37.7
