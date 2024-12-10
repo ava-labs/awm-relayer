@@ -65,6 +65,7 @@ type Config struct {
 	DeciderURL             string                   `mapstructure:"decider-url" json:"decider-url"`
 	SignatureCacheSize     uint64                   `mapstructure:"signature-cache-size" json:"signature-cache-size"`
 	ManuallyTrackedPeers   []*basecfg.PeerConfig    `mapstructure:"manually-tracked-peers" json:"manually-tracked-peers"`
+	AllowPrivateIPs        bool                     `mapstructure:"allow-private-ips" json:"allow-private-ips"`
 
 	// mapstructure doesn't handle time.Time out of the box so handle it manually
 	EtnaTime time.Time `json:"etna-time"`
@@ -254,4 +255,8 @@ func (c *Config) GetPChainAPI() *basecfg.APIConfig {
 
 func (c *Config) GetInfoAPI() *basecfg.APIConfig {
 	return c.InfoAPI
+}
+
+func (c *Config) GetAllowPrivateIPs() bool {
+	return c.AllowPrivateIPs
 }

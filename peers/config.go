@@ -9,4 +9,5 @@ import "github.com/ava-labs/icm-services/config"
 type Config interface {
 	GetInfoAPI() *config.APIConfig
 	GetPChainAPI() *config.APIConfig
+	GetAllowPrivateIPs() bool
 }
