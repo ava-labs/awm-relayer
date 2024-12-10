@@ -127,7 +127,13 @@ func NewNetwork(
 	validatorClient := validators.NewCanonicalValidatorClient(logger, cfg.GetPChainAPI())
 	manager := snowVdrs.NewManager()
 
-	testNetwork, err := network.NewTestNetwork(logger, networkID, manager, trackedSubnets, handler)
+	testNetworkConfig, err := network.NewTestNetworkConfig(
+		registerer,
+		networkID,
+		manager,
+		trackedSubnets,
+	)
+	testNetwork, err := network.NewTestNetwork(logger, registerer, testNetworkConfig, handler)
 	if err != nil {
 		logger.Error(
 			"Failed to create test network",

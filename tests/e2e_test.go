@@ -15,6 +15,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/avalanchego/utils/units"
 	"github.com/ava-labs/icm-contracts/tests/network"
 	teleporterTestUtils "github.com/ava-labs/icm-contracts/tests/utils"
@@ -143,7 +144,9 @@ var _ = ginkgo.BeforeSuite(func() {
 	// Restart the network to attempt to refresh TLS connections
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(60*len(localNetworkInstance.Nodes))*time.Second)
 	defer cancel()
-	err = localNetworkInstance.Restart(ctx, os.Stdout)
+
+	logger := logging.NewLogger("tmpnet")
+	err = localNetworkInstance.Restart(ctx, logger)
 	Expect(err).Should(BeNil())
 
 	decider = exec.CommandContext(ctx, "./tests/cmd/decider/decider")
