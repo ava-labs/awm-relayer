@@ -16,10 +16,10 @@ import (
 	"time"
 
 	"github.com/ava-labs/avalanchego/utils/units"
+	"github.com/ava-labs/icm-contracts/tests/network"
+	teleporterTestUtils "github.com/ava-labs/icm-contracts/tests/utils"
 	testUtils "github.com/ava-labs/icm-services/tests/utils"
 	"github.com/ava-labs/icm-services/utils"
-	"github.com/ava-labs/teleporter/tests/network"
-	teleporterTestUtils "github.com/ava-labs/teleporter/tests/utils"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/onsi/ginkgo/v2"
@@ -88,7 +88,7 @@ var _ = ginkgo.BeforeSuite(func() {
 		networkStartCtx,
 		"icm-off-chain-services-e2e-test",
 		warpGenesisTemplateFile,
-		[]network.SubnetSpec{
+		[]network.L1Spec{
 			{
 				Name:                       "A",
 				EVMChainID:                 12345,
@@ -109,7 +109,7 @@ var _ = ginkgo.BeforeSuite(func() {
 		4,
 		0,
 	)
-	teleporterInfo = teleporterTestUtils.NewTeleporterTestInfo(localNetworkInstance.GetAllSubnetsInfo())
+	teleporterInfo = teleporterTestUtils.NewTeleporterTestInfo(localNetworkInstance.GetAllL1Infos())
 
 	// Only need to deploy Teleporter on the C-Chain since it is included in the genesis of the subnet chains.
 	_, fundedKey := localNetworkInstance.GetFundedAccountInfo()
@@ -123,14 +123,14 @@ var _ = ginkgo.BeforeSuite(func() {
 	)
 
 	// Deploy the Teleporter registry contracts to all subnets and the C-Chain.
-	for _, subnet := range localNetworkInstance.GetAllSubnetsInfo() {
+	for _, subnet := range localNetworkInstance.GetAllL1Infos() {
 		teleporterInfo.SetTeleporter(teleporterContractAddress, subnet)
 		teleporterInfo.InitializeBlockchainID(subnet, fundedKey)
 		teleporterInfo.DeployTeleporterRegistry(subnet, fundedKey)
 	}
 
 	// Convert the subnets to sovereign L1s
-	for _, subnet := range localNetworkInstance.GetSubnetsInfo() {
+	for _, subnet := range localNetworkInstance.GetL1Infos() {
 		localNetworkInstance.ConvertSubnet(
 			networkStartCtx,
 			subnet,

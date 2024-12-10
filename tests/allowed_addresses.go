@@ -8,13 +8,13 @@ import (
 	"time"
 
 	"github.com/ava-labs/avalanchego/utils/logging"
+	"github.com/ava-labs/icm-contracts/tests/interfaces"
+	"github.com/ava-labs/icm-contracts/tests/network"
+	"github.com/ava-labs/icm-contracts/tests/utils"
 	"github.com/ava-labs/icm-services/database"
 	"github.com/ava-labs/icm-services/relayer/config"
 	testUtils "github.com/ava-labs/icm-services/tests/utils"
 	"github.com/ava-labs/subnet-evm/accounts/abi/bind"
-	"github.com/ava-labs/teleporter/tests/interfaces"
-	"github.com/ava-labs/teleporter/tests/network"
-	"github.com/ava-labs/teleporter/tests/utils"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
@@ -38,8 +38,8 @@ const numKeys = 4
 // Then, checks that each relayer instance is able to properly catch up on missed messages that
 // match its particular configuration.
 func AllowedAddresses(network *network.LocalNetwork, teleporter utils.TeleporterTestInfo) {
-	subnetAInfo := network.GetPrimaryNetworkInfo()
-	subnetBInfo, _ := network.GetTwoSubnets()
+	l1AInfo := network.GetPrimaryNetworkInfo()
+	l1BInfo, _ := network.GetTwoL1s()
 	fundedAddress, fundedKey := network.GetFundedAccountInfo()
 	err := testUtils.ClearRelayerStorage()
 	Expect(err).Should(BeNil())
@@ -52,7 +52,7 @@ func AllowedAddresses(network *network.LocalNetwork, teleporter utils.Teleporter
 	log.Info("Funding relayer address on all subnets")
 	relayerKey, err := crypto.GenerateKey()
 	Expect(err).Should(BeNil())
-	testUtils.FundRelayers(ctx, []interfaces.SubnetTestInfo{subnetAInfo, subnetBInfo}, fundedKey, relayerKey)
+	testUtils.FundRelayers(ctx, []interfaces.L1TestInfo{l1AInfo, l1BInfo}, fundedKey, relayerKey)
 
 	// Create distinct key/address pairs to be used in the configuration, and fund them
 	var allowedKeys []*ecdsa.PrivateKey
@@ -63,7 +63,7 @@ func AllowedAddresses(network *network.LocalNetwork, teleporter utils.Teleporter
 		allowedKey, err := crypto.GenerateKey()
 		Expect(err).Should(BeNil())
 		allowedAddress := crypto.PubkeyToAddress(allowedKey.PublicKey)
-		testUtils.FundRelayers(ctx, []interfaces.SubnetTestInfo{subnetAInfo, subnetBInfo}, fundedKey, allowedKey)
+		testUtils.FundRelayers(ctx, []interfaces.L1TestInfo{l1AInfo, l1BInfo}, fundedKey, allowedKey)
 		allowedKeys = append(allowedKeys, allowedKey)
 		allowedAddresses = append(allowedAddresses, allowedAddress)
 		allowedAddressesStr = append(allowedAddressesStr, allowedAddress.String())
@@ -85,8 +85,8 @@ func AllowedAddresses(network *network.LocalNetwork, teleporter utils.Teleporter
 	// Will send from allowed Address 0 -> 0
 	relayerConfig1 := testUtils.CreateDefaultRelayerConfig(
 		teleporter,
-		[]interfaces.SubnetTestInfo{subnetAInfo, subnetBInfo},
-		[]interfaces.SubnetTestInfo{subnetAInfo, subnetBInfo},
+		[]interfaces.L1TestInfo{l1AInfo, l1BInfo},
+		[]interfaces.L1TestInfo{l1AInfo, l1BInfo},
 		fundedAddress,
 		relayerKey,
 	)
@@ -95,8 +95,8 @@ func AllowedAddresses(network *network.LocalNetwork, teleporter utils.Teleporter
 	// Will send from allowed Address 1 -> 0
 	relayerConfig2 := testUtils.CreateDefaultRelayerConfig(
 		teleporter,
-		[]interfaces.SubnetTestInfo{subnetAInfo, subnetBInfo},
-		[]interfaces.SubnetTestInfo{subnetAInfo, subnetBInfo},
+		[]interfaces.L1TestInfo{l1AInfo, l1BInfo},
+		[]interfaces.L1TestInfo{l1AInfo, l1BInfo},
 		fundedAddress,
 		relayerKey,
 	)
@@ -110,18 +110,18 @@ func AllowedAddresses(network *network.LocalNetwork, teleporter utils.Teleporter
 	// Will send from allowed Address 2 -> 0
 	relayerConfig3 := testUtils.CreateDefaultRelayerConfig(
 		teleporter,
-		[]interfaces.SubnetTestInfo{subnetAInfo, subnetBInfo},
-		[]interfaces.SubnetTestInfo{subnetAInfo, subnetBInfo},
+		[]interfaces.L1TestInfo{l1AInfo, l1BInfo},
+		[]interfaces.L1TestInfo{l1AInfo, l1BInfo},
 		fundedAddress,
 		relayerKey,
 	)
 	supportedDestinations := []*config.SupportedDestination{
 		{
-			BlockchainID: subnetAInfo.BlockchainID.String(),
+			BlockchainID: l1AInfo.BlockchainID.String(),
 			Addresses:    []string{allowedAddresses[relayer3AllowedDstAddressIdx].String()},
 		},
 		{
-			BlockchainID: subnetBInfo.BlockchainID.String(),
+			BlockchainID: l1BInfo.BlockchainID.String(),
 			Addresses:    []string{allowedAddresses[relayer3AllowedDstAddressIdx].String()},
 		},
 	}
@@ -136,8 +136,8 @@ func AllowedAddresses(network *network.LocalNetwork, teleporter utils.Teleporter
 	// Will send from allowed Address 3 -> 0
 	relayerConfig4 := testUtils.CreateDefaultRelayerConfig(
 		teleporter,
-		[]interfaces.SubnetTestInfo{subnetAInfo, subnetBInfo},
-		[]interfaces.SubnetTestInfo{subnetAInfo, subnetBInfo},
+		[]interfaces.L1TestInfo{l1AInfo, l1BInfo},
+		[]interfaces.L1TestInfo{l1AInfo, l1BInfo},
 		fundedAddress,
 		relayerKey,
 	)
@@ -146,11 +146,11 @@ func AllowedAddresses(network *network.LocalNetwork, teleporter utils.Teleporter
 	}
 	supportedDestinations = []*config.SupportedDestination{
 		{
-			BlockchainID: subnetAInfo.BlockchainID.String(),
+			BlockchainID: l1AInfo.BlockchainID.String(),
 			Addresses:    []string{allowedAddresses[relayer4AllowedDstAddressIdx].String()},
 		},
 		{
-			BlockchainID: subnetBInfo.BlockchainID.String(),
+			BlockchainID: l1BInfo.BlockchainID.String(),
 			Addresses:    []string{allowedAddresses[relayer4AllowedDstAddressIdx].String()},
 		},
 	}
@@ -189,12 +189,12 @@ func AllowedAddresses(network *network.LocalNetwork, teleporter utils.Teleporter
 	testUtils.RelayBasicMessage(
 		ctx,
 		teleporter,
-		subnetAInfo,
-		subnetBInfo,
+		l1AInfo,
+		l1BInfo,
 		allowedKeys[generalAllowedAddressIdx],
 		allowedAddresses[generalAllowedAddressIdx],
 	)
-	height1, err := subnetAInfo.RPCClient.BlockNumber(ctx)
+	height1, err := l1AInfo.RPCClient.BlockNumber(ctx)
 	Expect(err).Should(BeNil())
 	// Sleep for some time to make sure the DB is updated
 	time.Sleep(time.Duration(5*relayerConfig1.DBWriteIntervalSeconds) * time.Second)
@@ -219,13 +219,13 @@ func AllowedAddresses(network *network.LocalNetwork, teleporter utils.Teleporter
 	_, _, id := testUtils.SendBasicTeleporterMessage(
 		ctx,
 		teleporter,
-		subnetAInfo,
-		subnetBInfo,
+		l1AInfo,
+		l1BInfo,
 		allowedKeys[generalAllowedAddressIdx], // not allowed
 		allowedAddresses[generalAllowedAddressIdx],
 	)
 	Consistently(func() bool {
-		delivered, err := teleporter.TeleporterMessenger(subnetBInfo).MessageReceived(
+		delivered, err := teleporter.TeleporterMessenger(l1BInfo).MessageReceived(
 			&bind.CallOpts{}, id,
 		)
 		Expect(err).Should(BeNil())
@@ -236,12 +236,12 @@ func AllowedAddresses(network *network.LocalNetwork, teleporter utils.Teleporter
 	testUtils.RelayBasicMessage(
 		ctx,
 		teleporter,
-		subnetAInfo,
-		subnetBInfo,
+		l1AInfo,
+		l1BInfo,
 		allowedKeys[relayer2AllowedSrcAddressIdx],
 		allowedAddresses[generalAllowedAddressIdx],
 	)
-	height2, err := subnetAInfo.RPCClient.BlockNumber(ctx)
+	height2, err := l1AInfo.RPCClient.BlockNumber(ctx)
 	Expect(err).Should(BeNil())
 	// Sleep for some time to make sure the DB is updated
 	time.Sleep(time.Duration(5*relayerConfig2.DBWriteIntervalSeconds) * time.Second)
@@ -266,13 +266,13 @@ func AllowedAddresses(network *network.LocalNetwork, teleporter utils.Teleporter
 	_, _, id = testUtils.SendBasicTeleporterMessage(
 		ctx,
 		teleporter,
-		subnetAInfo,
-		subnetBInfo,
+		l1AInfo,
+		l1BInfo,
 		allowedKeys[generalAllowedAddressIdx],
 		allowedAddresses[generalAllowedAddressIdx], // not allowed
 	)
 	Consistently(func() bool {
-		delivered, err := teleporter.TeleporterMessenger(subnetBInfo).MessageReceived(
+		delivered, err := teleporter.TeleporterMessenger(l1BInfo).MessageReceived(
 			&bind.CallOpts{}, id,
 		)
 		Expect(err).Should(BeNil())
@@ -283,12 +283,12 @@ func AllowedAddresses(network *network.LocalNetwork, teleporter utils.Teleporter
 	testUtils.RelayBasicMessage(
 		ctx,
 		teleporter,
-		subnetAInfo,
-		subnetBInfo,
+		l1AInfo,
+		l1BInfo,
 		allowedKeys[generalAllowedAddressIdx],
 		allowedAddresses[relayer3AllowedDstAddressIdx],
 	)
-	height3, err := subnetAInfo.RPCClient.BlockNumber(ctx)
+	height3, err := l1AInfo.RPCClient.BlockNumber(ctx)
 	Expect(err).Should(BeNil())
 	// Sleep for some time to make sure the DB is updated
 	time.Sleep(time.Duration(5*relayerConfig3.DBWriteIntervalSeconds) * time.Second)
@@ -312,13 +312,13 @@ func AllowedAddresses(network *network.LocalNetwork, teleporter utils.Teleporter
 	_, _, id = testUtils.SendBasicTeleporterMessage(
 		ctx,
 		teleporter,
-		subnetAInfo,
-		subnetBInfo,
+		l1AInfo,
+		l1BInfo,
 		allowedKeys[generalAllowedAddressIdx], // not allowed
 		allowedAddresses[generalAllowedAddressIdx],
 	)
 	Consistently(func() bool {
-		delivered, err := teleporter.TeleporterMessenger(subnetBInfo).MessageReceived(
+		delivered, err := teleporter.TeleporterMessenger(l1BInfo).MessageReceived(
 			&bind.CallOpts{}, id,
 		)
 		Expect(err).Should(BeNil())
@@ -329,12 +329,12 @@ func AllowedAddresses(network *network.LocalNetwork, teleporter utils.Teleporter
 	testUtils.RelayBasicMessage(
 		ctx,
 		teleporter,
-		subnetAInfo,
-		subnetBInfo,
+		l1AInfo,
+		l1BInfo,
 		allowedKeys[relayer4AllowedSrcAddressIdx],
 		allowedAddresses[relayer4AllowedDstAddressIdx],
 	)
-	height4, err := subnetAInfo.RPCClient.BlockNumber(ctx)
+	height4, err := l1AInfo.RPCClient.BlockNumber(ctx)
 	Expect(err).Should(BeNil())
 	// Sleep for some time to make sure the DB is updated
 	time.Sleep(time.Duration(5*relayerConfig4.DBWriteIntervalSeconds) * time.Second)
@@ -346,26 +346,26 @@ func AllowedAddresses(network *network.LocalNetwork, teleporter utils.Teleporter
 
 	// Create relayer keys that allow all source and destination addresses
 	relayerID1 := database.NewRelayerID(
-		subnetAInfo.BlockchainID,
-		subnetBInfo.BlockchainID,
+		l1AInfo.BlockchainID,
+		l1BInfo.BlockchainID,
 		database.AllAllowedAddress,
 		database.AllAllowedAddress,
 	)
 	relayerID2 := database.NewRelayerID(
-		subnetAInfo.BlockchainID,
-		subnetBInfo.BlockchainID,
+		l1AInfo.BlockchainID,
+		l1BInfo.BlockchainID,
 		allowedAddresses[relayer2AllowedSrcAddressIdx],
 		database.AllAllowedAddress,
 	)
 	relayerID3 := database.NewRelayerID(
-		subnetAInfo.BlockchainID,
-		subnetBInfo.BlockchainID,
+		l1AInfo.BlockchainID,
+		l1BInfo.BlockchainID,
 		database.AllAllowedAddress,
 		allowedAddresses[relayer3AllowedDstAddressIdx],
 	)
 	relayerID4 := database.NewRelayerID(
-		subnetAInfo.BlockchainID,
-		subnetBInfo.BlockchainID,
+		l1AInfo.BlockchainID,
+		l1BInfo.BlockchainID,
 		allowedAddresses[relayer4AllowedSrcAddressIdx],
 		allowedAddresses[relayer4AllowedDstAddressIdx],
 	)

@@ -7,10 +7,10 @@ import (
 	"context"
 	"time"
 
+	"github.com/ava-labs/icm-contracts/tests/interfaces"
+	"github.com/ava-labs/icm-contracts/tests/network"
+	"github.com/ava-labs/icm-contracts/tests/utils"
 	testUtils "github.com/ava-labs/icm-services/tests/utils"
-	"github.com/ava-labs/teleporter/tests/interfaces"
-	"github.com/ava-labs/teleporter/tests/network"
-	"github.com/ava-labs/teleporter/tests/utils"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	. "github.com/onsi/gomega"
@@ -22,8 +22,8 @@ import (
 // - Relaying from Subnet A to Subnet B
 // - Relaying from Subnet B to Subnet A
 func EtnaUpgrade(network *network.LocalNetwork, teleporter utils.TeleporterTestInfo) {
-	subnetAInfo := network.GetPrimaryNetworkInfo()
-	subnetBInfo, _ := network.GetTwoSubnets()
+	l1AInfo := network.GetPrimaryNetworkInfo()
+	l1BInfo, _ := network.GetTwoL1s()
 	fundedAddress, fundedKey := network.GetFundedAccountInfo()
 	err := testUtils.ClearRelayerStorage()
 	Expect(err).Should(BeNil())
@@ -35,15 +35,15 @@ func EtnaUpgrade(network *network.LocalNetwork, teleporter utils.TeleporterTestI
 	log.Info("Funding relayer address on all subnets")
 	relayerKey, err := crypto.GenerateKey()
 	Expect(err).Should(BeNil())
-	testUtils.FundRelayers(ctx, []interfaces.SubnetTestInfo{subnetAInfo, subnetBInfo}, fundedKey, relayerKey)
+	testUtils.FundRelayers(ctx, []interfaces.L1TestInfo{l1AInfo, l1BInfo}, fundedKey, relayerKey)
 
 	//
 	// Set up relayer config
 	//
 	relayerConfig := testUtils.CreateDefaultRelayerConfig(
 		teleporter,
-		[]interfaces.SubnetTestInfo{subnetAInfo, subnetBInfo},
-		[]interfaces.SubnetTestInfo{subnetAInfo, subnetBInfo},
+		[]interfaces.L1TestInfo{l1AInfo, l1BInfo},
+		[]interfaces.L1TestInfo{l1AInfo, l1BInfo},
 		fundedAddress,
 		relayerKey,
 	)
@@ -76,8 +76,8 @@ func EtnaUpgrade(network *network.LocalNetwork, teleporter utils.TeleporterTestI
 	testUtils.RelayBasicMessage(
 		ctx,
 		teleporter,
-		subnetAInfo,
-		subnetBInfo,
+		l1AInfo,
+		l1BInfo,
 		fundedKey,
 		fundedAddress,
 	)
@@ -86,8 +86,8 @@ func EtnaUpgrade(network *network.LocalNetwork, teleporter utils.TeleporterTestI
 	testUtils.RelayBasicMessage(
 		ctx,
 		teleporter,
-		subnetBInfo,
-		subnetAInfo,
+		l1BInfo,
+		l1AInfo,
 		fundedKey,
 		fundedAddress,
 	)

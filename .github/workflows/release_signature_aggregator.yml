@@ -6,7 +6,7 @@ name: Release signature-aggregator
 on:
   push:
     tags:
-      - "signature-aggregator/*"
+      - "signature-aggregator-*"
 
 jobs:
   release:
