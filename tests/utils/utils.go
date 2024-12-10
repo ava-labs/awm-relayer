@@ -208,6 +208,7 @@ func CreateDefaultRelayerConfig(
 		APIPort:                8080,
 		DeciderURL:             "localhost:50051",
 		SignatureCacheSize:     (1024 * 1024),
+		AllowPrivateIPs:        true,
 	}
 }
 
@@ -238,6 +239,7 @@ func CreateDefaultSignatureAggregatorConfig(
 		APIPort:            8080,
 		MetricsPort:        8081,
 		SignatureCacheSize: (1024 * 1024),
+		AllowPrivateIPs:    true,
 	}
 }
 
