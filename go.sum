@@ -66,8 +66,8 @@ github.com/ava-labs/coreth v0.13.9-rc.1 h1:qIICpC/OZGYUP37QnLgIqqwGmxnLwLpZaUlqJ
 github.com/ava-labs/coreth v0.13.9-rc.1/go.mod h1:7aMsRIo/3GBE44qWZMjnfqdqfcfZ5yShTTm2LObLaYo=
 github.com/ava-labs/icm-contracts v1.0.9-0.20241210181701-a4bd5c92b056 h1:VJDtg5UW4SWBeEMtv6qdWgEohdZxEp3jGDAllH6f8eI=
 github.com/ava-labs/icm-contracts v1.0.9-0.20241210181701-a4bd5c92b056/go.mod h1:b6Hr01e5LWPua+nuZrSjjCyqfEhgFFdjBmKoJMoWTZo=
-github.com/ava-labs/subnet-evm v0.6.13-0.20241205165027-6c98da796f35 h1:CbXWon0fwGDEDCCiChx2VeIIwO3UML9+8OUTyNwPsxA=
-github.com/ava-labs/subnet-evm v0.6.13-0.20241205165027-6c98da796f35/go.mod h1:SfAF4jjYPkezKWShPY/T31WQdD/UHrDyqy0kxA0LE0w=
+github.com/ava-labs/subnet-evm v0.7.0-rc.0 h1:o6LMP3atZI2gpui6X4IMixaK9f2gZaZWIu7wjtHTH+Q=
+github.com/ava-labs/subnet-evm v0.7.0-rc.0/go.mod h1:VPfaFZsjh+qbcvxcGwzQ8oXog7JbMrkE+atO+CiZQ30=
 github.com/aws/aws-sdk-go-v2 v1.32.6 h1:7BokKRgRPuGmKkFMhEg/jSul+tB9VvXhcViILtfG8b4=
 github.com/aws/aws-sdk-go-v2 v1.32.6/go.mod h1:P5WJBrYqqbWVaOxgH0X/FYYD47/nooaPOZPlQdmiN2U=
 github.com/aws/aws-sdk-go-v2/config v1.28.6 h1:D89IKtGrs/I3QXOLNTH93NJYtDhm8SYa9Q5CsPShmyo=
