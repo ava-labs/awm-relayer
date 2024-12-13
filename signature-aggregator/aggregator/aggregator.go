@@ -51,8 +51,9 @@ var (
 	corethCodec = corethMsg.Codec
 
 	// Errors
-	errNotEnoughSignatures     = errors.New("failed to collect a threshold of signatures")
-	errNotEnoughConnectedStake = errors.New("failed to connect to a threshold of stake")
+	errNotEnoughSignatures           = errors.New("failed to collect a threshold of signatures")
+	errNotEnoughConnectedStake       = errors.New("failed to connect to a threshold of stake")
+	errFailedToSendToSufficientStake = errors.New("failed to send to a threshold of stake")
 )
 
 type SignatureAggregator struct {
@@ -225,8 +226,10 @@ func (s *SignatureAggregator) CreateSignedMessage(
 		return nil, fmt.Errorf("%s: %w", msg, err)
 	}
 
+ATTEMPT:
 	// Query the validators with retries. On each retry, query one node per unique BLS pubkey
 	for attempt := 1; attempt <= maxQueryAttempts; attempt++ {
+
 		responsesExpected := len(connectedValidators.ValidatorSet) - len(signatureMap)
 		s.logger.Debug(
 			"Aggregator collecting signatures from peers.",
@@ -296,12 +299,16 @@ func (s *SignatureAggregator) CreateSignedMessage(
 					connectedValidators.TotalValidatorWeight,
 					inverseQuorumNum,
 				) {
-					s.logger.Warn("Failed to send to a threshold of stake",
+					s.logger.Error("Failed to send to a threshold of stake",
 						zap.Uint64("connectedWeight", connectedValidators.ConnectedWeight),
 						zap.Uint64("totalValidatorWeight", connectedValidators.TotalValidatorWeight),
 						zap.Uint64("quorumPercentage", quorumPercentage),
 					)
-					return nil, errNotEnoughConnectedStake
+					if attempt != maxQueryAttempts {
+						time.Sleep(time.Duration(signatureRequestRetryWaitPeriodMs/maxQueryAttempts) * time.Millisecond)
+						continue ATTEMPT
+					}
+					return nil, errFailedToSendToSufficientStake
 				}
 			}
 		}
