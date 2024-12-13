@@ -218,7 +218,7 @@ func TestCreateSignedMessageRetriesAndFailsWithoutP2PResponses(t *testing.T) {
 	appRequests := makeAppRequests(chainID, requestID, connectedValidators)
 	for _, appRequest := range appRequests {
 		mockNetwork.EXPECT().RegisterAppRequest(appRequest).Times(
-			maxRelayerQueryAttempts,
+			maxQueryAttempts,
 		)
 	}
 
@@ -227,7 +227,7 @@ func TestCreateSignedMessageRetriesAndFailsWithoutP2PResponses(t *testing.T) {
 		len(appRequests),
 	).Return(
 		make(chan message.InboundMessage, len(appRequests)),
-	).Times(maxRelayerQueryAttempts)
+	).Times(maxQueryAttempts)
 
 	var nodeIDs set.Set[ids.NodeID]
 	for _, appRequest := range appRequests {
@@ -238,7 +238,7 @@ func TestCreateSignedMessageRetriesAndFailsWithoutP2PResponses(t *testing.T) {
 		nodeIDs,
 		subnetID,
 		subnets.NoOpAllower,
-	).Times(maxRelayerQueryAttempts)
+	).Times(maxQueryAttempts)
 
 	_, err = aggregator.CreateSignedMessage(msg, nil, subnetID, 80)
 	require.ErrorIs(

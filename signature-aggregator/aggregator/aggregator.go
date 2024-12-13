@@ -31,6 +31,7 @@ import (
 	"github.com/ava-labs/icm-services/signature-aggregator/metrics"
 	"github.com/ava-labs/icm-services/utils"
 	msg "github.com/ava-labs/subnet-evm/plugin/evm/message"
+	"github.com/ava-labs/subnet-evm/precompile/contracts/warp"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
 )
@@ -39,10 +40,10 @@ type blsSignatureBuf [bls.SignatureLen]byte
 
 const (
 	// Number of retries to collect signatures from validators
-	maxRelayerQueryAttempts = 10
+	maxQueryAttempts = 3
 	// Maximum amount of time to spend waiting (in addition to network round trip time per attempt)
 	// during relayer signature query routine
-	signatureRequestRetryWaitPeriodMs = 20_000
+	signatureRequestRetryWaitPeriodMs = 5_000
 )
 
 var (
@@ -225,7 +226,7 @@ func (s *SignatureAggregator) CreateSignedMessage(
 	}
 
 	// Query the validators with retries. On each retry, query one node per unique BLS pubkey
-	for attempt := 1; attempt <= maxRelayerQueryAttempts; attempt++ {
+	for attempt := 1; attempt <= maxQueryAttempts; attempt++ {
 		responsesExpected := len(connectedValidators.ValidatorSet) - len(signatureMap)
 		s.logger.Debug(
 			"Aggregator collecting signatures from peers.",
@@ -275,6 +276,10 @@ func (s *SignatureAggregator) CreateSignedMessage(
 			zap.String("sourceSubnetID", sourceSubnet.String()),
 			zap.String("signingSubnetID", signingSubnet.String()),
 		)
+
+		// Handle failures to send
+		missingStakeWeight := big.NewInt(0)
+		inverseQuorumNum := warp.WarpQuorumDenominator - quorumPercentage
 		for nodeID := range vdrSet {
 			if !sentTo.Contains(nodeID) {
 				s.logger.Warn(
@@ -284,6 +289,20 @@ func (s *SignatureAggregator) CreateSignedMessage(
 				)
 				responsesExpected--
 				s.metrics.FailuresSendingToNode.Inc()
+				vdrIndex := connectedValidators.NodeValidatorIndexMap[nodeID]
+				missingStakeWeight.Add(missingStakeWeight, new(big.Int).SetUint64(connectedValidators.ValidatorSet[vdrIndex].Weight))
+				if utils.CheckStakeWeightExceedsThreshold(
+					missingStakeWeight,
+					connectedValidators.TotalValidatorWeight,
+					inverseQuorumNum,
+				) {
+					s.logger.Warn("Failed to send to a threshold of stake",
+						zap.Uint64("connectedWeight", connectedValidators.ConnectedWeight),
+						zap.Uint64("totalValidatorWeight", connectedValidators.TotalValidatorWeight),
+						zap.Uint64("quorumPercentage", quorumPercentage),
+					)
+					return nil, errNotEnoughConnectedStake
+				}
 			}
 		}
 
@@ -333,15 +352,15 @@ func (s *SignatureAggregator) CreateSignedMessage(
 				}
 			}
 		}
-		if attempt != maxRelayerQueryAttempts {
+		if attempt != maxQueryAttempts {
 			// Sleep such that all retries are uniformly spread across totalRelayerQueryPeriodMs
 			// TODO: We may want to consider an exponential back off rather than a uniform sleep period.
-			time.Sleep(time.Duration(signatureRequestRetryWaitPeriodMs/maxRelayerQueryAttempts) * time.Millisecond)
+			time.Sleep(time.Duration(signatureRequestRetryWaitPeriodMs/maxQueryAttempts) * time.Millisecond)
 		}
 	}
 	s.logger.Warn(
 		"Failed to collect a threshold of signatures",
-		zap.Int("attempts", maxRelayerQueryAttempts),
+		zap.Int("attempts", maxQueryAttempts),
 		zap.String("warpMessageID", unsignedMessage.ID().String()),
 		zap.Uint64("accumulatedWeight", accumulatedSignatureWeight.Uint64()),
 		zap.String("sourceBlockchainID", unsignedMessage.SourceChainID.String()),
