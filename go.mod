@@ -6,7 +6,7 @@ require (
 	github.com/alexliesenfeld/health v0.8.0
 	github.com/ava-labs/avalanchego v1.12.1-0.20241210172525-c7ebd8fbae88
 	github.com/ava-labs/coreth v0.13.9-rc.1
-	github.com/ava-labs/icm-contracts v1.0.9-0.20241210181701-a4bd5c92b056
+	github.com/ava-labs/icm-contracts v1.0.9-0.20241212194240-fc146e9f2342
 	github.com/ava-labs/subnet-evm v0.6.13-0.20241205165027-6c98da796f35
 	github.com/aws/aws-sdk-go-v2 v1.32.6
 	github.com/aws/aws-sdk-go-v2/config v1.28.6
