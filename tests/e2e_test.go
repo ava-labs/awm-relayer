@@ -210,7 +210,4 @@ var _ = ginkgo.Describe("[ICM Relayer Integration Tests", func() {
 	ginkgo.It("Signature Aggregator", func() {
 		SignatureAggregatorAPI(localNetworkInstance, teleporterInfo)
 	})
-	ginkgo.It("Etna Upgrade", func() {
-		EtnaUpgrade(localNetworkInstance, teleporterInfo)
-	})
 })

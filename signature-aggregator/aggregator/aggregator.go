@@ -20,7 +20,6 @@ import (
 	"github.com/ava-labs/avalanchego/proto/pb/p2p"
 	"github.com/ava-labs/avalanchego/proto/pb/sdk"
 	"github.com/ava-labs/avalanchego/subnets"
-	"github.com/ava-labs/avalanchego/utils/constants"
 	"github.com/ava-labs/avalanchego/utils/crypto/bls"
 	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/avalanchego/utils/set"
@@ -64,7 +63,6 @@ type SignatureAggregator struct {
 	subnetsMapLock          sync.RWMutex
 	metrics                 *metrics.SignatureAggregatorMetrics
 	cache                   *cache.Cache
-	etnaTime                time.Time
 }
 
 func NewSignatureAggregator(
@@ -73,7 +71,6 @@ func NewSignatureAggregator(
 	messageCreator message.Creator,
 	signatureCacheSize uint64,
 	metrics *metrics.SignatureAggregatorMetrics,
-	etnaTime time.Time,
 ) (*SignatureAggregator, error) {
 	cache, err := cache.NewCache(signatureCacheSize, logger)
 	if err != nil {
@@ -89,7 +86,6 @@ func NewSignatureAggregator(
 		metrics:                 metrics,
 		currentRequestID:        atomic.Uint32{},
 		cache:                   cache,
-		etnaTime:                etnaTime,
 		messageCreator:          messageCreator,
 	}
 	sa.currentRequestID.Store(rand.Uint32())
@@ -606,64 +602,31 @@ func (s *SignatureAggregator) aggregateSignatures(
 	return aggSig, vdrBitSet, nil
 }
 
-// TODO: refactor this to remove special handling based on etnaTime
-// after Etna release, along with related config and testing code
 func (s *SignatureAggregator) marshalRequest(
 	unsignedMessage *avalancheWarp.UnsignedMessage,
 	justification []byte,
 	sourceSubnet ids.ID,
 ) ([]byte, error) {
-	if s.etnaActivated() {
-		// Post-Etna case
-		messageBytes, err := proto.Marshal(
-			&sdk.SignatureRequest{
-				Message:       unsignedMessage.Bytes(),
-				Justification: justification,
-			},
-		)
-		if err != nil {
-			return nil, err
-		}
-		return networkP2P.PrefixMessage(
-			networkP2P.ProtocolPrefix(networkP2P.SignatureRequestHandlerID),
-			messageBytes,
-		), nil
-	} else {
-		// Pre-Etna case
-		if sourceSubnet == constants.PrimaryNetworkID {
-			req := corethMsg.MessageSignatureRequest{
-				MessageID: unsignedMessage.ID(),
-			}
-			return corethMsg.RequestToBytes(corethCodec, req)
-		} else {
-			req := msg.MessageSignatureRequest{
-				MessageID: unsignedMessage.ID(),
-			}
-			return msg.RequestToBytes(codec, req)
-		}
+	messageBytes, err := proto.Marshal(
+		&sdk.SignatureRequest{
+			Message:       unsignedMessage.Bytes(),
+			Justification: justification,
+		},
+	)
+	if err != nil {
+		return nil, err
 	}
+	return networkP2P.PrefixMessage(
+		networkP2P.ProtocolPrefix(networkP2P.SignatureRequestHandlerID),
+		messageBytes,
+	), nil
 }
 
 func (s *SignatureAggregator) unmarshalResponse(responseBytes []byte) (blsSignatureBuf, error) {
-	if s.etnaActivated() {
-		// Post-Etna case
-		var sigResponse sdk.SignatureResponse
-		err := proto.Unmarshal(responseBytes, &sigResponse)
-		if err != nil {
-			return blsSignatureBuf{}, err
-		}
-		return blsSignatureBuf(sigResponse.Signature), nil
-	} else {
-		// Pre-Etna case
-		var sigResponse msg.SignatureResponse
-		_, err := msg.Codec.Unmarshal(responseBytes, &sigResponse)
-		if err != nil {
-			return blsSignatureBuf{}, err
-		}
-		return sigResponse.Signature, nil
+	var sigResponse sdk.SignatureResponse
+	err := proto.Unmarshal(responseBytes, &sigResponse)
+	if err != nil {
+		return blsSignatureBuf{}, err
 	}
-}
-
-func (s *SignatureAggregator) etnaActivated() bool {
-	return !s.etnaTime.IsZero() && s.etnaTime.Before(time.Now())
+	return blsSignatureBuf(sigResponse.Signature), nil
 }

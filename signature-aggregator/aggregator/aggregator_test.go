@@ -5,7 +5,6 @@ import (
 	"context"
 	"os"
 	"testing"
-	"time"
 
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/message"
@@ -67,8 +66,6 @@ func instantiateAggregator(t *testing.T) (
 		messageCreator,
 		1024,
 		sigAggMetrics,
-		// Setting the etnaTime to a minute ago so that the post-etna code path is used in the test
-		time.Now().Add(-1*time.Minute),
 	)
 	require.NoError(t, err)
 	return aggregator, mockNetwork
