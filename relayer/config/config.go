@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
-	"time"
 
 	basecfg "github.com/ava-labs/icm-services/config"
 	"github.com/ava-labs/icm-services/peers"
@@ -66,9 +65,6 @@ type Config struct {
 	SignatureCacheSize     uint64                   `mapstructure:"signature-cache-size" json:"signature-cache-size"`
 	ManuallyTrackedPeers   []*basecfg.PeerConfig    `mapstructure:"manually-tracked-peers" json:"manually-tracked-peers"`
 	AllowPrivateIPs        bool                     `mapstructure:"allow-private-ips" json:"allow-private-ips"`
-
-	// mapstructure doesn't handle time.Time out of the box so handle it manually
-	EtnaTime time.Time `json:"etna-time"`
 
 	// convenience field to fetch a blockchain's subnet ID
 	blockchainIDToSubnetID map[ids.ID]ids.ID

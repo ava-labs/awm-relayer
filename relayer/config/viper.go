@@ -84,9 +84,6 @@ func BuildConfig(v *viper.Viper) (Config, error) {
 		return cfg, fmt.Errorf("failed to unmarshal viper config: %w", err)
 	}
 
-	// Manually set EtnaTime field since it's not automatically parseable using mapstructure
-	cfg.EtnaTime = v.GetTime(EtnaTimeKey)
-
 	// Explicitly overwrite the configured account private key
 	// If account-private-key is set as a flag or environment variable,
 	// overwrite all destination subnet configurations to use that key
