@@ -24,12 +24,10 @@ import (
 	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/avalanchego/utils/set"
 	avalancheWarp "github.com/ava-labs/avalanchego/vms/platformvm/warp"
-	corethMsg "github.com/ava-labs/coreth/plugin/evm/message"
 	"github.com/ava-labs/icm-services/peers"
 	"github.com/ava-labs/icm-services/signature-aggregator/aggregator/cache"
 	"github.com/ava-labs/icm-services/signature-aggregator/metrics"
 	"github.com/ava-labs/icm-services/utils"
-	msg "github.com/ava-labs/subnet-evm/plugin/evm/message"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
 )
@@ -45,9 +43,6 @@ const (
 )
 
 var (
-	codec       = msg.Codec
-	corethCodec = corethMsg.Codec
-
 	// Errors
 	errNotEnoughSignatures     = errors.New("failed to collect a threshold of signatures")
 	errNotEnoughConnectedStake = errors.New("failed to connect to a threshold of stake")
