@@ -76,8 +76,5 @@ func BuildConfig(v *viper.Viper) (Config, error) {
 		return cfg, fmt.Errorf("failed to unmarshal viper config: %w", err)
 	}
 
-	// mapstructure doesn't support time.Time out of the box so handle it manually
-	cfg.EtnaTime = v.GetTime(EtnaTimeKey)
-
 	return cfg, nil
 }

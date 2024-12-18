@@ -16,5 +16,4 @@ const (
 	APIPortKey            = "api-port"
 	MetricsPortKey        = "metrics-port"
 	SignatureCacheSizeKey = "signature-cache-size"
-	EtnaTimeKey           = "etna-time"
 )
