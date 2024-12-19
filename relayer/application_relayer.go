@@ -30,15 +30,10 @@ import (
 const (
 	// Number of retries to collect signatures from validators
 	maxRelayerQueryAttempts = 5
-	// Maximum amount of time to spend waiting (in addition to network round trip time per attempt)
-	// during relayer signature query routine
-	signatureRequestRetryWaitPeriodMs = 10_000
 )
 
-var (
-	// Errors
-	errFailedToGetAggSig = errors.New("failed to get aggregate signature from node endpoint")
-)
+// Errors
+var errFailedToGetAggSig = errors.New("failed to get aggregate signature from node endpoint")
 
 // CheckpointManager stores committed heights in the database
 type CheckpointManager interface {
@@ -276,53 +271,36 @@ func (r *ApplicationRelayer) createSignedMessage(
 		signedWarpMessageBytes hexutil.Bytes
 		err                    error
 	)
-	for attempt := 1; attempt <= maxRelayerQueryAttempts; attempt++ {
-		r.logger.Debug(
-			"Relayer collecting signatures from peers.",
-			zap.Int("attempt", attempt),
-			zap.String("sourceBlockchainID", r.sourceBlockchain.GetBlockchainID().String()),
-			zap.String("destinationBlockchainID", r.relayerID.DestinationBlockchainID.String()),
-			zap.String("signingSubnetID", r.signingSubnetID.String()),
-		)
-
-		err = r.sourceWarpSignatureClient.CallContext(
-			context.Background(),
-			&signedWarpMessageBytes,
-			"warp_getMessageAggregateSignature",
-			unsignedMessage.ID(),
-			r.warpConfig.QuorumNumerator,
-			r.signingSubnetID.String(),
-		)
-		if err == nil {
-			warpMsg, err := avalancheWarp.ParseMessage(signedWarpMessageBytes)
-			if err != nil {
-				r.logger.Error(
-					"Failed to parse signed warp message",
-					zap.Error(err),
-				)
-				return nil, err
-			}
-			return warpMsg, err
-		}
-		r.logger.Info(
-			"Failed to get aggregate signature from node endpoint. Retrying.",
-			zap.Int("attempt", attempt),
-			zap.Error(err),
-		)
-		if attempt != maxRelayerQueryAttempts {
-			// Sleep such that all retries are uniformly spread across totalRelayerQueryPeriodMs
-			// TODO: We may want to consider an exponential back off rather than a uniform sleep period.
-			time.Sleep(time.Duration(signatureRequestRetryWaitPeriodMs/maxRelayerQueryAttempts) * time.Millisecond)
-		}
-	}
-	r.logger.Warn(
-		"Failed to get aggregate signature from node endpoint",
-		zap.Int("attempts", maxRelayerQueryAttempts),
+	err = utils.WithMaxRetriesLog(
+		func() error {
+			return r.sourceWarpSignatureClient.CallContext(
+				context.Background(),
+				&signedWarpMessageBytes,
+				"warp_getMessageAggregateSignature",
+				unsignedMessage.ID(),
+				r.warpConfig.QuorumNumerator,
+				r.signingSubnetID.String(),
+			)
+		},
+		maxRelayerQueryAttempts,
+		r.logger,
+		"Failed to get aggregate signature from node endpoint.",
 		zap.String("sourceBlockchainID", r.sourceBlockchain.GetBlockchainID().String()),
 		zap.String("destinationBlockchainID", r.relayerID.DestinationBlockchainID.String()),
 		zap.String("signingSubnetID", r.signingSubnetID.String()),
 	)
-	return nil, errFailedToGetAggSig
+	if err != nil {
+		return nil, errFailedToGetAggSig
+	}
+	warpMsg, err := avalancheWarp.ParseMessage(signedWarpMessageBytes)
+	if err != nil {
+		r.logger.Error(
+			"Failed to parse signed warp message",
+			zap.Error(err),
+		)
+		return nil, err
+	}
+	return warpMsg, nil
 }
 
 //
